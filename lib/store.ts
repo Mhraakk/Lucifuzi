@@ -27,7 +27,7 @@ import type {
   WorkAuthorization,
 } from "./types";
 
-const STORAGE_KEY = "arya-jewelry-training-state-v2";
+const STORAGE_KEY = "arya-jewelry-training-state-v3";
 
 type Listener = () => void;
 

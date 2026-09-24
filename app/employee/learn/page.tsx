@@ -7,6 +7,7 @@ import {
   buildWallPins,
 } from "@/components/training/AtelierWall";
 import { CourseCard } from "@/components/training/Cards";
+import { StandardsChart } from "@/components/training/StandardsChart";
 import { useAppState, useCurrentUser, useEmployeeProfile } from "@/lib/hooks";
 import { courseProgressPercent } from "@/lib/store";
 
@@ -39,23 +40,25 @@ export default function LearnPage() {
         <section className="animate-in">
           <h1 className="page-title mb-2">آکادمی گالری</h1>
           <p className="muted text-sm leading-7">
-            نقش «{path?.title ?? "عمومی"}» — آموزش روی دیوار ویترین، مثل ارائه
-            محصول در بوتیک‌های معتبر جواهر.
+            چارت آموزشی مبتنی بر استانداردهای آمریکا، سوئیس و اروپا — بسته نقش
+            «{path?.title ?? "عمومی"}» به‌صورت اطلس دامنه، نه مسیر پلکانی.
           </p>
         </section>
 
+        <StandardsChart />
+
         <AtelierMuseHero
           title="ارائه مثل برندهای لوکس"
-          subtitle="هر درس یک تابلوی محصول است: روایت، نمایش، و تمرین عملی — بدون نردبان مصنوعی."
+          subtitle="هر درس یک تابلوی محصول است: روایت، نمایش، و تمرین عملی — دانش آزمون مجوز کار نیست."
         />
 
         {wallData.length > 0 ? (
           <AtelierWall
-            eyebrow="دیوار مسیر نقش شما"
-            title={path?.title ?? "مسیر یادگیری"}
+            eyebrow="ویترین بسته نقش شما"
+            title={path?.title ?? "بسته شایستگی"}
             overall={overall}
             pins={buildWallPins(wallData)}
-            goalLabel="هر قطعه روی دیوار تا کار مستقل روی ویترین واقعی"
+            goalLabel="هر دامنه تا ارزیابی عملی مشاهده‌شده — سپس دروازه مجوز کار"
           />
         ) : null}
 
@@ -72,13 +75,14 @@ export default function LearnPage() {
                 progress={courseProgressPercent(state, user.id, c.id)}
                 accent={c.coverAccent}
                 coverImage={c.coverImage}
+                academy={c.academy}
               />
             ))}
           </div>
         </section>
 
         <section>
-          <h2 className="section-title mb-3">سایر دوره‌ها</h2>
+          <h2 className="section-title mb-3">سایر دامنه‌ها</h2>
           <div className="stagger grid gap-3">
             {others.map((c) => (
               <CourseCard
@@ -90,6 +94,7 @@ export default function LearnPage() {
                 progress={courseProgressPercent(state, user.id, c.id)}
                 accent={c.coverAccent}
                 coverImage={c.coverImage}
+                academy={c.academy}
               />
             ))}
           </div>

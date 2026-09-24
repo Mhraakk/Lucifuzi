@@ -100,7 +100,7 @@ export const ILLUSTRATIONS: Record<IllustrationKey, IllustrationMeta> = {
   home: {
     src: "/illustrations/topic-onboarding.png",
     alt: "خانه آموزش",
-    caption: "ویترین مهارت‌ها — هر تابلو مستقل، بدون مسیر اجباری",
+    caption: "اطلس شایستگی US · CH · EU — دانش ≠ مجوز کار",
     motion: "shine",
   },
   assistant: {

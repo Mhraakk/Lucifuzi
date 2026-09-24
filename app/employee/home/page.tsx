@@ -108,14 +108,14 @@ export default function EmployeeHomePage() {
         ) : null}
 
         <AtelierWall
-          eyebrow="دیوار ویترین آموزشی"
+          eyebrow="اطلس شایستگی US · CH · EU"
           title={path?.title ?? "ویترین مهارت‌های شما"}
           overall={pathProgress}
           pins={wallPins}
           goalLabel={
             path
-              ? `${path.description} · حدود ${toPersianDigits(path.estimatedDays)} روز برای پوشش کامل`
-              : "هر قطعه روی دیوار، یک مهارت واقعی گالری است — بدون ترتیب اجباری."
+              ? `${path.description} · حدود ${toPersianDigits(path.estimatedDays)} روز برای پوشش دامنه‌ها`
+              : "هر دامنه یک شایستگی واقعی گالری است — دانش ≠ مجوز کار."
           }
         />
 

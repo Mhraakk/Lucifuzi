@@ -89,6 +89,7 @@ export function CourseCard({
   progress,
   accent,
   coverImage,
+  academy,
 }: {
   id: string;
   title: string;
@@ -97,6 +98,7 @@ export function CourseCard({
   progress: number;
   accent: string;
   coverImage?: string;
+  academy?: string;
 }) {
   return (
     <TrainingCard
@@ -106,7 +108,7 @@ export function CourseCard({
       accent={accent}
       progress={progress}
       imageSrc={coverImage ?? illustrationSrcForCourse(id)}
-      meta={formatMinutes(minutes)}
+      meta={[academy, formatMinutes(minutes)].filter(Boolean).join(" · ")}
       badge={
         progress >= 100 ? (
           <Badge tone="success">تمام</Badge>

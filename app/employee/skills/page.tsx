@@ -1,6 +1,7 @@
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { StandardsChart } from "@/components/training/StandardsChart";
 import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge, ProgressRing } from "@/components/ui/Feedback";
 import { toPersianDigits } from "@/lib/format";
@@ -29,11 +30,12 @@ export default function SkillsPage() {
         <section className="animate-in">
           <h1 className="page-title mb-2">نقشه شایستگی</h1>
           <p className="muted text-sm leading-7">
-            دو ستون جدا: دانش (آزمون) و مجوز کار (فقط ارزیابی عملی مدیر). نمره
-            بالا به‌تنهایی یعنی «مجاز به کار مستقل» نیست — همان اصل گالری‌های
-            معتبر بین‌المللی.
+            سه لایه جدا (اصل مشترک آموزش حرفه‌ای آمریکا و اروپا): دانش آزمون ≠
+            وضعیت عملی ≠ مجوز کار. فقط ارزیابی عملی مشاهده‌شده مجوز می‌دهد.
           </p>
         </section>
+
+        <StandardsChart compact />
 
         <TopicVisual topic="skills" className="animate-in" />
 
@@ -70,6 +72,9 @@ export default function SkillsPage() {
               <div key={ec.id} className="surface p-4">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
+                    <p className="faint mb-1 text-[0.65rem] tracking-wide">
+                      {c?.code}
+                    </p>
                     <p className="font-bold leading-6">{c?.title}</p>
                     <p className="muted mt-1 text-xs leading-6">
                       {c?.description}

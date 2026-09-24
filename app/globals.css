@@ -925,3 +925,203 @@ button {
     ),
     linear-gradient(180deg, #221e1a 0%, #1a1714 100%);
 }
+
+/* —— International standards atlas (US / CH / EU) —— */
+.standards-atlas {
+  border-radius: calc(var(--radius) + 6px);
+  border: 1px solid var(--line);
+  background: var(--atelier-ivory);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.standards-atlas__intro {
+  padding: 1.15rem 1.2rem 0.85rem;
+}
+
+.standards-regions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  padding: 0 1rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .standards-regions {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.standards-region {
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  padding: 0.85rem 0.9rem;
+  border-top: 3px solid var(--region-accent, var(--accent));
+}
+
+.standards-region__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-bottom: 0.65rem;
+}
+
+.standards-region__label span {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.standards-region__label em {
+  font-style: normal;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+
+.standards-region ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.standards-region li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.standards-region li strong {
+  font-size: 0.72rem;
+  color: var(--accent-deep);
+}
+
+.standards-region li span {
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: var(--ink-muted);
+}
+
+.standards-principles {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0 1rem 1rem;
+}
+
+.standards-principle {
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--atelier-chalk) 70%, transparent);
+  border: 1px solid var(--line);
+}
+
+.standards-mosaic {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.7rem;
+  padding: 0 1rem 1.15rem;
+  background:
+    radial-gradient(
+      ellipse at 80% 0%,
+      color-mix(in srgb, var(--atelier-gold) 10%, transparent),
+      transparent 50%
+    );
+}
+
+@media (min-width: 640px) {
+  .standards-mosaic {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .standards-mosaic .standards-domain:nth-child(3n) {
+    grid-column: span 2;
+  }
+}
+
+.standards-mosaic--compact {
+  grid-template-columns: 1fr;
+}
+
+.standards-domain {
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  padding: 0.9rem;
+}
+
+.standards-domain__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.standards-domain__code {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+
+.standards-domain__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 0.35rem;
+}
+
+.standards-domain__summary {
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--ink-muted);
+}
+
+.standards-domain__gate {
+  margin-top: 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent-deep);
+}
+
+.standards-domain__outcomes {
+  margin: 0.55rem 0 0;
+  padding-right: 1rem;
+  list-style: disc;
+}
+
+.standards-domain__outcomes li {
+  font-size: 0.72rem;
+  line-height: 1.65;
+  color: var(--ink-muted);
+}
+
+.standards-domain__refs {
+  margin-top: 0.65rem;
+  font-size: 0.65rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+
+.standards-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--chip-accent, var(--accent)) 16%, transparent);
+  color: var(--chip-accent, var(--accent-deep));
+}
+
+[data-theme="dark"] .standards-atlas {
+  background: #1a1714;
+}
+
+[data-theme="dark"] .standards-principle {
+  background: #221e1a;
+}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
+import { StandardsChart } from "@/components/training/StandardsChart";
 import { useAppState } from "@/lib/hooks";
 import { formatMinutes } from "@/lib/format";
 
@@ -12,8 +13,12 @@ export default function ManagerTrainingPage() {
       <div className="mx-auto max-w-app space-y-5">
         <h1 className="page-title">کتابخانه آموزش</h1>
         <p className="muted text-sm leading-7">
-          دوره‌ها، سناریوها و SOPها. برای ساخت دوره کامل از سازنده استفاده کنید.
+          چارت آموزشی آریا با اطلس شایستگی آمریکا · سوئیس · اروپا هم‌راستاست.
+          دانش آزمون مجوز کار نیست — فقط ارزیابی عملی مشاهده‌شده.
         </p>
+
+        <StandardsChart compact />
+
         <Link href="/manager/builder" className="btn btn-primary w-full">
           سازنده دوره
         </Link>
@@ -27,9 +32,9 @@ export default function ManagerTrainingPage() {
           {state.courses.map((c) => (
             <div key={c.id} className="surface p-4">
               <p className="font-bold text-sm">{c.title}</p>
-              <p className="muted text-xs mt-1">
-                {c.category} · {formatMinutes(c.estimatedMinutes)} ·{" "}
-                {c.isPublished ? "published" : "draft"}
+              <p className="muted text-xs mt-1 leading-6">
+                {c.academy ?? c.category} · {formatMinutes(c.estimatedMinutes)} ·{" "}
+                {c.isPublished ? "منتشر" : "پیش‌نویس"}
               </p>
             </div>
           ))}
