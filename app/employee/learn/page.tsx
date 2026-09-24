@@ -49,6 +49,7 @@ export default function LearnPage() {
             title={path?.title ?? "مسیر یادگیری"}
             overall={overall}
             steps={buildLadderSteps(ladderData)}
+            goalLabel="از دادهٔ دوره‌های نقش شما — هر پله تا کار مستقل فروشگاه"
           />
         ) : null}
 

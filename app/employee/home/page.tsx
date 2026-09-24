@@ -103,6 +103,11 @@ export default function EmployeeHomePage() {
           title={path?.title ?? "مسیر یادگیری شما"}
           overall={pathProgress}
           steps={ladderSteps}
+          goalLabel={
+            path
+              ? `${path.description} · حدود ${toPersianDigits(path.estimatedDays)} روز`
+              : undefined
+          }
         />
 
         <section className="surface p-4 animate-in">
