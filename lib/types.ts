@@ -200,6 +200,8 @@ export interface Course {
   coverAccent: string;
   /** @deprecated alias of coverAccent */
   thumbnailColor: string;
+  /** Topic illustration path under /public */
+  coverImage?: string;
   isPublished: boolean;
   sortOrder: number;
   requiredForAuthorization: boolean;

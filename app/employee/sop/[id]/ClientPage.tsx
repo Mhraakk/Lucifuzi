@@ -2,11 +2,21 @@
 
 import { useParams } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
+import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge } from "@/components/ui/Feedback";
 import { formatJalaliDate, toPersianDigits } from "@/lib/format";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
 import { acknowledgeSop } from "@/lib/store";
 import { JOB_ROLE_LABELS } from "@/lib/types";
+import type { IllustrationKey } from "@/lib/illustrations";
+
+const SOP_TOPIC: Record<string, IllustrationKey> = {
+  sop_open: "security",
+  sop_close: "security",
+  sop_vitrine: "inventory",
+  sop_count: "inventory",
+  sop_repair: "repair",
+};
 
 export default function SopPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +42,7 @@ export default function SopPage() {
   return (
     <AppShell title={sop.title} backHref="/employee/home">
       <article className="mx-auto max-w-app space-y-5">
+        <TopicVisual topic={SOP_TOPIC[sop.id] ?? "security"} />
         <header className="surface p-4">
           <div className="flex flex-wrap gap-2 mb-3">
             <Badge>{sop.category}</Badge>

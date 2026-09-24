@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
+import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge } from "@/components/ui/Feedback";
 import { toPersianDigits } from "@/lib/format";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
@@ -22,9 +23,11 @@ export default function PracticePage() {
           <h1 className="page-title mb-2">تمرین عملی</h1>
           <p className="muted text-sm leading-7">
             شبیه‌سازی فروش، محاسبه قیمت و سناریوهای ریسک — پله‌های تمرین تا کار
-            واقعی شعبه.
+            واقعی شعبه، در سطح استاندارد گالری‌های معتبر.
           </p>
         </section>
+
+        <TopicVisual topic="practice" className="animate-in" />
 
         <section className="ladder-panel animate-scale overflow-hidden">
           <div className="ladder-glow" aria-hidden />

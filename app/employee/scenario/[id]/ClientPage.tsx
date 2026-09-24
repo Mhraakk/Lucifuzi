@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
+import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge } from "@/components/ui/Feedback";
 import { toPersianDigits } from "@/lib/format";
 import { useAppState } from "@/lib/hooks";
 import { submitScenario } from "@/lib/store";
 import { enrichScenario } from "@/lib/view";
+import type { IllustrationKey } from "@/lib/illustrations";
 
 export default function ScenarioPage() {
   const { id } = useParams<{ id: string }>();
@@ -93,6 +95,13 @@ export default function ScenarioPage() {
   return (
     <AppShell title={scenario.title} backHref="/employee/practice">
       <div className="mx-auto max-w-app space-y-5">
+        <TopicVisual
+          topic={
+            (id.includes("fraud")
+              ? "fraud"
+              : "sales") as IllustrationKey
+          }
+        />
         <section className="surface p-4">
           <Badge tone="accent">{scenario.category}</Badge>
           <p className="mt-3 text-sm leading-8">{scenario.intro}</p>

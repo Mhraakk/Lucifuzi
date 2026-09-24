@@ -1,6 +1,7 @@
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge, ProgressRing } from "@/components/ui/Feedback";
 import { toPersianDigits } from "@/lib/format";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
@@ -29,9 +30,12 @@ export default function SkillsPage() {
           <h1 className="page-title mb-2">نقشه شایستگی</h1>
           <p className="muted text-sm leading-7">
             دو ستون جدا: دانش (آزمون) و مجوز کار (فقط ارزیابی عملی مدیر). نمره
-            بالا به‌تنهایی یعنی «مجاز به کار مستقل» نیست.
+            بالا به‌تنهایی یعنی «مجاز به کار مستقل» نیست — همان اصل گالری‌های
+            معتبر بین‌المللی.
           </p>
         </section>
+
+        <TopicVisual topic="skills" className="animate-in" />
 
         <section className="ladder-panel animate-scale overflow-hidden">
           <div className="ladder-glow" aria-hidden />

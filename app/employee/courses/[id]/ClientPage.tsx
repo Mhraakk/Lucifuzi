@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
+import { CourseCover } from "@/components/training/TopicVisual";
 import { Badge, ProgressRing } from "@/components/ui/Feedback";
 import { formatMinutes, toPersianDigits } from "@/lib/format";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
@@ -32,15 +33,20 @@ export default function CourseDetailPage() {
   return (
     <AppShell title={course.title} backHref="/employee/learn">
       <div className="mx-auto max-w-app space-y-5">
+        <CourseCover courseId={course.id} />
+
         <section className="surface overflow-hidden">
           <div className="h-2" style={{ background: course.coverAccent }} />
           <div className="p-5 flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs faint mb-1">{course.category}</p>
+              <p className="text-xs faint mb-1">
+                {course.academy ?? course.category}
+              </p>
               <h1 className="page-title !text-xl mb-2">{course.title}</h1>
               <p className="muted text-sm leading-7">{course.description}</p>
               <p className="faint text-xs mt-3">
-                {formatMinutes(course.estimatedMinutes)} · نسخه ۱
+                {formatMinutes(course.estimatedMinutes)} · نسخه{" "}
+                {toPersianDigits(course.version ?? 1)}
               </p>
             </div>
             <ProgressRing value={progress} />

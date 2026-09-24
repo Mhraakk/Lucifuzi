@@ -6,6 +6,7 @@ import {
   CareerLadder,
   buildLadderSteps,
 } from "@/components/training/CareerLadder";
+import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge } from "@/components/ui/Feedback";
 import {
   formatJalaliDate,
@@ -84,6 +85,8 @@ export default function EmployeeHomePage() {
               : null}
           </p>
         </section>
+
+        <TopicVisual topic="home" className="animate-in" />
 
         {pendingSop.length > 0 ? (
           <Link

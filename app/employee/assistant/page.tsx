@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
+import { TopicVisual } from "@/components/training/TopicVisual";
 import { answerAssistantQuestion } from "@/lib/assistant";
 
 const SUGGESTIONS = [
@@ -43,6 +44,7 @@ export default function AssistantPage() {
   return (
     <AppShell title="دستیار آموزشی" backHref="/employee/home">
       <div className="mx-auto max-w-app space-y-4">
+        <TopicVisual topic="assistant" />
         <p className="muted text-sm leading-7">
           پاسخ‌ها بر اساس محتوای آموزشی تأییدشده سازمان است. برای سیاست داخلی به
           SOP ارجاع داده می‌شود و جعل نمی‌شود.

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
+import { CourseCover } from "@/components/training/TopicVisual";
 import { Badge } from "@/components/ui/Feedback";
 import { formatMinutes } from "@/lib/format";
 import { useAppState } from "@/lib/hooks";
@@ -30,12 +31,18 @@ export default function LessonPage() {
       backHref={`/employee/courses/${lesson.courseId}`}
     >
       <article className="mx-auto max-w-app space-y-5 animate-in">
+        <CourseCover
+          courseId={lesson.courseId}
+          size="inline"
+          showCaption={false}
+        />
+
         <header>
           <p className="text-xs faint mb-1">{course?.title}</p>
           <h1 className="page-title !text-xl mb-2">{lesson.title}</h1>
           <div className="flex flex-wrap gap-2">
             <Badge>{formatMinutes(lesson.estimatedMinutes)}</Badge>
-            <Badge tone="accent">نسخه ۱</Badge>
+            <Badge tone="accent">استاندارد بین‌المللی</Badge>
           </div>
         </header>
 

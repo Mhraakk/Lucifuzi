@@ -6,6 +6,7 @@ import {
   buildLadderSteps,
 } from "@/components/training/CareerLadder";
 import { CourseCard } from "@/components/training/Cards";
+import { TopicVisual } from "@/components/training/TopicVisual";
 import { useAppState, useCurrentUser, useEmployeeProfile } from "@/lib/hooks";
 import { courseProgressPercent } from "@/lib/store";
 
@@ -38,10 +39,12 @@ export default function LearnPage() {
         <section className="animate-in">
           <h1 className="page-title mb-2">آکادمی عملیاتی</h1>
           <p className="muted text-sm leading-7">
-            مسیر شما بر اساس نقش «{path?.title ?? "عمومی"}» تنظیم شده — پله‌به‌پله
-            تا کار واقعی فروشگاه.
+            مسیر شما بر اساس نقش «{path?.title ?? "عمومی"}» — استاندارد آموزش
+            گالری‌های معتبر طلا، پله‌به‌پله تا کار مستقل.
           </p>
         </section>
+
+        <TopicVisual topic="product" className="animate-in" />
 
         {ladderData.length > 0 ? (
           <CareerLadder
@@ -65,6 +68,7 @@ export default function LearnPage() {
                 minutes={c.estimatedMinutes}
                 progress={courseProgressPercent(state, user.id, c.id)}
                 accent={c.coverAccent}
+                coverImage={c.coverImage}
               />
             ))}
           </div>
@@ -82,6 +86,7 @@ export default function LearnPage() {
                 minutes={c.estimatedMinutes}
                 progress={courseProgressPercent(state, user.id, c.id)}
                 accent={c.coverAccent}
+                coverImage={c.coverImage}
               />
             ))}
           </div>
