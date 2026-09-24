@@ -47,3 +47,13 @@ npm run cap:open
 سپس در Xcode: Signing → Archive → Upload به App Store Connect → TestFlight.
 
 جزئیات کامل: [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md)
+
+## وب / PWA (الان)
+
+```bash
+npm run build:pwa
+npx serve out
+```
+
+روی آیفون: Safari → Share → **Add to Home Screen**.
+Manifest و Service Worker برای نصب مثل اپ آماده است.

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "build:mobile": "node scripts/build-mobile.mjs",
+    "build:pwa": "node scripts/build-static.mjs",
     "cap:open": "npx cap open ios",
     "cap:sync": "npx cap sync ios"
   },
