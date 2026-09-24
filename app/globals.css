@@ -3,18 +3,18 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f3efe8;
-  --bg-elevated: #fffdf9;
-  --bg-soft: #e8e1d6;
-  --ink: #1a1714;
-  --ink-muted: #5a534a;
-  --ink-faint: #8f877c;
-  --line: #ddd4c8;
-  --line-strong: #c9beaf;
-  --accent: #9a7b4f;
-  --accent-soft: #efe4d2;
-  --accent-deep: #5e482c;
-  --metal: #b89a68;
+  --bg: #f7f3ec;
+  --bg-elevated: #fffcf7;
+  --bg-soft: #ebe4d8;
+  --ink: #1c1916;
+  --ink-muted: #5c554c;
+  --ink-faint: #8a8278;
+  --line: #e0d7ca;
+  --line-strong: #cfc4b4;
+  --accent: #b89563;
+  --accent-soft: #f0e6d6;
+  --accent-deep: #6a5232;
+  --metal: #c4a574;
   --success: #2d6a4f;
   --warning: #9a6b2a;
   --danger: #8c3d3d;
@@ -689,41 +689,6 @@ button {
   transform-origin: center;
 }
 
-.ladder-orb-a {
-  animation: floatSoft 5.5s var(--ease-soft) infinite;
-}
-.ladder-orb-b {
-  animation: floatSoft 6.5s var(--ease-soft) 0.4s infinite;
-}
-.ladder-orb-c {
-  animation: floatSoft 7s var(--ease-soft) 0.8s infinite;
-}
-
-.ladder-climber {
-  transition: transform 1.1s var(--ease-out);
-}
-
-.ladder-stairs rect {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: fadeScale 0.55s var(--ease-out) both;
-}
-.ladder-stairs rect:nth-child(1) {
-  animation-delay: 0.05s;
-}
-.ladder-stairs rect:nth-child(2) {
-  animation-delay: 0.12s;
-}
-.ladder-stairs rect:nth-child(3) {
-  animation-delay: 0.19s;
-}
-.ladder-stairs rect:nth-child(4) {
-  animation-delay: 0.26s;
-}
-.ladder-stairs rect:nth-child(5) {
-  animation-delay: 0.33s;
-}
-
 .ladder-score {
   display: flex;
   flex-direction: column;
@@ -1034,4 +999,314 @@ button {
   .topic-visual--shine .topic-visual__shine {
     opacity: 0.75;
   }
+}
+
+/* —— Atelier / Tashola-inspired gallery wall (not a ladder) —— */
+:root {
+  --atelier-ivory: #f7f3ec;
+  --atelier-chalk: #ebe4d8;
+  --atelier-ink: #1c1916;
+  --atelier-gold: #c4a574;
+}
+
+.atelier-kicker {
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 0.55rem;
+}
+
+.atelier-title {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.atelier-lede {
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  line-height: 1.75;
+  color: var(--ink-muted);
+  max-width: 28rem;
+}
+
+.atelier-score {
+  margin-top: 1rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--atelier-ivory) 70%, transparent);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+}
+
+.atelier-score span {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+}
+
+.atelier-score em {
+  font-style: normal;
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+}
+
+.atelier-wall {
+  border-radius: calc(var(--radius) + 6px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--atelier-ivory);
+  box-shadow: var(--shadow);
+}
+
+.atelier-wall__hero {
+  position: relative;
+  min-height: 200px;
+}
+
+.atelier-wall__bg {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  display: block;
+}
+
+.atelier-wall__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--atelier-ivory) 92%, transparent) 0%,
+    color-mix(in srgb, var(--atelier-ivory) 55%, transparent) 48%,
+    transparent 100%
+  );
+}
+
+.atelier-wall__intro {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.15rem 1.2rem 1.25rem;
+}
+
+.atelier-pins {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  background:
+    linear-gradient(180deg, var(--atelier-chalk) 0%, var(--atelier-ivory) 100%);
+}
+
+.atelier-pin {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+}
+
+.atelier-pin:nth-child(3n) {
+  grid-column: span 2;
+}
+
+.atelier-pin:nth-child(3n) .atelier-pin__media {
+  height: 140px;
+}
+
+.atelier-pin__media {
+  position: relative;
+  height: 112px;
+  overflow: hidden;
+  background: var(--atelier-chalk);
+}
+
+.atelier-pin__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .atelier-pin {
+    animation: fadeUp var(--motion-enter) var(--ease-out) both;
+  }
+
+  .atelier-pin:hover .atelier-pin__media img {
+    transform: scale(1.05);
+    transition: transform 700ms var(--ease-soft);
+  }
+}
+
+.atelier-pin__tag {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 82%, transparent);
+  color: var(--accent-deep);
+  backdrop-filter: blur(6px);
+}
+
+.atelier-pin--done .atelier-pin__tag {
+  color: var(--success);
+}
+
+.atelier-pin--current .atelier-pin__tag {
+  background: var(--accent-soft);
+}
+
+.atelier-pin__body {
+  padding: 0.75rem 0.85rem 0.9rem;
+}
+
+.atelier-pin__title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.atelier-pin__sub {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: var(--ink-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.atelier-pin__bar {
+  margin-top: 0.65rem;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+
+.atelier-pin__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--atelier-gold));
+}
+
+.atelier-muse {
+  position: relative;
+  border-radius: calc(var(--radius) + 6px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  min-height: 320px;
+  background: #1a1714;
+}
+
+.atelier-muse__img {
+  width: 100%;
+  height: 360px;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  opacity: 0.92;
+}
+
+.atelier-muse__copy {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1.4rem 1.25rem 1.35rem;
+  background: linear-gradient(
+    0deg,
+    rgba(18, 15, 12, 0.88) 0%,
+    rgba(18, 15, 12, 0.35) 70%,
+    transparent 100%
+  );
+  color: #f7f1e8;
+}
+
+.atelier-muse__copy .atelier-kicker {
+  color: color-mix(in srgb, #f7f1e8 70%, transparent);
+}
+
+.atelier-muse__copy .atelier-title {
+  color: #fbf7f0;
+}
+
+.atelier-muse__copy .atelier-lede {
+  color: color-mix(in srgb, #f7f1e8 78%, transparent);
+}
+
+.atelier-strip {
+  margin: 0;
+  border-radius: calc(var(--radius) + 4px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--atelier-ivory);
+}
+
+.atelier-strip img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+}
+
+.atelier-strip figcaption {
+  padding: 0.7rem 0.95rem 0.85rem;
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--ink-faint);
+}
+
+.login-atelier {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.login-atelier img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
+
+.login-atelier__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(247, 243, 236, 0.35) 0%,
+    rgba(247, 243, 236, 0.82) 42%,
+    rgba(247, 243, 236, 0.96) 100%
+  );
+}
+
+[data-theme="dark"] .login-atelier__veil {
+  background: linear-gradient(
+    180deg,
+    rgba(18, 16, 14, 0.45) 0%,
+    rgba(18, 16, 14, 0.88) 50%,
+    rgba(18, 16, 14, 0.97) 100%
+  );
+}
+
+[data-theme="dark"] .atelier-wall {
+  background: #1a1714;
+}
+
+[data-theme="dark"] .atelier-pins {
+  background: linear-gradient(180deg, #221e1a 0%, #1a1714 100%);
 }

@@ -2,11 +2,11 @@
 
 import { AppShell } from "@/components/layout/AppShell";
 import {
-  CareerLadder,
-  buildLadderSteps,
-} from "@/components/training/CareerLadder";
+  AtelierMuseHero,
+  AtelierWall,
+  buildWallPins,
+} from "@/components/training/AtelierWall";
 import { CourseCard } from "@/components/training/Cards";
-import { TopicVisual } from "@/components/training/TopicVisual";
 import { useAppState, useCurrentUser, useEmployeeProfile } from "@/lib/hooks";
 import { courseProgressPercent } from "@/lib/store";
 
@@ -20,16 +20,16 @@ export default function LearnPage() {
   const recommended = state.courses.filter((c) => pathCourses.has(c.id));
   const others = state.courses.filter((c) => !pathCourses.has(c.id));
 
-  const ladderData = recommended.map((c) => ({
+  const wallData = recommended.map((c) => ({
     id: c.id,
     title: c.title,
     description: c.description,
     progress: courseProgressPercent(state, user.id, c.id),
   }));
 
-  const overall = ladderData.length
+  const overall = wallData.length
     ? Math.round(
-        ladderData.reduce((s, c) => s + c.progress, 0) / ladderData.length
+        wallData.reduce((s, c) => s + c.progress, 0) / wallData.length
       )
     : 0;
 
@@ -37,22 +37,25 @@ export default function LearnPage() {
     <AppShell title="آموزش">
       <div className="mx-auto max-w-app space-y-6">
         <section className="animate-in">
-          <h1 className="page-title mb-2">آکادمی عملیاتی</h1>
+          <h1 className="page-title mb-2">آکادمی گالری</h1>
           <p className="muted text-sm leading-7">
-            مسیر شما بر اساس نقش «{path?.title ?? "عمومی"}» — استاندارد آموزش
-            گالری‌های معتبر طلا، پله‌به‌پله تا کار مستقل.
+            نقش «{path?.title ?? "عمومی"}» — آموزش روی دیوار ویترین، مثل ارائه
+            محصول در بوتیک‌های معتبر جواهر.
           </p>
         </section>
 
-        <TopicVisual topic="product" className="animate-in" />
+        <AtelierMuseHero
+          title="ارائه مثل برندهای لوکس"
+          subtitle="هر درس یک تابلوی محصول است: روایت، نمایش، و تمرین عملی — بدون نردبان مصنوعی."
+        />
 
-        {ladderData.length > 0 ? (
-          <CareerLadder
-            eyebrow="نردبان مسیر"
+        {wallData.length > 0 ? (
+          <AtelierWall
+            eyebrow="دیوار مسیر نقش شما"
             title={path?.title ?? "مسیر یادگیری"}
             overall={overall}
-            steps={buildLadderSteps(ladderData)}
-            goalLabel="از دادهٔ دوره‌های نقش شما — هر پله تا کار مستقل فروشگاه"
+            pins={buildWallPins(wallData)}
+            goalLabel="هر قطعه روی دیوار تا کار مستقل روی ویترین واقعی"
           />
         ) : null}
 

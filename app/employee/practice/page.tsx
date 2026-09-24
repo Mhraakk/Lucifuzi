@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
+import { AtelierProductStrip } from "@/components/training/AtelierWall";
 import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge } from "@/components/ui/Feedback";
 import { toPersianDigits } from "@/lib/format";
@@ -29,30 +30,39 @@ export default function PracticePage() {
 
         <TopicVisual topic="practice" className="animate-in" />
 
-        <section className="ladder-panel animate-scale overflow-hidden">
-          <div className="ladder-glow" aria-hidden />
-          <div className="relative z-[1] p-4">
-            <p className="mb-1 text-[11px] faint tracking-[0.06em]">
-              تمرین امروز
-            </p>
-            <p className="section-title mb-2">{daily?.title ?? "تمرین روزانه"}</p>
-            <p className="muted mb-4 line-clamp-2 text-sm leading-7">
-              {daily?.tip}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Link
-                href="/employee/quiz?daily=1"
-                className="btn btn-secondary !min-h-11 text-xs"
-              >
-                سؤال کوتاه
-              </Link>
-              <Link
-                href={`/employee/scenario/${daily?.scenarioId ?? "sc_fraud_switch"}`}
-                className="btn btn-primary !min-h-11 text-xs"
-              >
-                سناریوی امروز
-              </Link>
+        <AtelierProductStrip />
+
+        <section className="atelier-wall overflow-hidden animate-in">
+          <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/atelier/atelier-wall.png"
+              alt=""
+              className="h-36 w-full object-cover"
+              loading="lazy"
+            />
+            <div className="atelier-wall__veil" aria-hidden />
+            <div className="atelier-wall__intro !justify-center">
+              <p className="atelier-kicker">تمرین امروز</p>
+              <p className="atelier-title !text-lg">
+                {daily?.title ?? "تمرین روزانه"}
+              </p>
+              <p className="atelier-lede line-clamp-2">{daily?.tip}</p>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 p-3">
+            <Link
+              href="/employee/quiz?daily=1"
+              className="btn btn-secondary !min-h-11 text-xs"
+            >
+              سؤال کوتاه
+            </Link>
+            <Link
+              href={`/employee/scenario/${daily?.scenarioId ?? "sc_fraud_switch"}`}
+              className="btn btn-primary !min-h-11 text-xs"
+            >
+              سناریوی امروز
+            </Link>
           </div>
         </section>
 

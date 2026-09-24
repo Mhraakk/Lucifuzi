@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import {
-  CareerLadder,
-  buildLadderSteps,
-} from "@/components/training/CareerLadder";
-import { TopicVisual } from "@/components/training/TopicVisual";
+  AtelierMuseHero,
+  AtelierProductStrip,
+  AtelierWall,
+  buildWallPins,
+} from "@/components/training/AtelierWall";
 import { Badge } from "@/components/ui/Feedback";
 import {
   formatJalaliDate,
@@ -66,7 +67,7 @@ export default function EmployeeHomePage() {
       )
     : 0;
 
-  const ladderSteps = buildLadderSteps(pathCourses);
+  const wallPins = buildWallPins(pathCourses);
 
   const firstName = user.fullName.split(" ")[0] ?? user.fullName;
 
@@ -86,7 +87,12 @@ export default function EmployeeHomePage() {
           </p>
         </section>
 
-        <TopicVisual topic="home" className="animate-in" />
+        <AtelierMuseHero
+          title="آموزش مثل ویترین گالری"
+          subtitle="محصول را مثل برندهای معتبر ارائه کنید: نور، سینی مخمل، روایت کوتاه — نه فشار فروش."
+          ctaHref="/employee/learn"
+          ctaLabel="ورود به دیوار آموزش"
+        />
 
         {pendingSop.length > 0 ? (
           <Link
@@ -101,17 +107,19 @@ export default function EmployeeHomePage() {
           </Link>
         ) : null}
 
-        <CareerLadder
-          eyebrow="نردبان پیشرفت"
+        <AtelierWall
+          eyebrow="دیوار ویترین آموزشی"
           title={path?.title ?? "مسیر یادگیری شما"}
           overall={pathProgress}
-          steps={ladderSteps}
+          pins={wallPins}
           goalLabel={
             path
               ? `${path.description} · حدود ${toPersianDigits(path.estimatedDays)} روز`
-              : undefined
+              : "هر قطعه روی دیوار، یک مهارت واقعی گالری است."
           }
         />
+
+        <AtelierProductStrip />
 
         <section className="surface p-4 animate-in">
           <div className="flex items-center justify-between gap-3">

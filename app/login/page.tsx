@@ -30,15 +30,10 @@ export default function LoginPage() {
       className="relative min-h-screen overflow-hidden"
       style={{ color: "var(--ink)" }}
     >
-      <div className="login-hero-plane" aria-hidden />
-      <div className="pointer-events-none absolute inset-x-0 top-16 h-40 animate-float opacity-40" aria-hidden>
-        <div
-          className="mx-auto h-full max-w-sm"
-          style={{
-            background:
-              "radial-gradient(ellipse at center, color-mix(in srgb, var(--metal) 35%, transparent), transparent 70%)",
-          }}
-        />
+      <div className="login-atelier" aria-hidden>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/atelier/atelier-muse.png" alt="" />
+        <div className="login-atelier__veil" />
       </div>
 
       <div className="relative z-[1] mx-auto flex min-h-screen max-w-md flex-col px-5 pb-10 pt-8">
@@ -59,7 +54,8 @@ export default function LoginPage() {
           </p>
           <h1 className="brand-mark mb-4">آریا آموزش</h1>
           <p className="mx-auto max-w-xs muted text-sm leading-7">
-            مسیر شایستگی واقعی فروشگاه — دانش آزمون با مجوز کار یکی نیست.
+            آموزش روی دیوار ویترین — ارائه محصول مثل گالری‌های معتبر، نه نردبان
+            مصنوعی.
           </p>
         </header>
 

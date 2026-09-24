@@ -37,22 +37,29 @@ export default function SkillsPage() {
 
         <TopicVisual topic="skills" className="animate-in" />
 
-        <section className="ladder-panel animate-scale overflow-hidden">
-          <div className="ladder-glow" aria-hidden />
-          <div className="relative z-[1] flex items-center justify-between gap-4 p-5">
-            <div>
-              <p className="mb-1 text-[11px] faint tracking-[0.06em]">
-                نردبان مجوز
-              </p>
-              <p className="section-title">
-                {toPersianDigits(independent)} از {toPersianDigits(rows.length)}{" "}
-                مستقل
-              </p>
-              <p className="muted mt-1 text-xs leading-6">
-                میانگین دانش {toPersianDigits(avgKnowledge)}٪ — مجوز جداست
-              </p>
+        <section className="atelier-wall overflow-hidden animate-scale">
+          <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/atelier/atelier-wall.png"
+              alt=""
+              className="h-32 w-full object-cover"
+              loading="lazy"
+            />
+            <div className="atelier-wall__veil" aria-hidden />
+            <div className="relative z-[1] flex items-center justify-between gap-4 p-5">
+              <div>
+                <p className="atelier-kicker">تابلوی مجوز</p>
+                <p className="atelier-title !text-lg">
+                  {toPersianDigits(independent)} از {toPersianDigits(rows.length)}{" "}
+                  مستقل
+                </p>
+                <p className="muted mt-1 text-xs leading-6">
+                  میانگین دانش {toPersianDigits(avgKnowledge)}٪ — مجوز جداست
+                </p>
+              </div>
+              <ProgressRing value={avgKnowledge} />
             </div>
-            <ProgressRing value={avgKnowledge} label="دانش" size={80} />
           </div>
         </section>
 
