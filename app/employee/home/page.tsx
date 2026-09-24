@@ -109,13 +109,13 @@ export default function EmployeeHomePage() {
 
         <AtelierWall
           eyebrow="دیوار ویترین آموزشی"
-          title={path?.title ?? "مسیر یادگیری شما"}
+          title={path?.title ?? "ویترین مهارت‌های شما"}
           overall={pathProgress}
           pins={wallPins}
           goalLabel={
             path
-              ? `${path.description} · حدود ${toPersianDigits(path.estimatedDays)} روز`
-              : "هر قطعه روی دیوار، یک مهارت واقعی گالری است."
+              ? `${path.description} · حدود ${toPersianDigits(path.estimatedDays)} روز برای پوشش کامل`
+              : "هر قطعه روی دیوار، یک مهارت واقعی گالری است — بدون ترتیب اجباری."
           }
         />
 

@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { toPersianDigits } from "@/lib/format";
-import type { LadderStep } from "@/components/training/CareerLadder";
 
-export type WallPin = LadderStep & {
+export type WallPin = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  href: string;
+  progress: number;
   image?: string;
 };
 
@@ -19,7 +23,22 @@ const PIN_IMAGES = [
   "/illustrations/topic-crm.png",
 ];
 
-/** Editorial gallery wall — Tashola-inspired product presentation, not a ladder. */
+/** Irregular mosaic sizes — gallery wall, not a sequence */
+const MOSAIC = ["wide", "tall", "square", "wide", "square", "tall", "square", "wide"] as const;
+
+function pinState(progress: number): "fresh" | "open" | "complete" {
+  if (progress >= 100) return "complete";
+  if (progress > 0) return "open";
+  return "fresh";
+}
+
+function pinLabel(progress: number): string {
+  if (progress >= 100) return "روی ویترین";
+  if (progress > 0) return "در کارگاه";
+  return "ویترین";
+}
+
+/** Editorial jewelry wall — mosaic cases, no linear ladder. */
 export function AtelierWall({
   eyebrow,
   title,
@@ -47,49 +66,35 @@ export function AtelierWall({
         <div className="atelier-wall__intro">
           {eyebrow ? <p className="atelier-kicker">{eyebrow}</p> : null}
           <h2 className="atelier-title">{title}</h2>
-          {goalLabel ? (
-            <p className="atelier-lede">{goalLabel}</p>
-          ) : null}
+          {goalLabel ? <p className="atelier-lede">{goalLabel}</p> : null}
           <p className="atelier-score">
             <span>{toPersianDigits(overall)}</span>
-            <em>٪ مسیر ویترین</em>
+            <em>٪ پوشش ویترین</em>
           </p>
         </div>
       </div>
 
-      <div className="atelier-pins">
+      <div className="atelier-mosaic">
         {pins.map((pin, i) => {
           const img = pin.image ?? PIN_IMAGES[i % PIN_IMAGES.length]!;
-          const locked = pin.status === "locked";
+          const state = pinState(pin.progress);
+          const size = MOSAIC[i % MOSAIC.length]!;
           return (
             <Link
               key={pin.id}
-              href={locked ? "#" : pin.href}
-              aria-disabled={locked}
-              className={`atelier-pin atelier-pin--${pin.status} ${
-                locked ? "pointer-events-none opacity-55" : ""
-              }`}
-              style={{ animationDelay: `${40 + i * 55}ms` }}
+              href={pin.href}
+              className={`atelier-case atelier-case--${size} atelier-case--${state}`}
             >
-              <div className="atelier-pin__media">
+              <div className="atelier-case__media">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img} alt="" loading="lazy" />
-                <span className="atelier-pin__tag">
-                  {pin.status === "done"
-                    ? "آموخته"
-                    : pin.status === "current"
-                      ? "اکنون"
-                      : "بعدی"}
-                </span>
+                <span className="atelier-case__tag">{pinLabel(pin.progress)}</span>
               </div>
-              <div className="atelier-pin__body">
-                <p className="atelier-pin__title">{pin.title}</p>
+              <div className="atelier-case__body">
+                <p className="atelier-case__title">{pin.title}</p>
                 {pin.subtitle ? (
-                  <p className="atelier-pin__sub">{pin.subtitle}</p>
+                  <p className="atelier-case__sub">{pin.subtitle}</p>
                 ) : null}
-                <div className="atelier-pin__bar" aria-hidden>
-                  <i style={{ width: `${Math.min(100, pin.progress)}%` }} />
-                </div>
               </div>
             </Link>
           );
@@ -149,5 +154,20 @@ export function AtelierProductStrip() {
   );
 }
 
-/** Reuse ladder step builder shape for wall pins */
-export { buildLadderSteps as buildWallPins } from "@/components/training/CareerLadder";
+/** Flat gallery pins — every case is open; no locked staircase order */
+export function buildWallPins(
+  courses: Array<{
+    id: string;
+    title: string;
+    description: string;
+    progress: number;
+  }>
+): WallPin[] {
+  return courses.map((c) => ({
+    id: c.id,
+    title: c.title,
+    subtitle: c.description,
+    href: `/employee/courses/${c.id}`,
+    progress: c.progress,
+  }));
+}

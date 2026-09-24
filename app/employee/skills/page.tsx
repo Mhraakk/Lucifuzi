@@ -64,34 +64,16 @@ export default function SkillsPage() {
         </section>
 
         <div className="stagger space-y-3">
-          {rows.map((ec, index) => {
+          {rows.map((ec) => {
             const c = state.competencies.find((x) => x.id === ec.competencyId);
-            const rank = rows.length - index;
             return (
               <div key={ec.id} className="surface p-4">
                 <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <span
-                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                      style={{
-                        background:
-                          ec.workAuthorization === "independent"
-                            ? "var(--success)"
-                            : "var(--accent-soft)",
-                        color:
-                          ec.workAuthorization === "independent"
-                            ? "#fff"
-                            : "var(--accent-deep)",
-                      }}
-                    >
-                      {toPersianDigits(rank)}
-                    </span>
-                    <div>
-                      <p className="font-bold leading-6">{c?.title}</p>
-                      <p className="muted mt-1 text-xs leading-6">
-                        {c?.description}
-                      </p>
-                    </div>
+                  <div>
+                    <p className="font-bold leading-6">{c?.title}</p>
+                    <p className="muted mt-1 text-xs leading-6">
+                      {c?.description}
+                    </p>
                   </div>
                   <Badge
                     tone={

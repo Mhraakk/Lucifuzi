@@ -23,8 +23,8 @@ export default function PracticePage() {
         <section className="animate-in">
           <h1 className="page-title mb-2">تمرین عملی</h1>
           <p className="muted text-sm leading-7">
-            شبیه‌سازی فروش، محاسبه قیمت و سناریوهای ریسک — پله‌های تمرین تا کار
-            واقعی شعبه، در سطح استاندارد گالری‌های معتبر.
+            شبیه‌سازی فروش، محاسبه قیمت و سناریوهای ریسک — هر سناریو یک ویترین
+            جداست؛ بدون ترتیب اجباری، در سطح استاندارد گالری‌های معتبر.
           </p>
         </section>
 
