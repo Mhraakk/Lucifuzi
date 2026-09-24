@@ -64,15 +64,15 @@ export default function ManagerDashboard() {
   return (
     <AppShell title="داشبورد مدیر">
       <div className="mx-auto max-w-desk space-y-5">
-        <section>
+        <section className="animate-in">
           <h1 className="page-title mb-2">آمادگی عملیاتی کارکنان</h1>
-          <p className="muted text-sm leading-7 max-w-2xl">
+          <p className="muted max-w-2xl text-sm leading-7">
             تمرکز روی اقدام: آموزش ناتمام، مردودی، تأیید SOP، شکاف مهارت و کسانی
             که واقعاً برای کار مستقل آماده‌اند (ارزیابی عملی — نه فقط نمره آزمون).
           </p>
         </section>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "آموزش ناتمام", value: unfinished.length },
             { label: "مردودی آزمون", value: failedExams.length },
@@ -80,8 +80,13 @@ export default function ManagerDashboard() {
             { label: "مجوز مستقل فعال", value: readyIndependent.length },
           ].map((m) => (
             <div key={m.label} className="surface p-4">
-              <p className="text-xs faint mb-1">{m.label}</p>
-              <p className="text-2xl font-bold">{toPersianDigits(m.value)}</p>
+              <p className="mb-1 text-xs faint">{m.label}</p>
+              <p
+                className="text-2xl font-bold"
+                style={{ color: "var(--accent-deep)" }}
+              >
+                {toPersianDigits(m.value)}
+              </p>
             </div>
           ))}
         </div>

@@ -10,6 +10,7 @@ export function TrainingCard({
   href,
   accent,
   badge,
+  progress,
 }: {
   title: string;
   subtitle?: string;
@@ -17,15 +18,18 @@ export function TrainingCard({
   href: string;
   accent?: string;
   badge?: ReactNode;
+  progress?: number;
 }) {
   return (
     <Link
       href={href}
-      className="surface block overflow-hidden transition hover:-translate-y-0.5 animate-in"
+      className="surface surface-interactive block overflow-hidden animate-in"
     >
       <div
-        className="h-1.5 w-full"
-        style={{ background: accent ?? "var(--accent)" }}
+        className="h-1 w-full"
+        style={{
+          background: `linear-gradient(90deg, ${accent ?? "var(--accent)"}, var(--metal))`,
+        }}
       />
       <div className="p-4">
         <div className="mb-2 flex items-start justify-between gap-2">
@@ -33,7 +37,23 @@ export function TrainingCard({
           {badge}
         </div>
         {subtitle ? (
-          <p className="muted text-sm leading-7 line-clamp-2">{subtitle}</p>
+          <p className="muted line-clamp-2 text-sm leading-7">{subtitle}</p>
+        ) : null}
+        {typeof progress === "number" ? (
+          <div className="mt-3">
+            <div className="mb-1.5 flex justify-between text-[11px]">
+              <span className="faint">پیشرفت</span>
+              <span className="font-medium" style={{ color: "var(--accent-deep)" }}>
+                {toPersianDigits(progress)}٪
+              </span>
+            </div>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+              />
+            </div>
+          </div>
         ) : null}
         {meta ? <p className="faint mt-3 text-xs">{meta}</p> : null}
       </div>
@@ -62,7 +82,8 @@ export function CourseCard({
       title={title}
       subtitle={description}
       accent={accent}
-      meta={`${formatMinutes(minutes)} · پیشرفت ${toPersianDigits(progress)}٪`}
+      progress={progress}
+      meta={formatMinutes(minutes)}
       badge={
         progress >= 100 ? (
           <Badge tone="success">تمام</Badge>
@@ -90,7 +111,7 @@ export function ManagerAlert({
   return (
     <Link
       href={href}
-      className="surface block p-4 animate-in"
+      className="surface surface-interactive block p-4 animate-in"
       style={{
         borderRight: `3px solid ${
           tone === "danger"
@@ -101,7 +122,7 @@ export function ManagerAlert({
         }`,
       }}
     >
-      <p className="font-bold text-sm mb-1">{title}</p>
+      <p className="mb-1 text-sm font-bold">{title}</p>
       <p className="muted text-sm leading-7">{body}</p>
     </Link>
   );

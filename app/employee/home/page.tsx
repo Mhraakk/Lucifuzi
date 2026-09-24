@@ -2,19 +2,19 @@
 
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
-import { CourseCard } from "@/components/training/Cards";
-import { Badge, ProgressRing } from "@/components/ui/Feedback";
+import {
+  CareerLadder,
+  buildLadderSteps,
+} from "@/components/training/CareerLadder";
+import { Badge } from "@/components/ui/Feedback";
 import {
   formatJalaliDate,
   formatMinutes,
   toPersianDigits,
 } from "@/lib/format";
 import { useAppState, useCurrentUser, useEmployeeProfile } from "@/lib/hooks";
-import {
-  courseProgressPercent,
-  getTodayDaily,
-} from "@/lib/store";
-import { JOB_ROLE_LABELS, WORK_AUTH_LABELS } from "@/lib/types";
+import { courseProgressPercent, getTodayDaily } from "@/lib/store";
+import { JOB_ROLE_LABELS } from "@/lib/types";
 
 export default function EmployeeHomePage() {
   const state = useAppState();
@@ -46,24 +46,38 @@ export default function EmployeeHomePage() {
     );
   });
 
-  const pathProgress =
-    path && path.courseIds.length
-      ? Math.round(
-          path.courseIds.reduce(
-            (sum, id) => sum + courseProgressPercent(state, user.id, id),
-            0
-          ) / path.courseIds.length
-        )
-      : 0;
+  const pathCourses = (path?.courseIds ?? [])
+    .map((cid) => {
+      const c = state.courses.find((x) => x.id === cid);
+      if (!c) return null;
+      return {
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        progress: courseProgressPercent(state, user.id, c.id),
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+  const pathProgress = pathCourses.length
+    ? Math.round(
+        pathCourses.reduce((sum, c) => sum + c.progress, 0) / pathCourses.length
+      )
+    : 0;
+
+  const ladderSteps = buildLadderSteps(pathCourses);
+
+  const firstName = user.fullName.split(" ")[0] ?? user.fullName;
 
   return (
     <AppShell title="خانه">
       <div className="mx-auto max-w-app space-y-5 pb-4">
         <section className="animate-in">
-          <p className="faint text-xs mb-1">{formatJalaliDate(new Date())}</p>
-          <h1 className="page-title">سلام، {user.fullName.split(" ")[0]}</h1>
-          <p className="muted text-sm mt-2 leading-7">
-            {profile ? JOB_ROLE_LABELS[profile.jobRole] : "—"} ·{" "}
+          <p className="mb-1 text-xs faint">{formatJalaliDate(new Date())}</p>
+          <h1 className="page-title">سلام، {firstName}</h1>
+          <p className="muted mt-2 text-sm leading-7">
+            {profile ? JOB_ROLE_LABELS[profile.jobRole] : "—"}
+            {" · "}
             {state.branches.find((b) => b.id === user.branchId)?.name}
             {profile?.streakDays
               ? ` · پیوستگی ${toPersianDigits(profile.streakDays)} روز`
@@ -74,62 +88,81 @@ export default function EmployeeHomePage() {
         {pendingSop.length > 0 ? (
           <Link
             href={`/employee/sop/${pendingSop[0]!.id}`}
-            className="surface block p-4"
+            className="surface surface-interactive block p-4 animate-in"
             style={{ borderRight: "3px solid var(--warning)" }}
           >
-            <p className="font-bold text-sm">تأیید دستورالعمل لازم است</p>
-            <p className="muted text-sm mt-1 leading-7">
+            <p className="text-sm font-bold">تأیید دستورالعمل لازم است</p>
+            <p className="muted mt-1 text-sm leading-7">
               {pendingSop[0]!.title} — نسخه جدید را بخوانید و تأیید کنید.
             </p>
           </Link>
         ) : null}
 
-        <section className="surface p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs faint mb-1">ادامه آموزش</p>
-              <p className="font-bold">{continueMeta?.title ?? "شروع مسیر یادگیری"}</p>
-              <p className="muted text-sm mt-1 line-clamp-2">
+        <CareerLadder
+          eyebrow="نردبان پیشرفت"
+          title={path?.title ?? "مسیر یادگیری شما"}
+          overall={pathProgress}
+          steps={ladderSteps}
+        />
+
+        <section className="surface p-4 animate-in">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="mb-1 text-xs faint">ادامه از جایی که ماندید</p>
+              <p className="font-bold leading-6">
+                {continueMeta?.title ?? "شروع مسیر یادگیری"}
+              </p>
+              <p className="muted mt-1 line-clamp-2 text-sm leading-7">
                 {continueMeta?.summary ?? path?.description}
               </p>
-              <Link
-                href={
-                  continueMeta
-                    ? `/employee/lessons/${continueMeta.id}`
-                    : "/employee/learn"
-                }
-                className="btn btn-primary mt-4 !min-h-11 text-sm"
-              >
-                ادامه بده
-              </Link>
             </div>
-            <ProgressRing value={continueLesson?.percent ?? pathProgress} label="پیشرفت" />
+            <div className="shrink-0 text-left">
+              <p
+                className="text-lg font-bold"
+                style={{ color: "var(--accent-deep)" }}
+              >
+                {toPersianDigits(continueLesson?.percent ?? pathProgress)}٪
+              </p>
+            </div>
           </div>
+          <Link
+            href={
+              continueMeta
+                ? `/employee/lessons/${continueMeta.id}`
+                : "/employee/learn"
+            }
+            className="btn btn-primary mt-4 w-full text-sm"
+          >
+            ادامه بده
+          </Link>
         </section>
 
-        <section className="grid gap-3">
+        <section className="stagger grid gap-3">
           <div className="surface p-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <p className="font-bold">آموزش امروز</p>
               <Badge tone="accent">۳–۵ دقیقه</Badge>
             </div>
             <p className="text-sm leading-7">{daily?.title}</p>
-            <p className="muted text-sm mt-2 leading-7 line-clamp-3">
+            <p className="muted mt-2 line-clamp-3 text-sm leading-7">
               {daily?.tip}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Link href={`/employee/quiz?daily=1`} className="surface p-4">
-              <p className="text-xs faint mb-1">سؤال امروز</p>
+            <Link
+              href="/employee/quiz?daily=1"
+              className="surface surface-interactive p-4"
+            >
+              <p className="mb-1 text-xs faint">سؤال امروز</p>
               <p className="text-sm font-semibold leading-6">
                 یک پرسش کوتاه برای تثبیت
               </p>
             </Link>
             <Link
               href={`/employee/scenario/${daily?.scenarioId ?? "sc_fraud_switch"}`}
-              className="surface p-4"
+              className="surface surface-interactive p-4"
             >
-              <p className="text-xs faint mb-1">سناریوی امروز</p>
+              <p className="mb-1 text-xs faint">سناریوی امروز</p>
               <p className="text-sm font-semibold leading-6">
                 تمرین موقعیت واقعی فروشگاه
               </p>
@@ -138,51 +171,24 @@ export default function EmployeeHomePage() {
         </section>
 
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="section-title">مسیر من</h2>
-            <Link href="/employee/learn" className="text-xs" style={{ color: "var(--accent-deep)" }}>
-              همه دوره‌ها
-            </Link>
-          </div>
-          <p className="muted text-sm mb-3">{path?.title}</p>
-          <div className="grid gap-3">
-            {(path?.courseIds ?? []).slice(0, 3).map((cid) => {
-              const c = state.courses.find((x) => x.id === cid);
-              if (!c) return null;
-              return (
-                <CourseCard
-                  key={c.id}
-                  id={c.id}
-                  title={c.title}
-                  description={c.description}
-                  minutes={c.estimatedMinutes}
-                  progress={courseProgressPercent(state, user.id, c.id)}
-                  accent={c.coverAccent}
-                />
-              );
-            })}
-          </div>
-        </section>
-
-        <section>
           <h2 className="section-title mb-3">آموزش‌های اجباری</h2>
           {mandatory.length === 0 ? (
             <p className="muted text-sm">مورد بازی باقی نمانده.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="stagger space-y-2">
               {mandatory.map((a) => {
                 const course = state.courses.find((c) => c.id === a.courseId);
                 return (
                   <Link
                     key={a.id}
                     href={`/employee/courses/${a.courseId}`}
-                    className="surface flex items-center justify-between gap-3 p-4"
+                    className="surface surface-interactive flex items-center justify-between gap-3 p-4"
                   >
                     <div>
-                      <p className="font-semibold text-sm">
+                      <p className="text-sm font-semibold">
                         {course?.title ?? "تکلیف آموزشی"}
                       </p>
-                      <p className="muted text-xs mt-1">
+                      <p className="muted mt-1 text-xs">
                         {a.priority === "high"
                           ? "الزامی و اولویت‌دار"
                           : "تکلیف آموزشی"}
@@ -196,43 +202,36 @@ export default function EmployeeHomePage() {
           )}
         </section>
 
-        <section className="surface p-4">
-          <h2 className="section-title mb-2">مهارت‌های من</h2>
-          <p className="muted text-sm leading-7 mb-3">
-            نمره آزمون نشان‌دهنده دانش است؛ مجوز کار مستقل فقط پس از ارزیابی عملی مدیر فعال می‌شود.
+        <section className="surface p-4 animate-in">
+          <h2 className="section-title mb-2">دانش ≠ مجوز کار</h2>
+          <p className="muted mb-3 text-sm leading-7">
+            نمره آزمون فقط سطح دانش است. کار مستقل فقط پس از ارزیابی عملی مدیر
+            فعال می‌شود.
           </p>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {state.employeeCompetencies
-              .filter((e) => e.userId === user.id)
-              .slice(0, 4)
-              .map((ec) => {
-                const c = state.competencies.find((x) => x.id === ec.competencyId);
-                return (
-                  <span key={ec.id} className="chip">
-                    {c?.title}: دانش {toPersianDigits(ec.knowledgeLevel)} ·{" "}
-                    {WORK_AUTH_LABELS[ec.workAuthorization]}
-                  </span>
-                );
-              })}
-          </div>
           <Link href="/employee/skills" className="btn btn-secondary w-full text-sm">
-            نقشه شایستگی
+            نقشه شایستگی و مجوزها
           </Link>
         </section>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Link href="/employee/certificates" className="surface p-4 text-center">
-            <p className="font-bold text-sm">مدارک من</p>
-            <p className="faint text-xs mt-1">
+        <div className="stagger grid grid-cols-2 gap-3">
+          <Link
+            href="/employee/certificates"
+            className="surface surface-interactive p-4 text-center"
+          >
+            <p className="text-sm font-bold">مدارک من</p>
+            <p className="faint mt-1 text-xs">
               {toPersianDigits(
                 state.certificates.filter((c) => c.userId === user.id).length
               )}{" "}
               گواهی
             </p>
           </Link>
-          <Link href="/employee/search" className="surface p-4 text-center">
-            <p className="font-bold text-sm">جستجو</p>
-            <p className="faint text-xs mt-1">اجرت، ویترین، تعمیر…</p>
+          <Link
+            href="/employee/search"
+            className="surface surface-interactive p-4 text-center"
+          >
+            <p className="text-sm font-bold">جستجو</p>
+            <p className="faint mt-1 text-xs">اجرت، ویترین، تعمیر…</p>
           </Link>
         </div>
 
@@ -242,9 +241,13 @@ export default function EmployeeHomePage() {
         <p className="faint text-center text-xs">
           مدت تخمینی مسیر فعلی:{" "}
           {formatMinutes(
-            (path?.courseIds ?? [])
-              .map((id) => state.courses.find((c) => c.id === id)?.estimatedMinutes ?? 0)
-              .reduce((a, b) => a + b, 0)
+            pathCourses.reduce(
+              (a, c) =>
+                a +
+                (state.courses.find((x) => x.id === c.id)?.estimatedMinutes ??
+                  0),
+              0
+            )
           )}
         </p>
       </div>
