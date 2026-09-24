@@ -40,8 +40,9 @@ export function ErrorState({
 }) {
   return (
     <div
-      className="surface animate-in px-5 py-8 text-center"
+      className="surface animate-in motion-shake px-5 py-8 text-center"
       style={{ borderColor: "color-mix(in srgb, var(--danger) 35%, var(--line))" }}
+      role="alert"
     >
       <p className="section-title mb-2" style={{ color: "var(--danger)" }}>
         خطا

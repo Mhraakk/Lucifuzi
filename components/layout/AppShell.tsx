@@ -172,9 +172,10 @@ export function AppShell({
                 </svg>
                 {unread > 0 ? (
                   <span
-                    className="absolute -top-0.5 -left-0.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                    className="absolute -top-0.5 -left-0.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold status-pulse-wrap is-active"
                     style={{ background: "var(--danger)", color: "#fff" }}
                   >
+                    <span className="status-pulse-dot !absolute !inset-0 !bg-transparent" aria-hidden />
                     {unread}
                   </span>
                 ) : null}
@@ -184,7 +185,7 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="mx-auto max-w-desk px-4 pt-5 safe-bottom md:pb-12">
+      <main className="shell-main mx-auto max-w-desk px-4 pt-5 safe-bottom md:pb-12">
         {children}
       </main>
 
@@ -200,7 +201,9 @@ export function AppShell({
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium transition-colors duration-200"
+                  className={`nav-item flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium ${
+                    active ? "nav-item-active" : ""
+                  }`}
                   style={{
                     color: active ? "var(--accent-deep)" : "var(--ink-muted)",
                     background: active ? "var(--accent-soft)" : "transparent",
@@ -208,6 +211,9 @@ export function AppShell({
                 >
                   <NavIcon name={item.icon} />
                   {item.label}
+                  {active ? (
+                    <span className="nav-indicator" aria-hidden />
+                  ) : null}
                 </Link>
               </li>
             );

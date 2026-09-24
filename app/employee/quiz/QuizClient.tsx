@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
+import { SuccessPop, useShake } from "@/components/motion/Motion";
 import { Badge } from "@/components/ui/Feedback";
 import { calculateQuotation } from "@/lib/calculation";
 import { formatCurrency, formatNumber, toPersianDigits } from "@/lib/format";
@@ -17,6 +18,7 @@ export default function QuizClient() {
   const lessonId = params.get("lesson");
   const daily = params.get("daily");
   const calc = params.get("calc");
+  const { ref: formRef, shake } = useShake();
 
   const questions = useMemo(() => {
     const all = getQuestions(state);
@@ -43,6 +45,13 @@ export default function QuizClient() {
   } | null>(null);
 
   function onSubmit() {
+    const incomplete = questions.some(
+      (q) => answers[q.id] === undefined || answers[q.id] === ""
+    );
+    if (incomplete) {
+      shake();
+      return;
+    }
     const breakdowns: Record<string, string[]> = {};
     for (const q of questions) {
       if (q.type === "calculation" && q.calculationAnswer != null) {
@@ -79,8 +88,8 @@ export default function QuizClient() {
 
   return (
     <AppShell title="آزمونک" backHref="/employee/practice">
-      <div className="mx-auto max-w-app space-y-5">
-        <header>
+      <div ref={formRef} className="mx-auto max-w-app space-y-5">
+        <header className="animate-in">
           <h1 className="page-title !text-xl mb-2">
             {calc ? "شبیه‌ساز محاسبه" : daily ? "سؤال امروز" : "آزمونک"}
           </h1>
@@ -89,87 +98,91 @@ export default function QuizClient() {
           </p>
         </header>
 
-        {questions.map((q, idx) => (
-          <section key={q.id} className="surface p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Badge>سؤال {toPersianDigits(idx + 1)}</Badge>
-              <Badge tone="accent">{q.difficulty}</Badge>
-            </div>
-            <p className="font-semibold text-sm leading-7 mb-4">{q.prompt}</p>
+        <div className="stagger space-y-5">
+          {questions.map((q, idx) => (
+            <section key={q.id} className="surface p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Badge>سؤال {toPersianDigits(idx + 1)}</Badge>
+                <Badge tone="accent">{q.difficulty}</Badge>
+              </div>
+              <p className="font-semibold text-sm leading-7 mb-4">{q.prompt}</p>
 
-            {q.type === "calculation" ? (
-              <div className="space-y-3">
-                <div
-                  className="rounded-xl p-3 text-xs leading-6"
-                  style={{ background: "var(--bg-soft)" }}
-                >
-                  وزن نمونه: {formatNumber(5, { decimals: 0 })} گرم · عیار ۱۸ ·
-                  قیمت پایه:{" "}
-                  {formatCurrency(
-                    state.pricingFormulaConfig.goldPricePerGram18k
-                  )}
-                </div>
-                <label className="label">پاسخ شما (ریال/تومان طبق عرف شعبه)</label>
-                <input
-                  className="field"
-                  inputMode="numeric"
-                  disabled={!!result}
-                  value={answers[q.id] ?? ""}
-                  onChange={(e) =>
-                    setAnswers((a) => ({
-                      ...a,
-                      [q.id]: Number(e.target.value.replace(/,/g, "")),
-                    }))
-                  }
-                />
-                {result?.breakdowns[q.id] ? (
-                  <div className="mt-3 space-y-1 text-xs muted">
-                    {result.breakdowns[q.id]!.map((s) => (
-                      <p key={s}>{s}</p>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {q.options?.map((opt) => (
-                  <label
-                    key={opt.id}
-                    className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border px-3 py-2"
-                    style={{
-                      borderColor:
-                        answers[q.id] === opt.id
-                          ? "var(--accent)"
-                          : "var(--line)",
-                      background:
-                        answers[q.id] === opt.id
-                          ? "var(--accent-soft)"
-                          : "transparent",
-                    }}
+              {q.type === "calculation" ? (
+                <div className="space-y-3">
+                  <div
+                    className="rounded-xl p-3 text-xs leading-6"
+                    style={{ background: "var(--bg-soft)" }}
                   >
-                    <input
-                      type="radio"
-                      name={q.id}
-                      className="sr-only"
-                      disabled={!!result}
-                      checked={answers[q.id] === opt.id}
-                      onChange={() =>
-                        setAnswers((a) => ({ ...a, [q.id]: opt.id }))
-                      }
-                    />
-                    <span className="text-sm leading-6">{opt.text}</span>
+                    وزن نمونه: {formatNumber(5, { decimals: 0 })} گرم · عیار ۱۸ ·
+                    قیمت پایه:{" "}
+                    {formatCurrency(
+                      state.pricingFormulaConfig.goldPricePerGram18k
+                    )}
+                  </div>
+                  <label className="label">
+                    پاسخ شما (ریال/تومان طبق عرف شعبه)
                   </label>
-                ))}
-              </div>
-            )}
-            {result ? (
-              <p className="mt-3 text-xs muted leading-6">{q.explanation}</p>
-            ) : null}
-          </section>
-        ))}
+                  <input
+                    className="field"
+                    inputMode="numeric"
+                    disabled={!!result}
+                    value={answers[q.id] ?? ""}
+                    onChange={(e) =>
+                      setAnswers((a) => ({
+                        ...a,
+                        [q.id]: Number(e.target.value.replace(/,/g, "")),
+                      }))
+                    }
+                  />
+                  {result?.breakdowns[q.id] ? (
+                    <div className="mt-3 space-y-1 text-xs muted">
+                      {result.breakdowns[q.id]!.map((s) => (
+                        <p key={s}>{s}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {q.options?.map((opt) => (
+                    <label
+                      key={opt.id}
+                      className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border px-3 py-2"
+                      style={{
+                        borderColor:
+                          answers[q.id] === opt.id
+                            ? "var(--accent)"
+                            : "var(--line)",
+                        background:
+                          answers[q.id] === opt.id
+                            ? "var(--accent-soft)"
+                            : "transparent",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name={q.id}
+                        className="sr-only"
+                        disabled={!!result}
+                        checked={answers[q.id] === opt.id}
+                        onChange={() =>
+                          setAnswers((a) => ({ ...a, [q.id]: opt.id }))
+                        }
+                      />
+                      <span className="text-sm leading-6">{opt.text}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {result ? (
+                <p className="mt-3 text-xs muted leading-6">{q.explanation}</p>
+              ) : null}
+            </section>
+          ))}
+        </div>
 
         {result ? (
-          <div className="surface p-5 text-center">
+          <SuccessPop show className="surface p-5 text-center">
             <p className="page-title !text-2xl mb-2">
               {toPersianDigits(result.score)}٪
             </p>
@@ -186,7 +199,7 @@ export default function QuizClient() {
             >
               بازگشت به تمرین
             </button>
-          </div>
+          </SuccessPop>
         ) : (
           <button
             type="button"
