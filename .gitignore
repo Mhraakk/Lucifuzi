@@ -1,4 +1,12 @@
 node_modules
 .next
+out
+.api-park
 .env*.local
 tsconfig.tsbuildinfo
+
+# Capacitor / iOS (keep project, ignore local pods & derived)
+ios/App/Pods
+ios/App/build
+ios/DerivedData
+*.xcuserdata

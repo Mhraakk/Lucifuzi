@@ -1,0 +1,19 @@
+{
+  "appId": "com.aryagallery.training",
+  "appName": "آریا آموزش",
+  "webDir": "out",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "preferredContentMode": "mobile",
+    "backgroundColor": "#f3efe8"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#f3efe8"
+    }
+  }
+}

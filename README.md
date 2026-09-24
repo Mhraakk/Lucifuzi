@@ -33,3 +33,17 @@ npm run dev
 ## نقش‌ها
 
 مالک / مدیر شعبه / مربی / کارمند — با داشبورد و ناوبری جدا.
+
+## TestFlight (iOS)
+
+پوستهٔ Capacitor آماده است. روی مک:
+
+```bash
+npm install
+npm run build:mobile
+npm run cap:open
+```
+
+سپس در Xcode: Signing → Archive → Upload به App Store Connect → TestFlight.
+
+جزئیات کامل: [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md)

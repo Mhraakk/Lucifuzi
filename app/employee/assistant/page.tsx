@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
-import { useAppState } from "@/lib/hooks";
+import { answerAssistantQuestion } from "@/lib/assistant";
 
 const SUGGESTIONS = [
   "اجرت یعنی چی؟",
@@ -13,34 +13,21 @@ const SUGGESTIONS = [
 ];
 
 export default function AssistantPage() {
-  const state = useAppState();
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [sopRef, setSopRef] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function ask(q: string) {
+  function ask(q: string) {
     setLoading(true);
     setError(null);
     setAnswer(null);
     setSopRef(null);
     try {
-      const res = await fetch("/api/assistant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: q,
-          orgName: state.organization.name,
-        }),
-      });
-      const data = (await res.json()) as {
-        answer?: string;
-        sopId?: string;
-        error?: string;
-      };
-      if (!res.ok) throw new Error(data.error ?? "خطا");
-      setAnswer(data.answer ?? "");
+      const data = answerAssistantQuestion(q);
+      if (data.error) throw new Error(data.error);
+      setAnswer(data.answer);
       setSopRef(data.sopId ?? null);
     } catch (e) {
       setError(
@@ -68,7 +55,7 @@ export default function AssistantPage() {
               className="chip"
               onClick={() => {
                 setQuestion(s);
-                void ask(s);
+                ask(s);
               }}
             >
               {s}
@@ -85,7 +72,7 @@ export default function AssistantPage() {
           type="button"
           className="btn btn-primary w-full"
           disabled={loading || question.trim().length < 3}
-          onClick={() => void ask(question)}
+          onClick={() => ask(question)}
         >
           {loading ? "در حال پاسخ..." : "بپرس"}
         </button>
