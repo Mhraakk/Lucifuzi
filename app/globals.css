@@ -3711,3 +3711,168 @@ button {
   }
 }
 
+/* —— Per-product 3D brainstorm —— */
+.jx-card__brain {
+  display: inline-block;
+  margin-top: 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent-deep, #8a734c);
+}
+
+.jx-detail__brain {
+  margin: 0.35rem 0 1rem;
+  padding: 1.1rem 1.15rem 1.2rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent-soft, #f0e8d8) 55%, #faf7f2);
+}
+
+.jx-detail__brain h2 {
+  margin: 0.25rem 0 0.55rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.jx-detail__brain > p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.75;
+  color: var(--ink-muted);
+}
+
+.jx-detail__brain-list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.jx-detail__brain-list li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(252, 250, 246, 0.92);
+  border: 1px solid var(--line);
+}
+
+.jx-detail__brain-list strong {
+  font-size: 0.82rem;
+}
+
+.jx-detail__brain-list span {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--ink-muted);
+}
+
+.jx-detail__actions {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+}
+
+.jx-workbench__seed {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+}
+
+.jx-brainstorm {
+  margin: 0 0 0.85rem;
+}
+
+.jx-brainstorm__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.55rem;
+}
+
+.jx-brainstorm__chip {
+  min-height: 36px;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-soft, #f5f1ea);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.jx-brainstorm__chip.is-on {
+  background: var(--ink);
+  color: #faf7f2;
+  border-color: var(--ink);
+}
+
+.jx-brainstorm__help {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: var(--accent-deep, #8a734c);
+}
+
+.jx-product-brain {
+  margin: 1.25rem 0 1.5rem;
+}
+
+.jx-product-brain__rail {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.jx-product-brain__card {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+  text-align: right;
+  padding: 0.65rem 0.75rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(252, 250, 246, 0.96);
+}
+
+.jx-product-brain__swatch {
+  width: 48px;
+  height: 56px;
+  border-radius: 12px;
+  opacity: 0.9;
+}
+
+.jx-product-brain__body strong {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--ink);
+  margin-bottom: 0.15rem;
+}
+
+.jx-product-brain__body em {
+  display: block;
+  font-style: normal;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+[data-theme="dark"] .jx-detail__brain {
+  background: rgba(28, 24, 20, 0.92);
+}
+
+[data-theme="dark"] .jx-detail__brain-list li,
+[data-theme="dark"] .jx-product-brain__card {
+  background: rgba(22, 20, 18, 0.92);
+}
+
+[data-theme="dark"] .jx-brainstorm__chip.is-on {
+  background: var(--accent);
+  color: #141210;
+  border-color: var(--accent);
+}
+
+

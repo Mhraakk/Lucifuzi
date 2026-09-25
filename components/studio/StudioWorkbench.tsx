@@ -36,16 +36,37 @@ const TOOL_ICONS: Record<Exclude<StudioTool, "present">, string> = {
 
 export function StudioWorkbench({
   initialForm = "raw",
+  initialKarat = 18,
+  initialGem = "diamond",
+  initialTitle = "ایدهٔ من",
+  productLabel,
+  prompts,
 }: {
   initialForm?: StudioFormId;
+  initialKarat?: GoldKarat;
+  initialGem?: GemId;
+  initialTitle?: string;
+  /** e.g. brand · product name when seeded from catalog */
+  productLabel?: string;
+  prompts?: Array<{
+    id: string;
+    titleFa: string;
+    bodyFa: string;
+    storeHelpFa: string;
+  }>;
 }) {
   const [form, setForm] = useState<StudioFormId>(initialForm);
-  const [karat, setKarat] = useState<GoldKarat>(18);
+  const [karat, setKarat] = useState<GoldKarat>(initialKarat);
   const [tool, setTool] = useState<StudioTool>("sculpt");
-  const [gem, setGem] = useState<GemId>("diamond");
+  const [gem, setGem] = useState<GemId>(initialGem);
   const [presenting, setPresenting] = useState(false);
-  const [title, setTitle] = useState("ایدهٔ من");
-  const [feedback, setFeedback] = useState("انگشت بکشید — طلا نرم است");
+  const [title, setTitle] = useState(initialTitle);
+  const [feedback, setFeedback] = useState(
+    productLabel
+      ? `ایده‌پردازی برای ${productLabel} — انگشت بکشید`
+      : "انگشت بکشید — طلا نرم است"
+  );
+  const [activePrompt, setActivePrompt] = useState(0);
   const [shot, setShot] = useState<string | null>(null);
   const [resetTick, setResetTick] = useState(0);
   const [captureTick, setCaptureTick] = useState(0);
@@ -67,8 +88,13 @@ export function StudioWorkbench({
       {!presenting ? (
         <header className="jx-workbench__head">
           <div>
-            <p className="jx-eyebrow">Atelier 3D</p>
-            <h2>کارگاه ایده</h2>
+            <p className="jx-eyebrow">
+              {productLabel ? "Product Brainstorm · ۳D" : "Atelier 3D"}
+            </p>
+            <h2>{productLabel ? "کارگاه ایده‌پردازی" : "کارگاه ایده"}</h2>
+            {productLabel ? (
+              <p className="jx-workbench__seed">{productLabel}</p>
+            ) : null}
           </div>
           <label className="jx-workbench__name">
             <input
@@ -80,6 +106,41 @@ export function StudioWorkbench({
             />
           </label>
         </header>
+      ) : null}
+
+      {prompts && prompts.length > 0 && !presenting ? (
+        <section className="jx-brainstorm" aria-label="چالش ایده‌پردازی فروشگاه">
+          <div className="jx-section-head">
+            <h2>سه مسیر ایده برای فروشگاه</h2>
+            <p>لمس کنید · بسازید · ارائه دهید</p>
+          </div>
+          <div className="jx-brainstorm__chips">
+            {prompts.map((p, i) => (
+              <Pressable
+                key={p.id}
+                className={`jx-brainstorm__chip ${activePrompt === i ? "is-on" : ""}`}
+                feedback={{ label: p.titleFa, tone: "info" }}
+                onPress={() => {
+                  setActivePrompt(i);
+                  setFeedback(p.bodyFa);
+                }}
+              >
+                {p.titleFa}
+              </Pressable>
+            ))}
+          </div>
+          <div className="jx-brainstorm__panel surface p-3">
+            <p className="font-bold text-sm mb-1">
+              {prompts[activePrompt]?.titleFa}
+            </p>
+            <p className="text-sm leading-7 muted">
+              {prompts[activePrompt]?.bodyFa}
+            </p>
+            <p className="jx-brainstorm__help">
+              کمک به فروشگاه: {prompts[activePrompt]?.storeHelpFa}
+            </p>
+          </div>
+        </section>
       ) : null}
 
       <div className="jx-workbench__stage">

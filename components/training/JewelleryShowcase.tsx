@@ -13,6 +13,11 @@ import {
 } from "@/lib/products-catalog";
 import { formatNumber, toPersianDigits } from "@/lib/format";
 import { Pressable } from "@/components/ui/Pressable";
+import {
+  brainstormSeedForSlug,
+  studioHrefForProduct,
+} from "@/lib/studio/productBrainstorm";
+import { STUDIO_FORMS } from "@/lib/studio/catalog";
 
 const FILTERS: Array<{ id: "all" | ProductCategory; label: string }> = [
   { id: "all", label: "همه" },
@@ -46,6 +51,7 @@ function ProductCard({ product }: { product: TrainingProduct }) {
           {formatNumber(product.weightGrams, { decimals: 1 })} گرم ·{" "}
           {PRODUCT_STYLE_LABELS[product.style]}
         </p>
+        <span className="jx-card__brain">۳D ایده‌پردازی</span>
       </div>
     </Link>
   );
@@ -216,7 +222,7 @@ export function JewelleryShowcase({
           محاسبه و سناریو را تمرین کنید.
         </p>
         <Link href="/employee/studio" className="jx-cta tap-react">
-          ساخت ایده در استودیو ۳D
+          استودیو ۳D · ایده‌پردازی همه محصولات
         </Link>
       </section>
     </div>
@@ -228,6 +234,10 @@ export function ProductDetailView({ slug }: { slug: string }) {
   if (!product) {
     return <p className="muted">محصول یافت نشد.</p>;
   }
+
+  const seed = brainstormSeedForSlug(product.slug);
+  const formLabel =
+    STUDIO_FORMS.find((f) => f.id === seed?.form)?.titleFa ?? "ماده خام";
 
   return (
     <article className="jx-detail">
@@ -249,6 +259,34 @@ export function ProductDetailView({ slug }: { slug: string }) {
           <span>{PRODUCT_STYLE_LABELS[product.style]}</span>
         </div>
       </div>
+
+      {/* Required: 3D brainstorm per gold product for store floor help */}
+      <section className="jx-detail__brain">
+        <p className="jx-eyebrow">3D Brainstorm · کمک به فروشگاه</p>
+        <h2>طراحی سه‌بعدی این قطعه</h2>
+        <p>
+          کارگاه ایده‌پردازی با قالب «{formLabel}» و عیار{" "}
+          {toPersianDigits(product.karat)} از همین محصول باز می‌شود — واریانت،
+          ارائه روی سینی، و ست‌سازی برای کمک به کف گالری.
+        </p>
+        {seed ? (
+          <ul className="jx-detail__brain-list">
+            {seed.prompts.map((p) => (
+              <li key={p.id}>
+                <strong>{p.titleFa}</strong>
+                <span>{p.storeHelpFa}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <Link
+          href={studioHrefForProduct(product.slug)}
+          className="jx-cta tap-react"
+          style={{ marginTop: "0.85rem" }}
+        >
+          باز کردن کارگاه ۳D این محصول
+        </Link>
+      </section>
 
       <section className="jx-detail__block">
         <h2>سبک و طراحی</h2>
@@ -272,9 +310,20 @@ export function ProductDetailView({ slug }: { slug: string }) {
         </section>
       ) : null}
 
-      <Link href="/employee/formula" className="btn btn-primary tap-react w-full">
-        تمرین محاسبه قیمت این قطعه
-      </Link>
+      <div className="jx-detail__actions">
+        <Link
+          href={studioHrefForProduct(product.slug)}
+          className="btn btn-primary tap-react w-full"
+        >
+          ایده‌پردازی ۳D · کمک به فروشگاه
+        </Link>
+        <Link
+          href="/employee/formula"
+          className="btn btn-secondary tap-react w-full"
+        >
+          تمرین محاسبه قیمت این قطعه
+        </Link>
+      </div>
     </article>
   );
 }
