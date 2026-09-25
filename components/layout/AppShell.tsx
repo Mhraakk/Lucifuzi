@@ -107,8 +107,8 @@ export function AppShell({
   return (
     <div
       data-theme={state.theme}
-      className="min-h-screen text-[var(--ink)]"
-      style={{ background: "var(--bg)" }}
+      className="app-atmosphere min-h-screen text-[var(--ink)]"
+      style={{ background: "transparent" }}
     >
       <header className="sticky top-0 z-30 border-b hairline glass-bar">
         <div className="mx-auto flex max-w-desk items-center justify-between gap-3 px-4 py-3">

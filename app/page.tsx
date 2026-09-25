@@ -23,8 +23,16 @@ export default function HomeRedirect() {
   }, [router, state.currentUserId, state.users]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ background: "var(--bg)" }}>
-      <p className="muted text-sm">در حال ورود به سامانه آریا...</p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
+      <div className="login-atelier" aria-hidden>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/atelier/atelier-wall.png" alt="" />
+        <div className="login-atelier__veil" />
+      </div>
+      <div className="relative z-[1] text-center login-hero-copy px-6">
+        <p className="brand-mark mb-3 !text-3xl">آریا</p>
+        <p className="muted text-sm">در حال باز کردن آتلیه آموزش...</p>
+      </div>
       <button
         type="button"
         className="sr-only"

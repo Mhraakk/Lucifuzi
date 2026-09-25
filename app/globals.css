@@ -3,57 +3,62 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f7f3ec;
-  --bg-elevated: #fffcf7;
-  --bg-soft: #ebe4d8;
-  --ink: #1c1916;
-  --ink-muted: #5c554c;
-  --ink-faint: #8a8278;
-  --line: #e0d7ca;
-  --line-strong: #cfc4b4;
-  --accent: #b89563;
-  --accent-soft: #f0e6d6;
-  --accent-deep: #6a5232;
-  --metal: #c4a574;
+  /* Quiet limestone atelier — not flat cream, not terracotta */
+  --bg: #e9e4db;
+  --bg-elevated: rgba(255, 252, 247, 0.78);
+  --bg-soft: #ddd6cb;
+  --ink: #1a1714;
+  --ink-muted: #5a534a;
+  --ink-faint: #857c72;
+  --line: rgba(90, 78, 62, 0.14);
+  --line-strong: rgba(90, 78, 62, 0.22);
+  --accent: #9a7f55;
+  --accent-soft: rgba(154, 127, 85, 0.14);
+  --accent-deep: #5c4a32;
+  --metal: #b89a6a;
   --success: #2d6a4f;
-  --warning: #9a6b2a;
+  --warning: #8a6a2e;
   --danger: #8c3d3d;
   --info: #3d5a6c;
-  --shadow: 0 8px 28px rgba(26, 23, 20, 0.06);
-  --shadow-lift: 0 14px 36px rgba(26, 23, 20, 0.1);
-  --radius: 18px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset, 0 10px 32px rgba(26, 23, 20, 0.06);
+  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 18px 40px rgba(26, 23, 20, 0.1);
+  --radius: 16px;
   --radius-sm: 12px;
-  /* Motion tokens — Tier A/B durations (100–300ms) */
   --motion-fast: 100ms;
   --motion-base: 220ms;
-  --motion-enter: 280ms;
-  --motion-celebrate: 420ms;
+  --motion-enter: 320ms;
+  --motion-celebrate: 480ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-spring: cubic-bezier(0.34, 1.35, 0.64, 1);
   --nav-h: 60px;
   --bottom-nav: 76px;
+  --font-display: "Amiri", "Vazirmatn", serif;
+  --font-body: "Vazirmatn", Tahoma, sans-serif;
+  --atelier-gold: #9a7f55;
+  --atelier-ivory: #f7f2ea;
 }
 
 [data-theme="dark"] {
-  --bg: #12100e;
-  --bg-elevated: #1a1714;
-  --bg-soft: #24201c;
-  --ink: #f4ebe1;
-  --ink-muted: #b8aea2;
-  --ink-faint: #8a8278;
-  --line: #2c2722;
-  --line-strong: #3d362f;
+  --bg: #100e0c;
+  --bg-elevated: rgba(28, 24, 20, 0.82);
+  --bg-soft: #1c1814;
+  --ink: #f3ebe2;
+  --ink-muted: #b5ab9f;
+  --ink-faint: #877e74;
+  --line: rgba(201, 168, 106, 0.12);
+  --line-strong: rgba(201, 168, 106, 0.2);
   --accent: #c9a86a;
-  --accent-soft: #2a241c;
-  --accent-deep: #e4c98e;
+  --accent-soft: rgba(201, 168, 106, 0.12);
+  --accent-deep: #e6d0a0;
   --metal: #d4b57a;
   --success: #6db892;
   --warning: #d4a35a;
   --danger: #d48484;
   --info: #7aa0b5;
-  --shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
-  --shadow-lift: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  --shadow-lift: 0 18px 44px rgba(0, 0, 0, 0.55);
+  --atelier-ivory: #1a1714;
 }
 
 * {
@@ -72,7 +77,7 @@ html {
 
 body {
   direction: rtl;
-  font-family: "Vazirmatn", Tahoma, sans-serif;
+  font-family: var(--font-body);
   background: var(--bg);
   color: var(--ink);
   min-height: 100%;
@@ -80,22 +85,58 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Living atmosphere — photographic depth + grain + drifting light */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: -1;
+  z-index: -2;
   background:
-    radial-gradient(ellipse 90% 55% at 110% -5%, rgba(154, 123, 79, 0.12), transparent 55%),
-    radial-gradient(ellipse 70% 45% at -10% 105%, rgba(61, 90, 108, 0.07), transparent 50%),
-    linear-gradient(180deg, transparent 0%, rgba(26, 23, 20, 0.02) 100%);
+    radial-gradient(ellipse 80% 50% at 85% -8%, rgba(154, 127, 85, 0.18), transparent 58%),
+    radial-gradient(ellipse 60% 40% at -5% 95%, rgba(61, 90, 108, 0.1), transparent 55%),
+    radial-gradient(ellipse 45% 35% at 40% 40%, rgba(255, 252, 247, 0.35), transparent 70%),
+    linear-gradient(165deg, #f0ebe3 0%, #e4ddd2 48%, #ddd5c8 100%);
+  background-size: 100% 100%, 100% 100%, 120% 120%, 100% 100%;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.45;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
 }
 
 [data-theme="dark"] body::before {
   background:
-    radial-gradient(ellipse 90% 55% at 110% -5%, rgba(201, 168, 106, 0.1), transparent 55%),
-    radial-gradient(ellipse 70% 45% at -10% 105%, rgba(122, 160, 181, 0.06), transparent 50%);
+    radial-gradient(ellipse 80% 50% at 90% -10%, rgba(201, 168, 106, 0.14), transparent 55%),
+    radial-gradient(ellipse 55% 40% at -10% 100%, rgba(61, 90, 108, 0.12), transparent 50%),
+    linear-gradient(165deg, #14110f 0%, #100e0c 55%, #0c0a09 100%);
+}
+
+[data-theme="dark"] body::after {
+  opacity: 0.25;
+  mix-blend-mode: soft-light;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body::before {
+    animation: atmosphere-drift 28s var(--ease-soft) infinite alternate;
+  }
+}
+
+@keyframes atmosphere-drift {
+  from {
+    background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%;
+  }
+  to {
+    background-position: 0% 0%, 0% 0%, 8% 4%, 0% 0%;
+  }
 }
 
 a {
@@ -126,6 +167,8 @@ button {
 @layer components {
   .surface {
     background: var(--bg-elevated);
+    backdrop-filter: blur(14px) saturate(1.1);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -162,7 +205,7 @@ button {
     gap: 0.5rem;
     min-height: 48px;
     padding: 0.7rem 1.25rem;
-    border-radius: 999px;
+    border-radius: 14px;
     border: 1px solid transparent;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -224,13 +267,13 @@ button {
     align-items: center;
     gap: 0.35rem;
     min-height: 28px;
-    padding: 0.25rem 0.75rem;
-    border-radius: 999px;
+    padding: 0.25rem 0.7rem;
+    border-radius: 10px;
     background: var(--bg-soft);
     color: var(--ink-muted);
     font-size: 0.75rem;
     font-weight: 500;
-    border: 1px solid transparent;
+    border: 1px solid var(--line);
   }
 
   .field {
@@ -266,27 +309,26 @@ button {
   }
 
   .page-title {
-    font-size: clamp(1.5rem, 4.5vw, 1.9rem);
+    font-family: var(--font-display);
+    font-size: clamp(1.65rem, 5vw, 2.15rem);
     font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.3;
+    letter-spacing: -0.02em;
+    line-height: 1.35;
   }
 
   .brand-mark {
-    font-size: clamp(2rem, 7vw, 2.75rem);
-    font-weight: 800;
-    letter-spacing: -0.04em;
-    line-height: 1.15;
-    background: linear-gradient(120deg, var(--ink) 20%, var(--accent-deep) 90%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    font-family: var(--font-display);
+    font-size: clamp(2.6rem, 9vw, 3.6rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--ink);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
   }
 
   [data-theme="dark"] .brand-mark {
-    background: linear-gradient(120deg, var(--ink) 10%, var(--metal) 85%);
-    -webkit-background-clip: text;
-    background-clip: text;
+    color: var(--ink);
+    text-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
   }
 
   .section-title {
@@ -326,9 +368,10 @@ button {
   }
 
   .glass-bar {
-    background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
-    backdrop-filter: blur(16px) saturate(1.2);
-    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(1.25);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    border-bottom-color: var(--line);
   }
 
   .progress-track {
@@ -883,33 +926,98 @@ button {
   position: absolute;
   inset: 0;
   z-index: 0;
+  overflow: hidden;
 }
 
 .login-atelier img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 20%;
+  object-position: center 18%;
+  transform: scale(1.04);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .login-atelier img {
+    animation: login-kenburns 22s var(--ease-soft) infinite alternate;
+  }
+}
+
+@keyframes login-kenburns {
+  from {
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(-1.5%, 1%, 0);
+  }
 }
 
 .login-atelier__veil {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(247, 243, 236, 0.35) 0%,
-    rgba(247, 243, 236, 0.82) 42%,
-    rgba(247, 243, 236, 0.96) 100%
-  );
+  background:
+    linear-gradient(
+      180deg,
+      rgba(16, 14, 12, 0.18) 0%,
+      rgba(233, 228, 219, 0.42) 38%,
+      rgba(233, 228, 219, 0.88) 68%,
+      rgba(233, 228, 219, 0.97) 100%
+    ),
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(255, 248, 235, 0.2), transparent 60%);
 }
 
 [data-theme="dark"] .login-atelier__veil {
   background: linear-gradient(
     180deg,
-    rgba(18, 16, 14, 0.45) 0%,
-    rgba(18, 16, 14, 0.88) 50%,
-    rgba(18, 16, 14, 0.97) 100%
+    rgba(10, 8, 6, 0.35) 0%,
+    rgba(16, 14, 12, 0.72) 45%,
+    rgba(16, 14, 12, 0.94) 100%
   );
+}
+
+.login-hero-copy {
+  text-shadow: 0 2px 24px rgba(255, 252, 247, 0.35);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .login-hero-copy {
+    animation: hero-rise 0.9s var(--ease-out) both;
+  }
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-atmosphere {
+  position: relative;
+}
+
+.app-atmosphere::before {
+  content: "";
+  position: absolute;
+  inset: -20% -10% auto;
+  height: 42vh;
+  max-height: 360px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 70% 20%, rgba(154, 127, 85, 0.16), transparent 55%),
+    radial-gradient(ellipse at 15% 60%, rgba(61, 90, 108, 0.08), transparent 50%);
+  opacity: 0.9;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .app-atmosphere::before {
+    animation: atmosphere-drift 24s var(--ease-soft) infinite alternate;
+  }
 }
 
 [data-theme="dark"] .atelier-wall {

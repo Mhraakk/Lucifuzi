@@ -74,8 +74,8 @@ export default function EmployeeHomePage() {
   return (
     <AppShell title="خانه">
       <div className="mx-auto max-w-app space-y-5 pb-4">
-        <section className="animate-in">
-          <p className="mb-1 text-xs faint">{formatJalaliDate(new Date())}</p>
+        <section className="animate-in login-hero-copy">
+          <p className="mb-1 text-xs faint tracking-wide">{formatJalaliDate(new Date())}</p>
           <h1 className="page-title">سلام، {firstName}</h1>
           <p className="muted mt-2 text-sm leading-7">
             {profile ? JOB_ROLE_LABELS[profile.jobRole] : "—"}

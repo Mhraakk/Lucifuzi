@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#9a7b4f",
+  themeColor: "#e9e4db",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -45,7 +45,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Vazirmatn:wght@300;400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
         <link rel="manifest" href="/manifest.webmanifest" />

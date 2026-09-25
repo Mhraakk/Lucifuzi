@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [showRoles, setShowRoles] = useState(false);
 
   const employees = state.users.filter((u) =>
     state.employeeProfiles.some((p) => p.userId === u.id)
@@ -99,31 +100,34 @@ export default function LoginPage() {
         <div className="login-atelier__veil" />
       </div>
 
-      <div className="relative z-[1] mx-auto flex min-h-screen max-w-md flex-col px-5 pb-10 pt-8">
-        <div className="mb-2 flex justify-end">
+      <div className="relative z-[1] mx-auto flex min-h-screen max-w-md flex-col px-5 pb-10 pt-6">
+        <div className="mb-3 flex justify-end">
           <button
             type="button"
             className="btn btn-ghost !min-h-10 !px-3 text-xs"
             onClick={() => setTheme(state.theme === "light" ? "dark" : "light")}
             aria-label="تغییر تم"
           >
-            {state.theme === "light" ? "تاریک" : "روشن"}
+            {state.theme === "light" ? "شب آتلیه" : "روز آتلیه"}
           </button>
         </div>
 
-        <header className="mb-8 animate-in text-center">
-          <p className="mb-4 text-[11px] faint tracking-[0.18em]">
+        {/* First viewport: one composition — brand, one line, one CTA */}
+        <header className="login-hero-copy mb-8 flex min-h-[46vh] flex-col justify-end text-center">
+          <p className="mb-3 text-[11px] faint tracking-[0.22em]">
             گالری طلای آریا
           </p>
           <h1 className="brand-mark mb-4">آریا آموزش</h1>
-          <p className="mx-auto max-w-xs muted text-sm leading-7">
-            ورود با PIN یا انتخاب نقش دمو — نشست در IndexedDB و session ذخیره
-            می‌شود.
+          <p className="mx-auto max-w-[16rem] text-sm leading-7 muted">
+            آموزش واقعی پشت ویترین — آرام، دقیق، بدون نردبان نمایشی.
           </p>
         </header>
 
-        <section className="mb-6 surface p-4 animate-in space-y-3">
-          <p className="section-title !mb-0">ورود با PIN</p>
+        <section
+          className="mb-4 surface p-4 animate-in space-y-3"
+          style={{ animationDelay: "0.12s" }}
+        >
+          <p className="section-title !mb-0">ورود به شیفت</p>
           <p className="faint text-[0.65rem]">دمو: PIN همه کاربران ۱۲۳۴</p>
           <input
             className="field"
@@ -131,6 +135,7 @@ export default function LoginPage() {
             placeholder="ایمیل سازمانی"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
           />
           <input
             className="field"
@@ -139,6 +144,7 @@ export default function LoginPage() {
             placeholder="PIN چهار رقمی"
             value={pin}
             onChange={(e) => setPin(e.target.value)}
+            autoComplete="current-password"
           />
           {authError ? (
             <p className="text-xs" style={{ color: "var(--danger)" }}>
@@ -151,68 +157,80 @@ export default function LoginPage() {
             disabled={authLoading || email.trim().length < 3 || pin.length < 4}
             onClick={() => void loginWithPin()}
           >
-            {authLoading ? "در حال ورود..." : "ورود امن"}
+            {authLoading ? "در حال ورود..." : "ورود"}
           </button>
         </section>
 
-        <section className="mb-7 animate-in" style={{ animationDelay: "0.08s" }}>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="section-title">کارکنان (ورود سریع)</h2>
-            <span className="chip">دمو</span>
-          </div>
-          <div className="stagger space-y-2.5">
-            {employees.map((u) => {
-              const profile = state.employeeProfiles.find(
-                (p) => p.userId === u.id
-              );
-              const branch = state.branches.find((b) => b.id === u.branchId);
-              return (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => void enter(u.id, false)}
-                  className="surface surface-interactive flex w-full items-center gap-3 p-3.5 text-right"
-                >
-                  <span
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-sm font-bold"
-                    style={{
-                      background: "var(--accent-soft)",
-                      color: "var(--accent-deep)",
-                    }}
-                  >
-                    {u.avatarInitials}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold leading-6">{u.fullName}</p>
-                    <p className="muted mt-0.5 text-xs leading-5">
-                      {profile ? JOB_ROLE_LABELS[profile.jobRole] : "—"}
-                      {branch ? ` · ${branch.name}` : ""}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        <button
+          type="button"
+          className="btn btn-ghost mb-4 w-full text-xs"
+          onClick={() => setShowRoles((v) => !v)}
+        >
+          {showRoles ? "بستن ورود سریع دمو" : "ورود سریع نقش‌های دمو"}
+        </button>
 
-        <section className="mb-8 animate-in" style={{ animationDelay: "0.14s" }}>
-          <h2 className="section-title mb-3">مدیریت</h2>
-          <div className="stagger space-y-2.5">
-            {managers.map((u) => (
-              <button
-                key={u.id}
-                type="button"
-                onClick={() => void enter(u.id, true)}
-                className="surface surface-interactive w-full p-3.5 text-right"
-              >
-                <p className="font-bold">{u.fullName}</p>
-                <p className="muted mt-1 text-xs">
-                  {SYSTEM_ROLE_LABELS[u.systemRole]}
-                </p>
-              </button>
-            ))}
-          </div>
-        </section>
+        {showRoles ? (
+          <>
+            <section className="mb-6 animate-in">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="section-title">کارکنان</h2>
+                <span className="chip">دمو</span>
+              </div>
+              <div className="stagger space-y-2.5">
+                {employees.map((u) => {
+                  const profile = state.employeeProfiles.find(
+                    (p) => p.userId === u.id
+                  );
+                  const branch = state.branches.find((b) => b.id === u.branchId);
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => void enter(u.id, false)}
+                      className="surface surface-interactive flex w-full items-center gap-3 p-3.5 text-right"
+                    >
+                      <span
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-sm font-bold"
+                        style={{
+                          background: "var(--accent-soft)",
+                          color: "var(--accent-deep)",
+                        }}
+                      >
+                        {u.avatarInitials}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold leading-6">{u.fullName}</p>
+                        <p className="muted mt-0.5 text-xs leading-5">
+                          {profile ? JOB_ROLE_LABELS[profile.jobRole] : "—"}
+                          {branch ? ` · ${branch.name}` : ""}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="mb-8 animate-in">
+              <h2 className="section-title mb-3">مدیریت</h2>
+              <div className="stagger space-y-2.5">
+                {managers.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => void enter(u.id, true)}
+                    className="surface surface-interactive w-full p-3.5 text-right"
+                  >
+                    <p className="font-bold">{u.fullName}</p>
+                    <p className="muted mt-1 text-xs">
+                      {SYSTEM_ROLE_LABELS[u.systemRole]}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </>
+        ) : null}
 
         <Link
           href="/onboarding"

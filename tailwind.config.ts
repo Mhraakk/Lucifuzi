@@ -9,7 +9,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        persian: ["Vazirmatn", "Tahoma", "sans-serif"],
+        persian: ["var(--font-body)", "Vazirmatn", "Tahoma", "sans-serif"],
+        display: ["var(--font-display)", "Amiri", "serif"],
       },
       colors: {
         ink: "var(--ink)",
