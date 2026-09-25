@@ -149,16 +149,16 @@ export const SCULPTURE_WORKS: Record<string, SculptureWork> = {
   },
 };
 
-/** Map app surfaces → sculpture atmosphere */
+/** Map app surfaces → sculpture atmosphere (marble stone, never cream chalk paper) */
 export const SCULPTURE_SLOTS: Record<SculptureSlot, string> = {
   intro: "canova",
-  login: "michelangelo",
-  home: "canova",
+  login: "bernini",
+  home: "finelli",
   learn: "lorenzi",
-  theory: "michelangelo",
+  theory: "duccio",
   practice: "bernini",
   skills: "mino",
-  studio: "sansovino",
+  studio: "parodi",
   products: "giambologna",
   wall: "lombardo",
 };
@@ -223,7 +223,7 @@ export const TRAINING_GENRES = [
   {
     id: "theory",
     title: "تئوری",
-    sculpture: "michelangelo" as const,
+    sculpture: "duccio" as const,
     body: "درس، استاندارد US·CH·EU، و مطالعهٔ فرم — منبع دانش چشم و استدلال.",
     href: "/employee/learn",
   },

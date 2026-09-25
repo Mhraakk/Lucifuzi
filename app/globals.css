@@ -3606,8 +3606,8 @@ button {
 }
 
 .login-atelier--marble img {
-  filter: saturate(0.58) contrast(1.16) brightness(0.82) sepia(0.12);
-  object-position: center 18% !important;
+  filter: saturate(0.7) contrast(1.2) brightness(0.78) sepia(0.18);
+  object-position: center 22% !important;
   opacity: 1;
 }
 
