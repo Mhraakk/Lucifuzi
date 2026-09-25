@@ -171,146 +171,145 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      data-theme={state.theme}
-      className="relative min-h-screen overflow-hidden"
-      style={{ color: "var(--ink)" }}
-    >
-      <div className="login-atelier login-atelier--marble" aria-hidden>
+    <div data-theme={state.theme} className="portal-root">
+      <div className="portal-world" aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={sculptureSrc("login")} alt="" />
-        <div className="login-atelier__veil" />
+        <img
+          className="portal-world__stone"
+          src={sculptureSrc("login")}
+          alt=""
+        />
+        <div className="portal-world__fog" />
+        <div className="portal-world__caustic" />
+        <div className="portal-world__ray" />
+        <div className="portal-world__vignette" />
       </div>
 
-      <div className="relative z-[1] mx-auto flex min-h-screen max-w-md flex-col px-5 pb-10 pt-6">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <Link
-            href="/mail"
-            className="btn btn-ghost tap-react !min-h-10 !px-3 text-xs"
-          >
-            صندوق پیام
-          </Link>
-          <button
-            type="button"
-            className="btn btn-ghost tap-react !min-h-10 !px-3 text-xs"
-            onClick={() => setTheme(state.theme === "light" ? "dark" : "light")}
-            aria-label="تغییر تم"
-          >
-            {state.theme === "light" ? "شب" : "روز"}
-          </button>
+      <div className="portal-chrome">
+        <Link href="/mail" className="portal-ghost-link">
+          صندوق پیام
+        </Link>
+        <button
+          type="button"
+          className="portal-ghost-link"
+          onClick={() => setTheme(state.theme === "light" ? "dark" : "light")}
+          aria-label="تغییر تم"
+        >
+          {state.theme === "light" ? "شب" : "روز"}
+        </button>
+      </div>
+
+      <main className="portal-stage">
+        <div className="portal-brand portal-rise">
+          <p className="portal-whisper">آتلیه · سنگ · نور · طلا</p>
+          <h1 className="portal-name">Beatris</h1>
+          <p className="portal-promise">ورود به فضای آموزش جواهر</p>
         </div>
 
-        <header className="login-hero-card mb-6 mt-auto">
-          <h1 className="brand-mark mb-1">Beatris</h1>
-          <p className="text-sm muted">آتلیه آموزش جواهر</p>
-        </header>
-
-        <section
-          className="mb-4 surface p-4 animate-in space-y-3"
-          style={{ animationDelay: "0.12s" }}
+        <form
+          className="portal-membrane portal-rise portal-rise--late"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (step === "email") void requestOtp();
+            else void verifyOtp();
+          }}
         >
           {step === "email" ? (
             <>
-              <p className="section-title !mb-0">ورود با ایمیل</p>
-              <p className="faint text-[0.7rem] leading-6">
-                هر ایمیل یک کاربر است. کد ورود به صندوق پیام ارسال می‌شود.
-              </p>
-              <input
-                className="field"
-                type="email"
-                placeholder="ایمیل"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                dir="ltr"
-              />
-              <input
-                className="field"
-                type="text"
-                placeholder="نام (اختیاری — برای اولین ورود)"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                autoComplete="name"
-              />
-              {authError ? (
-                <p className="text-xs" style={{ color: "var(--danger)" }}>
-                  {authError}
-                </p>
-              ) : null}
+              <label className="portal-field">
+                <span>ایمیل</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  dir="ltr"
+                  required
+                  placeholder="you@atelier.gold"
+                />
+              </label>
+              <label className="portal-field">
+                <span>نام — اولین ورود</span>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  autoComplete="name"
+                  placeholder="اختیاری"
+                />
+              </label>
+              {authError ? <p className="portal-err">{authError}</p> : null}
               <button
-                type="button"
-                className="btn btn-primary w-full"
+                type="submit"
+                className="portal-enter"
                 disabled={authLoading || !email.includes("@")}
-                onClick={() => void requestOtp()}
               >
-                {authLoading ? "در حال ارسال…" : "ارسال کد ورود"}
+                <span>{authLoading ? "…" : "گشودن در"}</span>
+                <em aria-hidden />
               </button>
             </>
           ) : (
             <>
-              <p className="section-title !mb-0">کد ورود</p>
-              <p className="faint text-[0.7rem] leading-6" dir="ltr">
+              <p className="portal-mail" dir="ltr">
                 {email}
               </p>
-              {hint ? (
-                <p className="text-xs muted leading-6">{hint}</p>
-              ) : null}
+              {hint ? <p className="portal-hint">{hint}</p> : null}
               <Link
                 href={`/mail?email=${encodeURIComponent(email.trim().toLowerCase())}`}
-                className="btn btn-secondary w-full text-sm"
+                className="portal-ghost-link portal-ghost-link--block"
               >
-                مشاهده صندوق پیام
+                خواندن کد از صندوق
               </Link>
-              <input
-                className="field text-center tracking-[0.35em] text-lg"
-                type="text"
-                inputMode="numeric"
-                placeholder="______"
-                value={code}
-                onChange={(e) =>
-                  setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                autoComplete="one-time-code"
-                dir="ltr"
-                maxLength={6}
-              />
-              {authError ? (
-                <p className="text-xs" style={{ color: "var(--danger)" }}>
-                  {authError}
-                </p>
-              ) : null}
+              <label className="portal-field">
+                <span>کد شش‌رقمی</span>
+                <input
+                  className="portal-code"
+                  type="text"
+                  inputMode="numeric"
+                  value={code}
+                  onChange={(e) =>
+                    setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  autoComplete="one-time-code"
+                  dir="ltr"
+                  maxLength={6}
+                  placeholder="······"
+                  required
+                />
+              </label>
+              {authError ? <p className="portal-err">{authError}</p> : null}
               <button
-                type="button"
-                className="btn btn-primary w-full"
+                type="submit"
+                className="portal-enter"
                 disabled={authLoading || code.length < 6}
-                onClick={() => void verifyOtp()}
               >
-                {authLoading ? "در حال تأیید…" : "ورود"}
+                <span>{authLoading ? "…" : "ورود به آتلیه"}</span>
+                <em aria-hidden />
               </button>
-              <button
-                type="button"
-                className="btn btn-ghost w-full text-xs"
-                onClick={() => {
-                  setStep("email");
-                  setCode("");
-                  setAuthError(null);
-                  clearSession();
-                }}
-              >
-                تغییر ایمیل
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost w-full text-xs"
-                disabled={authLoading}
-                onClick={() => void requestOtp()}
-              >
-                ارسال مجدد کد
-              </button>
+              <div className="portal-alt">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("email");
+                    setCode("");
+                    setAuthError(null);
+                    clearSession();
+                  }}
+                >
+                  تغییر ایمیل
+                </button>
+                <button
+                  type="button"
+                  disabled={authLoading}
+                  onClick={() => void requestOtp()}
+                >
+                  ارسال مجدد
+                </button>
+              </div>
             </>
           )}
-        </section>
-      </div>
+        </form>
+      </main>
     </div>
   );
 }

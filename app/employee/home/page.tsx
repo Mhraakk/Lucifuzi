@@ -78,11 +78,13 @@ export default function EmployeeHomePage() {
 
   return (
     <AppShell title="خانه">
-      <div className="mx-auto max-w-app space-y-5 pb-4">
-        <section className="surface p-4 animate-in">
-          <p className="mb-1 text-xs faint tracking-wide">{formatJalaliDate(new Date())}</p>
-          <h1 className="page-title">سلام، {firstName}</h1>
-          <p className="muted mt-2 text-sm leading-7">
+      <div className="mx-auto max-w-app space-y-6 pb-4">
+        <section className="home-immersion portal-rise">
+          <p className="home-immersion__date">{formatJalaliDate(new Date())}</p>
+          <h1 className="home-immersion__hello">
+            <span>سلام،</span> {firstName}
+          </h1>
+          <p className="home-immersion__meta">
             {profile ? JOB_ROLE_LABELS[profile.jobRole] : "—"}
             {" · "}
             {state.branches.find((b) => b.id === user.branchId)?.name}

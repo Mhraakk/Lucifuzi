@@ -177,20 +177,10 @@ export function AppShell({
             ) : (
               <Link
                 href={manager ? "/manager/dashboard" : "/employee/home"}
-                className="min-w-0"
+                className="min-w-0 shell-brand"
               >
-                <p
-                  className="text-[11px] faint tracking-[0.08em] font-semibold"
-                  style={{ fontFamily: "var(--font-display)" }}
-                >
-                  Beatris
-                </p>
-                <p
-                  className="truncate text-[1.05rem] font-extrabold leading-6"
-                  style={{ fontFamily: "var(--font-display)" }}
-                >
-                  {title ?? "Beatris"}
-                </p>
+                <p className="shell-brand__mark">Beatris</p>
+                <p className="shell-brand__title">{title ?? "آتلیه"}</p>
               </Link>
             )}
             {title && backHref ? (

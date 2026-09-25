@@ -7,8 +7,8 @@ import {
 } from "@/lib/atelier/sculptures";
 
 /**
- * Soft photographic wash — Italian sculptural atmospheres
- * train the eye behind every training surface.
+ * Immersive sculptural world — marble atmosphere behind every surface.
+ * Not decoration: the room you stand in.
  */
 export function AmbientBackdrop({
   variant = "wall",
@@ -35,8 +35,10 @@ export function AmbientBackdrop({
         data-sculpture={work.id}
       />
       <div className="ambient-backdrop__wash" />
+      <div className="ambient-backdrop__caustic" />
       <div className="ambient-backdrop__grain" />
       <div className="ambient-backdrop__glow" />
+      <div className="ambient-backdrop__vignette" />
     </div>
   );
 }
