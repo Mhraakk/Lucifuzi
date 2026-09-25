@@ -112,14 +112,17 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* First viewport: one composition — brand, one line, one CTA */}
-        <header className="login-hero-copy mb-8 flex min-h-[46vh] flex-col justify-end text-center">
-          <p className="mb-3 text-[11px] faint tracking-[0.22em]">
-            گالری طلای آریا
+        {/* First viewport: brand-first composition on full-bleed atelier photo */}
+        <header className="login-hero-copy mb-8 flex min-h-[48vh] flex-col justify-end text-center">
+          <h1 className="brand-mark mb-3">آریا</h1>
+          <p
+            className="mb-4 text-[1.15rem] font-semibold leading-8"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            آموزش گالری
           </p>
-          <h1 className="brand-mark mb-4">آریا آموزش</h1>
-          <p className="mx-auto max-w-[16rem] text-sm leading-7 muted">
-            آموزش واقعی پشت ویترین — آرام، دقیق، بدون نردبان نمایشی.
+          <p className="mx-auto max-w-[17rem] text-sm leading-7 muted">
+            پشت ویترین واقعی یاد بگیرید — نور، روایت، دقت.
           </p>
         </header>
 

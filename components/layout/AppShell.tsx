@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { useAppState, useCurrentUser, useUnreadCount } from "@/lib/hooks";
 import { isManagerLike } from "@/lib/permissions";
 import { setTheme } from "@/lib/store";
+import { AmbientBackdrop } from "@/components/layout/AmbientBackdrop";
 
 const employeeNav = [
   { href: "/employee/home", label: "خانه", icon: "home" },
@@ -107,9 +108,10 @@ export function AppShell({
   return (
     <div
       data-theme={state.theme}
-      className="app-atmosphere min-h-screen text-[var(--ink)]"
+      className="app-atmosphere relative min-h-screen text-[var(--ink)]"
       style={{ background: "transparent" }}
     >
+      <AmbientBackdrop variant={manager ? "wall" : "products"} />
       <header className="sticky top-0 z-30 border-b hairline glass-bar">
         <div className="mx-auto flex max-w-desk items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -128,10 +130,16 @@ export function AppShell({
                 href={manager ? "/manager/dashboard" : "/employee/home"}
                 className="min-w-0"
               >
-                <p className="text-[11px] faint tracking-[0.08em]">
+                <p
+                  className="text-[11px] faint tracking-[0.14em]"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
                   گالری طلای آریا
                 </p>
-                <p className="truncate text-sm font-bold">
+                <p
+                  className="truncate text-[1.05rem] font-bold leading-6"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
                   {title ?? "آریا آموزش"}
                 </p>
               </Link>
@@ -186,7 +194,7 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="shell-main mx-auto max-w-desk px-4 pt-5 safe-bottom md:pb-12">
+      <main className="shell-main relative z-[1] mx-auto max-w-desk px-4 pt-5 safe-bottom md:pb-12">
         {children}
       </main>
 
