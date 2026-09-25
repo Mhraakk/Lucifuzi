@@ -64,7 +64,7 @@ export function JewelleryShowcase({
   const rest = list.filter((p) => p.id !== featured.id);
 
   return (
-    <div className="jx-landing">
+    <div className="jx-landing jx-theme">
       {/* Hero — full-bleed product plane */}
       <section className="jx-hero">
         <div className="jx-hero__visual">
@@ -73,20 +73,33 @@ export function JewelleryShowcase({
           <div className="jx-hero__wash" aria-hidden />
         </div>
         <div className="jx-hero__copy">
-          <p className="jx-eyebrow">ویترین آموزش محصول</p>
-          <h1 className="jx-hero__title">جواهرات آریا</h1>
+          <p className="jx-eyebrow">Boutique · گالری طلای آریا</p>
+          <h1 className="jx-hero__title">ویترین محصول</h1>
           <p className="jx-hero__lede">
-            کارشده، آب‌شده، شمش زربد و پلاک زردیس — با مدل، سبک و سیاق واقعی برای
+            کارشده، آب‌شده، شمش زربد و پلاک زردیس — مدل، سبک و سیاق واقعی برای
             یادگیری کارکنان.
           </p>
-          <Link
-            href={`/employee/products/${hero.slug}`}
-            className="jx-cta tap-react"
-          >
-            مشاهده قطعه شاخص
-          </Link>
+          <div className="jx-hero__actions">
+            <Link
+              href={`/employee/products/${hero.slug}`}
+              className="jx-cta tap-react"
+            >
+              مشاهده قطعه شاخص
+            </Link>
+            <Link href="/employee/learn" className="jx-cta jx-cta--ghost tap-react">
+              آکادمی آموزش
+            </Link>
+          </div>
         </div>
       </section>
+
+      <div className="jx-promo">
+        <p className="jx-promo__kicker">Training Catalog</p>
+        <p className="jx-promo__title">زربد · زردیس · آریا</p>
+        <p className="jx-promo__meta">
+          هر قطعه یک درس فروش است — لمس کنید و یاد بگیرید
+        </p>
+      </div>
 
       {/* Category rail */}
       <nav className="jx-cats" aria-label="دسته‌بندی محصول">
@@ -148,6 +161,63 @@ export function JewelleryShowcase({
           {/* keep featured also if filter empty of rest */}
           {rest.length === 0 ? <ProductCard product={featured} /> : null}
         </div>
+      </section>
+
+      {/* Lookbook rail — Shakuro secondary merchandising strip */}
+      <section className="jx-lookbook">
+        <div className="jx-section-head">
+          <h2>خطوط محصول</h2>
+          <p>زربد · زردیس · آریا</p>
+        </div>
+        <div className="jx-lookbook__rail">
+          {(
+            [
+              {
+                id: "worked",
+                title: "کارشده",
+                blurb: "زیور آماده فروش — داستان ساخت و نگه‌داری برای مشتری.",
+              },
+              {
+                id: "melted",
+                title: "آب‌شده",
+                blurb: "عیار، وزن و اسکرپ — زبان دقیق خرید و تبدیل.",
+              },
+              {
+                id: "zarbed",
+                title: "شمش زربد",
+                blurb: "میله‌های آموزشی ۲۴ عیار با وزن‌های استاندارد.",
+              },
+              {
+                id: "zardis",
+                title: "پلاک زردیس",
+                blurb: "پلاک‌های نمادین برای تمرین روایت و هدیه.",
+              },
+            ] as const
+          ).map((row) => (
+            <Pressable
+              key={row.id}
+              className="jx-lookbook__card tap-react"
+              feedback={{ label: row.title, tone: "ok" }}
+              onPress={() => setFilter(row.id)}
+            >
+              <p className="jx-lookbook__code">{row.id.toUpperCase()}</p>
+              <h3>{row.title}</h3>
+              <p>{row.blurb}</p>
+            </Pressable>
+          ))}
+        </div>
+      </section>
+
+      <section className="jx-editorial">
+        <p className="jx-eyebrow">Boutique Training</p>
+        <h2>هر قطعه یک درس فروش</h2>
+        <p>
+          ویترین محصول همان زبان بصری آموزش است — لمس کنید، سبک را بشناسید، سپس
+          محاسبه و سناریو را تمرین کنید.
+        </p>
+        <Link href="/employee/learn" className="jx-cta tap-react">
+          رفتن به آکادمی آموزش
+        </Link>
       </section>
     </div>
   );
