@@ -12,6 +12,7 @@ import { FormulaStudio } from "@/components/training/FormulaStudio";
 import { PedagogyJourney } from "@/components/training/PedagogyJourney";
 import { VisualAtelierCanon } from "@/components/training/VisualAtelierCanon";
 import { CareerPathfinder } from "@/components/career/CareerPathfinder";
+import { ArsenalWorkbench } from "@/components/atelier/ArsenalWorkbench";
 import { Badge } from "@/components/ui/Feedback";
 import {
   formatJalaliDate,
@@ -101,6 +102,8 @@ export default function EmployeeHomePage() {
         <VisualAtelierCanon />
 
         <CareerPathfinder compact />
+
+        <ArsenalWorkbench compact />
 
         <Link
           href="/employee/products"

@@ -252,6 +252,9 @@ export function AcademyShowcase({
         <Link href="/employee/career" className="jx-cta tap-react">
           کشف مسیر نقش عمیق
         </Link>
+        <Link href="/employee/arsenal" className="jx-cta jx-cta--ghost tap-react" style={{ marginTop: "0.55rem" }}>
+          Arsenal — ذوب · محک · UV دلار · سکه
+        </Link>
         <Link href="/employee/studio" className="jx-cta jx-cta--ghost tap-react" style={{ marginTop: "0.55rem" }}>
           استودیو ۳D — مهارت لمسی
         </Link>

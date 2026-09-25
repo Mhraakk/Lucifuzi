@@ -6,6 +6,7 @@ import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge, ProgressRing } from "@/components/ui/Feedback";
 import { sculptureSrc, sculptureWork } from "@/lib/atelier/sculptures";
 import { CareerPathfinder } from "@/components/career/CareerPathfinder";
+import { ArsenalWorkbench } from "@/components/atelier/ArsenalWorkbench";
 import { toPersianDigits } from "@/lib/format";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
 import {
@@ -43,6 +44,8 @@ export default function SkillsPage() {
         </section>
 
         <CareerPathfinder compact />
+
+        <ArsenalWorkbench compact />
 
         <StandardsChart compact />
 

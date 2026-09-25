@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { AtelierProductStrip } from "@/components/training/AtelierWall";
 import { FormulaStudio } from "@/components/training/FormulaStudio";
 import { TopicVisual } from "@/components/training/TopicVisual";
+import { ArsenalWorkbench } from "@/components/atelier/ArsenalWorkbench";
 import { Badge } from "@/components/ui/Feedback";
 import { sculptureSrc, sculptureWork } from "@/lib/atelier/sculptures";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
@@ -34,6 +35,15 @@ export default function PracticePage() {
         </section>
 
         <FormulaStudio />
+
+        <ArsenalWorkbench compact />
+
+        <Link
+          href="/employee/arsenal"
+          className="btn btn-secondary tap-react w-full"
+        >
+          Arsenal کامل: ذوب · محک · UV دلار · سکه
+        </Link>
 
         <Link
           href="/employee/formula"

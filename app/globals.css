@@ -4156,3 +4156,99 @@ button {
     transparent 100%
   );
 }
+
+/* —— Atelier arsenal (tools & materials) —— */
+.arsenal-meta {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+}
+
+.arsenal-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.arsenal-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: right;
+  padding: 0.65rem 0.7rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.arsenal-tab strong {
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.arsenal-tab em {
+  font-style: normal;
+  font-size: 0.65rem;
+  color: var(--ink-muted);
+  line-height: 1.4;
+}
+
+.arsenal-tab.is-on {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.arsenal-hero {
+  border-right-width: 3px;
+  border-right-style: solid;
+}
+
+.arsenal-card__n {
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--bg-soft);
+  color: var(--ink-muted);
+}
+
+.arsenal-card__caution {
+  color: #8a4b2a;
+}
+
+.arsenal-mats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.arsenal-mat {
+  font-size: 0.65rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  color: var(--ink-muted);
+}
+
+.arsenal-flow__steps {
+  margin: 0;
+  padding-inline-start: 1.15rem;
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+[data-theme="dark"] .arsenal-card__caution {
+  color: #e0a070;
+}
+
+[data-theme="dark"] .arsenal-tab {
+  background: rgba(22, 20, 18, 0.92);
+}
