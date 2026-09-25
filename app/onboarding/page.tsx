@@ -59,7 +59,7 @@ export default function OnboardingPage() {
       style={{ background: "var(--bg)", color: "var(--ink)" }}
     >
       <div className="mx-auto max-w-md space-y-5 animate-in">
-        <p className="text-xs faint">گالری طلای آریا · دوره عمیق مهارتی</p>
+        <p className="text-xs faint">Beatris · دوره عمیق مهارتی</p>
         <h1 className="page-title">کدام نقش مال شماست؟</h1>
         <p className="muted text-sm leading-7">
           تئوری، استدلال، عملی، طراحی ۳D و آزمون آن‌قدر عمیق‌اند که در پایان

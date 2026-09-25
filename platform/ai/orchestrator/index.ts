@@ -106,7 +106,7 @@ export async function orchestrateAsk(
       {
         role: "system",
         content:
-          "دستیار شیفت آریا. فقط از شواهد ابزار/RAG بگو. مجوز کار نده. فارسی کوتاه.",
+          "دستیار Beatris. فقط از شواهد ابزار/RAG بگو. مجوز کار نده. فارسی کوتاه.",
       },
       {
         role: "user",

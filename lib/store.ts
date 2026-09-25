@@ -45,6 +45,7 @@ import type {
   RecommendationReason,
   TrainingRecommendation,
   TrainingScenario,
+  User,
   WorkAuthorization,
 } from "./types";
 import type { ScenarioCoachResult } from "./ai/scenarioCoach";
@@ -192,6 +193,82 @@ export function setCurrentUser(userId: string): void {
   if (!user) throw new Error("کاربر یافت نشد");
   const draft = cloneState(state);
   draft.currentUserId = userId;
+  const u = draft.users.find((x) => x.id === userId);
+  if (u) u.lastLoginAt = new Date().toISOString();
+  commit(draft);
+}
+
+/** Register or update a user from email OTP — one email = one user. */
+export function ensureAuthUser(input: {
+  id: string;
+  email: string;
+  fullName: string;
+  systemRole?: User["systemRole"];
+  branchId?: string;
+  organizationId?: string;
+  avatarInitials?: string;
+}): User {
+  const email = input.email.trim().toLowerCase();
+  const draft = cloneState(state);
+  const byEmail = draft.users.find((u) => u.email.toLowerCase() === email);
+  const byId = draft.users.find((u) => u.id === input.id);
+  const existing = byEmail ?? byId;
+  if (existing) {
+    existing.email = email;
+    existing.fullName = input.fullName || existing.fullName;
+    existing.lastLoginAt = new Date().toISOString();
+    existing.isActive = true;
+    draft.currentUserId = existing.id;
+    commit(draft);
+    return existing;
+  }
+  const role = input.systemRole ?? "employee";
+  const user: User = {
+    id: input.id,
+    organizationId: input.organizationId ?? draft.organization.id,
+    branchId: input.branchId ?? draft.branches[0]?.id ?? "branch_central",
+    email,
+    phone: "",
+    fullName: input.fullName,
+    role,
+    systemRole: role,
+    avatarInitials:
+      input.avatarInitials ||
+      input.fullName
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((p) => p[0] ?? "")
+        .join("") ||
+      "B",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    lastLoginAt: new Date().toISOString(),
+  };
+  draft.users.push(user);
+  if (role === "employee") {
+    const hasProfile = draft.employeeProfiles.some((p) => p.userId === user.id);
+    if (!hasProfile) {
+      draft.employeeProfiles.push({
+        id: `ep_${user.id}`,
+        userId: user.id,
+        organizationId: user.organizationId,
+        branchId: user.branchId,
+        jobRole: "sales_associate",
+        hireDate: new Date().toISOString().slice(0, 10),
+        knowledgeLevel: 0,
+        practicalStatus: "not_evaluated",
+        workAuthorization: "none",
+      });
+    }
+  }
+  draft.currentUserId = user.id;
+  commit(draft);
+  return user;
+}
+
+export function logoutUser(): void {
+  const draft = cloneState(state);
+  // Keep last known user id for demo continuity, but session gate clears auth.
   commit(draft);
 }
 

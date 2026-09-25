@@ -104,7 +104,7 @@ export function PedagogyJourney() {
         <h2 className="page-title !text-xl mb-2">US · CH · EU در عمل</h2>
         <p className="muted text-sm leading-7 mb-4">
           تئوری و عملی تنها منبع آموزش‌اند؛ اصول منطقه‌ای را لمس کنید تا با فیلتر
-          بصری آریا گره بخورند.
+          بصری گره بخورند.
         </p>
       </MotionEnter>
 

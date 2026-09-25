@@ -1,6 +1,5 @@
 /**
- * Light session auth — email + PIN against seeded users.
- * Replaces persona-only picker for operational flows.
+ * Beatris auth — one email = one user; OTP login; session persisted in app memory.
  */
 
 import type { User } from "@/lib/types";
@@ -12,24 +11,20 @@ export type SessionPayload = {
   expiresAt: number;
 };
 
-const SESSION_KEY = "arya-auth-session-v1";
-const SESSION_DAYS = 14;
-
-/** Demo PINs — production would hash server-side */
-export const DEMO_PINS: Record<string, string> = {
-  "owner@arya-gold.ir": "1234",
-  "manager.central@arya-gold.ir": "1234",
-  "manager.second@arya-gold.ir": "1234",
-  "trainer@arya-gold.ir": "1234",
-  "nima.salehi@arya-gold.ir": "1234",
-  "zahra.hosseini@arya-gold.ir": "1234",
-  "ali.rezaei@arya-gold.ir": "1234",
-  "maryam.kazemi@arya-gold.ir": "1234",
-  "hossein.najafi@arya-gold.ir": "1234",
-  "fatemeh.moradi@arya-gold.ir": "1234",
-  "amir.bagheri@arya-gold.ir": "1234",
-  "leila.jamshidi@arya-gold.ir": "1234",
+export type MailMessage = {
+  id: string;
+  to: string;
+  subject: string;
+  body: string;
+  code: string;
+  createdAt: string;
+  read: boolean;
 };
+
+const SESSION_KEY = "beatris-auth-session-v1";
+const MAIL_KEY = "beatris-mailbox-v1";
+const USERS_KEY = "beatris-users-registry-v1";
+const SESSION_DAYS = 30;
 
 function encode(payload: SessionPayload): string {
   if (typeof btoa === "function") {
@@ -53,16 +48,11 @@ function decode(token: string): SessionPayload | null {
   }
 }
 
-export function verifyPin(email: string, pin: string): boolean {
-  const expected = DEMO_PINS[email.trim().toLowerCase()];
-  return Boolean(expected && expected === pin.trim());
-}
-
-export function createSession(user: User): string {
+export function createSession(user: Pick<User, "id" | "email">): string {
   const now = Date.now();
   return encode({
     userId: user.id,
-    email: user.email,
+    email: user.email.trim().toLowerCase(),
     issuedAt: now,
     expiresAt: now + SESSION_DAYS * 24 * 60 * 60 * 1000,
   });
@@ -98,4 +88,96 @@ export function getSessionToken(): string | null {
 export function parseSessionToken(token: string | null): SessionPayload | null {
   if (!token) return null;
   return decode(token);
+}
+
+/** @deprecated PIN auth removed — OTP only */
+export function verifyPin(_email: string, _pin: string): boolean {
+  return false;
+}
+
+export const DEMO_PINS: Record<string, string> = {};
+
+/* —— In-app mailbox (persisted) — user opens /mail to read OTP —— */
+
+export function loadMailbox(): MailMessage[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(MAIL_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as MailMessage[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveMailbox(messages: MailMessage[]): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(MAIL_KEY, JSON.stringify(messages));
+}
+
+export function pushMailMessage(msg: Omit<MailMessage, "id" | "read" | "createdAt"> & Partial<Pick<MailMessage, "id" | "createdAt">>): MailMessage {
+  const full: MailMessage = {
+    id: msg.id ?? `mail_${Date.now().toString(36)}`,
+    to: msg.to.trim().toLowerCase(),
+    subject: msg.subject,
+    body: msg.body,
+    code: msg.code,
+    createdAt: msg.createdAt ?? new Date().toISOString(),
+    read: false,
+  };
+  const box = loadMailbox();
+  box.unshift(full);
+  saveMailbox(box.slice(0, 100));
+  return full;
+}
+
+export function markMailRead(id: string): void {
+  const box = loadMailbox().map((m) =>
+    m.id === id ? { ...m, read: true } : m
+  );
+  saveMailbox(box);
+}
+
+export function mailsForEmail(email: string): MailMessage[] {
+  const e = email.trim().toLowerCase();
+  return loadMailbox().filter((m) => m.to === e);
+}
+
+/* —— Email → userId registry (persisted; one email = one user) —— */
+
+export type RegisteredUser = {
+  userId: string;
+  email: string;
+  fullName: string;
+  createdAt: string;
+};
+
+export function loadUserRegistry(): RegisteredUser[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(USERS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as RegisteredUser[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveUserRegistry(rows: RegisteredUser[]): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(USERS_KEY, JSON.stringify(rows));
+}
+
+export function upsertRegisteredUser(row: RegisteredUser): void {
+  const rows = loadUserRegistry().filter(
+    (r) => r.email !== row.email && r.userId !== row.userId
+  );
+  rows.push(row);
+  saveUserRegistry(rows);
+}
+
+export function findRegisteredByEmail(email: string): RegisteredUser | undefined {
+  return loadUserRegistry().find(
+    (r) => r.email === email.trim().toLowerCase()
+  );
 }

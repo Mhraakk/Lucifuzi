@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 import { useAppState, useCurrentUser, useUnreadCount } from "@/lib/hooks";
 import { isManagerLike } from "@/lib/permissions";
-import { setTheme } from "@/lib/store";
+import { setTheme, logoutUser } from "@/lib/store";
 import { AmbientBackdrop } from "@/components/layout/AmbientBackdrop";
 import { sculptureSlotFromPath } from "@/lib/atelier/sculptures";
+import { clearSession, readSession } from "@/lib/auth/session";
 
 const employeeNav = [
   { href: "/employee/home", label: "خانه", icon: "home" },
@@ -125,9 +127,24 @@ export function AppShell({
   const user = useCurrentUser();
   const state = useAppState();
   const pathname = usePathname();
+  const router = useRouter();
   const unread = useUnreadCount();
   const manager = isManagerLike(user.systemRole);
   const nav = manager ? managerNav : employeeNav;
+
+  useEffect(() => {
+    const session = readSession();
+    if (!session) {
+      router.replace("/login");
+    }
+  }, [router, pathname]);
+
+  function handleLogout() {
+    clearSession();
+    logoutUser();
+    void fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    router.replace("/login");
+  }
 
   return (
     <div
@@ -166,13 +183,13 @@ export function AppShell({
                   className="text-[11px] faint tracking-[0.08em] font-semibold"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
-                  گالری طلای آریا
+                  Beatris
                 </p>
                 <p
                   className="truncate text-[1.05rem] font-extrabold leading-6"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
-                  {title ?? "آریا آموزش"}
+                  {title ?? "Beatris"}
                 </p>
               </Link>
             )}
@@ -182,6 +199,14 @@ export function AppShell({
           </div>
           <div className="flex items-center gap-2">
             {actions}
+            <button
+              type="button"
+              className="btn btn-ghost tap-react !min-h-11 !px-2.5 text-xs"
+              onClick={handleLogout}
+              aria-label="خروج"
+            >
+              خروج
+            </button>
             <button
               type="button"
               className="btn btn-ghost tap-react !min-h-11 !w-11 !px-0"

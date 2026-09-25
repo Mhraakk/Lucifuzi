@@ -40,8 +40,8 @@ const MONTH_AGO = "2025-08-20T08:00:00.000Z";
 
 export const organization: Organization = {
   id: ORG_ID,
-  name: "گالری طلای آریا",
-  nameEn: "Arya Gold Gallery",
+  name: "گالری طلای Beatris",
+  nameEn: "Beatris Gold Gallery",
   createdAt: "2023-03-15T10:00:00.000Z",
   settings: {
     defaultPassingScore: 70,
@@ -354,10 +354,10 @@ export const courses: Course[] = [
     id: "course_01",
     organizationId: ORG_ID,
     title: "استاندارد ورود به گالری لوکس",
-    academy: "آکادمی آریا · US · CH · EU",
+    academy: "Beatris · US · CH · EU",
     version: 3,
     description:
-      "دامنه ARYA-ONB: Floor Walk و Dual Control (الگوی JA / آمریکا) + Dress & Demeanor سطح quiet luxury سوئیسی — قبل از هر تماس با ویترین.",
+      "دامنه BEATRIS-ONB: Floor Walk و Dual Control (الگوی JA / آمریکا) + Dress & Demeanor سطح quiet luxury سوئیسی — قبل از هر تماس با ویترین.",
     category: "آشنایی",
     estimatedMinutes: 90,
     difficulty: "beginner",
@@ -383,7 +383,7 @@ export const courses: Course[] = [
     id: "course_02",
     organizationId: ORG_ID,
     title: "سواد محصول جواهر و طلا",
-    academy: "آکادمی آریا · GIA · CIBJO · Swiss Mark",
+    academy: "Beatris · GIA · CIBJO · Swiss Mark",
     version: 3,
     description:
       "دامنه ARYA-PRD: سواد محصول به سبک GIA، نام‌گذاری CIBJO Precious Metals، دقت نشانه‌گذاری سوئیسی، و افشاگری صادقانه الگوی FTC — بدون ادعای غیرمستند.",
@@ -408,7 +408,7 @@ export const courses: Course[] = [
     id: "course_03",
     organizationId: ORG_ID,
     title: "شفافیت قیمت و محاسبه حرفه‌ای",
-    academy: "آکادمی آریا · EU Transparency · FTC",
+    academy: "Beatris · EU Transparency · FTC",
     version: 3,
     description:
       "دامنه ARYA-PRC: شفافیت قیمت مصرف‌کننده اروپا + افشاگری صادقانه آمریکایی — فلز، اجرت، سود، مالیات؛ رقم دقیق، توضیح آرام؛ دروازه مجوز کار پس از ارزیابی عملی.",
@@ -433,7 +433,7 @@ export const courses: Course[] = [
     id: "course_04",
     organizationId: ORG_ID,
     title: "فروش مشورتی (Consultative Selling)",
-    academy: "آکادمی آریا · JA · Quiet Luxury",
+    academy: "Beatris · JA · Quiet Luxury",
     version: 3,
     description:
       "دامنه ARYA-SAL: Consultative Selling به سبک Jewelers of America و مهمان‌نوازی آرام سوئیسی — حداکثر دو گزینه، بدون فشار.",
@@ -452,7 +452,7 @@ export const courses: Course[] = [
     id: "course_05",
     organizationId: ORG_ID,
     title: "تجربه مشتری و مهمان‌نوازی گالری",
-    academy: "آکادمی آریا · CH Quiet Luxury · EU",
+    academy: "Beatris · CH Quiet Luxury · EU",
     version: 3,
     description:
       "مهمان‌نوازی آرام سوئیسی و احترام به حریم خصوصی اروپایی: خوشامد، خرید هدیه خصوصی، مدیریت نارضایتی بدون نمایش عمومی.",
@@ -476,7 +476,7 @@ export const courses: Course[] = [
     id: "course_06",
     organizationId: ORG_ID,
     title: "امنیت عملیاتی شعبه",
-    academy: "آکادمی آریا · Dual Control US · EU",
+    academy: "Beatris · Dual Control US · EU",
     version: 3,
     description:
       "دامنه ARYA-SEC: کنترل دوگانه آمریکایی و انضباط گالری اروپایی — باز/بسته دو نفره، ویترین قفل‌دار، واکنش اضطراری؛ دروازه مجوز کار.",
@@ -501,7 +501,7 @@ export const courses: Course[] = [
     id: "course_07",
     organizationId: ORG_ID,
     title: "امانت کالا و کنترل موجودی",
-    academy: "آکادمی آریا · JA Custody",
+    academy: "Beatris · JA Custody",
     version: 3,
     description:
       "دامنه ARYA-OPS: زنجیره امانت به سبک رویه فروشگاهی آمریکا — کدگذاری، تحویل شیفت، شمارش دوره‌ای، مغایرت‌گیری.",
@@ -520,7 +520,7 @@ export const courses: Course[] = [
     id: "course_08",
     organizationId: ORG_ID,
     title: "پذیرش تعمیرات و زنجیره ردیابی",
-    academy: "آکادمی آریا · Swiss Service Trace",
+    academy: "Beatris · Swiss Service Trace",
     version: 3,
     description:
       "دامنه ARYA-SVC: اسناد خدمات سطح سوئیس — ثبت قطعه، تخمین شفاف، رسید رسمی، تحویل هویت‌سنجی‌شده.",
@@ -539,7 +539,7 @@ export const courses: Course[] = [
     id: "course_09",
     organizationId: ORG_ID,
     title: "Clienteling و باشگاه مشتریان",
-    academy: "آکادمی آریا · EU Privacy · Clienteling",
+    academy: "Beatris · EU Privacy · Clienteling",
     version: 3,
     description:
       "Clienteling با حریم خصوصی اروپایی: ثبت سلیقه/مناسبت محرمانه، یادآوری محترمانه، پیشنهاد غیرتهاجمی.",
@@ -563,7 +563,7 @@ export const courses: Course[] = [
     id: "course_10",
     organizationId: ORG_ID,
     title: "پیشگیری از تقلب و ریسک عملیاتی",
-    academy: "آکادمی آریا · CIBJO · RJC · US LP",
+    academy: "Beatris · CIBJO · RJC · US LP",
     version: 3,
     description:
       "دامنه ARYA-INT: اخلاق CIBJO/RJC + پیشگیری تقلب فروشگاهی آمریکایی — گزارش سریع بدون توهین؛ دروازه مجوز کار.",
@@ -690,7 +690,7 @@ export const courseModules: CourseModule[] = [
     id: "mod_09_1",
     courseId: "course_09",
     title: "ثبت و پیگیری مشتری",
-    description: "باشگاه مشتریان آریا",
+    description: "باشگاه مشتریان",
     sortOrder: 1,
     order: 1,
     lessonIds: ["les_09_1_1"],
@@ -855,8 +855,8 @@ export const lessons: Lesson[] = [
     id: "les_09_1_1",
     moduleId: "mod_09_1",
     courseId: "course_09",
-    title: "ثبت مشتری در باشگاه آریا",
-    summary: "ثبت مشتری در باشگاه آریا",
+    title: "ثبت مشتری در باشگاه",
+    summary: "ثبت مشتری در باشگاه",
     estimatedMinutes: 25,
     sortOrder: 1,
     hasQuiz: true,
@@ -885,7 +885,7 @@ export const lessonContents: LessonContent[] = [
         id: "b1",
         type: "text",
         title: "استاندارد ورود — US Dual Control · CH Quiet Luxury",
-        body: "در گالری‌های معتبر آمریکا (الگوی Dual Control / JA) و بوتیک‌های سوئیسی، روز اول با Floor Walk امنیتی و عملیاتی آغاز می‌شود نه فروش. دامنه ARYA-ONB در آریا همین اصل را اجرا می‌کند: مناطق شعبه، مسیر اضطراری، قوانین لمس ویترین. شعبه مرکزی ولیعصر و شعبه بازار بزرگ هر دو با کنترل دوگانه گاوصندوق روز را شروع می‌کنند.",
+        body: "در گالری‌های معتبر آمریکا (الگوی Dual Control / JA) و بوتیک‌های سوئیسی، روز اول با Floor Walk امنیتی و عملیاتی آغاز می‌شود نه فروش. دامنه BEATRIS-ONB در Beatris همین اصل را اجرا می‌کند: مناطق شعبه، مسیر اضطراری، قوانین لمس ویترین. شعبه مرکزی ولیعصر و شعبه بازار بزرگ هر دو با کنترل دوگانه گاوصندوق روز را شروع می‌کنند.",
       },
       {
         id: "b2",
@@ -986,7 +986,7 @@ export const lessonContents: LessonContent[] = [
       {
         id: "b2",
         type: "formula",
-        title: "فرمول عملیاتی آریا (ریال)",
+        title: "فرمول عملیاتی (ریال)",
         body: "نهایی = ارزش‌فلز + اجرت + سود + مالیات + ثابت\nارزش‌فلز = وزن × قیمت‌هرگرم‌عیار\nاجرت = ارزش‌فلز × درصداجرت\nسود = ارزش‌فلز × درصدرسود\nمالیات = (ارزش‌فلز + اجرت + سود) × درصدمالیات",
       },
       {
@@ -1049,7 +1049,7 @@ export const lessonContents: LessonContent[] = [
         id: "b1",
         type: "text",
         title: "فروش مشورتی — نه فشار",
-        body: "در جواهرسازان معتبر آمریکا و اروپا، فروش «مشاوره‌ای» است: مناسبت، بودجه، و سلیقه اول است؛ سپس حداکثر دو گزینه مرتبط. فشار برای خرید همان روز خلاف استاندارد آریا و معیار رد صلاحیت عملی است.",
+        body: "در جواهرسازان معتبر آمریکا و اروپا، فروش «مشاوره‌ای» است: مناسبت، بودجه، و سلیقه اول است؛ سپس حداکثر دو گزینه مرتبط. فشار برای خرید همان روز خلاف استاندارد Beatris و معیار رد صلاحیت عملی است.",
       },
       {
         id: "b2",
@@ -2374,7 +2374,7 @@ export const notifications: Notification[] = [
 export const pricingFormulaConfig: PricingFormulaConfig = {
   id: "price_cfg_1",
   organizationId: ORG_ID,
-  name: "فرمول استاندارد گالری آریا",
+  name: "فرمول استاندارد Beatris",
   goldPricePerGram18k: 35_000_000,
   makingFeePercent: 12,
   profitPercent: 7,

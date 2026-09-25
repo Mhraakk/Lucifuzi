@@ -191,7 +191,7 @@ export function AcademyShowcase({
                   <span className="jx-card__chip">
                     {regions.length
                       ? regions.map((r) => REGION_LABELS[r].fa).join(" · ")
-                      : c.academy || "آریا"}
+                      : c.academy || "Beatris"}
                   </span>
                   {progress > 0 ? (
                     <span className="jx-card__progress">

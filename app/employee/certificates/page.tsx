@@ -25,7 +25,7 @@ export default function CertificatesPage() {
         ) : (
           certs.map((c) => (
             <div key={c.id} className="surface p-5">
-              <p className="text-xs faint mb-1">گالری طلای آریا</p>
+              <p className="text-xs faint mb-1">Beatris</p>
               <h2 className="font-bold text-lg mb-2">{c.title}</h2>
               <p className="muted text-sm">
                 {user.fullName} · نمره آزمون {toPersianDigits(c.knowledgeScore)}٪

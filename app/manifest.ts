@@ -2,10 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "آریا آموزش",
-    short_name: "آریا آموزش",
-    description:
-      "سامانه آموزش عملیاتی کارکنان طلافروشی — گالری طلای آریا",
+    name: "Beatris",
+    short_name: "Beatris",
+    description: "آتلیه آموزش جواهر",
     start_url: "/login/",
     scope: "/",
     display: "standalone",

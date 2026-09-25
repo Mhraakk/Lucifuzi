@@ -2,16 +2,23 @@
 
 import { useRouter } from "next/navigation";
 import { useAppState } from "@/lib/hooks";
-import { setCurrentUser } from "@/lib/store";
 import { sculptureSrc } from "@/lib/atelier/sculptures";
 import { useEffect } from "react";
+import { readSession } from "@/lib/auth/session";
 
 export default function HomeRedirect() {
   const state = useAppState();
   const router = useRouter();
 
   useEffect(() => {
-    const user = state.users.find((u) => u.id === state.currentUserId);
+    const session = readSession();
+    if (!session) {
+      router.replace("/login");
+      return;
+    }
+    const user =
+      state.users.find((u) => u.id === session.userId) ??
+      state.users.find((u) => u.id === state.currentUserId);
     if (!user) {
       router.replace("/login");
       return;
@@ -31,16 +38,9 @@ export default function HomeRedirect() {
         <div className="login-atelier__veil" />
       </div>
       <div className="relative z-[1] login-hero-card mx-6 text-center">
-        <p className="brand-mark mb-2 !text-3xl">آریا</p>
-        <p className="muted text-sm">در حال باز کردن آتلیه آموزش...</p>
+        <p className="brand-mark mb-2 !text-3xl">Beatris</p>
+        <p className="muted text-sm">…</p>
       </div>
-      <button
-        type="button"
-        className="sr-only"
-        onClick={() => setCurrentUser("user_emp_leila")}
-      >
-        demo
-      </button>
     </div>
   );
 }

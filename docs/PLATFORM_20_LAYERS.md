@@ -1,6 +1,6 @@
 # Arya Platform — 20-Layer Skeleton
 
-Runnable architecture for گالری طلای آریا: training ops + gold market/finance + AI.
+Runnable architecture for Beatris: training ops + gold market/finance + AI.
 
 | # | Layer | Path |
 |---|-------|------|

@@ -13,7 +13,7 @@ export default function ManagerTrainingPage() {
       <div className="mx-auto max-w-app space-y-5">
         <h1 className="page-title">کتابخانه آموزش</h1>
         <p className="muted text-sm leading-7">
-          چارت آموزشی آریا با اطلس شایستگی آمریکا · سوئیس · اروپا هم‌راستاست.
+          چارت آموزشی با اطلس شایستگی آمریکا · سوئیس · اروپا هم‌راستاست.
           دانش آزمون مجوز کار نیست — فقط ارزیابی عملی مشاهده‌شده.
         </p>
 

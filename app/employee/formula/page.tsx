@@ -12,7 +12,7 @@ export default function FormulaLabPage() {
           <h1 className="page-title !text-xl mb-2">کارگاه فرمول طلافروشی</h1>
           <p className="text-sm leading-7 muted">
             صفر تا صد محاسبه قیمت: وزن، عیار، ارزش فلز، اجرت، سود، مالیات. هر لمس
-            خروجی زنده می‌دهد — همان فرمول عملیاتی شعبه آریا.
+            خروجی زنده می‌دهد — همان فرمول عملیاتی شعبه.
           </p>
         </header>
         <FormulaStudio />

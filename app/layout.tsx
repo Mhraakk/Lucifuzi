@@ -4,14 +4,13 @@ import { ThemeBoot } from "@/components/layout/ThemeBoot";
 import { PwaRegister } from "@/components/layout/PwaRegister";
 
 export const metadata: Metadata = {
-  title: "آریا آموزش | سامانه آموزش عملیاتی طلافروشی",
-  description:
-    "پلتفرم آموزش کارکنان فروشگاه‌های طلا و جواهر — شایستگی، SOP، شبیه‌سازی و ارزیابی عملی",
-  applicationName: "آریا آموزش",
+  title: "Beatris",
+  description: "آتلیه آموزش جواهر",
+  applicationName: "Beatris",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "آریا آموزش",
+    title: "Beatris",
   },
   formatDetection: { telephone: false },
   icons: {
@@ -45,7 +44,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=El+Messiri:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
         <link rel="manifest" href="/manifest.webmanifest" />

@@ -131,7 +131,7 @@ export function AtelierProductHero({
         loading="eager"
       />
       <div className="atelier-product-hero__panel">
-        <p className="atelier-kicker">گالری طلای آریا · آتلیه چشم</p>
+        <p className="atelier-kicker">Beatris · آتلیه چشم</p>
         <h2 className="atelier-title">{title}</h2>
         <p className="atelier-marble-credit">
           {work.artist} · {work.title}

@@ -77,7 +77,7 @@ export function VisualAtelierCanon() {
         </div>
       </div>
 
-      <p className="section-title mb-3 mt-5">پنج قوهٔ بصری آریا</p>
+      <p className="section-title mb-3 mt-5">پنج قوهٔ بصری</p>
       <div className="visual-canon__faculties">
         {VISUAL_FACULTIES.map((f, i) => (
           <Pressable

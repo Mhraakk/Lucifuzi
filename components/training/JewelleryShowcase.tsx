@@ -79,7 +79,7 @@ export function JewelleryShowcase({
           <div className="jx-hero__wash" aria-hidden />
         </div>
         <div className="jx-hero__copy">
-          <p className="jx-eyebrow">Boutique · گالری طلای آریا</p>
+          <p className="jx-eyebrow">Boutique · Beatris</p>
           <h1 className="jx-hero__title">ویترین محصول</h1>
           <p className="jx-hero__lede">
             کارشده، آب‌شده، شمش زربد و پلاک زردیس — مدل، سبک و سیاق واقعی برای
@@ -101,7 +101,7 @@ export function JewelleryShowcase({
 
       <div className="jx-promo">
         <p className="jx-promo__kicker">Training Catalog</p>
-        <p className="jx-promo__title">زربد · زردیس · آریا</p>
+        <p className="jx-promo__title">Beatris</p>
         <p className="jx-promo__meta">
           هر قطعه یک درس فروش است — لمس کنید و یاد بگیرید
         </p>
@@ -149,7 +149,7 @@ export function JewelleryShowcase({
           <span>پلاک‌های نمادین</span>
         </div>
         <div className="jx-brand-pill">
-          <strong>آریا</strong>
+          <strong>Beatris</strong>
           <span>زیور کارشده گالری</span>
         </div>
       </div>
@@ -173,7 +173,7 @@ export function JewelleryShowcase({
       <section className="jx-lookbook">
         <div className="jx-section-head">
           <h2>خطوط محصول</h2>
-          <p>زربد · زردیس · آریا</p>
+          <p>Beatris</p>
         </div>
         <div className="jx-lookbook__rail">
           {(

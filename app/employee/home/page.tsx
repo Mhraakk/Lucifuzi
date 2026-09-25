@@ -275,7 +275,7 @@ export default function EmployeeHomePage() {
         </div>
 
         <Link href="/employee/assistant" className="btn btn-secondary w-full">
-          دستیار آموزشی آریا
+          دستیار Beatris
         </Link>
         <p className="faint text-center text-xs">
           مدت تخمینی مسیر فعلی:{" "}

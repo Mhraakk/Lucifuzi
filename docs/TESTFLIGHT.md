@@ -1,4 +1,4 @@
-# آریا آموزش — راهنمای TestFlight
+# Beatris — راهنمای TestFlight
 
 این پروژه یک اپ **وب Next.js** است که با **Capacitor** داخل پوستهٔ iOS قرار می‌گیرد تا بتوانید آن را در TestFlight نصب کنید.
 
@@ -32,7 +32,7 @@ npm run cap:open        # باز شدن پروژه در Xcode
 ## در App Store Connect
 
 1. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → My Apps → **+**  
-2. نام: آریا آموزش · Bundle ID همان بالا  
+2. نام: Beatris · Bundle ID همان بالا  
 3. بعد از پردازش بیلد (۵–۳۰ دقیقه): **TestFlight** → Internal Testing  
 4. خودتان و تسترها را اضافه کنید؛ روی آیفون اپ **TestFlight** را باز کنید و نصب کنید
 

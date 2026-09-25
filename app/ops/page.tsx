@@ -111,7 +111,7 @@ export default function OpsConsolePage() {
     <AppShell title="Ops Platform" backHref="/manager/dashboard">
       <div className="mx-auto max-w-desk space-y-5">
         <section>
-          <h1 className="page-title mb-2">اسکلت ۲۰ لایه آریا</h1>
+          <h1 className="page-title mb-2">اسکلت ۲۰ لایه Beatris</h1>
           <p className="muted text-sm leading-7">
             Spec → BFF → Auth → Finance → Market → Quant → Events → AI → Storage →
             CI. نسخه {health?.version ?? "…"} · storage:{" "}
