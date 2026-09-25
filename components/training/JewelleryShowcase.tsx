@@ -215,8 +215,8 @@ export function JewelleryShowcase({
           ویترین محصول همان زبان بصری آموزش است — لمس کنید، سبک را بشناسید، سپس
           محاسبه و سناریو را تمرین کنید.
         </p>
-        <Link href="/employee/learn" className="jx-cta tap-react">
-          رفتن به آکادمی آموزش
+        <Link href="/employee/studio" className="jx-cta tap-react">
+          ساخت ایده در استودیو ۳D
         </Link>
       </section>
     </div>

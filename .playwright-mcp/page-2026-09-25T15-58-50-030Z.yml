@@ -1,0 +1,207 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - banner [ref=f2e3]:
+      - generic [ref=f2e4]:
+        - link [ref=f2e6] [cursor=pointer]:
+          - /url: /employee/home
+          - paragraph [ref=f2e7]: گالری طلای آریا
+          - paragraph [ref=f2e8]: محصولات
+        - generic [ref=f2e9]:
+          - button "حالت تاریک" [ref=f2e10] [cursor=pointer]
+          - link "اعلان‌ها" [ref=f2e13] [cursor=pointer]:
+            - /url: /employee/profile
+            - generic [ref=f2e17]: "1"
+    - main [ref=f2e18]:
+      - generic [ref=f2e20]:
+        - generic [ref=f2e21]:
+          - img "زنجیر ونیزی ۱۸ عیار" [ref=f2e23]
+          - generic [ref=f2e25]:
+            - paragraph [ref=f2e26]: Boutique · گالری طلای آریا
+            - heading "ویترین محصول" [level=1] [ref=f2e27]
+            - paragraph [ref=f2e28]: کارشده، آب‌شده، شمش زربد و پلاک زردیس — مدل، سبک و سیاق واقعی برای یادگیری کارکنان.
+            - generic [ref=f2e29]:
+              - link "مشاهده قطعه شاخص" [ref=f2e30] [cursor=pointer]:
+                - /url: /employee/products/chain-venezia-18
+              - link "آکادمی آموزش" [ref=f2e31] [cursor=pointer]:
+                - /url: /employee/learn
+        - generic [ref=f2e32]:
+          - paragraph [ref=f2e33]: Training Catalog
+          - paragraph [ref=f2e34]: زربد · زردیس · آریا
+          - paragraph [ref=f2e35]: هر قطعه یک درس فروش است — لمس کنید و یاد بگیرید
+        - navigation "دسته‌بندی محصول" [ref=f2e36]:
+          - button "همه" [ref=f2e38] [cursor=pointer]
+          - button "کارشده" [ref=f2e40] [cursor=pointer]
+          - button "آب‌شده" [ref=f2e42] [cursor=pointer]
+          - button "شمش زربد" [ref=f2e44] [cursor=pointer]
+          - button "پلاک زردیس" [ref=f2e46] [cursor=pointer]
+        - link "زنجیر ونیزی ۱۸ عیار گالری آریا زنجیر ونیزی ۱۸ عیار پیوند ظریف · نور یکنواخت روی گردن آموزش این قطعه ←" [ref=f2e47] [cursor=pointer]:
+          - /url: /employee/products/chain-venezia-18
+          - img "زنجیر ونیزی ۱۸ عیار" [ref=f2e49]
+          - generic [ref=f2e50]:
+            - paragraph [ref=f2e51]: گالری آریا
+            - heading "زنجیر ونیزی ۱۸ عیار" [level=2] [ref=f2e52]
+            - paragraph [ref=f2e53]: پیوند ظریف · نور یکنواخت روی گردن
+            - generic [ref=f2e54]: آموزش این قطعه ←
+        - generic [ref=f2e55]:
+          - generic [ref=f2e56] [cursor=pointer]:
+            - strong [ref=f2e57]: زربد
+            - generic [ref=f2e58]: شمش ۲۴ عیار آموزشی
+          - generic [ref=f2e59] [cursor=pointer]:
+            - strong [ref=f2e60]: زردیس
+            - generic [ref=f2e61]: پلاک‌های نمادین
+          - generic [ref=f2e62] [cursor=pointer]:
+            - strong [ref=f2e63]: آریا
+            - generic [ref=f2e64]: زیور کارشده گالری
+        - generic [ref=f2e65]:
+          - generic [ref=f2e66]:
+            - heading "کالکشن آموزش" [level=2] [ref=f2e67]
+            - paragraph [ref=f2e68]: ۱۳ قطعه · لمس برای جزئیات
+          - generic [ref=f2e69]:
+            - link "انگشتر تک‌نگین کلاسیک طلای کارشده گالری آریا انگشتر تک‌نگین کلاسیک ۱۸ عیار · ۳.۲ گرم · عروس" [ref=f2e70] [cursor=pointer]:
+              - /url: /employee/products/ring-solitaire-18
+              - generic [ref=f2e71]:
+                - img "انگشتر تک‌نگین کلاسیک" [ref=f2e72]
+                - generic [ref=f2e73]: طلای کارشده
+              - generic [ref=f2e74]:
+                - paragraph [ref=f2e75]: گالری آریا
+                - heading "انگشتر تک‌نگین کلاسیک" [level=3] [ref=f2e76]
+                - paragraph [ref=f2e77]: ۱۸ عیار · ۳.۲ گرم · عروس
+            - link "دستبند تنیس ظریف طلای کارشده گالری آریا دستبند تنیس ظریف ۱۸ عیار · ۶.۱ گرم · مدرن" [ref=f2e78] [cursor=pointer]:
+              - /url: /employee/products/bracelet-tennis-18
+              - generic [ref=f2e79]:
+                - img "دستبند تنیس ظریف" [ref=f2e80]
+                - generic [ref=f2e81]: طلای کارشده
+              - generic [ref=f2e82]:
+                - paragraph [ref=f2e83]: گالری آریا
+                - heading "دستبند تنیس ظریف" [level=3] [ref=f2e84]
+                - paragraph [ref=f2e85]: ۱۸ عیار · ۶.۱ گرم · مدرن
+            - link "گوشواره حلقه‌ای متوسط طلای کارشده گالری آریا گوشواره حلقه‌ای متوسط ۱۸ عیار · ۴.۵ گرم · هدیه" [ref=f2e86] [cursor=pointer]:
+              - /url: /employee/products/earring-hoop-18
+              - generic [ref=f2e87]:
+                - img "گوشواره حلقه‌ای متوسط" [ref=f2e88]
+                - generic [ref=f2e89]: طلای کارشده
+              - generic [ref=f2e90]:
+                - paragraph [ref=f2e91]: گالری آریا
+                - heading "گوشواره حلقه‌ای متوسط" [level=3] [ref=f2e92]
+                - paragraph [ref=f2e93]: ۱۸ عیار · ۴.۵ گرم · هدیه
+            - link "سرویس عروس ۲۱ عیار طلای کارشده گالری آریا سرویس عروس ۲۱ عیار ۲۱ عیار · ۴۲.۰ گرم · عروس" [ref=f2e94] [cursor=pointer]:
+              - /url: /employee/products/set-bridal-21
+              - generic [ref=f2e95]:
+                - img "سرویس عروس ۲۱ عیار" [ref=f2e96]
+                - generic [ref=f2e97]: طلای کارشده
+              - generic [ref=f2e98]:
+                - paragraph [ref=f2e99]: گالری آریا
+                - heading "سرویس عروس ۲۱ عیار" [level=3] [ref=f2e100]
+                - paragraph [ref=f2e101]: ۲۱ عیار · ۴۲.۰ گرم · عروس
+            - link "طلای آب‌شده گرمی طلای آب‌شده گالری آریا طلای آب‌شده گرمی ۲۴ عیار · ۱.۰ گرم · سرمایه‌ای" [ref=f2e102] [cursor=pointer]:
+              - /url: /employee/products/melted-gram-24
+              - generic [ref=f2e103]:
+                - img "طلای آب‌شده گرمی" [ref=f2e104]
+                - generic [ref=f2e105]: طلای آب‌شده
+              - generic [ref=f2e106]:
+                - paragraph [ref=f2e107]: گالری آریا
+                - heading "طلای آب‌شده گرمی" [level=3] [ref=f2e108]
+                - paragraph [ref=f2e109]: ۲۴ عیار · ۱.۰ گرم · سرمایه‌ای
+            - link "شمش زربد ۱ گرم شمش زربد زربد شمش زربد ۱ گرم ۲۴ عیار · ۱.۰ گرم · سرمایه‌ای" [ref=f2e110] [cursor=pointer]:
+              - /url: /employee/products/zarbed-1g
+              - generic [ref=f2e111]:
+                - img "شمش زربد ۱ گرم" [ref=f2e112]
+                - generic [ref=f2e113]: شمش زربد
+              - generic [ref=f2e114]:
+                - paragraph [ref=f2e115]: زربد
+                - heading "شمش زربد ۱ گرم" [level=3] [ref=f2e116]
+                - paragraph [ref=f2e117]: ۲۴ عیار · ۱.۰ گرم · سرمایه‌ای
+            - link "شمش زربد ۵ گرم شمش زربد زربد شمش زربد ۵ گرم ۲۴ عیار · ۵.۰ گرم · سرمایه‌ای" [ref=f2e118] [cursor=pointer]:
+              - /url: /employee/products/zarbed-5g
+              - generic [ref=f2e119]:
+                - img "شمش زربد ۵ گرم" [ref=f2e120]
+                - generic [ref=f2e121]: شمش زربد
+              - generic [ref=f2e122]:
+                - paragraph [ref=f2e123]: زربد
+                - heading "شمش زربد ۵ گرم" [level=3] [ref=f2e124]
+                - paragraph [ref=f2e125]: ۲۴ عیار · ۵.۰ گرم · سرمایه‌ای
+            - link "شمش زربد ۱۰ گرم شمش زربد زربد شمش زربد ۱۰ گرم ۲۴ عیار · ۱۰.۰ گرم · سرمایه‌ای" [ref=f2e126] [cursor=pointer]:
+              - /url: /employee/products/zarbed-10g
+              - generic [ref=f2e127]:
+                - img "شمش زربد ۱۰ گرم" [ref=f2e128]
+                - generic [ref=f2e129]: شمش زربد
+              - generic [ref=f2e130]:
+                - paragraph [ref=f2e131]: زربد
+                - heading "شمش زربد ۱۰ گرم" [level=3] [ref=f2e132]
+                - paragraph [ref=f2e133]: ۲۴ عیار · ۱۰.۰ گرم · سرمایه‌ای
+            - link "شمش زربد ۵۰ گرم شمش زربد زربد شمش زربد ۵۰ گرم ۲۴ عیار · ۵۰.۰ گرم · سرمایه‌ای" [ref=f2e134] [cursor=pointer]:
+              - /url: /employee/products/zarbed-50g
+              - generic [ref=f2e135]:
+                - img "شمش زربد ۵۰ گرم" [ref=f2e136]
+                - generic [ref=f2e137]: شمش زربد
+              - generic [ref=f2e138]:
+                - paragraph [ref=f2e139]: زربد
+                - heading "شمش زربد ۵۰ گرم" [level=3] [ref=f2e140]
+                - paragraph [ref=f2e141]: ۲۴ عیار · ۵۰.۰ گرم · سرمایه‌ای
+            - link "پلاک زردیس طرح خورشید پلاک زردیس زردیس پلاک زردیس طرح خورشید ۱۸ عیار · ۲.۱ گرم · هدیه" [ref=f2e142] [cursor=pointer]:
+              - /url: /employee/products/zardis-sun
+              - generic [ref=f2e143]:
+                - img "پلاک زردیس طرح خورشید" [ref=f2e144]
+                - generic [ref=f2e145]: پلاک زردیس
+              - generic [ref=f2e146]:
+                - paragraph [ref=f2e147]: زردیس
+                - heading "پلاک زردیس طرح خورشید" [level=3] [ref=f2e148]
+                - paragraph [ref=f2e149]: ۱۸ عیار · ۲.۱ گرم · هدیه
+            - link "پلاک زردیس وانیتی پلاک زردیس زردیس پلاک زردیس وانیتی ۱۸ عیار · ۱.۸ گرم · مدرن" [ref=f2e150] [cursor=pointer]:
+              - /url: /employee/products/zardis-vanity
+              - generic [ref=f2e151]:
+                - img "پلاک زردیس وانیتی" [ref=f2e152]
+                - generic [ref=f2e153]: پلاک زردیس
+              - generic [ref=f2e154]:
+                - paragraph [ref=f2e155]: زردیس
+                - heading "پلاک زردیس وانیتی" [level=3] [ref=f2e156]
+                - paragraph [ref=f2e157]: ۱۸ عیار · ۱.۸ گرم · مدرن
+            - link "پلاک زردیس سکه‌ای پلاک زردیس زردیس پلاک زردیس سکه‌ای ۲۱ عیار · ۳.۵ گرم · کلاسیک" [ref=f2e158] [cursor=pointer]:
+              - /url: /employee/products/zardis-coin
+              - generic [ref=f2e159]:
+                - img "پلاک زردیس سکه‌ای" [ref=f2e160]
+                - generic [ref=f2e161]: پلاک زردیس
+              - generic [ref=f2e162]:
+                - paragraph [ref=f2e163]: زردیس
+                - heading "پلاک زردیس سکه‌ای" [level=3] [ref=f2e164]
+                - paragraph [ref=f2e165]: ۲۱ عیار · ۳.۵ گرم · کلاسیک
+        - generic [ref=f2e166]:
+          - generic [ref=f2e167]:
+            - heading "خطوط محصول" [level=2] [ref=f2e168]
+            - paragraph [ref=f2e169]: زربد · زردیس · آریا
+          - generic [ref=f2e170]:
+            - button [ref=f2e172] [cursor=pointer]:
+              - paragraph [ref=f2e173]: WORKED
+              - heading "کارشده" [level=3] [ref=f2e174]
+              - paragraph [ref=f2e175]: زیور آماده فروش — داستان ساخت و نگه‌داری برای مشتری.
+            - button [ref=f2e177] [cursor=pointer]:
+              - paragraph [ref=f2e178]: MELTED
+              - heading "آب‌شده" [level=3] [ref=f2e179]
+              - paragraph [ref=f2e180]: عیار، وزن و اسکرپ — زبان دقیق خرید و تبدیل.
+            - button [ref=f2e182] [cursor=pointer]:
+              - paragraph [ref=f2e183]: ZARBED
+              - heading "شمش زربد" [level=3] [ref=f2e184]
+              - paragraph [ref=f2e185]: میله‌های آموزشی ۲۴ عیار با وزن‌های استاندارد.
+            - button [ref=f2e187] [cursor=pointer]:
+              - paragraph [ref=f2e188]: ZARDIS
+              - heading "پلاک زردیس" [level=3] [ref=f2e189]
+              - paragraph [ref=f2e190]: پلاک‌های نمادین برای تمرین روایت و هدیه.
+        - generic [ref=f2e191]:
+          - paragraph [ref=f2e192]: Boutique Training
+          - heading "هر قطعه یک درس فروش" [level=2] [ref=f2e193]
+          - paragraph [ref=f2e194]: ویترین محصول همان زبان بصری آموزش است — لمس کنید، سبک را بشناسید، سپس محاسبه و سناریو را تمرین کنید.
+          - link "رفتن به آکادمی آموزش" [ref=f2e195] [cursor=pointer]:
+            - /url: /employee/learn
+    - complementary [ref=f2e196]:
+      - generic [ref=f2e197]:
+        - link "خانه" [ref=f2e198] [cursor=pointer]:
+          - /url: /employee/home
+        - link "آموزش" [ref=f2e201] [cursor=pointer]:
+          - /url: /employee/learn
+        - link "محصولات" [ref=f2e206] [cursor=pointer]:
+          - /url: /employee/products
+        - link "تمرین" [ref=f2e210] [cursor=pointer]:
+          - /url: /employee/practice
+        - link "من" [ref=f2e215] [cursor=pointer]:
+          - /url: /employee/profile
+  - alert [ref=f2e219]

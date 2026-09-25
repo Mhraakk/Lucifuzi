@@ -11,8 +11,8 @@ import { AmbientBackdrop } from "@/components/layout/AmbientBackdrop";
 const employeeNav = [
   { href: "/employee/home", label: "خانه", icon: "home" },
   { href: "/employee/learn", label: "آموزش", icon: "learn" },
+  { href: "/employee/studio", label: "استودیو", icon: "studio" },
   { href: "/employee/products", label: "محصولات", icon: "gem" },
-  { href: "/employee/practice", label: "تمرین", icon: "practice" },
   { href: "/employee/profile", label: "من", icon: "profile" },
 ];
 
@@ -53,6 +53,13 @@ function NavIcon({ name }: { name: string }) {
           <path d="M12 3.5 16.5 9 12 20.5 7.5 9 12 3.5Z" />
           <path d="M7.5 9h9" />
           <path d="M10 3.8 7.5 9M14 3.8 16.5 9" />
+        </svg>
+      );
+    case "studio":
+      return (
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
+          <path d="M12 4.2 18.5 8v8L12 19.8 5.5 16V8L12 4.2Z" />
+          <path d="M12 12v7.8M12 12 18.5 8M12 12 5.5 8" />
         </svg>
       );
     case "practice":

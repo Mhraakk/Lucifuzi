@@ -1,0 +1,199 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e19]
+  - generic [ref=e81]:
+    - banner [ref=e82]:
+      - generic [ref=e83]:
+        - link [ref=e85] [cursor=pointer]:
+          - /url: /employee/home
+          - paragraph [ref=e86]: گالری طلای آریا
+          - paragraph [ref=e87]: خانه
+        - generic [ref=e88]:
+          - button "حالت تاریک" [ref=e89] [cursor=pointer]
+          - link "اعلان‌ها" [ref=e92] [cursor=pointer]:
+            - /url: /employee/profile
+    - main [ref=e96]:
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - paragraph [ref=e99]: ۱۴۰۶/۰۷/۲۵
+          - heading "سلام، نیما" [level=1] [ref=e100]
+          - paragraph [ref=e101]: فروشنده · شعبه مرکزی · پیوستگی ۱۲ روز
+        - generic [ref=e102]:
+          - img "مصنوعات طلا روی سینی مخمل گالری" [ref=e103]
+          - generic [ref=e104]:
+            - paragraph [ref=e105]: گالری طلای آریا
+            - heading "آموزش مثل ویترین گالری" [level=2] [ref=e106]
+            - paragraph [ref=e107]: "محصول را مثل برندهای معتبر ارائه کنید: نور، سینی مخمل، روایت کوتاه — نه فشار فروش."
+            - link "ویترین محصولات آموزشی" [ref=e108] [cursor=pointer]:
+              - /url: /employee/products
+        - link "شمش زربد · پلاک زردیس · طلای کارشده و آب‌شده" [ref=e109] [cursor=pointer]:
+          - /url: /employee/products
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - paragraph [ref=e112]: سه روش · اصول کامل
+            - heading "US · CH · EU در عمل" [level=2] [ref=e113]
+            - paragraph [ref=e114]: هر منطقه را لمس کنید؛ اصولش با توضیح واقعی باز می‌شود — نه تیتر خالی.
+          - generic [ref=e115]:
+            - button "US آمریکا" [ref=e117] [cursor=pointer]:
+              - generic [ref=e118]: US
+              - text: آمریکا
+            - button "CH سوئیس" [ref=e120] [cursor=pointer]:
+              - generic [ref=e121]: CH
+              - text: سوئیس
+            - button "EU اروپا" [ref=e123] [cursor=pointer]:
+              - generic [ref=e124]: EU
+              - text: اروپا
+          - generic [ref=e125]:
+            - button "سواد محصول (GIA)" [ref=e127] [cursor=pointer]
+            - button "فروش مشورتی (JA)" [ref=e129] [cursor=pointer]
+            - button "افشاگری صادقانه (FTC)" [ref=e131] [cursor=pointer]
+            - button "کنترل دوگانه" [ref=e133] [cursor=pointer]
+          - generic [ref=e134]:
+            - paragraph [ref=e135]: سواد محصول (GIA)
+            - paragraph [ref=e136]: فلز و سنگ را با زبان دقیق بگویید؛ ادعا بدون مدرک ممنوع است.
+          - generic [ref=e137]:
+            - paragraph [ref=e138]: سه لایه صلاحیت
+            - generic [ref=e139]:
+              - button "1 دانش آزمون و درس — فقط سطح دانش را به‌روز می‌کند." [ref=e141] [cursor=pointer]:
+                - generic [ref=e142]: "1"
+                - generic [ref=e143]:
+                  - strong [ref=e144]: دانش
+                  - emphasis [ref=e145]: آزمون و درس — فقط سطح دانش را به‌روز می‌کند.
+              - button "2 عملی سناریو و مشاهده روی کف فروشگاه — مهارت واقعی." [ref=e147] [cursor=pointer]:
+                - generic [ref=e148]: "2"
+                - generic [ref=e149]:
+                  - strong [ref=e150]: عملی
+                  - emphasis [ref=e151]: سناریو و مشاهده روی کف فروشگاه — مهارت واقعی.
+              - button "3 مجوز کار فقط مدیر پس از ارزیابی عملی می‌دهد. AI و آزمون هرگز مجوز نمی‌دهند." [ref=e153] [cursor=pointer]:
+                - generic [ref=e154]: "3"
+                - generic [ref=e155]:
+                  - strong [ref=e156]: مجوز کار
+                  - emphasis [ref=e157]: فقط مدیر پس از ارزیابی عملی می‌دهد. AI و آزمون هرگز مجوز نمی‌دهند.
+            - paragraph [ref=e158]: آزمون و درس — فقط سطح دانش را به‌روز می‌کند.
+        - generic [ref=e159]:
+          - generic [ref=e160]:
+            - paragraph [ref=e161]: کارگاه فرمول · زنده
+            - heading "محاسبه قیمت مثل گالری" [level=2] [ref=e162]
+            - paragraph [ref=e163]: هر اسلایدر را لمس کنید — عدد و توضیح فوری می‌آید. این همان فرمول عملیاتی شعبه است، نه مثال تزیینی.
+          - generic [ref=e164]:
+            - generic [ref=e165]:
+              - generic [ref=e166]: وزن (گرم) · ۵.۰
+              - slider "وزن (گرم) · ۵.۰" [ref=e167]: "5"
+            - generic [ref=e168]:
+              - button "۱۸ عیار" [ref=e170] [cursor=pointer]
+              - button "۲۱ عیار" [ref=e172] [cursor=pointer]
+              - button "۲۲ عیار" [ref=e174] [cursor=pointer]
+              - button "۲۴ عیار" [ref=e176] [cursor=pointer]
+            - generic [ref=e177]:
+              - generic [ref=e178]: اجرت · ۱۲٪
+              - slider "اجرت · ۱۲٪" [ref=e179]: "12"
+            - generic [ref=e180]:
+              - generic [ref=e181]: سود · ۷٪
+              - slider "سود · ۷٪" [ref=e182]: "7"
+          - generic [ref=e183]:
+            - paragraph [ref=e184]: ۱ · وزن
+            - paragraph [ref=e185]: اول وزن دقیق را از ترازوی کالیبره‌شده بخوانید. بدون وزن، هیچ فرمولی معتبر نیست.
+            - generic [ref=e186]:
+              - generic [ref=e187]:
+                - button "قبلی" [disabled]
+              - button "گام بعد · توضیح" [ref=e189] [cursor=pointer]
+          - list [ref=e190]:
+            - listitem [ref=e191]:
+              - generic [ref=e192]: وزن
+              - strong [ref=e193]: ۵.۰ گرم
+            - listitem [ref=e194]:
+              - generic [ref=e195]: عیار
+              - strong [ref=e196]: ۱۸
+            - listitem [ref=e197]:
+              - generic [ref=e198]: ارزش طلا
+              - strong [ref=e199]: ۱۷۵٬۰۰۰٬۰۰۰ تومان
+            - listitem [ref=e200]:
+              - generic [ref=e201]: اجرت
+              - strong [ref=e202]: ۲۱٬۰۰۰٬۰۰۰ تومان
+            - listitem [ref=e203]:
+              - generic [ref=e204]: سود
+              - strong [ref=e205]: ۱۲٬۲۵۰٬۰۰۰ تومان
+            - listitem [ref=e206]:
+              - generic [ref=e207]: مالیات
+              - strong [ref=e208]: ۱۸٬۷۴۲٬۵۰۰ تومان
+            - listitem [ref=e209]:
+              - generic [ref=e210]: ثابت
+              - strong [ref=e211]: ۰ تومان
+            - listitem [ref=e212]:
+              - generic [ref=e213]: نهایی
+              - strong [ref=e214]: ۲۲۶٬۹۹۲٬۵۰۰ تومان
+          - paragraph [ref=e215]: "نرخ پایه ۱۸ عیار امروز شعبه: ۳۵٬۰۰۰٬۰۰۰ تومان · مالیات ۹٪ · ثابت ۰ تومان"
+        - link [ref=e216] [cursor=pointer]:
+          - /url: /employee/sop/sop_vitrine
+          - paragraph [ref=e217]: تأیید دستورالعمل لازم است
+          - paragraph [ref=e218]: تحویل ویترین — نسخه جدید را بخوانید و تأیید کنید.
+        - generic [ref=e222]:
+          - paragraph [ref=e223]: اطلس شایستگی US · CH · EU
+          - heading "ویترین مهارت‌های شما" [level=2] [ref=e224]
+          - paragraph [ref=e225]: هر دامنه یک شایستگی واقعی گالری است — دانش ≠ مجوز کار.
+          - paragraph [ref=e226]:
+            - generic [ref=e227]: ۰
+            - emphasis [ref=e228]: ٪ پوشش ویترین
+        - figure "نحوه ارائه محصول روی سینی مخمل — استاندارد ویترین گالری" [ref=e230]:
+          - img "نمایش مصنوعات طلا روی سینی مخمل" [ref=e231]
+        - generic [ref=e233]:
+          - generic [ref=e234]:
+            - generic [ref=e235]:
+              - paragraph [ref=e236]: ادامه از جایی که ماندید
+              - paragraph [ref=e237]: تشخیص مصنوعات رایج ویترین
+              - paragraph [ref=e238]: تشخیص مصنوعات رایج ویترین
+            - paragraph [ref=e240]: ۰٪
+          - link "ادامه بده" [ref=e241] [cursor=pointer]:
+            - /url: /employee/lessons/les_02_2_1
+        - generic [ref=e242]:
+          - generic [ref=e243]:
+            - generic [ref=e244]:
+              - paragraph [ref=e245]: آموزش امروز
+              - generic [ref=e246]: ۳–۵ دقیقه
+            - paragraph [ref=e247]: "تمرین امروز: توضیح اجرت به زبان ساده"
+            - paragraph [ref=e248]: اجرت را به‌عنوان هزینه ساخت و طراحی توضیح دهید، نه «پول اضافه». یک جمله کوتاه و شفاف کافی است.
+          - generic [ref=e249]:
+            - link [ref=e250] [cursor=pointer]:
+              - /url: /employee/quiz?daily=1
+              - paragraph [ref=e251]: سؤال امروز
+              - paragraph [ref=e252]: یک پرسش کوتاه برای تثبیت
+            - link [ref=e253] [cursor=pointer]:
+              - /url: /employee/scenario/sc_fraud_switch
+              - paragraph [ref=e254]: سناریوی امروز
+              - paragraph [ref=e255]: تمرین موقعیت واقعی فروشگاه
+        - generic [ref=e256]:
+          - heading "آموزش‌های اجباری" [level=2] [ref=e257]
+          - link "پیشگیری از تقلب و ریسک عملیاتی تکلیف آموزشی اجباری" [ref=e259] [cursor=pointer]:
+            - /url: /employee/courses/course_10
+            - generic [ref=e260]:
+              - paragraph [ref=e261]: پیشگیری از تقلب و ریسک عملیاتی
+              - paragraph [ref=e262]: تکلیف آموزشی
+            - generic [ref=e263]: اجباری
+        - generic [ref=e264]:
+          - heading "دانش ≠ مجوز کار" [level=2] [ref=e265]
+          - paragraph [ref=e266]: نمره آزمون فقط سطح دانش است. کار مستقل فقط پس از ارزیابی عملی مدیر فعال می‌شود.
+          - link "نقشه شایستگی و مجوزها" [ref=e267] [cursor=pointer]:
+            - /url: /employee/skills
+        - generic [ref=e268]:
+          - link [ref=e269] [cursor=pointer]:
+            - /url: /employee/certificates
+            - paragraph [ref=e270]: مدارک من
+            - paragraph [ref=e271]: ۲ گواهی
+          - link [ref=e272] [cursor=pointer]:
+            - /url: /employee/search
+            - paragraph [ref=e273]: جستجو
+            - paragraph [ref=e274]: اجرت، ویترین، تعمیر…
+        - link "دستیار آموزشی آریا" [ref=e275] [cursor=pointer]:
+          - /url: /employee/assistant
+        - paragraph [ref=e276]: "مدت تخمینی مسیر فعلی: ۰ دقیقه"
+    - complementary [ref=e277]:
+      - generic [ref=e278]:
+        - link "خانه" [ref=e279] [cursor=pointer]:
+          - /url: /employee/home
+        - link "آموزش" [ref=e282] [cursor=pointer]:
+          - /url: /employee/learn
+        - link "محصولات" [ref=e287] [cursor=pointer]:
+          - /url: /employee/products
+        - link "تمرین" [ref=e291] [cursor=pointer]:
+          - /url: /employee/practice
+        - link "من" [ref=e296] [cursor=pointer]:
+          - /url: /employee/profile

@@ -1,0 +1,167 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e2]:
+    - banner [ref=f3e3]:
+      - generic [ref=f3e4]:
+        - link [ref=f3e6] [cursor=pointer]:
+          - /url: /employee/home
+          - paragraph [ref=f3e7]: گالری طلای آریا
+          - paragraph [ref=f3e8]: آموزش
+        - generic [ref=f3e9]:
+          - button "حالت تاریک" [ref=f3e10] [cursor=pointer]
+          - link "اعلان‌ها" [ref=f3e13] [cursor=pointer]:
+            - /url: /employee/profile
+            - generic [ref=f3e17]: "1"
+    - main [ref=f3e18]:
+      - generic [ref=f3e20]:
+        - generic [ref=f3e21]:
+          - img "استاندارد ورود به گالری لوکس" [ref=f3e23]
+          - generic [ref=f3e25]:
+            - paragraph [ref=f3e26]: Academy · گالری طلای آریا
+            - heading "آموزش کارکنان" [level=1] [ref=f3e27]
+            - paragraph [ref=f3e28]: "اطلس دامنه‌ای US/CH/EU برای نقش فروش: ورود (ONB)، محصول (PRD)، قیمت (PRC)، فروش مشورتی (SAL)، امنیت (SEC). دانش ≠ مجوز کار."
+            - generic [ref=f3e29]:
+              - link "شروع «استاندارد ورود به گالری لوکس»" [ref=f3e30] [cursor=pointer]:
+                - /url: /employee/courses/course_01
+              - link "ویترین محصول" [ref=f3e31] [cursor=pointer]:
+                - /url: /employee/products
+        - generic [ref=f3e32]:
+          - paragraph [ref=f3e33]: Collection
+          - paragraph [ref=f3e34]: بسته شایستگی نقش فروش
+          - paragraph [ref=f3e35]: ۵ دوره در بسته نقش · ۱۰ دامنه کل
+        - navigation "فیلتر آموزش" [ref=f3e36]:
+          - button "همه" [ref=f3e38] [cursor=pointer]
+          - button "بسته نقش" [ref=f3e40] [cursor=pointer]
+          - button "آمریکا" [ref=f3e42] [cursor=pointer]
+          - button "سوئیس" [ref=f3e44] [cursor=pointer]
+          - button "اروپا" [ref=f3e46] [cursor=pointer]
+          - button "سایر" [ref=f3e48] [cursor=pointer]
+        - 'link "استاندارد ورود به گالری لوکس آکادمی آریا · US · CH · EU استاندارد ورود به گالری لوکس دامنه ARYA-ONB: Floor Walk و Dual Control (الگوی JA / آمریکا) + Dress & Demeanor سطح quiet luxury سوئیسی — قبل از هر تماس با ویترین. ۱ ساعت و ۳۰ دقیقه ۳۳٪ پوشش ورود به دوره ←" [ref=f3e49] [cursor=pointer]':
+          - /url: /employee/courses/course_01
+          - img "استاندارد ورود به گالری لوکس" [ref=f3e51]
+          - generic [ref=f3e52]:
+            - paragraph [ref=f3e53]: آکادمی آریا · US · CH · EU
+            - heading "استاندارد ورود به گالری لوکس" [level=2] [ref=f3e54]
+            - paragraph [ref=f3e55]: "دامنه ARYA-ONB: Floor Walk و Dual Control (الگوی JA / آمریکا) + Dress & Demeanor سطح quiet luxury سوئیسی — قبل از هر تماس با ویترین."
+            - generic [ref=f3e56]:
+              - generic [ref=f3e57]: ۱ ساعت و ۳۰ دقیقه
+              - generic [ref=f3e58]: ۳۳٪ پوشش
+            - generic [ref=f3e59]: ورود به دوره ←
+        - generic [ref=f3e60]:
+          - button "آمریکا United States" [ref=f3e62] [cursor=pointer]:
+            - strong [ref=f3e63]: آمریکا
+            - generic [ref=f3e64]: United States
+          - button "سوئیس Switzerland" [ref=f3e66] [cursor=pointer]:
+            - strong [ref=f3e67]: سوئیس
+            - generic [ref=f3e68]: Switzerland
+          - button "اروپا Europe" [ref=f3e70] [cursor=pointer]:
+            - strong [ref=f3e71]: اروپا
+            - generic [ref=f3e72]: Europe
+        - generic [ref=f3e73]:
+          - generic [ref=f3e74]:
+            - heading "کالکشن آموزش" [level=2] [ref=f3e75]
+            - paragraph [ref=f3e76]: ۵ دوره
+          - generic [ref=f3e77]:
+            - 'link "سواد محصول جواهر و طلا آمریکا · سوئیس · اروپا آکادمی آریا · GIA · CIBJO · Swiss Mark سواد محصول جواهر و طلا دامنه ARYA-PRD: سواد محصول به سبک GIA، نام‌گذاری CIBJO Precious Metals، دقت نشانه‌گذاری سوئیسی، و افشاگری صادقانه الگوی FTC — بدون ادعای غیرمستند. ۲ ساعت" [ref=f3e78] [cursor=pointer]':
+              - /url: /employee/courses/course_02
+              - generic [ref=f3e79]:
+                - img "سواد محصول جواهر و طلا" [ref=f3e80]
+                - generic [ref=f3e81]: آمریکا · سوئیس · اروپا
+              - generic [ref=f3e82]:
+                - paragraph [ref=f3e83]: آکادمی آریا · GIA · CIBJO · Swiss Mark
+                - heading "سواد محصول جواهر و طلا" [level=3] [ref=f3e84]
+                - paragraph [ref=f3e85]: "دامنه ARYA-PRD: سواد محصول به سبک GIA، نام‌گذاری CIBJO Precious Metals، دقت نشانه‌گذاری سوئیسی، و افشاگری صادقانه الگوی FTC — بدون ادعای غیرمستند."
+                - paragraph [ref=f3e86]: ۲ ساعت
+            - 'link "شفافیت قیمت و محاسبه حرفه‌ای آمریکا · اروپا آکادمی آریا · EU Transparency · FTC شفافیت قیمت و محاسبه حرفه‌ای دامنه ARYA-PRC: شفافیت قیمت مصرف‌کننده اروپا + افشاگری صادقانه آمریکایی — فلز، اجرت، سود، مالیات؛ رقم دقیق، توضیح آرام؛ دروازه مجوز کار پس از ارزیابی عملی. ۲ ساعت و ۳۰ دقیقه" [ref=f3e87] [cursor=pointer]':
+              - /url: /employee/courses/course_03
+              - generic [ref=f3e88]:
+                - img "شفافیت قیمت و محاسبه حرفه‌ای" [ref=f3e89]
+                - generic [ref=f3e90]: آمریکا · اروپا
+              - generic [ref=f3e91]:
+                - paragraph [ref=f3e92]: آکادمی آریا · EU Transparency · FTC
+                - heading "شفافیت قیمت و محاسبه حرفه‌ای" [level=3] [ref=f3e93]
+                - paragraph [ref=f3e94]: "دامنه ARYA-PRC: شفافیت قیمت مصرف‌کننده اروپا + افشاگری صادقانه آمریکایی — فلز، اجرت، سود، مالیات؛ رقم دقیق، توضیح آرام؛ دروازه مجوز کار پس از ارزیابی عملی."
+                - paragraph [ref=f3e95]: ۲ ساعت و ۳۰ دقیقه
+            - 'link "فروش مشورتی (Consultative Selling) آمریکا · سوئیس آکادمی آریا · JA · Quiet Luxury فروش مشورتی (Consultative Selling) دامنه ARYA-SAL: Consultative Selling به سبک Jewelers of America و مهمان‌نوازی آرام سوئیسی — حداکثر دو گزینه، بدون فشار. ۱ ساعت و ۵۰ دقیقه" [ref=f3e96] [cursor=pointer]':
+              - /url: /employee/courses/course_04
+              - generic [ref=f3e97]:
+                - img "فروش مشورتی (Consultative Selling)" [ref=f3e98]
+                - generic [ref=f3e99]: آمریکا · سوئیس
+              - generic [ref=f3e100]:
+                - paragraph [ref=f3e101]: آکادمی آریا · JA · Quiet Luxury
+                - heading "فروش مشورتی (Consultative Selling)" [level=3] [ref=f3e102]
+                - paragraph [ref=f3e103]: "دامنه ARYA-SAL: Consultative Selling به سبک Jewelers of America و مهمان‌نوازی آرام سوئیسی — حداکثر دو گزینه، بدون فشار."
+                - paragraph [ref=f3e104]: ۱ ساعت و ۵۰ دقیقه
+            - 'link "امنیت عملیاتی شعبه آمریکا · اروپا آکادمی آریا · Dual Control US · EU امنیت عملیاتی شعبه دامنه ARYA-SEC: کنترل دوگانه آمریکایی و انضباط گالری اروپایی — باز/بسته دو نفره، ویترین قفل‌دار، واکنش اضطراری؛ دروازه مجوز کار. ۱ ساعت و ۳۵ دقیقه" [ref=f3e105] [cursor=pointer]':
+              - /url: /employee/courses/course_06
+              - generic [ref=f3e106]:
+                - img "امنیت عملیاتی شعبه" [ref=f3e107]
+                - generic [ref=f3e108]: آمریکا · اروپا
+              - generic [ref=f3e109]:
+                - paragraph [ref=f3e110]: آکادمی آریا · Dual Control US · EU
+                - heading "امنیت عملیاتی شعبه" [level=3] [ref=f3e111]
+                - paragraph [ref=f3e112]: "دامنه ARYA-SEC: کنترل دوگانه آمریکایی و انضباط گالری اروپایی — باز/بسته دو نفره، ویترین قفل‌دار، واکنش اضطراری؛ دروازه مجوز کار."
+                - paragraph [ref=f3e113]: ۱ ساعت و ۳۵ دقیقه
+        - generic [ref=f3e114]:
+          - generic [ref=f3e115]:
+            - heading "دامنه‌های شایستگی" [level=2] [ref=f3e116]
+            - paragraph [ref=f3e117]: US · CH · EU
+          - generic [ref=f3e118]:
+            - link [ref=f3e119] [cursor=pointer]:
+              - /url: /employee/courses/course_01
+              - paragraph [ref=f3e120]: ARYA-ONB
+              - heading "انضباط ورود و کف شعبه" [level=3] [ref=f3e121]
+              - paragraph [ref=f3e122]: تور امنیتی و Floor Walk قبل از هر تماس با ویترین — الگوی جذب همکار در گالری‌های معتبر آمریکا و اروپا.
+            - link [ref=f3e123] [cursor=pointer]:
+              - /url: /employee/courses/course_02
+              - paragraph [ref=f3e124]: ARYA-PRD
+              - heading "سواد محصول و نشانه‌گذاری" [level=3] [ref=f3e125]
+              - paragraph [ref=f3e126]: ترکیب سواد GIA، نام‌گذاری CIBJO Precious Metals، و دقت نشانه‌گذاری سوئیسی — بدون ادعاهای غیرمستند.
+            - link [ref=f3e127] [cursor=pointer]:
+              - /url: /employee/courses/course_03
+              - paragraph [ref=f3e128]: ARYA-PRC
+              - heading "شفافیت قیمت و محاسبه" [level=3] [ref=f3e129]
+              - paragraph [ref=f3e130]: "الگوی شفافیت مصرف‌کننده اروپا + افشاگری صادقانه آمریکایی: فلز، اجرت، سود، مالیات — رقم دقیق، توضیح آرام."
+            - link [ref=f3e131] [cursor=pointer]:
+              - /url: /employee/courses/course_04
+              - paragraph [ref=f3e132]: ARYA-SAL
+              - heading "فروش مشورتی" [level=3] [ref=f3e133]
+              - paragraph [ref=f3e134]: Consultative selling به سبک JA/GIA retail و quiet luxury سوئیسی — حداکثر دو گزینه، بدون فشار.
+            - link [ref=f3e135] [cursor=pointer]:
+              - /url: /employee/courses/course_06
+              - paragraph [ref=f3e136]: ARYA-SEC
+              - heading "امنیت عملیاتی" [level=3] [ref=f3e137]
+              - paragraph [ref=f3e138]: "Dual Control آمریکایی و انضباط گالری‌های اروپایی: باز/بسته دو نفره، ویترین قفل‌دار، واکنش اضطراری."
+            - link [ref=f3e139] [cursor=pointer]:
+              - /url: /employee/courses/course_10
+              - paragraph [ref=f3e140]: ARYA-INT
+              - heading "صداقت، اخلاق و ضدتقلب" [level=3] [ref=f3e141]
+              - paragraph [ref=f3e142]: اخلاق CIBJO/RJC + پیشگیری تقلب فروشگاهی آمریکایی — گزارش سریع بدون توهین به مشتری درستکار.
+            - link [ref=f3e143] [cursor=pointer]:
+              - /url: /employee/courses/course_08
+              - paragraph [ref=f3e144]: ARYA-SVC
+              - heading "خدمات و ردیابی تعمیر" [level=3] [ref=f3e145]
+              - paragraph [ref=f3e146]: "اسناد خدمات سطح سوئیس: ثبت قطعه، تخمین شفاف، رسید رسمی، تحویل با هویت‌سنجی."
+            - link [ref=f3e147] [cursor=pointer]:
+              - /url: /employee/courses/course_07
+              - paragraph [ref=f3e148]: ARYA-OPS
+              - heading "امانت موجودی و ارتباط مشتری" [level=3] [ref=f3e149]
+              - paragraph [ref=f3e150]: زنجیره امانت JA + Clienteling با احترام به حریم خصوصی (الگوی اروپایی).
+        - generic [ref=f3e151]:
+          - paragraph [ref=f3e152]: Pedagogy
+          - heading "دانش · عملی · مجوز کار" [level=2] [ref=f3e153]
+          - paragraph [ref=f3e154]: آزمون فقط دانش را می‌سنجد. مهارت روی کف فروشگاه دیده می‌شود. مجوز کار مستقل فقط با ارزیابی عملی مدیر صادر می‌شود — نه با نمره و نه با AI.
+          - link "رفتن به تمرین عملی" [ref=f3e155] [cursor=pointer]:
+            - /url: /employee/practice
+    - complementary [ref=f3e156]:
+      - generic [ref=f3e157]:
+        - link "خانه" [ref=f3e158] [cursor=pointer]:
+          - /url: /employee/home
+        - link "آموزش" [ref=f3e161] [cursor=pointer]:
+          - /url: /employee/learn
+        - link "محصولات" [ref=f3e166] [cursor=pointer]:
+          - /url: /employee/products
+        - link "تمرین" [ref=f3e170] [cursor=pointer]:
+          - /url: /employee/practice
+        - link "من" [ref=f3e175] [cursor=pointer]:
+          - /url: /employee/profile
+  - alert [ref=f3e179]

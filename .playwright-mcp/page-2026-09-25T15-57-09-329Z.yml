@@ -1,0 +1,17 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e5]:
+    - button "تغییر تم" [ref=e7] [cursor=pointer]: شب آتلیه
+    - banner [ref=e8]:
+      - heading "آریا" [level=1] [ref=e9]
+      - paragraph [ref=e10]: آموزش عملیاتی گالری
+      - paragraph [ref=e11]: فرمول قیمت، ویترین، امنیت و فروش مشورتی — با تمرین لمسی زنده.
+    - generic [ref=e12]:
+      - paragraph [ref=e13]: ورود به شیفت
+      - paragraph [ref=e14]: "دمو: PIN همه کاربران ۱۲۳۴"
+      - textbox "ایمیل سازمانی" [ref=e15]
+      - textbox "PIN چهار رقمی" [ref=e16]
+      - button "ورود" [disabled]
+    - button "ورود سریع نقش‌های دمو" [ref=e17] [cursor=pointer]
+    - link "آنبوردینگ نیروی جدید" [ref=e18] [cursor=pointer]:
+      - /url: /onboarding
+  - alert [ref=e19]

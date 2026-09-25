@@ -244,8 +244,11 @@ export function AcademyShowcase({
           آزمون فقط دانش را می‌سنجد. مهارت روی کف فروشگاه دیده می‌شود. مجوز کار
           مستقل فقط با ارزیابی عملی مدیر صادر می‌شود — نه با نمره و نه با AI.
         </p>
-        <Link href="/employee/practice" className="jx-cta tap-react">
-          رفتن به تمرین عملی
+        <Link href="/employee/studio" className="jx-cta tap-react">
+          رفتن به استودیو ۳D
+        </Link>
+        <Link href="/employee/practice" className="jx-cta jx-cta--ghost tap-react" style={{ marginTop: "0.55rem" }}>
+          تمرین عملی
         </Link>
       </section>
     </div>
