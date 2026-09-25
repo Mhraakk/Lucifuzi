@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/platform/market?tick=1",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

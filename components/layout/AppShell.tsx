@@ -17,6 +17,7 @@ const employeeNav = [
 
 const managerNav = [
   { href: "/manager/dashboard", label: "داشبورد", icon: "home" },
+  { href: "/ops", label: "پلتفرم", icon: "spark" },
   { href: "/manager/employees", label: "کارکنان", icon: "people" },
   { href: "/manager/training", label: "آموزش", icon: "learn" },
   { href: "/manager/assessments", label: "ارزیابی", icon: "check" },

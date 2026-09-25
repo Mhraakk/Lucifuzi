@@ -10,7 +10,12 @@
     "build:mobile": "node scripts/build-mobile.mjs",
     "build:pwa": "node scripts/build-static.mjs",
     "cap:open": "npx cap open ios",
-    "cap:sync": "npx cap sync ios"
+    "cap:sync": "npx cap sync ios",
+    "test:platform": "tsx --test tests/platform/*.test.ts",
+    "test:double": "npm run test:platform && npm run test:platform",
+    "gates": "tsx scripts/release-gates.ts",
+    "worker:market": "tsx workers/market-worker.ts",
+    "platform:verify": "npx tsc --noEmit && npm run test:double && npm run gates"
   },
   "dependencies": {
     "@capacitor/core": "^6.2.0",
@@ -28,6 +33,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.2"
   }
 }

@@ -24,11 +24,26 @@ npm run dev
 
 اختیاری: `OPENAI_API_KEY` برای غنی‌سازی دستیار آموزشی (بدون کلید هم پاسخ‌های دانش‌نامه کار می‌کند).
 
+### اسکلت ۲۰ لایه پلتفرم
+
+مستندات: [`docs/PLATFORM_20_LAYERS.md`](docs/PLATFORM_20_LAYERS.md) · کنسول: `/ops`
+
+```bash
+npm run test:double      # تست ×۲
+npm run gates            # release gates
+npm run worker:market    # worker بازار طلا
+npm run platform:verify  # tsc + double-test + gates
+```
+
 ## ساختار
 
-- `app/` — صفحات کارمند و مدیر
+- `app/` — صفحات کارمند و مدیر + `/ops`
+- `app/api/platform/` — BFF لایه‌ها
+- `platform/` — ۲۰ لایه (spec … flags/storage/ai/…)
+- `workers/` — market worker پایدار
+- `supabase/migrations/` — Postgres + vector + RLS
 - `components/` — پوسته، کارت‌ها، UI
-- `lib/` — دامنه، دمو، store پایدار در localStorage، محاسبه، مجوزها
+- `lib/` — دامنه آموزش، store، محاسبه، مجوزها
 
 ## نقش‌ها
 

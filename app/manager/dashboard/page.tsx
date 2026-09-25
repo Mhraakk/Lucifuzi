@@ -229,7 +229,7 @@ export default function ManagerDashboard() {
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Link href="/manager/training" className="btn btn-secondary justify-center">
             اختصاص آموزش
           </Link>
@@ -238,6 +238,9 @@ export default function ManagerDashboard() {
           </Link>
           <Link href="/manager/analytics" className="btn btn-secondary justify-center">
             تحلیل شعب
+          </Link>
+          <Link href="/ops" className="btn btn-primary justify-center">
+            اسکلت ۲۰ لایه
           </Link>
         </section>
 

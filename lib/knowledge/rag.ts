@@ -179,7 +179,7 @@ export function retrieveKnowledge(
       }
       return { chunk, score };
     })
-    .filter((h) => h.score > 0)
+    .filter((h) => h.score >= 2)
     .sort((a, b) => b.score - a.score);
 
   return scored.slice(0, limit);
