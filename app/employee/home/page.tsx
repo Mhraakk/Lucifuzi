@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import {
-  AtelierMuseHero,
+  AtelierProductHero,
   AtelierProductStrip,
   AtelierWall,
   buildWallPins,
 } from "@/components/training/AtelierWall";
+import { FormulaStudio } from "@/components/training/FormulaStudio";
+import { PedagogyJourney } from "@/components/training/PedagogyJourney";
 import { Badge } from "@/components/ui/Feedback";
 import {
   formatJalaliDate,
@@ -74,7 +76,7 @@ export default function EmployeeHomePage() {
   return (
     <AppShell title="خانه">
       <div className="mx-auto max-w-app space-y-5 pb-4">
-        <section className="animate-in login-hero-copy">
+        <section className="surface p-4 animate-in">
           <p className="mb-1 text-xs faint tracking-wide">{formatJalaliDate(new Date())}</p>
           <h1 className="page-title">سلام، {firstName}</h1>
           <p className="muted mt-2 text-sm leading-7">
@@ -87,12 +89,16 @@ export default function EmployeeHomePage() {
           </p>
         </section>
 
-        <AtelierMuseHero
+        <AtelierProductHero
           title="آموزش مثل ویترین گالری"
           subtitle="محصول را مثل برندهای معتبر ارائه کنید: نور، سینی مخمل، روایت کوتاه — نه فشار فروش."
           ctaHref="/employee/learn"
           ctaLabel="ورود به دیوار آموزش"
         />
+
+        <PedagogyJourney />
+
+        <FormulaStudio compact />
 
         {pendingSop.length > 0 ? (
           <Link

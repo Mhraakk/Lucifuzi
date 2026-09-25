@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { AtelierProductStrip } from "@/components/training/AtelierWall";
+import { FormulaStudio } from "@/components/training/FormulaStudio";
 import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge } from "@/components/ui/Feedback";
-import { toPersianDigits } from "@/lib/format";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
 import { getTodayDaily } from "@/lib/store";
 
@@ -20,13 +20,22 @@ export default function PracticePage() {
   return (
     <AppShell title="تمرین">
       <div className="mx-auto max-w-app space-y-5">
-        <section className="animate-in">
+        <section className="surface p-4 animate-in">
           <h1 className="page-title mb-2">تمرین عملی</h1>
           <p className="muted text-sm leading-7">
-            شبیه‌سازی فروش، محاسبه قیمت و سناریوهای ریسک — هر سناریو یک ویترین
-            جداست؛ بدون ترتیب اجباری، در سطح استاندارد گالری‌های معتبر.
+            فرمول قیمت، سناریوی فروش و ریسک — هر لمس خروجی می‌دهد. بدون ترتیب
+            اجباری؛ در سطح استاندارد گالری‌های معتبر.
           </p>
         </section>
+
+        <FormulaStudio />
+
+        <Link
+          href="/employee/formula"
+          className="btn btn-primary tap-react w-full"
+        >
+          کارگاه کامل فرمول طلا
+        </Link>
 
         <TopicVisual topic="practice" className="animate-in" />
 
@@ -53,13 +62,13 @@ export default function PracticePage() {
           <div className="grid grid-cols-2 gap-2 p-3">
             <Link
               href="/employee/quiz?daily=1"
-              className="btn btn-secondary !min-h-11 text-xs"
+              className="btn btn-secondary tap-react !min-h-11 text-xs"
             >
               سؤال کوتاه
             </Link>
             <Link
               href={`/employee/scenario/${daily?.scenarioId ?? "sc_fraud_switch"}`}
-              className="btn btn-primary !min-h-11 text-xs"
+              className="btn btn-primary tap-react !min-h-11 text-xs"
             >
               سناریوی امروز
             </Link>
@@ -68,10 +77,10 @@ export default function PracticePage() {
 
         <Link
           href="/employee/quiz?calc=1"
-          className="surface surface-interactive block p-4 animate-in"
+          className="surface surface-interactive tap-react block p-4 animate-in"
         >
           <div className="mb-2 flex items-center justify-between">
-            <p className="font-bold">شبیه‌ساز محاسبه قیمت</p>
+            <p className="font-bold">آزمون محاسبه قیمت</p>
             <Badge tone="accent">محاسبات</Badge>
           </div>
           <p className="muted text-sm leading-7">
@@ -86,7 +95,7 @@ export default function PracticePage() {
               <Link
                 key={sc.id}
                 href={`/employee/scenario/${sc.id}`}
-                className="surface surface-interactive block p-4"
+                className="surface surface-interactive tap-react block p-4"
               >
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <p className="text-sm font-bold">{sc.title}</p>
@@ -98,34 +107,27 @@ export default function PracticePage() {
           </div>
         </section>
 
-        <section>
-          <h2 className="section-title mb-3">پیشنهاد بر اساس ضعف</h2>
-          <div className="stagger space-y-2">
-            {recs.length === 0 ? (
-              <p className="muted text-sm">پیشنهاد فعالی باقی نمانده.</p>
-            ) : (
-              recs.map((r) => (
+        {recs.length > 0 ? (
+          <section>
+            <h2 className="section-title mb-3">پیشنهاد تمرین</h2>
+            <div className="space-y-2">
+              {recs.slice(0, 3).map((r) => (
                 <Link
                   key={r.id}
                   href={
-                    r.scenarioId
-                      ? `/employee/scenario/${r.scenarioId}`
-                      : r.lessonId
-                        ? `/employee/lessons/${r.lessonId}`
-                        : `/employee/courses/${r.courseId}`
+                    r.courseId
+                      ? `/employee/courses/${r.courseId}`
+                      : "/employee/learn"
                   }
-                  className="surface surface-interactive block p-4"
+                  className="surface surface-interactive tap-react block p-3"
                 >
-                  <p className="text-sm font-semibold">{r.reason}</p>
-                  <p className="faint mt-2 text-xs">
-                    اولویت {toPersianDigits(r.priority)} · حدود{" "}
-                    {toPersianDigits(r.estimatedMinutes)} دقیقه
-                  </p>
+                  <p className="text-sm font-bold">{r.message}</p>
+                  <p className="muted text-xs leading-6 mt-1">{r.reason}</p>
                 </Link>
-              ))
-            )}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </AppShell>
   );

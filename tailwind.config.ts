@@ -10,7 +10,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         persian: ["var(--font-body)", "Vazirmatn", "Tahoma", "sans-serif"],
-        display: ["var(--font-display)", "Amiri", "serif"],
+        display: ["var(--font-display)", "Vazirmatn", "Tahoma", "sans-serif"],
       },
       colors: {
         ink: "var(--ink)",

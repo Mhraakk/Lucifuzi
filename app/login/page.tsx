@@ -96,7 +96,7 @@ export default function LoginPage() {
     >
       <div className="login-atelier" aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/atelier/atelier-muse.png" alt="" />
+        <img src="/atelier/atelier-products.png" alt="" />
         <div className="login-atelier__veil" />
       </div>
 
@@ -104,7 +104,7 @@ export default function LoginPage() {
         <div className="mb-3 flex justify-end">
           <button
             type="button"
-            className="btn btn-ghost !min-h-10 !px-3 text-xs"
+            className="btn btn-ghost tap-react !min-h-10 !px-3 text-xs"
             onClick={() => setTheme(state.theme === "light" ? "dark" : "light")}
             aria-label="تغییر تم"
           >
@@ -112,17 +112,12 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* First viewport: brand-first composition on full-bleed atelier photo */}
-        <header className="login-hero-copy mb-8 flex min-h-[48vh] flex-col justify-end text-center">
-          <h1 className="brand-mark mb-3">آریا</h1>
-          <p
-            className="mb-4 text-[1.15rem] font-semibold leading-8"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            آموزش گالری
-          </p>
-          <p className="mx-auto max-w-[17rem] text-sm leading-7 muted">
-            پشت ویترین واقعی یاد بگیرید — نور، روایت، دقت.
+        {/* Brand on solid readable card — photo stays behind, never under text */}
+        <header className="login-hero-card mb-6 mt-auto">
+          <h1 className="brand-mark mb-2">آریا</h1>
+          <p className="mb-3 text-base font-bold leading-7">آموزش عملیاتی گالری</p>
+          <p className="text-sm leading-7 muted">
+            فرمول قیمت، ویترین، امنیت و فروش مشورتی — با تمرین لمسی زنده.
           </p>
         </header>
 

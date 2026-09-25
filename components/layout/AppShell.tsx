@@ -131,13 +131,13 @@ export function AppShell({
                 className="min-w-0"
               >
                 <p
-                  className="text-[11px] faint tracking-[0.14em]"
+                  className="text-[11px] faint tracking-[0.08em] font-semibold"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
                   گالری طلای آریا
                 </p>
                 <p
-                  className="truncate text-[1.05rem] font-bold leading-6"
+                  className="truncate text-[1.05rem] font-extrabold leading-6"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
                   {title ?? "آریا آموزش"}
@@ -210,7 +210,7 @@ export function AppShell({
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`nav-item flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium ${
+                  className={`nav-item tap-react flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium ${
                     active ? "nav-item-active" : ""
                   }`}
                   style={{

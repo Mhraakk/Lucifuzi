@@ -122,10 +122,10 @@ export default function ScenarioPage() {
                   <button
                     key={c.id}
                     type="button"
-                    className="w-full rounded-xl border p-4 text-right text-sm leading-7"
+                    className="tap-react w-full rounded-xl border p-4 text-right text-sm leading-7 font-medium"
                     style={{
-                      borderColor: "var(--line)",
-                      background: "var(--bg)",
+                      borderColor: "var(--line-strong)",
+                      background: "rgba(252, 250, 246, 0.98)",
                     }}
                     onClick={() => choose(c.id)}
                   >

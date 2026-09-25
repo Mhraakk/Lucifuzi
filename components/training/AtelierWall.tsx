@@ -104,7 +104,8 @@ export function AtelierWall({
   );
 }
 
-export function AtelierMuseHero({
+/** Product-led hero — real atelier tray photo, solid readable panel (no portrait). */
+export function AtelierProductHero({
   title,
   subtitle,
   ctaHref,
@@ -116,20 +117,23 @@ export function AtelierMuseHero({
   ctaLabel?: string;
 }) {
   return (
-    <section className="atelier-muse animate-in">
+    <section className="atelier-product-hero animate-in">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/atelier/atelier-muse.png"
-        alt="ارائه جواهرات در گالری"
-        className="atelier-muse__img"
+        src="/atelier/atelier-products.png"
+        alt="مصنوعات طلا روی سینی مخمل گالری"
+        className="atelier-product-hero__img"
         loading="eager"
       />
-      <div className="atelier-muse__copy">
+      <div className="atelier-product-hero__panel">
         <p className="atelier-kicker">گالری طلای آریا</p>
         <h2 className="atelier-title">{title}</h2>
         {subtitle ? <p className="atelier-lede">{subtitle}</p> : null}
         {ctaHref && ctaLabel ? (
-          <Link href={ctaHref} className="btn btn-primary mt-4 !min-h-11 text-sm">
+          <Link
+            href={ctaHref}
+            className="btn btn-primary tap-react mt-4 !min-h-11 text-sm"
+          >
             {ctaLabel}
           </Link>
         ) : null}
@@ -137,6 +141,9 @@ export function AtelierMuseHero({
     </section>
   );
 }
+
+/** @deprecated use AtelierProductHero — muse portrait removed */
+export const AtelierMuseHero = AtelierProductHero;
 
 export function AtelierProductStrip() {
   return (

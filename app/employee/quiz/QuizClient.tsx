@@ -147,7 +147,7 @@ export default function QuizClient() {
                   {q.options?.map((opt) => (
                     <label
                       key={opt.id}
-                      className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border px-3 py-2"
+                      className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 tap-react"
                       style={{
                         borderColor:
                           answers[q.id] === opt.id

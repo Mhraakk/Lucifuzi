@@ -1,19 +1,17 @@
 "use client";
 
 /**
- * Living photographic backdrop — real atelier photos, not flat fills.
+ * Soft photographic wash — products or wall only (no portrait).
  */
 export function AmbientBackdrop({
   variant = "wall",
 }: {
-  variant?: "wall" | "muse" | "products";
+  variant?: "wall" | "products";
 }) {
   const src =
-    variant === "muse"
-      ? "/atelier/atelier-muse.png"
-      : variant === "products"
-        ? "/atelier/atelier-products.png"
-        : "/atelier/atelier-wall.png";
+    variant === "products"
+      ? "/atelier/atelier-products.png"
+      : "/atelier/atelier-wall.png";
 
   return (
     <div className="ambient-backdrop" aria-hidden>

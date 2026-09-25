@@ -29,8 +29,8 @@ export default function HomeRedirect() {
         <img src="/atelier/atelier-wall.png" alt="" />
         <div className="login-atelier__veil" />
       </div>
-      <div className="relative z-[1] text-center login-hero-copy px-6">
-        <p className="brand-mark mb-3 !text-3xl">آریا</p>
+      <div className="relative z-[1] login-hero-card mx-6 text-center">
+        <p className="brand-mark mb-2 !text-3xl">آریا</p>
         <p className="muted text-sm">در حال باز کردن آتلیه آموزش...</p>
       </div>
       <button

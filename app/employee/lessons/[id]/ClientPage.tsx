@@ -3,27 +3,106 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
+import { FormulaStudio } from "@/components/training/FormulaStudio";
 import { CourseCover } from "@/components/training/TopicVisual";
+import { Pressable } from "@/components/ui/Pressable";
 import { Badge } from "@/components/ui/Feedback";
-import { formatMinutes } from "@/lib/format";
+import { formatMinutes, toPersianDigits } from "@/lib/format";
 import { useAppState } from "@/lib/hooks";
 import { completeLesson, saveLessonProgress } from "@/lib/store";
-import { enrichLesson } from "@/lib/view";
+import type { LessonContentBlock } from "@/lib/types";
+
+function BlockView({ block }: { block: LessonContentBlock }) {
+  if (block.type === "checklist") {
+    return (
+      <div className="lesson-block">
+        {block.title ? <p className="lesson-block__title">{block.title}</p> : null}
+        {block.body ? (
+          <p className="text-sm leading-8 mb-3">{block.body}</p>
+        ) : null}
+        <ol className="space-y-3">
+          {(block.items ?? []).map((step, i) => (
+            <li key={step} className="flex gap-3 text-sm leading-7">
+              <span
+                className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                style={{
+                  background: "var(--accent-soft)",
+                  color: "var(--accent-deep)",
+                }}
+              >
+                {toPersianDigits(i + 1)}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
+
+  if (block.type === "warning") {
+    return (
+      <div className="lesson-block lesson-block--warning">
+        {block.title ? (
+          <p className="lesson-block__title" style={{ color: "var(--danger)" }}>
+            {block.title}
+          </p>
+        ) : null}
+        <p className="text-sm leading-8">{block.body}</p>
+      </div>
+    );
+  }
+
+  if (block.type === "example") {
+    return (
+      <div className="lesson-block lesson-block--example">
+        {block.title ? (
+          <p className="lesson-block__title" style={{ color: "var(--info)" }}>
+            {block.title}
+          </p>
+        ) : null}
+        <p className="text-sm leading-8">{block.body}</p>
+      </div>
+    );
+  }
+
+  if (block.type === "formula") {
+    return (
+      <div className="lesson-block lesson-block--formula">
+        {block.title ? <p className="lesson-block__title">{block.title}</p> : null}
+        <p className="text-sm leading-8 font-semibold mb-3">{block.body}</p>
+        <FormulaStudio compact />
+      </div>
+    );
+  }
+
+  return (
+    <div className="lesson-block">
+      {block.title ? <p className="lesson-block__title">{block.title}</p> : null}
+      <p className="text-sm leading-8 whitespace-pre-wrap">{block.body}</p>
+    </div>
+  );
+}
 
 export default function LessonPage() {
   const { id } = useParams<{ id: string }>();
   const state = useAppState();
   const router = useRouter();
-  const raw = state.lessons.find((l) => l.id === id);
-  if (!raw) {
+  const lesson = state.lessons.find((l) => l.id === id);
+  if (!lesson) {
     return (
       <AppShell title="درس" backHref="/employee/learn">
         <p className="muted">درس یافت نشد.</p>
       </AppShell>
     );
   }
-  const lesson = enrichLesson(state, raw);
   const course = state.courses.find((c) => c.id === lesson.courseId);
+  const content = state.lessonContents.find((c) => c.lessonId === lesson.id);
+  const blocks = content?.blocks ?? [];
+  const quizIds = state.quizQuestions
+    .filter((q) => q.lessonId === lesson.id)
+    .map((q) => q.id);
+  const hasFormula = blocks.some((b) => b.type === "formula");
 
   return (
     <AppShell
@@ -37,95 +116,62 @@ export default function LessonPage() {
           showCaption={false}
         />
 
-        <header>
+        <header className="surface p-4">
           <p className="text-xs faint mb-1">{course?.title}</p>
           <h1 className="page-title !text-xl mb-2">{lesson.title}</h1>
+          <p className="text-sm leading-7 muted mb-3">{lesson.summary}</p>
           <div className="flex flex-wrap gap-2">
             <Badge>{formatMinutes(lesson.estimatedMinutes)}</Badge>
-            <Badge tone="accent">استاندارد بین‌المللی</Badge>
+            <Badge tone="accent">محتوای عملیاتی</Badge>
           </div>
         </header>
 
-        <section className="surface p-5">
-          <p className="text-sm leading-8 whitespace-pre-wrap">
-            {lesson.content.body}
-          </p>
-          {lesson.content.steps?.length ? (
-            <ol className="mt-5 space-y-3">
-              {lesson.content.steps.map((step, i) => (
-                <li key={step} className="flex gap-3 text-sm leading-7">
-                  <span
-                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                    style={{
-                      background: "var(--accent-soft)",
-                      color: "var(--accent-deep)",
-                    }}
-                  >
-                    {i + 1}
-                  </span>
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ol>
-          ) : null}
-          {lesson.content.tips?.length ? (
-            <div
-              className="mt-5 rounded-xl p-4"
-              style={{ background: "var(--bg-soft)" }}
-            >
-              <p
-                className="text-xs font-bold mb-2"
-                style={{ color: "var(--info)" }}
-              >
-                نکته
-              </p>
-              {lesson.content.tips.map((tip) => (
-                <p key={tip} className="text-sm leading-7 muted">
-                  {tip}
-                </p>
-              ))}
-            </div>
-          ) : null}
-          {lesson.content.warnings?.length ? (
-            <div
-              className="mt-4 rounded-xl p-4"
-              style={{ background: "rgba(143,61,61,0.08)" }}
-            >
-              <p
-                className="text-xs font-bold mb-2"
-                style={{ color: "var(--danger)" }}
-              >
-                هشدار
-              </p>
-              {lesson.content.warnings.map((w) => (
-                <p key={w} className="text-sm leading-7">
-                  {w}
-                </p>
-              ))}
-            </div>
-          ) : null}
-        </section>
+        {blocks.length > 0 ? (
+          <section className="surface p-5">
+            {blocks.map((block) => (
+              <BlockView key={block.id} block={block} />
+            ))}
+          </section>
+        ) : (
+          <section className="surface p-5">
+            <p className="text-sm leading-8">{lesson.summary}</p>
+          </section>
+        )}
+
+        {!hasFormula && lesson.courseId === "course_03" ? (
+          <FormulaStudio />
+        ) : null}
 
         <div className="flex flex-col gap-3">
-          {lesson.quizQuestionIds.length > 0 ? (
+          {quizIds.length > 0 ? (
             <Link
               href={`/employee/quiz?lesson=${lesson.id}`}
-              className="btn btn-secondary w-full"
+              className="btn btn-secondary tap-react w-full"
             >
               آزمونک این درس
             </Link>
           ) : null}
-          <button
-            type="button"
+          {lesson.courseId === "course_03" ? (
+            <Link
+              href="/employee/formula"
+              className="btn btn-secondary tap-react w-full"
+            >
+              کارگاه فرمول زنده
+            </Link>
+          ) : null}
+          <Pressable
             className="btn btn-primary w-full"
-            onClick={() => {
+            feedback={{ label: "درس تکمیل شد — دانش به‌روز شد", tone: "ok" }}
+            onPress={() => {
               saveLessonProgress(lesson.id, 100);
               completeLesson(lesson.id);
-              router.push(`/employee/courses/${lesson.courseId}`);
+              window.setTimeout(() => {
+                router.push(`/employee/courses/${lesson.courseId}`);
+              }, 500);
             }}
           >
             علامت به‌عنوان تکمیل‌شده
-          </button>
+          </Pressable>
         </div>
       </article>
     </AppShell>

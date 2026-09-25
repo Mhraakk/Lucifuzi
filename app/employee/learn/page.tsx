@@ -2,12 +2,14 @@
 
 import { AppShell } from "@/components/layout/AppShell";
 import {
-  AtelierMuseHero,
+  AtelierProductHero,
   AtelierWall,
   buildWallPins,
 } from "@/components/training/AtelierWall";
 import { CourseCard } from "@/components/training/Cards";
+import { PedagogyJourney } from "@/components/training/PedagogyJourney";
 import { StandardsChart } from "@/components/training/StandardsChart";
+import { FormulaStudio } from "@/components/training/FormulaStudio";
 import { useAppState, useCurrentUser, useEmployeeProfile } from "@/lib/hooks";
 import { courseProgressPercent } from "@/lib/store";
 
@@ -45,12 +47,18 @@ export default function LearnPage() {
           </p>
         </section>
 
+        <PedagogyJourney />
+
         <StandardsChart />
 
-        <AtelierMuseHero
+        <AtelierProductHero
           title="ارائه مثل برندهای لوکس"
-          subtitle="هر درس یک تابلوی محصول است: روایت، نمایش، و تمرین عملی — دانش آزمون مجوز کار نیست."
+          subtitle="هر درس محتوای عملیاتی دارد: روایت، نمایش، و تمرین لمسی — دانش آزمون مجوز کار نیست."
+          ctaHref="/employee/formula"
+          ctaLabel="کارگاه فرمول قیمت"
         />
+
+        <FormulaStudio compact />
 
         {wallData.length > 0 ? (
           <AtelierWall
