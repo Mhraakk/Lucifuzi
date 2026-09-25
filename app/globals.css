@@ -3,25 +3,25 @@
 @tailwind utilities;
 
 :root {
-  /* Cool limestone gallery — photographic, not AI-cream */
-  --bg: #d8d3ca;
-  --bg-elevated: rgba(252, 250, 246, 0.97);
-  --bg-soft: #cfc8bd;
-  --ink: #12100e;
-  --ink-muted: #3f3a34;
-  --ink-faint: #5c564e;
-  --line: rgba(55, 48, 40, 0.12);
-  --line-strong: rgba(55, 48, 40, 0.2);
-  --accent: #8a734c;
-  --accent-soft: rgba(138, 115, 76, 0.14);
-  --accent-deep: #4a3c28;
-  --metal: #a89064;
-  --success: #2d6a4f;
-  --warning: #7a6228;
-  --danger: #8c3d3d;
-  --info: #3d5a6c;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 12px 36px rgba(22, 20, 18, 0.07);
-  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.55) inset, 0 20px 48px rgba(22, 20, 18, 0.12);
+  /* Marble sculpture gallery + gold — no cream stack */
+  --bg: #14110e;
+  --bg-elevated: rgba(28, 22, 16, 0.58);
+  --bg-soft: rgba(48, 38, 28, 0.42);
+  --ink: #f4ebda;
+  --ink-muted: #c9b89a;
+  --ink-faint: #9a8a72;
+  --line: rgba(212, 175, 55, 0.2);
+  --line-strong: rgba(212, 175, 55, 0.34);
+  --accent: #c9a45c;
+  --accent-soft: rgba(201, 164, 92, 0.16);
+  --accent-deep: #e8d4a4;
+  --metal: #d4af37;
+  --success: #6db892;
+  --warning: #d4a35a;
+  --danger: #d48484;
+  --info: #7aa0b5;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 0 18px 48px rgba(0, 0, 0, 0.45);
   --radius: 14px;
   --radius-sm: 10px;
   --motion-fast: 100ms;
@@ -35,30 +35,57 @@
   --bottom-nav: 92px;
   --font-display: "Cormorant Garamond", "El Messiri", Georgia, serif;
   --font-body: "El Messiri", "Cormorant Garamond", Georgia, serif;
-  --atelier-gold: #8a734c;
-  --atelier-ivory: #ebe6de;
+  --atelier-gold: #d4af37;
+  --atelier-ivory: #1c1712;
+  --atelier-chalk: #2a221a;
+  --glass: rgba(22, 17, 12, 0.52);
+  --glass-strong: rgba(18, 14, 10, 0.72);
+  --surface: var(--glass);
 }
 
 [data-theme="dark"] {
-  --bg: #0c0b0a;
-  --bg-elevated: rgba(24, 21, 18, 0.78);
-  --bg-soft: #181512;
-  --ink: #f2ebe3;
-  --ink-muted: #b0a69a;
-  --ink-faint: #82786e;
-  --line: rgba(200, 170, 120, 0.1);
-  --line-strong: rgba(200, 170, 120, 0.18);
-  --accent: #c4a66a;
-  --accent-soft: rgba(196, 166, 106, 0.12);
-  --accent-deep: #e2d0a8;
-  --metal: #d0b57a;
+  --bg: #0c0a08;
+  --bg-elevated: rgba(24, 19, 14, 0.62);
+  --bg-soft: rgba(40, 32, 24, 0.48);
+  --ink: #f6eedf;
+  --ink-muted: #cdb99a;
+  --ink-faint: #a08f74;
+  --line: rgba(212, 175, 55, 0.22);
+  --line-strong: rgba(212, 175, 55, 0.38);
+  --accent: #d4af37;
+  --accent-soft: rgba(212, 175, 55, 0.14);
+  --accent-deep: #f0e0b8;
+  --metal: #e0c078;
   --success: #6db892;
   --warning: #d4a35a;
   --danger: #d48484;
   --info: #7aa0b5;
-  --shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
-  --shadow-lift: 0 22px 52px rgba(0, 0, 0, 0.6);
+  --shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  --shadow-lift: 0 22px 52px rgba(0, 0, 0, 0.65);
   --atelier-ivory: #151210;
+  --atelier-chalk: #221c16;
+  --glass: rgba(16, 12, 9, 0.55);
+  --glass-strong: rgba(12, 9, 7, 0.78);
+}
+
+[data-theme="light"] {
+  /* Still sculpture-first — warm stone glass, never cream paper */
+  --bg: #1a1510;
+  --bg-elevated: rgba(36, 28, 20, 0.55);
+  --bg-soft: rgba(55, 44, 32, 0.4);
+  --ink: #f5ecdc;
+  --ink-muted: #cbb99c;
+  --ink-faint: #9e8d74;
+  --line: rgba(201, 164, 92, 0.22);
+  --line-strong: rgba(201, 164, 92, 0.36);
+  --accent: #c9a45c;
+  --accent-soft: rgba(201, 164, 92, 0.18);
+  --accent-deep: #ead7ae;
+  --metal: #d4af37;
+  --atelier-ivory: #1c1712;
+  --atelier-chalk: #2a221a;
+  --glass: rgba(26, 20, 14, 0.5);
+  --glass-strong: rgba(20, 15, 11, 0.7);
 }
 
 * {
@@ -78,24 +105,27 @@ html {
 body {
   direction: rtl;
   font-family: var(--font-body);
-  background: #cfc8be;
+  background: #120e0b;
   color: var(--ink);
   min-height: 100%;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* Soft fallback wash when photo backdrop is not mounted */
+/* Deep bronze void — sculpture photo sits above this */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: -3;
-  background: linear-gradient(160deg, #d8d2c8 0%, #c9c2b6 55%, #beb6aa 100%);
+  background:
+    radial-gradient(ellipse 80% 55% at 70% 20%, rgba(90, 68, 36, 0.35), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 15% 80%, rgba(40, 28, 16, 0.5), transparent 55%),
+    linear-gradient(165deg, #1a1410 0%, #0e0b09 55%, #16120e 100%);
 }
 
-/* —— Photographic ambient layer —— */
+/* —— Sculpture as the real app canvas —— */
 .ambient-backdrop {
   position: fixed;
   inset: 0;
@@ -106,14 +136,14 @@ body::before {
 
 .ambient-backdrop__photo {
   position: absolute;
-  inset: -4%;
-  width: 108%;
-  height: 108%;
+  inset: -6%;
+  width: 112%;
+  height: 112%;
   object-fit: cover;
-  object-position: center 40%;
-  filter: saturate(0.7) contrast(0.92) brightness(1.08);
-  opacity: 0.28;
-  transform: scale(1.03);
+  object-position: center 28%;
+  filter: saturate(0.62) contrast(1.14) brightness(0.82) sepia(0.14);
+  opacity: 0.88;
+  transform: scale(1.04);
 }
 
 .ambient-backdrop__wash {
@@ -122,48 +152,63 @@ body::before {
   background:
     linear-gradient(
       180deg,
-      rgba(232, 227, 218, 0.88) 0%,
-      rgba(226, 220, 210, 0.94) 45%,
-      rgba(220, 214, 204, 0.98) 100%
+      rgba(12, 9, 7, 0.18) 0%,
+      rgba(12, 9, 7, 0.08) 32%,
+      rgba(18, 13, 9, 0.28) 68%,
+      rgba(14, 11, 8, 0.52) 100%
     ),
-    radial-gradient(ellipse 70% 45% at 80% 0%, rgba(138, 115, 76, 0.06), transparent 55%);
+    radial-gradient(ellipse 55% 40% at 85% 10%, rgba(212, 175, 55, 0.16), transparent 55%);
 }
 
 .ambient-backdrop__grain {
   position: absolute;
   inset: 0;
-  opacity: 0.35;
-  mix-blend-mode: multiply;
+  opacity: 0.22;
+  mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
   background-size: 160px 160px;
 }
 
 .ambient-backdrop__glow {
   position: absolute;
-  inset: auto -10% -20% 30%;
-  height: 50%;
-  background: radial-gradient(ellipse at center, rgba(255, 248, 235, 0.35), transparent 65%);
-  opacity: 0.7;
+  inset: auto -10% -25% 25%;
+  height: 55%;
+  background: radial-gradient(ellipse at center, rgba(212, 175, 55, 0.14), transparent 65%);
+  opacity: 0.85;
 }
 
 [data-theme="dark"] .ambient-backdrop__photo {
-  opacity: 0.18;
-  filter: saturate(0.5) contrast(1.05) brightness(0.45);
+  opacity: 0.84;
+  filter: saturate(0.55) contrast(1.16) brightness(0.7) sepia(0.12);
 }
 
 [data-theme="dark"] .ambient-backdrop__wash {
   background:
     linear-gradient(
       180deg,
-      rgba(12, 11, 10, 0.88) 0%,
-      rgba(12, 11, 10, 0.94) 50%,
-      rgba(12, 11, 10, 0.98) 100%
-    );
+      rgba(8, 6, 5, 0.22) 0%,
+      rgba(8, 6, 5, 0.1) 38%,
+      rgba(10, 8, 6, 0.36) 72%,
+      rgba(8, 6, 5, 0.58) 100%
+    ),
+    radial-gradient(ellipse 50% 35% at 80% 0%, rgba(212, 175, 55, 0.14), transparent 50%);
 }
 
-[data-theme="dark"] .ambient-backdrop__grain {
-  opacity: 0.2;
-  mix-blend-mode: soft-light;
+[data-theme="light"] .ambient-backdrop__photo {
+  opacity: 0.9;
+  filter: saturate(0.58) contrast(1.1) brightness(0.86) sepia(0.16);
+}
+
+[data-theme="light"] .ambient-backdrop__wash {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(16, 12, 9, 0.22) 0%,
+      rgba(16, 12, 9, 0.1) 38%,
+      rgba(20, 15, 11, 0.42) 72%,
+      rgba(16, 12, 9, 0.68) 100%
+    ),
+    radial-gradient(ellipse 55% 40% at 90% 5%, rgba(201, 164, 92, 0.14), transparent 55%);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -231,9 +276,9 @@ button {
 
 @layer components {
   .surface {
-    background: color-mix(in srgb, var(--bg-elevated) 97%, transparent);
-    backdrop-filter: blur(12px) saturate(1.05);
-    -webkit-backdrop-filter: blur(12px) saturate(1.05);
+    background: var(--glass);
+    backdrop-filter: blur(18px) saturate(1.15);
+    -webkit-backdrop-filter: blur(18px) saturate(1.15);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -301,24 +346,24 @@ button {
   }
 
   .btn-primary {
-    background: var(--ink);
-    color: var(--bg-elevated);
-    box-shadow: 0 8px 20px rgba(26, 23, 20, 0.18);
+    background: linear-gradient(135deg, #e0c078 0%, var(--metal) 45%, #8a6a28 100%);
+    color: #14100c;
+    box-shadow: 0 8px 22px rgba(212, 175, 55, 0.28);
   }
 
   .btn-primary:hover {
-    box-shadow: 0 12px 28px rgba(26, 23, 20, 0.24);
+    box-shadow: 0 12px 28px rgba(212, 175, 55, 0.38);
   }
 
   [data-theme="dark"] .btn-primary {
-    background: linear-gradient(135deg, var(--accent) 0%, var(--metal) 100%);
-    color: #141210;
-    box-shadow: 0 8px 22px rgba(201, 168, 106, 0.25);
+    background: linear-gradient(135deg, #e0c078 0%, var(--metal) 45%, #8a6a28 100%);
+    color: #14100c;
+    box-shadow: 0 8px 22px rgba(212, 175, 55, 0.28);
   }
 
   .btn-secondary {
-    background: var(--bg-elevated);
-    border-color: var(--line-strong);
+    background: var(--glass);
+    border-color: var(--line);
     color: var(--ink);
   }
 
@@ -346,8 +391,8 @@ button {
     min-height: 52px;
     padding: 0.8rem 1rem;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--line-strong);
-    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    background: rgba(10, 8, 6, 0.45);
     color: var(--ink);
   }
 
@@ -434,9 +479,9 @@ button {
   }
 
   .glass-bar {
-    background: color-mix(in srgb, var(--bg-elevated) 58%, transparent);
-    backdrop-filter: blur(22px) saturate(1.3);
-    -webkit-backdrop-filter: blur(22px) saturate(1.3);
+    background: var(--glass-strong);
+    backdrop-filter: blur(22px) saturate(1.2);
+    -webkit-backdrop-filter: blur(22px) saturate(1.2);
     border-bottom-color: var(--line);
   }
 
@@ -696,13 +741,6 @@ button {
 }
 
 /* —— Atelier / Tashola-inspired gallery wall (not a ladder) —— */
-:root {
-  --atelier-ivory: #ebe6de;
-  --atelier-chalk: #ddd6cb;
-  --atelier-ink: #161412;
-  --atelier-gold: #8a734c;
-}
-
 .atelier-kicker {
   font-size: 0.68rem;
   letter-spacing: 0.22em;
@@ -735,7 +773,7 @@ button {
   gap: 0.4rem;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--atelier-ivory) 70%, transparent);
+  background: color-mix(in srgb, var(--glass) 80%, transparent);
   border: 1px solid var(--line);
   backdrop-filter: blur(8px);
 }
@@ -756,7 +794,8 @@ button {
   border-radius: calc(var(--radius) + 6px);
   overflow: hidden;
   border: 1px solid var(--line);
-  background: var(--atelier-ivory);
+  background: var(--glass);
+  backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
 }
 
@@ -777,8 +816,8 @@ button {
   inset: 0;
   background: linear-gradient(
     100deg,
-    color-mix(in srgb, var(--atelier-ivory) 92%, transparent) 0%,
-    color-mix(in srgb, var(--atelier-ivory) 55%, transparent) 48%,
+    rgba(12, 9, 7, 0.82) 0%,
+    rgba(12, 9, 7, 0.4) 48%,
     transparent 100%
   );
 }
@@ -805,7 +844,7 @@ button {
       color-mix(in srgb, var(--atelier-gold) 12%, transparent),
       transparent 55%
     ),
-    linear-gradient(180deg, var(--atelier-chalk) 0%, var(--atelier-ivory) 100%);
+    linear-gradient(180deg, rgba(28, 22, 16, 0.35) 0%, rgba(18, 14, 10, 0.55) 100%);
 }
 
 .atelier-case {
@@ -862,8 +901,9 @@ button {
   font-weight: 600;
   padding: 0.18rem 0.5rem;
   border-radius: 6px;
-  background: color-mix(in srgb, #fff 84%, transparent);
+  background: color-mix(in srgb, var(--glass-strong) 88%, var(--metal));
   color: var(--accent-deep);
+  border: 1px solid var(--line);
   backdrop-filter: blur(6px);
 }
 
@@ -972,7 +1012,7 @@ button {
   border-radius: calc(var(--radius) + 4px);
   overflow: hidden;
   border: 1px solid var(--line);
-  background: var(--atelier-ivory);
+  background: var(--glass);
 }
 
 .atelier-strip img {
@@ -1025,26 +1065,27 @@ button {
   background:
     linear-gradient(
       180deg,
-      rgba(22, 20, 18, 0.12) 0%,
-      rgba(213, 208, 199, 0.28) 32%,
-      rgba(213, 208, 199, 0.78) 62%,
-      rgba(207, 200, 190, 0.96) 100%
+      rgba(10, 8, 6, 0.12) 0%,
+      rgba(10, 8, 6, 0.05) 30%,
+      rgba(14, 11, 8, 0.4) 65%,
+      rgba(12, 9, 7, 0.78) 100%
     ),
-    radial-gradient(ellipse 65% 38% at 50% 8%, rgba(255, 250, 240, 0.22), transparent 58%),
-    radial-gradient(ellipse 40% 30% at 90% 70%, rgba(61, 90, 108, 0.08), transparent 50%);
+    radial-gradient(ellipse 55% 35% at 50% 10%, rgba(212, 175, 55, 0.12), transparent 55%);
 }
 
 [data-theme="dark"] .login-atelier__veil {
-  background: linear-gradient(
-    180deg,
-    rgba(10, 8, 6, 0.28) 0%,
-    rgba(12, 11, 10, 0.68) 42%,
-    rgba(12, 11, 10, 0.94) 100%
-  );
+  background:
+    linear-gradient(
+      180deg,
+      rgba(10, 8, 6, 0.18) 0%,
+      rgba(12, 11, 10, 0.35) 45%,
+      rgba(12, 11, 10, 0.72) 100%
+    ),
+    radial-gradient(ellipse 50% 40% at 50% 15%, rgba(212, 175, 55, 0.14), transparent 55%);
 }
 
 .login-hero-copy {
-  text-shadow: 0 2px 28px rgba(255, 252, 247, 0.4);
+  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.55), 0 0 40px rgba(212, 175, 55, 0.18);
 }
 
 .login-hero-copy .brand-mark {
@@ -1094,24 +1135,26 @@ button {
 }
 
 [data-theme="dark"] .atelier-wall {
-  background: #1a1714;
+  background: var(--glass);
+  backdrop-filter: blur(14px);
 }
 
 [data-theme="dark"] .atelier-mosaic {
   background:
     radial-gradient(
       ellipse at 20% 0%,
-      color-mix(in srgb, var(--atelier-gold) 8%, transparent),
+      color-mix(in srgb, var(--atelier-gold) 12%, transparent),
       transparent 55%
     ),
-    linear-gradient(180deg, #221e1a 0%, #1a1714 100%);
+    var(--glass);
 }
 
 /* —— International standards atlas (US / CH / EU) —— */
 .standards-atlas {
   border-radius: calc(var(--radius) + 6px);
   border: 1px solid var(--line);
-  background: var(--atelier-ivory);
+  background: var(--glass);
+  backdrop-filter: blur(14px);
   overflow: hidden;
   box-shadow: var(--shadow);
 }
@@ -1386,7 +1429,9 @@ button {
 
 /* —— Login: solid readable card over photo —— */
 .login-hero-card {
-  background: rgba(252, 250, 246, 0.96);
+  background: var(--glass-strong);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
   border: 1px solid var(--line);
   border-radius: calc(var(--radius) + 4px);
   padding: 1.35rem 1.25rem 1.4rem;
@@ -1395,23 +1440,25 @@ button {
 }
 
 [data-theme="dark"] .login-hero-card {
-  background: rgba(24, 21, 18, 0.94);
+  background: var(--glass-strong);
 }
 
 .login-atelier__veil {
   background:
     linear-gradient(
       180deg,
-      rgba(22, 20, 18, 0.25) 0%,
-      rgba(216, 211, 202, 0.55) 38%,
-      rgba(216, 211, 202, 0.92) 72%,
-      rgba(216, 211, 202, 0.98) 100%
-    ) !important;
+      rgba(10, 8, 6, 0.15) 0%,
+      rgba(10, 8, 6, 0.08) 28%,
+      rgba(14, 11, 8, 0.35) 58%,
+      rgba(12, 9, 7, 0.72) 100%
+    ),
+    radial-gradient(ellipse 60% 40% at 50% 20%, rgba(212, 175, 55, 0.1), transparent 55%) !important;
 }
 
 .login-atelier img {
-  object-position: center 55% !important;
-  filter: saturate(0.85) brightness(0.95);
+  object-position: center 22% !important;
+  filter: saturate(0.5) contrast(1.1) brightness(0.78) sepia(0.15);
+  opacity: 1;
 }
 
 /* —— Product hero (replaces muse portrait) —— */
@@ -1421,7 +1468,7 @@ button {
   border-radius: calc(var(--radius) + 6px);
   overflow: hidden;
   border: 1px solid var(--line);
-  background: var(--atelier-ivory);
+  background: var(--glass);
   box-shadow: var(--shadow);
 }
 
@@ -1435,7 +1482,7 @@ button {
 
 .atelier-product-hero__panel {
   padding: 1rem 1.1rem 1.15rem;
-  background: rgba(252, 250, 246, 0.98);
+  background: var(--glass-strong);
 }
 
 [data-theme="dark"] .atelier-product-hero__panel {
@@ -1446,7 +1493,7 @@ button {
 .formula-studio {
   border-radius: calc(var(--radius) + 6px);
   border: 1px solid var(--line);
-  background: rgba(252, 250, 246, 0.98);
+  background: var(--glass-strong);
   padding: 1.1rem;
   box-shadow: var(--shadow);
 }
@@ -1563,7 +1610,7 @@ button {
   min-height: 58px;
   border-radius: 14px;
   border: 1px solid var(--line);
-  background: rgba(252, 250, 246, 0.96);
+  background: var(--glass);
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--ink-muted);
@@ -1602,8 +1649,8 @@ button {
 
 .pedagogy-chip.is-on {
   background: var(--ink);
-  color: #faf7f2;
-  border-color: var(--ink);
+  color: #14100c;
+  border-color: var(--metal);
 }
 
 [data-theme="dark"] .pedagogy-chip.is-on {
@@ -1626,7 +1673,7 @@ button {
   padding: 0.85rem 0.9rem;
   border-radius: 14px;
   border: 1px solid var(--line);
-  background: rgba(252, 250, 246, 0.96);
+  background: var(--glass);
 }
 
 .pedagogy-gate.is-on {
@@ -1644,7 +1691,7 @@ button {
   font-size: 0.75rem;
   font-weight: 800;
   background: var(--ink);
-  color: #faf7f2;
+  color: var(--ink);
 }
 
 .pedagogy-gate strong {
@@ -1884,10 +1931,11 @@ button {
   min-height: 48px;
   padding: 0 1.35rem;
   border-radius: 999px;
-  background: #f7f1e8;
-  color: #16120e;
+  background: linear-gradient(135deg, #e0c078 0%, var(--metal) 48%, #8a6a28 100%);
+  color: #1a1208;
   font-weight: 700;
   font-size: 0.85rem;
+  box-shadow: 0 10px 28px rgba(212, 175, 55, 0.28);
 }
 
 .jx-cats {
@@ -1908,7 +1956,7 @@ button {
   padding: 0.45rem 1rem;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: rgba(252, 250, 246, 0.96);
+  background: var(--glass);
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--ink-muted);
@@ -1916,9 +1964,9 @@ button {
 }
 
 .jx-cat.is-on {
-  background: #16120e;
-  border-color: #16120e;
-  color: #f7f1e8;
+  background: color-mix(in srgb, var(--metal) 32%, var(--glass-strong));
+  border-color: var(--line-strong);
+  color: var(--accent-deep);
 }
 
 .jx-featured {
@@ -1927,7 +1975,7 @@ button {
   gap: 0;
   border-radius: 24px;
   overflow: hidden;
-  background: #f7f3ec;
+  background: var(--glass);
   border: 1px solid var(--line);
   text-decoration: none;
   color: inherit;
@@ -1983,7 +2031,7 @@ button {
 .jx-brand-pill {
   border-radius: 16px;
   padding: 0.75rem 0.55rem;
-  background: rgba(252, 250, 246, 0.96);
+  background: var(--glass);
   border: 1px solid var(--line);
   text-align: center;
 }
@@ -2033,7 +2081,7 @@ button {
   flex-direction: column;
   border-radius: 20px;
   overflow: hidden;
-  background: #f7f3ec;
+  background: var(--glass);
   border: 1px solid var(--line);
   text-decoration: none;
   color: inherit;
@@ -2109,7 +2157,7 @@ button {
 }
 
 .jx-detail__panel {
-  background: rgba(252, 250, 246, 0.98);
+  background: var(--glass-strong);
   border: 1px solid var(--line);
   border-radius: 20px;
   padding: 1.1rem 1rem;
@@ -2146,7 +2194,7 @@ button {
 }
 
 .jx-detail__block {
-  background: rgba(252, 250, 246, 0.98);
+  background: var(--glass-strong);
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 1rem;
@@ -2213,7 +2261,8 @@ button {
 [data-theme="dark"] .jx-brand-pill,
 [data-theme="dark"] .jx-detail__panel,
 [data-theme="dark"] .jx-detail__block {
-  background: rgba(24, 21, 18, 0.96);
+  background: rgba(24, 21, 18, 0.62);
+  backdrop-filter: blur(16px);
 }
 
 @media (max-width: 380px) {
@@ -2227,21 +2276,17 @@ button {
 
 /* —— Shakuro jewellery ecommerce tokens (exact shared UX/UI) —— */
 .jx-page {
-  /* warm ivory field like luxury jewellery landings */
-  --jx-ivory: #f3eee6;
-  --jx-paper: #faf7f2;
-  --jx-stone: #e6e0d6;
-  --jx-ink: #1a1612;
-  --jx-mute: #6b635a;
-  --jx-gold: #c4a35a;
-  --jx-charcoal: #16120e;
+  --jx-ivory: transparent;
+  --jx-paper: var(--glass);
+  --jx-stone: rgba(48, 38, 28, 0.55);
+  --jx-ink: var(--ink);
+  --jx-mute: var(--ink-muted);
+  --jx-gold: var(--metal);
+  --jx-charcoal: #0e0b09;
   margin-inline: -0.35rem;
   padding: 0.35rem 0.35rem 1.5rem;
   border-radius: 28px;
-  background:
-    radial-gradient(120% 60% at 100% 0%, rgba(196, 163, 90, 0.08), transparent 55%),
-    radial-gradient(90% 50% at 0% 100%, rgba(55, 48, 40, 0.04), transparent 50%),
-    var(--jx-ivory);
+  background: transparent;
 }
 
 .jx-page .jx-landing {
@@ -2312,7 +2357,7 @@ button {
 .jx-promo {
   border-radius: 22px;
   padding: 1.15rem 1.2rem;
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   border: 1px solid rgba(55, 48, 40, 0.08);
   text-align: center;
 }
@@ -2341,7 +2386,7 @@ button {
 }
 
 .jx-theme .jx-cat {
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   border-color: rgba(55, 48, 40, 0.1);
   color: var(--jx-mute, #6b635a);
   transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
@@ -2354,7 +2399,7 @@ button {
 }
 
 .jx-theme .jx-featured {
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   border-radius: 28px;
   border-color: rgba(55, 48, 40, 0.08);
   box-shadow: 0 18px 40px rgba(26, 22, 18, 0.06);
@@ -2377,12 +2422,12 @@ button {
   font-weight: 700;
   padding: 0.28rem 0.55rem;
   border-radius: 999px;
-  background: var(--jx-stone, #e6e0d6);
+  background: var(--jx-stone, #2a221a);
   color: var(--jx-ink, #1a1612);
 }
 
 .jx-theme .jx-card {
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   border-radius: 22px;
   border-color: rgba(55, 48, 40, 0.08);
   box-shadow: 0 10px 28px rgba(26, 22, 18, 0.05);
@@ -2418,7 +2463,7 @@ button {
 }
 
 .jx-theme .jx-brand-pill {
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   border-color: rgba(55, 48, 40, 0.08);
   cursor: pointer;
   transition: border-color 160ms ease, box-shadow 160ms ease;
@@ -2463,7 +2508,7 @@ button {
   scroll-snap-align: start;
   border-radius: 22px;
   padding: 1.15rem 1.05rem;
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   border: 1px solid rgba(55, 48, 40, 0.08);
   text-decoration: none;
   color: inherit;
@@ -2503,14 +2548,20 @@ button {
 .jx-editorial {
   border-radius: 28px;
   padding: 1.6rem 1.25rem;
-  background: #16120e;
-  color: #f7f1e8;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--metal) 18%, var(--glass-strong)),
+    var(--glass-strong)
+  );
+  color: var(--ink);
   text-align: center;
-  box-shadow: 0 22px 48px rgba(18, 14, 10, 0.2);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
 }
 
 .jx-editorial .jx-eyebrow {
-  color: #c4a35a;
+  color: var(--metal);
 }
 
 .jx-editorial h2 {
@@ -2712,7 +2763,7 @@ button {
   min-height: 46px;
   border-radius: 14px;
   border: 1px solid rgba(55, 48, 40, 0.12);
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   padding: 0 0.9rem;
   font-size: 0.92rem;
   color: var(--jx-ink, #1a1612);
@@ -2812,7 +2863,7 @@ button {
   padding: 0.8rem 0.75rem;
   border-radius: 16px;
   border: 1px solid rgba(55, 48, 40, 0.1);
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   color: inherit;
 }
 
@@ -2855,7 +2906,7 @@ button {
   padding: 0.7rem 0.4rem;
   border-radius: 16px;
   border: 1px solid rgba(55, 48, 40, 0.1);
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   color: inherit;
 }
 
@@ -2894,7 +2945,7 @@ button {
 .jx-studio__shot {
   border-radius: 22px;
   padding: 1rem;
-  background: var(--jx-paper, #faf7f2);
+  background: var(--jx-paper, var(--ink));
   border: 1px solid rgba(55, 48, 40, 0.08);
   display: grid;
   gap: 0.75rem;
@@ -2923,16 +2974,17 @@ button {
 
 /* —— Atelier from dribbble.com/search/jewellery (Jewlly / Shakuro / boutique) —— */
 .jx-page--atelier {
-  --jx-ivory: #f3f1ec;
-  --jx-paper: #fbfaf7;
-  --jx-stone: #e8e4dc;
-  --jx-ink: #161412;
-  --jx-mute: #6f6860;
-  --jx-gold: #b8954a;
+  --jx-ivory: transparent;
+  --jx-field: var(--glass);
+  --jx-paper: var(--glass);
+  --jx-stone: rgba(42, 34, 26, 0.55);
+  --jx-ink: var(--ink);
+  --jx-mute: var(--ink-muted);
+  --jx-gold: #d4af37;
   --jx-charcoal: #1a1714;
   background:
-    radial-gradient(90% 50% at 100% 0%, rgba(184, 149, 74, 0.07), transparent 55%),
-    #f3f1ec;
+    radial-gradient(90% 50% at 100% 0%, rgba(212, 175, 55, 0.1), transparent 55%),
+    transparent;
 }
 
 .jx-atelier {
@@ -2966,7 +3018,7 @@ button {
   aspect-ratio: 4 / 5;
   border-radius: 999px 999px 28px 28px;
   overflow: hidden;
-  background: linear-gradient(165deg, #f7f3ec, #e5dfd4);
+  background: linear-gradient(165deg, var(--glass), #2a221a);
   box-shadow: 0 24px 48px rgba(26, 22, 18, 0.1);
 }
 
@@ -2995,7 +3047,7 @@ button {
   font-size: clamp(2rem, 8vw, 2.6rem);
   font-weight: 700;
   letter-spacing: -0.04em;
-  color: var(--jx-ink, #161412);
+  color: var(--jx-ink, var(--ink));
   margin: 0.35rem 0 0.65rem;
 }
 
@@ -3016,7 +3068,7 @@ button {
   margin-top: 0.85rem;
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--jx-ink, #161412);
+  color: var(--jx-ink, var(--ink));
   background: none;
   border: none;
   padding: 0;
@@ -3075,13 +3127,13 @@ button {
 }
 
 .jx-round-cat.is-on .jx-round-cat__label {
-  color: var(--jx-ink, #161412);
+  color: var(--jx-ink, var(--ink));
 }
 
 .jx-round-cat__disc[data-form="ring"],
 .jx-round-cat__disc[data-form="bracelet"] {
   box-shadow:
-    inset 0 0 0 10px #f3f1ec,
+    inset 0 0 0 10px #1a1510,
     0 8px 18px rgba(26, 22, 18, 0.12);
 }
 
@@ -3097,7 +3149,7 @@ button {
   gap: 0;
   border-radius: 28px;
   overflow: hidden;
-  background: var(--jx-paper, #fbfaf7);
+  background: var(--jx-paper, var(--glass));
   border: 1px solid rgba(55, 48, 40, 0.06);
   box-shadow: 0 16px 36px rgba(26, 22, 18, 0.05);
 }
@@ -3106,7 +3158,7 @@ button {
   display: grid;
   place-items: center;
   min-height: 200px;
-  background: linear-gradient(160deg, #efeae1, #e2dbd0);
+  background: linear-gradient(160deg, #2a221a, #e2dbd0);
 }
 
 .jx-soft-feature__orb {
@@ -3149,7 +3201,7 @@ button {
   border-radius: 18px;
   padding: 0.85rem 0.5rem;
   text-align: center;
-  background: var(--jx-paper, #fbfaf7);
+  background: var(--jx-paper, var(--glass));
   border: 1px solid rgba(55, 48, 40, 0.06);
 }
 
@@ -3175,7 +3227,7 @@ button {
   flex-direction: column;
   border-radius: 22px;
   overflow: hidden;
-  background: var(--jx-paper, #fbfaf7);
+  background: var(--jx-paper, var(--glass));
   border: 1px solid rgba(55, 48, 40, 0.06);
   box-shadow: 0 12px 28px rgba(26, 22, 18, 0.05);
   text-align: right;
@@ -3187,7 +3239,7 @@ button {
   aspect-ratio: 1 / 1.05;
   display: grid;
   place-items: center;
-  background: linear-gradient(165deg, #efeae1, #ddd5c8);
+  background: linear-gradient(165deg, #2a221a, #2a221a);
 }
 
 .jx-soft-card__body {
@@ -3210,7 +3262,7 @@ button {
 .jx-soft-footer {
   border-radius: 28px;
   padding: 1.6rem 1.2rem;
-  background: var(--jx-paper, #fbfaf7);
+  background: var(--jx-paper, var(--glass));
   border: 1px solid rgba(55, 48, 40, 0.06);
   text-align: center;
 }
@@ -3256,7 +3308,7 @@ button {
   font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.03em;
-  color: var(--jx-ink, #161412);
+  color: var(--jx-ink, var(--ink));
 }
 
 .jx-workbench__name input {
@@ -3264,17 +3316,17 @@ button {
   min-width: 9rem;
   border-radius: 999px;
   border: 1px solid rgba(55, 48, 40, 0.1);
-  background: #fff;
+  background: var(--glass);
   padding: 0 0.95rem;
   font-size: 0.82rem;
-  color: var(--jx-ink, #161412);
+  color: var(--jx-ink, var(--ink));
 }
 
 .jx-workbench__stage {
   position: relative;
   border-radius: 28px;
   overflow: hidden;
-  background: #ebe6dc;
+  background: #2a221a;
   border: 1px solid rgba(55, 48, 40, 0.06);
   box-shadow: 0 18px 40px rgba(26, 22, 18, 0.08);
   min-height: 360px;
@@ -3284,7 +3336,7 @@ button {
   width: 100%;
   height: min(52vh, 440px);
   min-height: 340px;
-  background: #ebe6dc;
+  background: #2a221a;
 }
 
 .jx-studio-canvas--loading {
@@ -3300,13 +3352,15 @@ button {
   max-width: 90%;
   padding: 0.45rem 0.9rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #161412;
+  background: rgba(18, 14, 10, 0.82);
+  color: var(--ink);
+  border: 1px solid var(--line);
   font-size: 0.72rem;
   font-weight: 700;
   text-align: center;
   pointer-events: none;
-  box-shadow: 0 8px 20px rgba(26, 22, 18, 0.08);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
 }
 
 .jx-workbench__present-card {
@@ -3367,7 +3421,7 @@ button {
   padding: 0.55rem 0.45rem;
   border-radius: 18px;
   border: 1px solid rgba(55, 48, 40, 0.08);
-  background: #fff;
+  background: var(--glass);
   color: inherit;
 }
 
@@ -3377,7 +3431,7 @@ button {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--jx-stone, #e8e4dc);
+  background: var(--jx-stone, #2a221a);
   font-size: 0.85rem;
 }
 
@@ -3430,7 +3484,7 @@ button {
   padding: 0.55rem 0.4rem;
   border-radius: 16px;
   border: 1px solid rgba(55, 48, 40, 0.08);
-  background: #fff;
+  background: var(--glass);
   color: inherit;
   font-size: 0.68rem;
   font-weight: 700;
@@ -3470,9 +3524,9 @@ button {
 }
 
 .jx-action-bar__ghost {
-  background: #fff;
+  background: var(--glass);
   border: 1px solid rgba(55, 48, 40, 0.12);
-  color: var(--jx-ink, #161412);
+  color: var(--jx-ink, var(--ink));
 }
 
 .jx-action-bar__primary {
@@ -3484,7 +3538,7 @@ button {
 .jx-soft-shot {
   border-radius: 22px;
   padding: 1rem;
-  background: #fff;
+  background: var(--glass);
   border: 1px solid rgba(55, 48, 40, 0.06);
   display: grid;
   gap: 0.75rem;
@@ -3493,7 +3547,7 @@ button {
 .jx-soft-shot img {
   width: 100%;
   border-radius: 16px;
-  background: #ebe6dc;
+  background: #2a221a;
 }
 
 @media (max-width: 420px) {
@@ -3510,14 +3564,19 @@ button {
 
 /* —— Italian marble / sculptural eye-training —— */
 .ambient-backdrop--marble .ambient-backdrop__photo {
-  filter: saturate(0.35) contrast(1.05) brightness(1.12) sepia(0.12);
-  opacity: 0.32;
-  object-position: center 28%;
+  filter: saturate(0.6) contrast(1.16) brightness(0.84) sepia(0.12);
+  opacity: 0.92;
+  object-position: center 22%;
 }
 
 [data-theme="dark"] .ambient-backdrop--marble .ambient-backdrop__photo {
-  opacity: 0.22;
-  filter: saturate(0.25) contrast(1.1) brightness(0.5) sepia(0.08);
+  opacity: 0.88;
+  filter: saturate(0.52) contrast(1.18) brightness(0.72) sepia(0.1);
+}
+
+[data-theme="light"] .ambient-backdrop--marble .ambient-backdrop__photo {
+  opacity: 0.94;
+  filter: saturate(0.58) contrast(1.12) brightness(0.88) sepia(0.14);
 }
 
 .atelier-marble-credit {
@@ -3547,8 +3606,9 @@ button {
 }
 
 .login-atelier--marble img {
-  filter: saturate(0.3) contrast(1.08) brightness(0.92) sepia(0.15);
+  filter: saturate(0.58) contrast(1.16) brightness(0.82) sepia(0.12);
   object-position: center 18% !important;
+  opacity: 1;
 }
 
 .visual-canon {
@@ -3572,7 +3632,7 @@ button {
   padding: 0.55rem;
   border-radius: 16px;
   border: 1px solid var(--line);
-  background: rgba(252, 250, 246, 0.96);
+  background: var(--glass);
   color: var(--ink-muted);
 }
 
@@ -3626,8 +3686,8 @@ button {
   inset: 0;
   background: linear-gradient(
     105deg,
-    color-mix(in srgb, var(--atelier-ivory, #f3efe6) 94%, transparent) 0%,
-    color-mix(in srgb, var(--atelier-ivory, #f3efe6) 58%, transparent) 48%,
+    color-mix(in srgb, rgba(14, 11, 8, 0.88) 94%, transparent) 0%,
+    color-mix(in srgb, rgba(14, 11, 8, 0.55) 58%, transparent) 48%,
     transparent 100%
   );
 }
@@ -3683,7 +3743,7 @@ button {
 
 .visual-canon__chip.is-on {
   background: var(--ink);
-  color: #faf7f2;
+  color: var(--ink);
   border-color: var(--ink);
 }
 
@@ -3719,7 +3779,7 @@ button {
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--accent-deep, #8a734c);
+  color: var(--accent-deep, var(--metal));
 }
 
 .jx-detail__brain {
@@ -3727,7 +3787,7 @@ button {
   padding: 1.1rem 1.15rem 1.2rem;
   border-radius: 18px;
   border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--accent-soft, #f0e8d8) 55%, #faf7f2);
+  background: color-mix(in srgb, var(--accent-soft, #f0e8d8) 55%, var(--ink));
 }
 
 .jx-detail__brain h2 {
@@ -3756,7 +3816,7 @@ button {
   gap: 0.15rem;
   padding: 0.65rem 0.75rem;
   border-radius: 12px;
-  background: rgba(252, 250, 246, 0.92);
+  background: var(--glass);
   border: 1px solid var(--line);
 }
 
@@ -3798,23 +3858,24 @@ button {
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: var(--bg-soft, #f5f1ea);
+  background: var(--glass);
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--ink-muted);
+  backdrop-filter: blur(8px);
 }
 
 .jx-brainstorm__chip.is-on {
-  background: var(--ink);
-  color: #faf7f2;
-  border-color: var(--ink);
+  background: color-mix(in srgb, var(--metal) 28%, var(--glass-strong));
+  color: var(--accent-deep);
+  border-color: var(--line-strong);
 }
 
 .jx-brainstorm__help {
   margin: 0.55rem 0 0;
   font-size: 0.72rem;
   line-height: 1.6;
-  color: var(--accent-deep, #8a734c);
+  color: var(--metal);
 }
 
 .jx-product-brain {
@@ -3836,7 +3897,7 @@ button {
   padding: 0.65rem 0.75rem;
   border-radius: 16px;
   border: 1px solid var(--line);
-  background: rgba(252, 250, 246, 0.96);
+  background: var(--glass);
 }
 
 .jx-product-brain__swatch {
@@ -3921,7 +3982,7 @@ button {
   padding: 0.65rem 0.75rem;
   border-radius: 14px;
   border: 1px solid var(--line);
-  background: rgba(252, 250, 246, 0.96);
+  background: var(--glass);
   color: var(--ink-muted);
 }
 
@@ -3965,8 +4026,8 @@ button {
   inset: 0;
   background: linear-gradient(
     105deg,
-    color-mix(in srgb, var(--atelier-ivory, #f3efe6) 94%, transparent) 0%,
-    color-mix(in srgb, var(--atelier-ivory, #f3efe6) 55%, transparent) 50%,
+    color-mix(in srgb, rgba(14, 11, 8, 0.88) 94%, transparent) 0%,
+    color-mix(in srgb, rgba(14, 11, 8, 0.5) 55%, transparent) 50%,
     transparent 100%
   );
 }
@@ -4030,7 +4091,7 @@ button {
   padding: 0.85rem 0.9rem;
   border-radius: 14px;
   border: 1px solid var(--line);
-  background: rgba(252, 250, 246, 0.96);
+  background: var(--glass);
   color: inherit;
   text-decoration: none;
 }
@@ -4044,7 +4105,7 @@ button {
   font-size: 0.75rem;
   font-weight: 800;
   background: var(--ink);
-  color: #faf7f2;
+  color: var(--ink);
 }
 
 .career-pillar strong {
@@ -4117,7 +4178,7 @@ button {
 .career-rank__bar i {
   display: block;
   height: 100%;
-  background: var(--accent-deep, #8a734c);
+  background: var(--accent-deep, var(--metal));
   border-radius: 999px;
 }
 

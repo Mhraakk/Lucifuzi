@@ -35,7 +35,7 @@ function courseRegions(courseId: string): StandardRegion[] {
 
 /**
  * Shakuro jewellery-ecommerce layout applied to training academy data.
- * Same UX/UI language as /employee/products — cream field, charcoal CTA, card grid.
+ * Same UX/UI language as /employee/products — bronze glass, gold CTA, sculpture field.
  */
 export function AcademyShowcase({
   pathTitle,

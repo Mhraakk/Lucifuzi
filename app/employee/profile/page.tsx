@@ -71,7 +71,7 @@ export default function ProfilePage() {
           type="button"
           className="btn btn-ghost w-full"
           onClick={() => {
-            setCurrentUser("user_emp_leila");
+            setCurrentUser("user_emp_nima");
             router.push("/login");
           }}
         >

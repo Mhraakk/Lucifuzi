@@ -38,7 +38,7 @@ export default function OnboardingPage() {
   const path = state.learningPaths.find((p) => p.id === track.learningPathId);
 
   function finish() {
-    setCurrentUser("user_emp_leila");
+    setCurrentUser("user_emp_nima");
     completeOnboarding({
       fullName,
       phone,

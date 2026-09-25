@@ -14,7 +14,7 @@ export default function EmployeesClient() {
   const user = useCurrentUser();
   const params = useSearchParams();
   const focus = params.get("focus");
-  const [selected, setSelected] = useState(focus ?? "user_emp_leila");
+  const [selected, setSelected] = useState(focus ?? "user_emp_nima");
   const [courseId, setCourseId] = useState("course_03");
   const [reason, setReason] = useState("تمرین جبرانی محاسبات اجرت");
   const [msg, setMsg] = useState<string | null>(null);

@@ -230,15 +230,15 @@ export const users: User[] = [
     lastLoginAt: WEEK_AGO,
   },
   {
-    id: "user_emp_leila",
+    id: "user_emp_raana",
     organizationId: ORG_ID,
     branchId: BRANCH_CENTRAL,
-    email: "leila.jamshidi@arya-gold.ir",
+    email: "raana.naderi@beatris.gold",
     phone: "09124445500",
-    fullName: "لیلا جمشیدی",
+    fullName: "رعنا نادری",
     role: "employee",
     systemRole: "employee",
-    avatarInitials: "لج",
+    avatarInitials: "رن",
     isActive: true,
     createdAt: "2025-01-08T09:00:00.000Z",
     lastLoginAt: NOW,
@@ -333,8 +333,8 @@ export const employeeProfiles: EmployeeProfile[] = [
     notes: "در حال گذراندن دوره شناخت طلا و محاسبات قیمت",
   },
   {
-    id: "ep_leila",
-    userId: "user_emp_leila",
+    id: "ep_raana",
+    userId: "user_emp_raana",
     organizationId: ORG_ID,
     branchId: BRANCH_CENTRAL,
     jobRole: "sales_associate",
@@ -1430,9 +1430,9 @@ export const learningPathCourses: LearningPathCourse[] = [
 
 export const employeeAssignments: EmployeeAssignment[] = [
   {
-    id: "asg_leila_path",
+    id: "asg_raana_path",
     organizationId: ORG_ID,
-    employeeUserId: "user_emp_leila",
+    employeeUserId: "user_emp_raana",
     learningPathId: "path_newhire",
     assignedByUserId: "user_mgr_central",
     assignedAt: "2025-01-08T10:00:00.000Z",
@@ -1507,9 +1507,9 @@ export const lessonProgress: LessonProgress[] = [
     percent: 100,
   },
   {
-    id: "lp_leila_01",
+    id: "lp_raana_01",
     organizationId: ORG_ID,
-    userId: "user_emp_leila",
+    userId: "user_emp_raana",
     lessonId: "les_01_1_1",
     courseId: "course_01",
     status: "completed",
@@ -1520,9 +1520,9 @@ export const lessonProgress: LessonProgress[] = [
     percent: 100,
   },
   {
-    id: "lp_leila_02",
+    id: "lp_raana_02",
     organizationId: ORG_ID,
-    userId: "user_emp_leila",
+    userId: "user_emp_raana",
     lessonId: "les_01_1_2",
     courseId: "course_01",
     status: "in_progress",
@@ -1829,18 +1829,18 @@ export const employeeCompetencies: EmployeeCompetency[] = [
     assessedByUserId: "user_mgr_central",
   },
   {
-    id: "ec_leila_product",
+    id: "ec_raana_product",
     organizationId: ORG_ID,
-    userId: "user_emp_leila",
+    userId: "user_emp_raana",
     competencyId: "comp_product",
     knowledgeLevel: 0,
     practicalStatus: "not_evaluated",
     workAuthorization: "none",
   },
   {
-    id: "ec_leila_pricing",
+    id: "ec_raana_pricing",
     organizationId: ORG_ID,
-    userId: "user_emp_leila",
+    userId: "user_emp_raana",
     competencyId: "comp_pricing",
     knowledgeLevel: 0,
     practicalStatus: "not_evaluated",
@@ -2250,12 +2250,12 @@ export const sopAcknowledgments: SopAcknowledgment[] = [
     acknowledgedAt: "2025-08-06T09:00:00.000Z",
   },
   {
-    id: "sa_leila_open",
+    id: "sa_raana_open",
     organizationId: ORG_ID,
     sopId: "sop_open",
     sopVersionId: "sopv_open_2",
     versionId: "sopv_open_2",
-    userId: "user_emp_leila",
+    userId: "user_emp_raana",
     acknowledgedAt: "2025-09-12T10:00:00.000Z",
   },
 ];
@@ -2265,9 +2265,9 @@ export const certificates: Certificate[] = [];
 
 export const trainingRecommendations: TrainingRecommendation[] = [
   {
-    id: "rec_leila_02",
+    id: "rec_raana_02",
     organizationId: ORG_ID,
-    userId: "user_emp_leila",
+    userId: "user_emp_raana",
     courseId: "course_02",
     competencyId: "comp_product",
     reason: "نیروی تازه‌وارد",
@@ -2316,7 +2316,7 @@ export const notifications: Notification[] = [
   {
     id: "ntf_1",
     organizationId: ORG_ID,
-    userId: "user_emp_leila",
+    userId: "user_emp_raana",
     type: "assignment",
     title: "مسیر یادگیری جدید",
     body: "مسیر تازه‌وارد فروش برای شما فعال شد. مهلت: ۲۹ دی‌ماه مسیر آموزشی.",
@@ -2352,7 +2352,7 @@ export const notifications: Notification[] = [
     organizationId: ORG_ID,
     userId: "user_mgr_central",
     type: "reminder",
-    title: "ارزیابی عملی لیلا",
+    title: "ارزیابی عملی رعنا",
     body: "کارمند جدید آماده ارزیابی عملی شناخت محصول است.",
     href: "/manager/assessments",
     createdAt: WEEK_AGO,
@@ -2489,8 +2489,8 @@ export function createDemoState(): AppState {
     ],
     pricingFormulaConfig,
     dailyTraining,
-    currentUserId: "user_emp_leila",
-    theme: "light",
+    currentUserId: "user_emp_nima",
+    theme: "dark",
   };
   // Ensure knowledge/certs never ship fabricated
   for (const ep of state.employeeProfiles) {

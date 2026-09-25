@@ -109,7 +109,7 @@ export const CAREER_TRACKS: CareerTrack[] = [
       "اگر دقت رقم، تجزیه قیمت و کنترل دوگانه به شما آرامش می‌دهد، مسیر حسابداری/صندوق برای شماست.",
     jobRole: "accountant",
     learningPathId: "path_cashier",
-    accent: "#8a734c",
+    accent: "#d4af37",
     sculptureSlot: "skills",
     faculties: ["دقت عددی", "استدلال مالی", "شفافیت", "کنترل ریسک"],
     pillars: [

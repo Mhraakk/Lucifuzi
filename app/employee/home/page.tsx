@@ -108,7 +108,7 @@ export default function EmployeeHomePage() {
         <Link
           href="/employee/products"
           className="jx-cta tap-react !self-stretch text-center"
-          style={{ display: "block", background: "#16120e", color: "#f7f1e8" }}
+          style={{ display: "block" }}
         >
           شمش زربد · پلاک زردیس · طلای کارشده و آب‌شده
         </Link>
