@@ -6,7 +6,7 @@ import { StudioLanding } from "@/components/studio/StudioLanding";
 export default function StudioPage() {
   return (
     <AppShell title="استودیو ۳D">
-      <div className="mx-auto max-w-app pb-4 jx-page">
+      <div className="mx-auto max-w-app pb-4 jx-page jx-page--atelier">
         <StudioLanding />
       </div>
     </AppShell>

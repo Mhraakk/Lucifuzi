@@ -27,6 +27,13 @@ const JewelryCanvas = dynamic(
   }
 );
 
+const TOOL_ICONS: Record<Exclude<StudioTool, "present">, string> = {
+  orbit: "O",
+  sculpt: "S",
+  smooth: "M",
+  "place-gem": "G",
+};
+
 export function StudioWorkbench({
   initialForm = "raw",
 }: {
@@ -43,56 +50,39 @@ export function StudioWorkbench({
   const [resetTick, setResetTick] = useState(0);
   const [captureTick, setCaptureTick] = useState(0);
 
-  const onFeedback = useCallback((msg: string) => {
-    setFeedback(msg);
-  }, []);
-
+  const onFeedback = useCallback((msg: string) => setFeedback(msg), []);
   const onCapture = useCallback((dataUrl: string | null) => {
     if (dataUrl) {
       setShot(dataUrl);
-      setFeedback("عکس ارائه ذخیره شد — می‌توانید نشان دهید");
+      setFeedback("کارت ارائه آماده است");
     } else {
       setFeedback("عکس‌برداری ممکن نشد");
     }
   }, []);
 
-  const startPresent = () => {
-    setTool("present");
-    setPresenting(true);
-    setFeedback("حالت ارائه — لمس برای خروج");
-  };
-
-  const stopPresent = () => {
-    setPresenting(false);
-    setTool("orbit");
-    setFeedback("ارائه تمام شد");
-  };
-
   const formMeta = STUDIO_FORMS.find((f) => f.id === form);
 
   return (
-    <div className={`jx-studio ${presenting ? "is-presenting" : ""}`}>
+    <div className={`jx-workbench ${presenting ? "is-presenting" : ""}`}>
       {!presenting ? (
-        <div className="jx-studio__head">
-          <p className="jx-eyebrow">Atelier 3D · لمس با انگشت</p>
-          <h2 className="jx-studio__title">کارگاه ایده</h2>
-          <p className="jx-studio__lede">
-            ماده خام طلا را لمس کنید، شکل دهید، نگین بگذارید و برای هم‌تیمی ارائه
-            دهید.
-          </p>
-          <label className="jx-studio__name">
-            <span>نام ایده</span>
+        <header className="jx-workbench__head">
+          <div>
+            <p className="jx-eyebrow">Atelier 3D</p>
+            <h2>کارگاه ایده</h2>
+          </div>
+          <label className="jx-workbench__name">
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={48}
-              placeholder="مثلاً حلقه خورشید آریا"
+              placeholder="نام ایده"
+              aria-label="نام ایده"
             />
           </label>
-        </div>
+        </header>
       ) : null}
 
-      <div className="jx-studio__stage">
+      <div className="jx-workbench__stage">
         <JewelryCanvas
           form={form}
           karat={karat}
@@ -108,8 +98,11 @@ export function StudioWorkbench({
         {presenting ? (
           <button
             type="button"
-            className="jx-studio__present-exit tap-react"
-            onClick={stopPresent}
+            className="jx-workbench__present-card tap-react"
+            onClick={() => {
+              setPresenting(false);
+              setTool("orbit");
+            }}
           >
             <span className="jx-eyebrow">Presenting</span>
             <strong>{title || "ایدهٔ من"}</strong>
@@ -118,7 +111,7 @@ export function StudioWorkbench({
             </span>
           </button>
         ) : (
-          <p className="jx-studio__hint" role="status">
+          <p className="jx-workbench__hint" role="status">
             {feedback}
           </p>
         )}
@@ -126,75 +119,92 @@ export function StudioWorkbench({
 
       {!presenting ? (
         <>
-          <nav className="jx-cats" aria-label="ابزار لمسی">
-            {STUDIO_TOOLS.filter((t) => t.id !== "present").map((t) => (
+          {/* Circular tool rail */}
+          <nav className="jx-tool-rail" aria-label="ابزار لمسی">
+            {(
+              STUDIO_TOOLS.filter(
+                (t): t is (typeof STUDIO_TOOLS)[number] & {
+                  id: Exclude<StudioTool, "present">;
+                } => t.id !== "present"
+              )
+            ).map((t) => (
               <Pressable
                 key={t.id}
-                className={`jx-cat ${tool === t.id ? "is-on" : ""}`}
+                className={`jx-tool ${tool === t.id ? "is-on" : ""}`}
                 feedback={{ label: t.hintFa, tone: "ok" }}
                 onPress={() => {
                   setTool(t.id);
                   setFeedback(t.hintFa);
                 }}
               >
-                {t.titleFa}
+                <span className="jx-tool__icon" aria-hidden>
+                  {TOOL_ICONS[t.id]}
+                </span>
+                <span className="jx-tool__label">{t.titleFa}</span>
               </Pressable>
             ))}
           </nav>
 
-          <section className="jx-studio__panel">
+          <section className="jx-workbench__block">
             <div className="jx-section-head">
               <h2>فرم قطعه</h2>
-              <p>از ماده خام تا محصول</p>
+              <p>انتخاب قالب</p>
             </div>
-            <div className="jx-studio__chips">
+            <div className="jx-round-cats__rail">
               {STUDIO_FORMS.map((f) => (
                 <Pressable
                   key={f.id}
-                  className={`jx-studio-chip ${form === f.id ? "is-on" : ""}`}
+                  className={`jx-round-cat ${form === f.id ? "is-on" : ""}`}
                   feedback={{ label: f.blurbFa, tone: "info" }}
                   onPress={() => {
                     setForm(f.id);
                     setFeedback(f.blurbFa);
                   }}
                 >
-                  <strong>{f.titleFa}</strong>
-                  <span>{f.blurbFa}</span>
+                  <span
+                    className="jx-round-cat__disc"
+                    style={{ ["--jx-accent" as string]: f.accent }}
+                    data-form={f.id}
+                  />
+                  <span className="jx-round-cat__label">{f.titleFa}</span>
                 </Pressable>
               ))}
             </div>
           </section>
 
-          <section className="jx-studio__panel">
+          <section className="jx-workbench__block">
             <div className="jx-section-head">
               <h2>عیار طلا</h2>
-              <p>رنگ فلز زنده</p>
+              <p>رنگ فلز</p>
             </div>
-            <div className="jx-brands">
+            <div className="jx-swatch-row">
               {GOLD_OPTIONS.map((g) => (
                 <Pressable
                   key={g.karat}
-                  className={`jx-brand-pill ${karat === g.karat ? "is-gold-on" : ""}`}
+                  className={`jx-swatch ${karat === g.karat ? "is-on" : ""}`}
                   feedback={{ label: g.titleFa, tone: "ok" }}
                   onPress={() => setKarat(g.karat)}
                 >
-                  <strong style={{ color: g.hex }}>{g.karat}</strong>
-                  <span>{g.titleFa}</span>
+                  <span
+                    className="jx-swatch__dot"
+                    style={{ background: g.hex }}
+                  />
+                  <span>{g.karat}</span>
                 </Pressable>
               ))}
             </div>
           </section>
 
-          <section className="jx-studio__panel">
+          <section className="jx-workbench__block">
             <div className="jx-section-head">
               <h2>نگین و سنگ</h2>
-              <p>بعد ابزار «نصب نگین» را بزنید</p>
+              <p>سپس «نصب نگین»</p>
             </div>
-            <div className="jx-studio__gems">
+            <div className="jx-swatch-row jx-swatch-row--gems">
               {STUDIO_GEMS.map((g) => (
                 <Pressable
                   key={g.id}
-                  className={`jx-studio-gem ${gem === g.id ? "is-on" : ""}`}
+                  className={`jx-swatch ${gem === g.id ? "is-on" : ""}`}
                   feedback={{ label: g.titleFa, tone: "info" }}
                   onPress={() => {
                     setGem(g.id);
@@ -203,18 +213,19 @@ export function StudioWorkbench({
                   }}
                 >
                   <span
-                    className="jx-studio-gem__swatch"
+                    className="jx-swatch__dot"
                     style={{ background: g.color }}
                   />
-                  <strong>{g.titleFa}</strong>
+                  <span>{g.titleFa}</span>
                 </Pressable>
               ))}
             </div>
           </section>
 
-          <div className="jx-studio__actions">
+          {/* Jewlly-style dual action bar */}
+          <div className="jx-action-bar">
             <Pressable
-              className="jx-cta jx-cta--dark tap-react"
+              className="jx-action-bar__ghost tap-react"
               feedback={{ label: "شروع مجدد", tone: "warn" }}
               onPress={() => {
                 setResetTick((n) => n + 1);
@@ -224,23 +235,26 @@ export function StudioWorkbench({
               شروع مجدد
             </Pressable>
             <Pressable
-              className="jx-cta tap-react"
-              feedback={{ label: "عکس ارائه", tone: "ok" }}
+              className="jx-action-bar__ghost tap-react"
+              feedback={{ label: "عکس", tone: "ok" }}
               onPress={() => setCaptureTick((n) => n + 1)}
             >
               عکس ایده
             </Pressable>
             <Pressable
-              className="jx-cta jx-cta--gold tap-react"
+              className="jx-action-bar__primary tap-react"
               feedback={{ label: "ارائه", tone: "ok" }}
-              onPress={startPresent}
+              onPress={() => {
+                setTool("present");
+                setPresenting(true);
+              }}
             >
               ارائه ۳D
             </Pressable>
           </div>
 
           {shot ? (
-            <section className="jx-studio__shot">
+            <section className="jx-soft-shot">
               <div className="jx-section-head">
                 <h2>کارت ارائه</h2>
                 <p>{title}</p>

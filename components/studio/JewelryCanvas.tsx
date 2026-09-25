@@ -217,7 +217,7 @@ export function JewelryCanvas({
       if (!mount) return;
 
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0e0c0a);
+      scene.background = new THREE.Color(0xebe6dc);
 
       const camera = new THREE.PerspectiveCamera(
         42,
@@ -239,25 +239,25 @@ export function JewelryCanvas({
       renderer.toneMappingExposure = 1.15;
       mount.appendChild(renderer.domElement);
 
-      const hemi = new THREE.HemisphereLight(0xfff2d9, 0x1a1410, 0.85);
+      const hemi = new THREE.HemisphereLight(0xfff8ee, 0xc4b8a8, 1.05);
       scene.add(hemi);
-      const key = new THREE.DirectionalLight(0xffe6b8, 1.55);
+      const key = new THREE.DirectionalLight(0xfff0d4, 1.35);
       key.position.set(4, 7, 3);
       key.castShadow = true;
       scene.add(key);
-      const fill = new THREE.DirectionalLight(0xb8c8ff, 0.45);
+      const fill = new THREE.DirectionalLight(0xdde4ff, 0.55);
       fill.position.set(-4, 2, -2);
       scene.add(fill);
-      const rimLight = new THREE.PointLight(0xffddaa, 0.6, 20);
+      const rimLight = new THREE.PointLight(0xffddaa, 0.45, 20);
       rimLight.position.set(0, -2, 4);
       scene.add(rimLight);
 
       const floor = new THREE.Mesh(
         new THREE.CircleGeometry(6, 64),
         new THREE.MeshStandardMaterial({
-          color: 0x1a1612,
-          metalness: 0.4,
-          roughness: 0.75,
+          color: 0xf7f3ec,
+          metalness: 0.15,
+          roughness: 0.85,
         })
       );
       floor.rotation.x = -Math.PI / 2;
@@ -266,11 +266,11 @@ export function JewelryCanvas({
       scene.add(floor);
 
       const stageRing = new THREE.Mesh(
-        new THREE.TorusGeometry(2.4, 0.02, 8, 80),
+        new THREE.TorusGeometry(2.4, 0.015, 8, 80),
         new THREE.MeshBasicMaterial({
           color: 0xc4a35a,
           transparent: true,
-          opacity: 0.35,
+          opacity: 0.28,
         })
       );
       stageRing.rotation.x = Math.PI / 2;
@@ -534,7 +534,12 @@ export function JewelryCanvas({
         rebuild,
         setPresent: (on) => {
           autoSpin = on;
-          scene.background = new THREE.Color(on ? 0x12100e : 0x0e0c0a);
+          scene.background = new THREE.Color(on ? 0x1a1612 : 0xebe6dc);
+          floor.material = new THREE.MeshStandardMaterial({
+            color: on ? 0x12100e : 0xf7f3ec,
+            metalness: on ? 0.35 : 0.15,
+            roughness: on ? 0.7 : 0.85,
+          });
         },
         capture: () => {
           try {
