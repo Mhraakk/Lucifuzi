@@ -13,7 +13,9 @@ export type JobRole =
   | "customer_service"
   | "repair_intake"
   | "gold_purchasing"
-  | "back_office";
+  | "back_office"
+  | "designer"
+  | "ideator";
 
 /** Quiz/exam knowledge score (0–100). Never grants work authorization. */
 export type KnowledgeLevel = number;
@@ -615,6 +617,8 @@ export const JOB_ROLE_LABELS: Record<JobRole, string> = {
   repair_intake: "پذیرش تعمیرات",
   gold_purchasing: "خرید طلا",
   back_office: "پشتیبانی اداری",
+  designer: "طراح قطعه",
+  ideator: "ایده‌پرداز فروشگاه",
 };
 
 export const ROLE_LABELS: Record<Role, string> = {

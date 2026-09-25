@@ -243,13 +243,16 @@ export function AcademyShowcase({
       {/* Closing editorial band */}
       <section className="jx-editorial">
         <p className="jx-eyebrow">Theory · Practice · Eye</p>
-        <h2>تئوری · عملی · مجوز کار</h2>
+        <h2>تئوری · عملی · طراحی · نقش</h2>
         <p>
-          تئوری و عملی تنها منبع آموزش‌اند. آزمون فقط دانش را می‌سنجد؛ مهارت روی کف
-          فروشگاه با فیلتر بصری (بینایی، استدلال، زیبایی‌سنجی، دقت) دیده می‌شود.
-          مجوز کار مستقل فقط با ارزیابی عملی مدیر صادر می‌شود.
+          دوره عمیق مهارتی باید مشخص کند فروشنده می‌شوید، حسابدار، طراح، یا
+          ایده‌پرداز. آزمون فقط دانش را می‌سنجد؛ مهارت و تناسب نقش روی کف دیده
+          می‌شود. مجوز کار فقط با ارزیابی عملی مدیر.
         </p>
-        <Link href="/employee/studio" className="jx-cta tap-react">
+        <Link href="/employee/career" className="jx-cta tap-react">
+          کشف مسیر نقش عمیق
+        </Link>
+        <Link href="/employee/studio" className="jx-cta jx-cta--ghost tap-react" style={{ marginTop: "0.55rem" }}>
           استودیو ۳D — مهارت لمسی
         </Link>
         <Link href="/employee/practice" className="jx-cta jx-cta--ghost tap-react" style={{ marginTop: "0.55rem" }}>

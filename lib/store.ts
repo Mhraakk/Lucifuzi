@@ -1359,6 +1359,7 @@ export function completeOnboarding(profile: {
   experienceLevel: string;
   previousJewelryExperience: boolean;
   hireDate: string;
+  learningPathId?: string;
 }): void {
   const draft = cloneState(state);
   const user = draft.users.find((u) => u.id === draft.currentUserId);
@@ -1372,9 +1373,13 @@ export function completeOnboarding(profile: {
     ep.branchId = profile.branchId;
     ep.jobRole = profile.jobRole;
     ep.hireDate = profile.hireDate;
-    const path = draft.learningPaths.find((p) =>
-      p.targetJobRoles.includes(profile.jobRole)
-    );
+    const path =
+      (profile.learningPathId
+        ? draft.learningPaths.find((p) => p.id === profile.learningPathId)
+        : undefined) ??
+      draft.learningPaths.find((p) =>
+        p.targetJobRoles.includes(profile.jobRole)
+      );
     ep.learningPathId = path?.id;
   }
   commit(draft);
@@ -1417,6 +1422,41 @@ export function recordPracticalAssessmentFromUi(input: {
 // Re-export alias used by manager assessments page
 export { recordPracticalAssessmentFromUi as recordPracticalUi };
 
+/** Commit to a deep career track — sets jobRole + learning path */
+export function commitCareerTrack(input: {
+  userId: string;
+  jobRole: import("./types").JobRole;
+  learningPathId: string;
+}): void {
+  const draft = cloneState(state);
+  const ep = draft.employeeProfiles.find((e) => e.userId === input.userId);
+  if (!ep) return;
+  ep.jobRole = input.jobRole;
+  ep.learningPathId = input.learningPathId;
+  const path = draft.learningPaths.find((p) => p.id === input.learningPathId);
+  if (path && !draft.employeeAssignments.some(
+    (a) =>
+      a.employeeUserId === input.userId &&
+      a.learningPathId === input.learningPathId &&
+      a.status !== "completed"
+  )) {
+    draft.employeeAssignments.push({
+      id: `asg_career_${input.userId}_${input.learningPathId}`,
+      organizationId: ep.organizationId,
+      employeeUserId: input.userId,
+      learningPathId: input.learningPathId,
+      assignedByUserId: draft.currentUserId,
+      assignedAt: new Date().toISOString(),
+      dueDate: new Date(Date.now() + (path.estimatedDays || 21) * 86400000)
+        .toISOString()
+        .slice(0, 10),
+      status: "in_progress",
+      priority: "high",
+      isMandatory: true,
+    });
+  }
+  commit(draft);
+}
 
 export function markNotificationRead(
   notificationId: string,

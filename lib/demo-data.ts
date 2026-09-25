@@ -1305,12 +1305,32 @@ export const learningPaths: LearningPath[] = [
   {
     id: "path_cashier",
     organizationId: ORG_ID,
-    title: "بسته شایستگی صندوق و ریسک",
+    title: "بسته شایستگی صندوق و حسابداری",
     description:
-      "تمرکز دامنه‌های شفافیت قیمت اروپا/آمریکا (PRC) و صداقت عملیاتی (INT) برای نقش صندوق و حسابداری.",
+      "دوره عمیق شفافیت قیمت (PRC) و صداقت عملیاتی (INT) — تا متقاضی بداند مسیر حسابدار/صندوق مال اوست.",
     targetJobRoles: ["cashier", "accountant"],
     estimatedDays: 14,
     courseIds: ["course_03", "course_10"],
+  },
+  {
+    id: "path_designer",
+    organizationId: ORG_ID,
+    title: "بسته عمیق طراح قطعه",
+    description:
+      "چشم بصری + سواد محصول + کارگاه ۳D — تئوری، استدلال فرمی، طراحی لمسی و آزمون؛ خروجی: «من طراح گالری‌ام».",
+    targetJobRoles: ["designer"],
+    estimatedDays: 28,
+    courseIds: ["course_02", "course_01", "course_04"],
+  },
+  {
+    id: "path_ideator",
+    organizationId: ORG_ID,
+    title: "بسته عمیق ایده‌پرداز فروشگاه",
+    description:
+      "ایده‌پردازی هر محصول، ست‌سازی، روایت فروش — تئوری ویترین + عملی ایده + سناریو؛ خروجی: «من ایده‌پرداز کف‌ام».",
+    targetJobRoles: ["ideator"],
+    estimatedDays: 21,
+    courseIds: ["course_02", "course_04", "course_05"],
   },
 ];
 
@@ -1362,6 +1382,48 @@ export const learningPathCourses: LearningPathCourse[] = [
     learningPathId: "path_cashier",
     courseId: "course_10",
     sortOrder: 2,
+    isRequired: true,
+  },
+  {
+    id: "lpc_d1",
+    learningPathId: "path_designer",
+    courseId: "course_02",
+    sortOrder: 1,
+    isRequired: true,
+  },
+  {
+    id: "lpc_d2",
+    learningPathId: "path_designer",
+    courseId: "course_01",
+    sortOrder: 2,
+    isRequired: true,
+  },
+  {
+    id: "lpc_d3",
+    learningPathId: "path_designer",
+    courseId: "course_04",
+    sortOrder: 3,
+    isRequired: true,
+  },
+  {
+    id: "lpc_i1",
+    learningPathId: "path_ideator",
+    courseId: "course_02",
+    sortOrder: 1,
+    isRequired: true,
+  },
+  {
+    id: "lpc_i2",
+    learningPathId: "path_ideator",
+    courseId: "course_04",
+    sortOrder: 2,
+    isRequired: true,
+  },
+  {
+    id: "lpc_i3",
+    learningPathId: "path_ideator",
+    courseId: "course_05",
+    sortOrder: 3,
     isRequired: true,
   },
 ];
@@ -1683,7 +1745,7 @@ export const competencies: Competency[] = [
     description:
       "GIA + CIBJO Precious Metals + Swiss Mark: عیار، وزن، مهر، نو/دست‌دوم — بدون ادعای غیرمستند.",
     category: "محصول",
-    relatedJobRoles: ["sales_associate", "gold_purchasing", "inventory"],
+    relatedJobRoles: ["sales_associate", "gold_purchasing", "inventory", "designer", "ideator"],
     relatedCourseIds: ["course_02"],
   },
   {
@@ -1705,7 +1767,7 @@ export const competencies: Competency[] = [
     description:
       "JA consultative selling + Swiss quiet luxury: نیازسنجی، دو گزینه، بستن بدون فشار.",
     category: "فروش",
-    relatedJobRoles: ["sales_associate", "store_manager"],
+    relatedJobRoles: ["sales_associate", "store_manager", "ideator", "designer"],
     relatedCourseIds: ["course_04", "course_05"],
   },
   {

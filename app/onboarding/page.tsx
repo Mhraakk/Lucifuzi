@@ -2,11 +2,23 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { JOB_ROLE_LABELS, type JobRole } from "@/lib/types";
+import {
+  CAREER_TRACKS,
+  type CareerTrackId,
+} from "@/lib/career/tracks";
 import { useAppState } from "@/lib/hooks";
 import { completeOnboarding, setCurrentUser } from "@/lib/store";
+import { sculptureSrc } from "@/lib/atelier/sculptures";
 
-const ROLES = Object.keys(JOB_ROLE_LABELS) as JobRole[];
+const TRACK_TO_EXP: Record<
+  CareerTrackId,
+  "none" | "junior" | "mid" | "senior"
+> = {
+  salesperson: "junior",
+  accountant: "junior",
+  designer: "none",
+  ideator: "junior",
+};
 
 export default function OnboardingPage() {
   const state = useAppState();
@@ -15,13 +27,15 @@ export default function OnboardingPage() {
   const [fullName, setFullName] = useState("سارا محمدی");
   const [phone, setPhone] = useState("09121234567");
   const [branchId, setBranchId] = useState(state.branches[0]?.id ?? "");
-  const [jobRole, setJobRole] = useState<JobRole>("sales_associate");
+  const [trackId, setTrackId] = useState<CareerTrackId>("salesperson");
   const [experienceLevel, setExperienceLevel] =
     useState<"none" | "junior" | "mid" | "senior">("junior");
   const [previousJewelryExperience, setPrev] = useState(false);
   const [hireDate, setHireDate] = useState("2026-03-20");
+  const [unsure, setUnsure] = useState(false);
 
-  const path = state.learningPaths.find((p) => p.targetJobRoles.includes(jobRole));
+  const track = CAREER_TRACKS.find((t) => t.id === trackId)!;
+  const path = state.learningPaths.find((p) => p.id === track.learningPathId);
 
   function finish() {
     setCurrentUser("user_emp_leila");
@@ -29,12 +43,13 @@ export default function OnboardingPage() {
       fullName,
       phone,
       branchId,
-      jobRole,
-      experienceLevel,
+      jobRole: track.jobRole,
+      experienceLevel: unsure ? "none" : experienceLevel,
       previousJewelryExperience,
       hireDate: new Date(hireDate).toISOString(),
+      learningPathId: track.learningPathId,
     });
-    router.push("/employee/home");
+    router.push("/employee/career");
   }
 
   return (
@@ -44,11 +59,11 @@ export default function OnboardingPage() {
       style={{ background: "var(--bg)", color: "var(--ink)" }}
     >
       <div className="mx-auto max-w-md space-y-5 animate-in">
-        <p className="text-xs faint">گالری طلای آریا · آنبوردینگ</p>
-        <h1 className="page-title">خوش آمدید</h1>
+        <p className="text-xs faint">گالری طلای آریا · دوره عمیق مهارتی</p>
+        <h1 className="page-title">کدام نقش مال شماست؟</h1>
         <p className="muted text-sm leading-7">
-          قدم‌به‌قدم نقش شما مشخص می‌شود و مسیر یادگیری متناسب ساخته می‌شود — نه
-          انبوه دوره‌های نامرتبط.
+          تئوری، استدلال، عملی، طراحی ۳D و آزمون آن‌قدر عمیق‌اند که در پایان
+          می‌دانید: فروشنده آنجا می‌شوید، حسابدار، طراح، یا ایده‌پرداز.
         </p>
 
         {step === 0 ? (
@@ -56,15 +71,27 @@ export default function OnboardingPage() {
             <h2 className="section-title">اطلاعات پایه</h2>
             <div>
               <label className="label">نام کامل</label>
-              <input className="field" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+              <input
+                className="field"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
             </div>
             <div>
               <label className="label">موبایل</label>
-              <input className="field" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <input
+                className="field"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
             </div>
             <div>
               <label className="label">شعبه</label>
-              <select className="field" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+              <select
+                className="field"
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+              >
                 {state.branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -81,30 +108,59 @@ export default function OnboardingPage() {
                 onChange={(e) => setHireDate(e.target.value)}
               />
             </div>
-            <button type="button" className="btn btn-primary w-full" onClick={() => setStep(1)}>
-              ادامه
+            <button
+              type="button"
+              className="btn btn-primary w-full"
+              onClick={() => setStep(1)}
+            >
+              ادامه به چهار مسیر عمیق
             </button>
           </section>
         ) : null}
 
         {step === 1 ? (
           <section className="surface p-4 space-y-3">
-            <h2 className="section-title">نقش شغلی</h2>
+            <h2 className="section-title">چهار مسیر عمیق</h2>
+            <p className="muted text-sm leading-7 mb-1">
+              یک حدس اولیه بزنید — سنجش تناسب روی مسیر نقش، نتیجه را دقیق‌تر
+              می‌کند.
+            </p>
             <div className="grid gap-2">
-              {ROLES.map((r) => (
+              {CAREER_TRACKS.map((t) => (
                 <button
-                  key={r}
+                  key={t.id}
                   type="button"
-                  className="rounded-xl border p-3 text-right text-sm"
+                  className="rounded-xl border p-3 text-right"
                   style={{
-                    borderColor: jobRole === r ? "var(--accent)" : "var(--line)",
-                    background: jobRole === r ? "var(--accent-soft)" : "transparent",
+                    borderColor: trackId === t.id && !unsure ? "var(--accent)" : "var(--line)",
+                    background:
+                      trackId === t.id && !unsure
+                        ? "var(--accent-soft)"
+                        : "transparent",
                   }}
-                  onClick={() => setJobRole(r)}
+                  onClick={() => {
+                    setUnsure(false);
+                    setTrackId(t.id);
+                    setExperienceLevel(TRACK_TO_EXP[t.id]);
+                  }}
                 >
-                  {JOB_ROLE_LABELS[r]}
+                  <strong className="block text-sm">{t.titleFa}</strong>
+                  <em className="block text-xs faint mt-1 not-italic leading-6">
+                    {t.shortFa} — {t.promiseFa}
+                  </em>
                 </button>
               ))}
+              <button
+                type="button"
+                className="rounded-xl border p-3 text-right text-sm"
+                style={{
+                  borderColor: unsure ? "var(--accent)" : "var(--line)",
+                  background: unsure ? "var(--accent-soft)" : "transparent",
+                }}
+                onClick={() => setUnsure(true)}
+              >
+                هنوز مطمئن نیستم — اول سنجش تناسب نقش
+              </button>
             </div>
             <div>
               <label className="label">سطح تجربه</label>
@@ -132,10 +188,18 @@ export default function OnboardingPage() {
               سابقه کار در طلافروشی دارم
             </label>
             <div className="flex gap-2">
-              <button type="button" className="btn btn-secondary flex-1" onClick={() => setStep(0)}>
+              <button
+                type="button"
+                className="btn btn-secondary flex-1"
+                onClick={() => setStep(0)}
+              >
                 قبلی
               </button>
-              <button type="button" className="btn btn-primary flex-1" onClick={() => setStep(2)}>
+              <button
+                type="button"
+                className="btn btn-primary flex-1"
+                onClick={() => setStep(2)}
+              >
                 ادامه
               </button>
             </div>
@@ -144,27 +208,63 @@ export default function OnboardingPage() {
 
         {step === 2 ? (
           <section className="surface p-4 space-y-4">
-            <h2 className="section-title">مسیر پیشنهادی شما</h2>
-            <p className="font-bold">{path?.title ?? "مسیر عمومی"}</p>
-            <p className="muted text-sm leading-7">{path?.description}</p>
-            <ul className="space-y-2">
-              {(path?.courseIds ?? state.courses.slice(0, 3).map((c) => c.id)).map(
-                (cid) => {
-                  const c = state.courses.find((x) => x.id === cid);
-                  return (
-                    <li key={cid} className="rounded-xl px-3 py-2 text-sm" style={{ background: "var(--bg-soft)" }}>
-                      {c?.title}
+            <div className="career-track-hero !min-h-[9rem] !rounded-xl overflow-hidden relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={sculptureSrc(track.sculptureSlot)}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <div className="career-track-hero__veil" aria-hidden />
+              <div className="career-track-hero__copy !p-3">
+                <p className="atelier-kicker">
+                  {unsure ? "کشف نقش" : track.shortFa}
+                </p>
+                <h2 className="!text-lg">
+                  {unsure ? "سنجش تناسب نقش" : track.titleFa}
+                </h2>
+              </div>
+            </div>
+
+            <h2 className="section-title">
+              {unsure ? "مسیر بعدی شما" : "بسته عمیق پیشنهادی"}
+            </h2>
+            {unsure ? (
+              <p className="muted text-sm leading-7">
+                شش سؤال استدلالی + سیگنال فعالیت آموزشی مشخص می‌کند نزدیک‌ترین
+                نقش کدام است — فروشنده، حسابدار، طراح، یا ایده‌پرداز.
+              </p>
+            ) : (
+              <>
+                <p className="font-bold">{path?.title ?? track.titleFa}</p>
+                <p className="muted text-sm leading-7">
+                  {path?.description ?? track.outcomeFa}
+                </p>
+                <p className="text-sm leading-7">{track.promiseFa}</p>
+                <ul className="space-y-2">
+                  {track.pillars.map((p) => (
+                    <li
+                      key={p.id}
+                      className="rounded-xl px-3 py-2 text-sm"
+                      style={{ background: "var(--bg-soft)" }}
+                    >
+                      <strong>{p.titleFa}</strong>
+                      <span className="faint"> · {p.bodyFa}</span>
                     </li>
-                  );
-                }
-              )}
-            </ul>
+                  ))}
+                </ul>
+              </>
+            )}
             <p className="text-xs faint leading-6">
-              سپس یک درس کوتاه و ارزیابی پایه دانش انجام می‌شود. مجوز کار مستقل
-              بعداً با ارزیابی عملی مدیر صادر می‌شود.
+              آزمون فقط دانش را می‌سنجد. مجوز کار مستقل فقط با ارزیابی عملی مدیر
+              صادر می‌شود — نه با نمره آزمون.
             </p>
-            <button type="button" className="btn btn-primary w-full" onClick={finish}>
-              شروع آموزش
+            <button
+              type="button"
+              className="btn btn-primary w-full"
+              onClick={finish}
+            >
+              {unsure ? "ورود به سنجش تناسب نقش" : "شروع مسیر عمیق نقش"}
             </button>
           </section>
         ) : null}

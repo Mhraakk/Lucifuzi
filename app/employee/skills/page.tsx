@@ -5,6 +5,7 @@ import { StandardsChart } from "@/components/training/StandardsChart";
 import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge, ProgressRing } from "@/components/ui/Feedback";
 import { sculptureSrc, sculptureWork } from "@/lib/atelier/sculptures";
+import { CareerPathfinder } from "@/components/career/CareerPathfinder";
 import { toPersianDigits } from "@/lib/format";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
 import {
@@ -32,14 +33,16 @@ export default function SkillsPage() {
         <section className="animate-in">
           <h1 className="page-title mb-2">نقشه شایستگی</h1>
           <p className="muted text-sm leading-7">
-            تئوری و عملی تنها منبع‌اند. سه لایه جدا: دانش آزمون ≠ وضعیت عملی ≠
-            مجوز کار. فیلتر بصری آریا بینایی و دقت را می‌سنجد — فقط ارزیابی عملی
-            مشاهده‌شده مجوز می‌دهد.
+            دوره عمیق مهارتی باید به این نتیجه برسد: می‌خواهم فروشنده باشم،
+            حسابدار، طراح، یا ایده‌پرداز. تئوری و عملی تنها منبع‌اند؛ مجوز کار
+            فقط با ارزیابی عملی مدیر.
           </p>
           <p className="atelier-marble-credit mt-2">
             {marble.artist} · {marble.title}
           </p>
         </section>
+
+        <CareerPathfinder compact />
 
         <StandardsChart compact />
 
