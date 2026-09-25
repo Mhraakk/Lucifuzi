@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as {
       email?: string;
       code?: string;
+      challenge?: string;
     };
     const email = (body.email ?? "").trim().toLowerCase();
     const code = (body.code ?? "").trim();
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ایمیل و کد لازم است" }, { status: 400 });
     }
 
-    const result = consumeOtp(email, code);
+    const result = consumeOtp(email, code, body.challenge);
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }

@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     const code = generateOtpCode();
     const now = Date.now();
 
-    putOtp({
+    const challenge = putOtp({
       email,
       code,
       userId: resolved.userId,
@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
       isNew: resolved.isNew,
       expiresInSec: 300,
       delivery: delivery.via,
+      challenge,
       mail: {
         id: `mail_${now.toString(36)}`,
         to: email,

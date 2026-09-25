@@ -25,6 +25,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [fullName, setFullName] = useState("");
+  const [challenge, setChallenge] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export default function LoginPage() {
       const data = (await res.json()) as {
         ok?: boolean;
         error?: string;
+        challenge?: string;
         mail?: {
           id: string;
           to: string;
@@ -70,6 +72,10 @@ export default function LoginPage() {
       };
       if (!res.ok || !data.ok) {
         throw new Error(data.error ?? "ارسال کد ناموفق");
+      }
+      if (data.challenge) setChallenge(data.challenge);
+      if (typeof window !== "undefined" && data.challenge) {
+        window.sessionStorage.setItem("beatris-otp-challenge", data.challenge);
       }
       if (data.mail) {
         pushMailMessage({
@@ -95,12 +101,18 @@ export default function LoginPage() {
     setAuthLoading(true);
     setAuthError(null);
     try {
+      const challengeToken =
+        challenge ||
+        (typeof window !== "undefined"
+          ? window.sessionStorage.getItem("beatris-otp-challenge")
+          : null);
       const res = await fetch("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           code: code.trim(),
+          challenge: challengeToken || undefined,
         }),
       });
       const data = (await res.json()) as {
@@ -139,6 +151,9 @@ export default function LoginPage() {
       });
 
       persistSession(data.token || createSession(user));
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem("beatris-otp-challenge");
+      }
       void syncEvent({
         type: "auth_login",
         userId: user.id,

@@ -1,7 +1,10 @@
 /**
- * Server-side OTP store — real codes, one email = one pending challenge.
- * Codes also mirrored to client mailbox via API response for /mail.
+ * Server-side OTP — signed challenge tokens (serverless-safe).
+ * Codes also mirrored for /mail when same instance has memory;
+ * primary verify path uses the signed challenge returned to the client.
  */
+
+import { createHmac, timingSafeEqual } from "crypto";
 
 export type OtpRecord = {
   email: string;
@@ -25,6 +28,14 @@ const g = globalThis as unknown as {
   }>;
 };
 
+function secret(): string {
+  return (
+    process.env.BEATRIS_OTP_SECRET ||
+    process.env.RESEND_API_KEY ||
+    "beatris-otp-atelier-v1-dev"
+  );
+}
+
 function store(): Map<string, OtpRecord> {
   if (!g.__beatrisOtp) g.__beatrisOtp = new Map();
   return g.__beatrisOtp;
@@ -39,7 +50,64 @@ export function generateOtpCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-export function putOtp(record: OtpRecord): void {
+export function signChallenge(payload: {
+  email: string;
+  code: string;
+  userId: string;
+  fullName: string;
+  expiresAt: number;
+}): string {
+  const body = Buffer.from(
+    JSON.stringify({
+      e: payload.email.toLowerCase(),
+      c: payload.code,
+      u: payload.userId,
+      n: payload.fullName,
+      x: payload.expiresAt,
+    }),
+    "utf8"
+  ).toString("base64url");
+  const sig = createHmac("sha256", secret()).update(body).digest("base64url");
+  return `${body}.${sig}`;
+}
+
+export function readChallenge(token: string): {
+  email: string;
+  code: string;
+  userId: string;
+  fullName: string;
+  expiresAt: number;
+} | null {
+  try {
+    const [body, sig] = token.split(".");
+    if (!body || !sig) return null;
+    const expect = createHmac("sha256", secret()).update(body).digest("base64url");
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expect);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    const data = JSON.parse(
+      Buffer.from(body, "base64url").toString("utf8")
+    ) as {
+      e: string;
+      c: string;
+      u: string;
+      n: string;
+      x: number;
+    };
+    if (!data.e || !data.c || !data.u || !data.x) return null;
+    return {
+      email: data.e,
+      code: data.c,
+      userId: data.u,
+      fullName: data.n,
+      expiresAt: data.x,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function putOtp(record: OtpRecord): string {
   store().set(record.email.toLowerCase(), record);
   mailStore().unshift({
     id: `mail_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
@@ -49,10 +117,16 @@ export function putOtp(record: OtpRecord): void {
     code: record.code,
     createdAt: new Date().toISOString(),
   });
-  // keep last 200
   if (mailStore().length > 200) {
     g.__beatrisMail = mailStore().slice(0, 200);
   }
+  return signChallenge({
+    email: record.email,
+    code: record.code,
+    userId: record.userId,
+    fullName: record.fullName,
+    expiresAt: record.expiresAt,
+  });
 }
 
 export function getOtp(email: string): OtpRecord | undefined {
@@ -65,9 +139,37 @@ export function clearOtp(email: string): void {
 
 export function consumeOtp(
   email: string,
-  code: string
+  code: string,
+  challenge?: string
 ): { ok: true; record: OtpRecord } | { ok: false; error: string } {
   const key = email.trim().toLowerCase();
+  const trimmed = code.trim();
+
+  if (challenge) {
+    const ch = readChallenge(challenge);
+    if (!ch) return { ok: false, error: "نشست کد نامعتبر است — دوباره درخواست کنید" };
+    if (ch.email !== key) return { ok: false, error: "ایمیل با کد هم‌خوان نیست" };
+    if (Date.now() > ch.expiresAt) {
+      return { ok: false, error: "کد منقضی شده — دوباره درخواست کنید" };
+    }
+    if (ch.code !== trimmed) {
+      return { ok: false, error: "کد نادرست است" };
+    }
+    store().delete(key);
+    return {
+      ok: true,
+      record: {
+        email: ch.email,
+        code: ch.code,
+        userId: ch.userId,
+        fullName: ch.fullName,
+        createdAt: ch.expiresAt - 5 * 60 * 1000,
+        expiresAt: ch.expiresAt,
+        attempts: 0,
+      },
+    };
+  }
+
   const rec = store().get(key);
   if (!rec) return { ok: false, error: "کدی برای این ایمیل درخواست نشده" };
   if (Date.now() > rec.expiresAt) {
@@ -79,7 +181,7 @@ export function consumeOtp(
     store().delete(key);
     return { ok: false, error: "تلاش بیش از حد — کد باطل شد" };
   }
-  if (rec.code !== code.trim()) {
+  if (rec.code !== trimmed) {
     return { ok: false, error: "کد نادرست است" };
   }
   store().delete(key);
