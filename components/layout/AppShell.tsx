@@ -11,77 +11,93 @@ import { AmbientBackdrop } from "@/components/layout/AmbientBackdrop";
 const employeeNav = [
   { href: "/employee/home", label: "خانه", icon: "home" },
   { href: "/employee/learn", label: "آموزش", icon: "learn" },
+  { href: "/employee/products", label: "محصولات", icon: "gem" },
   { href: "/employee/practice", label: "تمرین", icon: "practice" },
-  { href: "/employee/skills", label: "مهارت‌ها", icon: "skills" },
-  { href: "/employee/profile", label: "پروفایل", icon: "profile" },
+  { href: "/employee/profile", label: "من", icon: "profile" },
 ];
 
 const managerNav = [
-  { href: "/manager/dashboard", label: "داشبورد", icon: "home" },
+  { href: "/manager/dashboard", label: "خانه", icon: "home" },
   { href: "/ops", label: "پلتفرم", icon: "spark" },
   { href: "/manager/employees", label: "کارکنان", icon: "people" },
   { href: "/manager/training", label: "آموزش", icon: "learn" },
   { href: "/manager/assessments", label: "ارزیابی", icon: "check" },
-  { href: "/manager/settings", label: "بیشتر", icon: "more" },
 ];
 
 function NavIcon({ name }: { name: string }) {
+  const common = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
   switch (name) {
     case "home":
       return (
-        <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
           <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z" />
         </svg>
       );
     case "learn":
       return (
-        <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-          <path d="M4 5h10a2 2 0 0 1 2 2v12H6a2 2 0 0 0-2 2V5Z" />
-          <path d="M16 7h4v12a2 2 0 0 1-2 2h-2" />
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
+          <path d="M5 5.5h9.5A2.5 2.5 0 0 1 17 8v11.5H7A2 2 0 0 0 5 21.5V5.5Z" />
+          <path d="M17 8h2.5v11.5A2 2 0 0 1 17.5 21.5H17" />
+          <path d="M8.5 9.5h5M8.5 13h5" />
+        </svg>
+      );
+    case "gem":
+      return (
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
+          <path d="M12 3.5 16.5 9 12 20.5 7.5 9 12 3.5Z" />
+          <path d="M7.5 9h9" />
+          <path d="M10 3.8 7.5 9M14 3.8 16.5 9" />
         </svg>
       );
     case "practice":
       return (
-        <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-          <circle cx="12" cy="12" r="8" />
-          <path d="M12 8v4l2.5 2.5" />
-        </svg>
-      );
-    case "skills":
-      return (
-        <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-          <path d="M12 3 14.5 9H21l-5 4 2 7-6-4-6 4 2-7-5-4h6.5L12 3Z" />
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
+          <circle cx="12" cy="12" r="7.5" />
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 4.5v2.2M12 17.3v2.2M4.5 12h2.2M17.3 12h2.2" />
         </svg>
       );
     case "profile":
       return (
-        <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-          <circle cx="12" cy="8" r="3.5" />
-          <path d="M5 19.5c1.8-3.2 4.2-4.5 7-4.5s5.2 1.3 7 4.5" />
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
+          <circle cx="12" cy="9" r="3.2" />
+          <path d="M6 19c1.4-3 3.4-4.3 6-4.3s4.6 1.3 6 4.3" />
         </svg>
       );
     case "people":
       return (
-        <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-          <circle cx="9" cy="8" r="3" />
-          <circle cx="17" cy="9" r="2.5" />
-          <path d="M3.5 19c1.5-3 3.6-4.2 5.5-4.2S14 16 15.5 19" />
-          <path d="M14 14.8c1.4-.4 2.8.1 4 1.7" />
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
+          <circle cx="9" cy="8.5" r="2.8" />
+          <circle cx="16.5" cy="9.2" r="2.2" />
+          <path d="M4 19c1.3-2.8 3.2-4 5-4s3.7 1.2 5 4" />
+          <path d="M14 15.2c1.3-.5 2.7 0 4 1.8" />
         </svg>
       );
     case "check":
       return (
-        <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-          <circle cx="12" cy="12" r="8" />
-          <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
+          <circle cx="12" cy="12" r="7.5" />
+          <path d="m8.6 12.2 2.4 2.4 4.4-4.8" />
+        </svg>
+      );
+    case "spark":
+      return (
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
+          <path d="M12 3.5 13.6 9.2 19.5 11 13.6 12.8 12 18.5 10.4 12.8 4.5 11 10.4 9.2 12 3.5Z" />
         </svg>
       );
     default:
       return (
-        <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-          <circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none" />
-          <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-          <circle cx="18" cy="12" r="1.4" fill="currentColor" stroke="none" />
+        <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden {...common}>
+          <circle cx="6" cy="12" r="1.3" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+          <circle cx="18" cy="12" r="1.3" fill="currentColor" stroke="none" />
         </svg>
       );
   }
@@ -118,11 +134,17 @@ export function AppShell({
             {backHref ? (
               <Link
                 href={backHref}
-                className="btn btn-ghost !min-h-11 !px-3 text-sm"
+                className="btn btn-ghost tap-react !min-h-11 !px-3 text-sm"
                 aria-label="بازگشت"
               >
-                <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-                  <path d="M9 6l6 6-6 6" />
+                <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    d="M9 6l6 6-6 6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </Link>
             ) : (
@@ -152,39 +174,66 @@ export function AppShell({
             {actions}
             <button
               type="button"
-              className="btn btn-ghost !min-h-11 !w-11 !px-0"
+              className="btn btn-ghost tap-react !min-h-11 !w-11 !px-0"
               onClick={() =>
                 setTheme(state.theme === "light" ? "dark" : "light")
               }
               aria-label={state.theme === "light" ? "حالت تاریک" : "حالت روشن"}
             >
               {state.theme === "light" ? (
-                <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-                  <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3 7 7 0 0 0 21 14.5Z" />
+                <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    d="M21 14.5A8.5 8.5 0 1 1 9.5 3 7 7 0 0 0 21 14.5Z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                  />
                 </svg>
               ) : (
-                <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M5 19l1.5-1.5" />
+                <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden>
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                  />
+                  <path
+                    d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M5 19l1.5-1.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                  />
                 </svg>
               )}
             </button>
             {!manager ? (
               <Link
                 href="/employee/profile"
-                className="relative btn btn-secondary !min-h-11 !w-11 !px-0"
+                className="relative btn btn-secondary tap-react !min-h-11 !w-11 !px-0"
                 aria-label="اعلان‌ها"
               >
-                <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden>
-                  <path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z" />
-                  <path d="M10 18.5a2 2 0 0 0 4 0" />
+                <svg className="dock-icon" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                  />
+                  <path
+                    d="M10 18.5a2 2 0 0 0 4 0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                  />
                 </svg>
                 {unread > 0 ? (
                   <span
-                    className="absolute -top-0.5 -left-0.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold status-pulse-wrap is-active"
+                    className="absolute -top-0.5 -left-0.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold"
                     style={{ background: "var(--danger)", color: "#fff" }}
                   >
-                    <span className="status-pulse-dot !absolute !inset-0 !bg-transparent" aria-hidden />
                     {unread}
                   </span>
                 ) : null}
@@ -198,31 +247,27 @@ export function AppShell({
         {children}
       </main>
 
+      {/* Floating luxury dock — replaces flat bottom bar */}
       <nav
-        className="fixed bottom-0 inset-x-0 z-30 border-t hairline glass-bar md:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        className="dock-nav md:hidden"
+        style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
         aria-label="منوی اصلی"
       >
-        <ul className="mx-auto grid max-w-app grid-cols-5 gap-0.5 px-1.5 py-1.5">
+        <ul className="dock-nav__inner">
           {nav.map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
-              <li key={item.href}>
+              <li key={item.href} className="dock-nav__item">
                 <Link
                   href={item.href}
-                  className={`nav-item tap-react flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium ${
-                    active ? "nav-item-active" : ""
-                  }`}
-                  style={{
-                    color: active ? "var(--accent-deep)" : "var(--ink-muted)",
-                    background: active ? "var(--accent-soft)" : "transparent",
-                  }}
+                  className={`dock-link tap-react ${active ? "is-active" : ""}`}
+                  aria-current={active ? "page" : undefined}
                 >
-                  <NavIcon name={item.icon} />
-                  {item.label}
-                  {active ? (
-                    <span className="nav-indicator" aria-hidden />
-                  ) : null}
+                  <span className="dock-link__icon" aria-hidden>
+                    <NavIcon name={item.icon} />
+                  </span>
+                  <span className="dock-link__label">{item.label}</span>
                 </Link>
               </li>
             );
@@ -231,18 +276,15 @@ export function AppShell({
       </nav>
 
       <aside className="fixed bottom-6 left-6 z-20 hidden md:block">
-        <div className="surface flex flex-col gap-1 p-2 text-sm">
+        <div className="dock-side">
           {nav.map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-2 rounded-xl px-3 py-2.5 transition-colors"
-                style={{
-                  background: active ? "var(--accent-soft)" : "transparent",
-                  color: active ? "var(--accent-deep)" : "var(--ink-muted)",
-                }}
+                className={`dock-side__link tap-react ${active ? "is-active" : ""}`}
               >
                 <NavIcon name={item.icon} />
                 {item.label}

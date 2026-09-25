@@ -92,9 +92,17 @@ export default function EmployeeHomePage() {
         <AtelierProductHero
           title="آموزش مثل ویترین گالری"
           subtitle="محصول را مثل برندهای معتبر ارائه کنید: نور، سینی مخمل، روایت کوتاه — نه فشار فروش."
-          ctaHref="/employee/learn"
-          ctaLabel="ورود به دیوار آموزش"
+          ctaHref="/employee/products"
+          ctaLabel="ویترین محصولات آموزشی"
         />
+
+        <Link
+          href="/employee/products"
+          className="jx-cta tap-react !self-stretch text-center"
+          style={{ display: "block", background: "#16120e", color: "#f7f1e8" }}
+        >
+          شمش زربد · پلاک زردیس · طلای کارشده و آب‌شده
+        </Link>
 
         <PedagogyJourney />
 

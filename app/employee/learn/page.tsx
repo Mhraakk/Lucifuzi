@@ -53,9 +53,9 @@ export default function LearnPage() {
 
         <AtelierProductHero
           title="ارائه مثل برندهای لوکس"
-          subtitle="هر درس محتوای عملیاتی دارد: روایت، نمایش، و تمرین لمسی — دانش آزمون مجوز کار نیست."
-          ctaHref="/employee/formula"
-          ctaLabel="کارگاه فرمول قیمت"
+          subtitle="هر درس محتوای عملیاتی دارد — ویترین محصولات زربد و زردیس را هم ببینید."
+          ctaHref="/employee/products"
+          ctaLabel="ویترین محصولات"
         />
 
         <FormulaStudio compact />
