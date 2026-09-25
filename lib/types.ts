@@ -423,6 +423,18 @@ export interface TrialAttempt {
   answers: Record<string, string[]>;
   toolsUsed: string[];
   missedStepIds: string[];
+  /** Real instrument readings (FX, scale, price, melt, XRF, orbit, …) */
+  instrumentLog: Array<{
+    toolId: string;
+    kind: string;
+    at: string;
+    stepId?: string;
+    values: Record<string, number | string | boolean>;
+    ok: boolean;
+    detailFa: string;
+  }>;
+  /** Machine-readable outputs for managers / floor gates */
+  outputs: Record<string, number | string | boolean>;
 }
 
 /** Manager-assigned floor responsibility after practical + trial evidence. */

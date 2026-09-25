@@ -88,6 +88,10 @@ function syncAliases(draft: AppState): void {
   if (!Array.isArray(draft.responsibilityAssignments)) {
     draft.responsibilityAssignments = [];
   }
+  for (const t of draft.trialAttempts) {
+    if (!Array.isArray(t.instrumentLog)) t.instrumentLog = [];
+    if (!t.outputs || typeof t.outputs !== "object") t.outputs = {};
+  }
 }
 
 function commit(draft: AppState): void {
@@ -1687,6 +1691,7 @@ export function completeRoleTrial(input: {
   trialId: string;
   answers: Record<string, string[]>;
   toolsUsed: string[];
+  instrumentLog?: TrialAttempt["instrumentLog"];
   userId?: string;
 }): TrialAttempt {
   const trial = trialById(input.trialId);
@@ -1696,8 +1701,25 @@ export function completeRoleTrial(input: {
 
   const draft = cloneState(state);
   const userId = input.userId ?? draft.currentUserId;
-  const scored = scoreTrial(trial, input.answers);
+  const log = input.instrumentLog ?? [];
+  const byStep: Record<string, { ok: boolean }> = {};
+  for (const r of log) {
+    if (r.stepId) byStep[r.stepId] = { ok: r.ok };
+  }
+  const scored = scoreTrial(trial, input.answers, byStep);
   const startedAt = nowIso();
+  const outputs: Record<string, number | string | boolean> = {
+    envId: env.id,
+    trialId: trial.id,
+    percent: scored.percent,
+    passed: scored.passed,
+    instrumentCount: log.length,
+  };
+  for (const r of log) {
+    for (const [k, v] of Object.entries(r.values)) {
+      outputs[`${r.kind}.${k}`] = v;
+    }
+  }
   const attempt: TrialAttempt = {
     id: uid("ta"),
     organizationId: draft.organization.id,
@@ -1714,6 +1736,8 @@ export function completeRoleTrial(input: {
     answers: input.answers,
     toolsUsed: input.toolsUsed,
     missedStepIds: scored.missed,
+    instrumentLog: log,
+    outputs,
   };
   draft.trialAttempts.push(attempt);
 
@@ -1723,13 +1747,15 @@ export function completeRoleTrial(input: {
     entityType: "trial_attempt",
     entityId: attempt.id,
     summary: scored.passed
-      ? `قبول آزمایش «${trial.titleFa}» (${scored.percent}٪) — فقط شواهد؛ مجوز کار صادر نشد`
-      : `رد آزمایش «${trial.titleFa}» (${scored.percent}٪)`,
+      ? `قبول آزمایش «${trial.titleFa}» (${scored.percent}٪) · ${log.length} خوانش ابزار — فقط شواهد؛ مجوز کار صادر نشد`
+      : `رد آزمایش «${trial.titleFa}» (${scored.percent}٪) · نقص ابزار: ${scored.instrumentFails.join(",") || "—"}`,
     metadata: {
       percent: scored.percent,
       passed: scored.passed,
       envId: env.id,
       workAuthorizationUnchanged: true,
+      instrumentCount: log.length,
+      outputKeys: Object.keys(outputs).length,
     },
   });
 
@@ -1752,7 +1778,12 @@ export function completeRoleTrial(input: {
     type: "trial_complete",
     userId,
     at: nowIso(),
-    payload: { trialId: trial.id, percent: scored.percent, passed: scored.passed },
+    payload: {
+      trialId: trial.id,
+      percent: scored.percent,
+      passed: scored.passed,
+      instrumentCount: log.length,
+    },
   });
   return attempt;
 }

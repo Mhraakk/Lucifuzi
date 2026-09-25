@@ -116,6 +116,14 @@ export default function EmployeeHomePage() {
         </Link>
 
         <Link
+          href="/employee/floor"
+          className="jx-cta tap-react !self-stretch text-center"
+          style={{ display: "block" }}
+        >
+          کف مسئولیت · FX · قیمت · ترازو · ذوب (فقط پس از محول مدیر)
+        </Link>
+
+        <Link
           href="/employee/products"
           className="jx-cta tap-react !self-stretch text-center"
           style={{ display: "block" }}

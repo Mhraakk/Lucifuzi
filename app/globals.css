@@ -4913,8 +4913,43 @@ button {
 }
 .trial-pending-row:last-child,
 .trial-resp-row:last-child { border-bottom: 0; }
-.trial-evidence-box {
-  padding: 0.75rem 0.85rem;
+.trial-instrument {
   border: 1px dashed var(--crystal-edge, var(--line));
   background: rgba(212, 175, 55, 0.06);
 }
+.trial-reading {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+}
+.trial-reading.is-ok {
+  border-color: var(--success, #2d6a4f);
+  background: rgba(45, 106, 79, 0.1);
+}
+.trial-reading.is-bad {
+  border-color: var(--danger, #8c3d3d);
+  background: rgba(140, 61, 61, 0.1);
+}
+.trial-reading__vals {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.15rem;
+}
+.trial-reading__vals code {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+.trial-outputs__json {
+  padding: 0.65rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  direction: ltr;
+  text-align: left;
+  max-height: 220px;
+}
+.trial-floor-actions {
+  display: grid;
+  gap: 0.85rem;
+}
+

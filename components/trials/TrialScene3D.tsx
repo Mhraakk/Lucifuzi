@@ -10,6 +10,8 @@ type Props = {
   /** Highlight inspect mode for 3d_inspect steps */
   inspect?: boolean;
   className?: string;
+  /** Reports cumulative absolute orbit degrees for instrument validation */
+  onOrbitDegrees?: (deg: number) => void;
 };
 
 function makeGoldMat(accent: string) {
@@ -352,8 +354,11 @@ export function TrialScene3D({
   accent,
   inspect = false,
   className,
+  onOrbitDegrees,
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const orbitCb = useRef(onOrbitDegrees);
+  orbitCb.current = onOrbitDegrees;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -394,6 +399,7 @@ export function TrialScene3D({
     let prevX = 0;
     let rotY = 0.35;
     let rotX = 0.15;
+    let orbitAccum = 0;
     const onDown = (e: PointerEvent) => {
       dragging = true;
       prevX = e.clientX;
@@ -404,6 +410,8 @@ export function TrialScene3D({
       const dx = e.clientX - prevX;
       prevX = e.clientX;
       rotY += dx * 0.01;
+      orbitAccum += Math.abs(dx) * (180 / Math.PI) * 0.01;
+      orbitCb.current?.(orbitAccum);
     };
     const onUp = (e: PointerEvent) => {
       dragging = false;

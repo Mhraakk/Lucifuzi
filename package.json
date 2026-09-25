@@ -15,7 +15,8 @@
     "test:double": "npm run test:platform && npm run test:platform",
     "gates": "tsx scripts/release-gates.ts",
     "worker:market": "tsx workers/market-worker.ts",
-    "platform:verify": "npx tsc --noEmit && npm run test:double && npm run gates"
+    "platform:verify": "npx tsc --noEmit && npm run test:double && npm run gates",
+    "test:trials": "tsx scripts/verify-trials.ts"
   },
   "dependencies": {
     "@capacitor/core": "^6.2.0",

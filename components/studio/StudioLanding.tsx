@@ -11,12 +11,14 @@ import {
   brainstormSeedForSlug,
   type ProductStudioSeed,
 } from "@/lib/studio/productBrainstorm";
-import { recordStudioSession } from "@/lib/store";
+import { hasEnvironmentResponsibility, recordStudioSession } from "@/lib/store";
+import { useAppState, useCurrentUser } from "@/lib/hooks";
 import { toPersianDigits } from "@/lib/format";
 
 /**
  * Jewellery atelier + per-product 3D brainstorm entry points.
  * Deep-link: /employee/studio?product=<slug>
+ * Floor ideation duty requires responsibility on ideation_studio.
  */
 export function StudioLanding() {
   const search = useSearchParams();
@@ -24,6 +26,14 @@ export function StudioLanding() {
   const productSeed = useMemo(
     () => (productParam ? brainstormSeedForSlug(productParam) : null),
     [productParam]
+  );
+  const state = useAppState();
+  const user = useCurrentUser();
+  const ideationUnlocked = hasEnvironmentResponsibility(
+    user.id,
+    "ideation_studio",
+    "supervised_only",
+    state
   );
 
   const [open, setOpen] = useState(false);
@@ -110,6 +120,27 @@ export function StudioLanding() {
             شروع با ماده خام
           </Pressable>
         </div>
+      </section>
+
+      <section className="surface p-3 mb-4">
+        {ideationUnlocked ? (
+          <p className="text-xs leading-6">
+            مسئولیت استودیو ایده‌پردازی فعال است — خروجی‌های ۳D برای کف مجازند.
+          </p>
+        ) : (
+          <p className="text-xs leading-6 muted">
+            تمرین استودیو باز است؛ اما{" "}
+            <strong>مسئولیت ایده‌پردازی کف</strong> تا آزمایش نقش + محول مدیر
+            قفل است.{" "}
+            <Link href="/employee/trials/ideation_studio" className="underline">
+              آزمایش ایده‌پردازی
+            </Link>
+            {" · "}
+            <Link href="/employee/floor" className="underline">
+              کف مسئولیت
+            </Link>
+          </p>
+        )}
       </section>
 
       <section className="jx-product-brain">

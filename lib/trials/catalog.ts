@@ -5,6 +5,7 @@
  */
 
 import type { JobRole, WorkAuthorization } from "@/lib/types";
+import type { InstrumentSpec } from "@/lib/trials/instruments";
 
 export type TrialDomainId =
   | "sales"
@@ -50,6 +51,8 @@ export type TrialStep = {
   hintFa?: string;
   /** Required tool must be active before answering */
   requiresToolId?: string;
+  /** Real instrument that must produce a valid reading for this step */
+  instrument?: InstrumentSpec;
 };
 
 export type RoleEnvironment = {
@@ -293,6 +296,12 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["sheet"],
         points: 25,
         requiresToolId: "price_sheet",
+        instrument: {
+          kind: "price_sheet",
+          weightGrams: 4.2,
+          karat: 18,
+          tolerancePct: 1,
+        },
       },
       {
         id: "s4",
@@ -305,6 +314,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         ],
         correctIds: ["top"],
         points: 20,
+        instrument: { kind: "orbit3d", minOrbitDeg: 90 },
       },
       {
         id: "s5",
@@ -340,6 +350,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["wait"],
         points: 25,
         requiresToolId: "dual_key",
+        instrument: { kind: "dual_key" },
       },
       {
         id: "o2",
@@ -379,6 +390,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["uv"],
         points: 25,
         requiresToolId: "uv_lamp",
+        instrument: { kind: "uv_lamp", uvExpect: "suspect" },
       },
     ],
   },
@@ -415,6 +427,12 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["no"],
         points: 25,
         requiresToolId: "caliper",
+        instrument: {
+          kind: "caliper",
+          expectedMm: 17.3,
+          toleranceMm: 0.2,
+        },
+        hintFa: "با کولیس عدد واقعی را بخوانید — ۱۷٫۶ خارج تلرانس است.",
       },
       {
         id: "c3",
@@ -428,6 +446,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["file"],
         points: 25,
         requiresToolId: "file_set",
+        instrument: { kind: "orbit3d", minOrbitDeg: 120 },
       },
       {
         id: "c4",
@@ -476,6 +495,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["weigh"],
         points: 25,
         requiresToolId: "scale_0_01",
+        instrument: { kind: "scale", weightGrams: 12.4 },
       },
       {
         id: "m3",
@@ -489,6 +509,12 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["dual"],
         points: 30,
         requiresToolId: "furnace",
+        instrument: {
+          kind: "melt_yield",
+          weightGrams: 12.4,
+          maxLossPct: 0.5,
+        },
+        hintFa: "پس از ذوب، وزن خروجی را وارد کنید — افت بیش از ۰٫۵٪ رد است.",
       },
       {
         id: "m4",
@@ -538,6 +564,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["silhouette"],
         points: 25,
         requiresToolId: "studio_orbit",
+        instrument: { kind: "orbit3d", minOrbitDeg: 180 },
       },
       {
         id: "i3",
@@ -586,6 +613,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["fx_board"],
         points: 25,
         requiresToolId: "fx_board",
+        instrument: { kind: "fx_board" },
       },
       {
         id: "v2",
@@ -599,6 +627,12 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["update_sheet"],
         points: 30,
         requiresToolId: "price_sheet",
+        instrument: {
+          kind: "price_sheet",
+          weightGrams: 5,
+          karat: 18,
+          tolerancePct: 1,
+        },
       },
       {
         id: "v3",
@@ -647,6 +681,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["weigh"],
         points: 20,
         requiresToolId: "scale_0_01",
+        instrument: { kind: "scale", weightGrams: 18.0 },
       },
       {
         id: "t2",
@@ -660,6 +695,12 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["assay"],
         points: 30,
         requiresToolId: "xrf_gun",
+        instrument: {
+          kind: "xrf",
+          claimedKarat: 21,
+          trueKarat: 18,
+        },
+        hintFa: "XRF را اجرا کنید — نتیجه واقعی ممکن است با ادعا فرق کند.",
       },
       {
         id: "t3",
@@ -673,6 +714,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["uv"],
         points: 20,
         requiresToolId: "uv_lamp",
+        instrument: { kind: "uv_lamp", uvExpect: "suspect" },
       },
       {
         id: "t4",
@@ -722,6 +764,11 @@ export const ROLE_TRIALS: RoleTrial[] = [
         correctIds: ["caliper"],
         points: 25,
         requiresToolId: "caliper",
+        instrument: {
+          kind: "caliper",
+          expectedMm: 16.5,
+          toleranceMm: 0.15,
+        },
       },
       {
         id: "q3",
@@ -747,6 +794,7 @@ export const ROLE_TRIALS: RoleTrial[] = [
         ],
         correctIds: ["reinspect"],
         points: 25,
+        instrument: { kind: "orbit3d", minOrbitDeg: 150 },
       },
     ],
   },
@@ -778,21 +826,43 @@ export function maxScore(trial: RoleTrial): number {
 
 export function scoreTrial(
   trial: RoleTrial,
-  answers: Record<string, string[]>
-): { score: number; max: number; percent: number; passed: boolean; missed: string[] } {
+  answers: Record<string, string[]>,
+  instrumentByStep: Record<string, { ok: boolean }> = {}
+): {
+  score: number;
+  max: number;
+  percent: number;
+  passed: boolean;
+  missed: string[];
+  instrumentFails: string[];
+} {
   const env = envById(trial.envId);
   const pass = env?.passScore ?? 75;
   let score = 0;
   const missed: string[] = [];
+  const instrumentFails: string[] = [];
   for (const step of trial.steps) {
     const given = new Set(answers[step.id] ?? []);
-    const ok =
+    const choiceOk =
       step.correctIds.length === given.size &&
       step.correctIds.every((id) => given.has(id));
-    if (ok) score += step.points;
+    let instrumentOk = true;
+    if (step.instrument) {
+      const reading = instrumentByStep[step.id];
+      instrumentOk = Boolean(reading?.ok);
+      if (!instrumentOk) instrumentFails.push(step.id);
+    }
+    if (choiceOk && instrumentOk) score += step.points;
     else missed.push(step.id);
   }
   const max = maxScore(trial);
   const percent = max ? Math.round((score / max) * 100) : 0;
-  return { score, max, percent, passed: percent >= pass, missed };
+  return {
+    score,
+    max,
+    percent,
+    passed: percent >= pass && instrumentFails.length === 0,
+    missed,
+    instrumentFails,
+  };
 }

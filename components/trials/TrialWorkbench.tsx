@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Pressable } from "@/components/ui/Pressable";
 import { MotionEnter } from "@/components/motion/Motion";
 import { Badge } from "@/components/ui/Feedback";
+import { InstrumentPanel } from "@/components/trials/InstrumentPanel";
 import { toPersianDigits } from "@/lib/format";
 import { completeRoleTrial } from "@/lib/store";
 import {
@@ -16,6 +17,7 @@ import {
   type TrialEnvId,
   type TrialStep,
 } from "@/lib/trials/catalog";
+import type { InstrumentReading } from "@/lib/trials/instruments";
 import type { TrialAttempt } from "@/lib/types";
 
 const TrialScene3D = dynamic(
@@ -79,6 +81,8 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
   const [started, setStarted] = useState(false);
   const [result, setResult] = useState<TrialAttempt | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [orbitDeg, setOrbitDeg] = useState(0);
+  const [readings, setReadings] = useState<InstrumentReading[]>([]);
 
   if (!env) {
     return (
@@ -97,6 +101,10 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
   const selected = step ? answers[step.id] ?? [] : [];
   const isLast = trial ? stepIndex >= trial.steps.length - 1 : true;
   const inspectMode = step?.kind === "3d_inspect" || step?.kind === "measure";
+  const stepReading = step
+    ? [...readings].reverse().find((r) => r.stepId === step.id)
+    : undefined;
+  const instrumentReady = !step?.instrument || Boolean(stepReading?.ok);
 
   function toggleTool(id: string) {
     setActiveTools((prev) => {
@@ -110,7 +118,13 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
   function toggleAnswer(optionId: string) {
     if (!step || result) return;
     if (step.requiresToolId && !activeTools.has(step.requiresToolId)) {
-      setError(`ابتدا ابزار «${tools.find((t) => t.id === step.requiresToolId)?.titleFa ?? step.requiresToolId}» را فعال کنید.`);
+      setError(
+        `ابتدا ابزار «${tools.find((t) => t.id === step.requiresToolId)?.titleFa ?? step.requiresToolId}» را فعال کنید.`
+      );
+      return;
+    }
+    if (step.instrument && !stepReading?.ok) {
+      setError("ابتدا کنسول ابزار را اجرا کنید تا خوانش قبول ثبت شود.");
       return;
     }
     setError(null);
@@ -137,6 +151,8 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
     setActiveTools(new Set());
     setResult(null);
     setError(null);
+    setOrbitDeg(0);
+    setReadings([]);
   }
 
   function goNext() {
@@ -149,6 +165,10 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
       setError("ابزار لازم این گام فعال نیست.");
       return;
     }
+    if (!instrumentReady) {
+      setError("خوانش ابزار برای این گام ناقص یا رد شده است.");
+      return;
+    }
     setError(null);
     if (isLast) {
       try {
@@ -156,6 +176,7 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
           trialId: trial.id,
           answers,
           toolsUsed: Array.from(activeTools),
+          instrumentLog: readings,
         });
         setResult(attempt);
       } catch (e) {
@@ -170,13 +191,15 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
     return (
       <MotionEnter>
         <section className="trial-result surface p-5 space-y-4">
-          <p className="atelier-kicker">نتیجه آزمایش · فقط شواهد</p>
+          <p className="atelier-kicker">نتیجه واقعی · شواهد ثبت‌شده</p>
           <h2 className="page-title !text-xl">
-            {result.passed ? "قبول — شواهد ثبت شد" : "رد — نیاز به تمرین مجدد"}
+            {result.passed ? "قبول — شواهد + خروجی ابزار" : "رد — خوانش/پاسخ ناقص"}
           </h2>
           <p className="muted text-sm leading-7">
             امتیاز {toPersianDigits(result.percent)}٪ از{" "}
-            {toPersianDigits(result.maxScore)} · محیط «{env.titleFa}»
+            {toPersianDigits(result.maxScore)} ·{" "}
+            {toPersianDigits(result.instrumentLog.length)} خوانش ابزار · محیط «
+            {env.titleFa}»
           </p>
           <div className="trial-result__banner" data-pass={result.passed}>
             {result.passed ? (
@@ -187,17 +210,35 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
             ) : (
               <p>
                 گام‌های از دست‌رفته:{" "}
-                {toPersianDigits(result.missedStepIds.length)}. با ابزار درست
-                دوباره بیازمایید.
+                {toPersianDigits(result.missedStepIds.length)}. بدون خوانش صحیح
+                ابزار، امتیاز کامل داده نمی‌شود.
               </p>
             )}
           </div>
+          {result.instrumentLog.length > 0 ? (
+            <div className="trial-outputs">
+              <p className="section-title">خروجی‌های ثبت‌شده</p>
+              <ul className="space-y-2">
+                {result.instrumentLog.map((r, i) => (
+                  <li key={`${r.at}-${i}`} className="text-xs leading-6">
+                    <Badge tone={r.ok ? "success" : "warning"}>
+                      {r.kind}
+                    </Badge>{" "}
+                    {r.detailFa}
+                  </li>
+                ))}
+              </ul>
+              <pre className="trial-outputs__json text-xs mt-3 overflow-auto">
+                {JSON.stringify(result.outputs, null, 2)}
+              </pre>
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Badge tone={result.passed ? "success" : "warning"}>
               {result.passed ? "شواهد آماده" : "نیاز به تکرار"}
             </Badge>
             <Badge tone="accent">
-              ابزار استفاده‌شده: {toPersianDigits(result.toolsUsed.length)}
+              ابزار: {toPersianDigits(result.toolsUsed.length)}
             </Badge>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -208,7 +249,10 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
             >
               تکرار آزمایش
             </button>
-            <Link href="/employee/trials" className="btn btn-secondary">
+            <Link href="/employee/floor" className="btn btn-secondary">
+              کف مسئولیت‌ها
+            </Link>
+            <Link href="/employee/trials" className="btn btn-ghost">
               محیط‌های دیگر
             </Link>
           </div>
@@ -231,7 +275,7 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
           </div>
           <p className="muted text-xs mt-3 leading-6">
             مسئولیت هدف: {env.responsibilityFa} · حد قبولی{" "}
-            {toPersianDigits(env.passScore)}٪ · مجوز فقط با ارزیابی عملی مدیر
+            {toPersianDigits(env.passScore)}٪ · ابزارها خروجی عددی واقعی می‌دهند
           </p>
         </header>
       </MotionEnter>
@@ -241,10 +285,12 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
           scene={env.scene3d}
           accent={env.accent}
           inspect={inspectMode && started}
+          onOrbitDegrees={setOrbitDeg}
         />
         <p className="trial-stage__hint muted text-xs px-3 py-2">
-          محیط ۳D را بکشید تا بچرخد
-          {inspectMode ? " · حالت بازرسی سه‌بعدی فعال" : ""}
+          محیط ۳D را بکشید تا بچرخد · چرخش انباشته:{" "}
+          {toPersianDigits(Math.round(orbitDeg))}°
+          {inspectMode ? " · حالت بازرسی" : ""}
         </p>
       </div>
 
@@ -267,6 +313,11 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
                     : t.difficulty === "advanced"
                       ? "پیشرفته"
                       : "متوسط"}
+                  {" · "}
+                  {toPersianDigits(
+                    t.steps.filter((s) => s.instrument).length
+                  )}{" "}
+                  ابزار اندازه‌گیری
                 </span>
                 <em className="text-xs leading-6 block mt-1">{t.briefFa}</em>
               </Pressable>
@@ -286,8 +337,8 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
           <section className="surface p-4 space-y-3">
             <p className="section-title">جعبه‌ابزار محیط</p>
             <p className="muted text-xs leading-6">
-              قبل از پاسخ به گام‌هایی که ابزار می‌خواهند، ابزار را فعال کنید —
-              مثل کف واقعی شعبه.
+              ابزار را فعال کنید؛ اگر گام کنسول اندازه‌گیری دارد، باید خوانش قبول
+              ثبت شود.
             </p>
             <div className="trial-tools">
               {tools.map((tool) => {
@@ -341,11 +392,34 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
               {step.hintFa ? (
                 <p className="muted text-xs leading-6">{step.hintFa}</p>
               ) : null}
+
+              {step.instrument && toolReady ? (
+                <InstrumentPanel
+                  toolId={step.requiresToolId ?? step.instrument.kind}
+                  stepId={step.id}
+                  spec={step.instrument}
+                  orbitDeg={orbitDeg}
+                  lastReading={stepReading}
+                  onReading={(r) =>
+                    setReadings((prev) => [
+                      ...prev.filter((x) => x.stepId !== step.id),
+                      r,
+                    ])
+                  }
+                />
+              ) : null}
+
+              {step.instrument && !instrumentReady ? (
+                <p className="trial-tool-gate text-xs">
+                  قبل از انتخاب گزینه، کنسول ابزار را با خروجی قبول اجرا کنید.
+                </p>
+              ) : null}
+
               <StepOptions
                 step={step}
                 selected={selected}
                 onToggle={toggleAnswer}
-                locked={Boolean(result)}
+                locked={Boolean(result) || !instrumentReady}
               />
               {error ? (
                 <p className="trial-error text-sm" role="alert">
@@ -357,7 +431,7 @@ export function TrialWorkbench({ envId }: { envId: TrialEnvId }) {
                 className="btn btn-primary w-full"
                 onClick={goNext}
               >
-                {isLast ? "ثبت شواهد آزمایش" : "گام بعد"}
+                {isLast ? "ثبت شواهد + خروجی ابزار" : "گام بعد"}
               </button>
             </section>
           ) : null}

@@ -210,6 +210,19 @@ export default function ManagerResponsibilitiesPage() {
                 {envById(selectedAttempt.envId as TrialEnvId)
                   ?.responsibilityFa ?? "—"}
               </p>
+              {selectedAttempt.instrumentLog?.length ? (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs font-medium">خروجی ابزار ثبت‌شده:</p>
+                  {selectedAttempt.instrumentLog.map((r, i) => (
+                    <p key={i} className="text-xs leading-5 muted">
+                      {r.detailFa}
+                    </p>
+                  ))}
+                  <pre className="trial-outputs__json text-[10px] mt-1 overflow-auto max-h-32">
+                    {JSON.stringify(selectedAttempt.outputs ?? {}, null, 2)}
+                  </pre>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
