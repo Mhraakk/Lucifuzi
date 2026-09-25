@@ -11,7 +11,7 @@ import {
   brainstormSeedForSlug,
   type ProductStudioSeed,
 } from "@/lib/studio/productBrainstorm";
-import { bumpStudioAffinity } from "@/lib/career/fitAssessment";
+import { recordStudioSession } from "@/lib/store";
 import { toPersianDigits } from "@/lib/format";
 
 /**
@@ -46,7 +46,7 @@ export function StudioLanding() {
     setSeedForm(form);
     setActiveSeed(seed);
     setOpen(true);
-    if (seed) bumpStudioAffinity();
+    if (seed) recordStudioSession();
   }
 
   if (open) {

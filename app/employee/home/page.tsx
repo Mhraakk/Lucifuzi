@@ -33,7 +33,7 @@ export default function EmployeeHomePage() {
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
   const continueMeta = continueLesson
     ? state.lessons.find((l) => l.id === continueLesson.lessonId)
-    : state.lessons.find((l) => l.id === "les_02_2_1");
+    : undefined;
 
   const mandatory = state.assignments.filter(
     (a) =>

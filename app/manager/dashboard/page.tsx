@@ -159,18 +159,41 @@ export default function ManagerDashboard() {
         </section>
 
         <section className="grid gap-3 md:grid-cols-2">
-          <ManagerAlert
-            title="نیاز به بازآموزی محاسبات"
-            body="سارا محمدی در محاسبه اجرت ضعف تکراری دارد. نمره آزمون مجوز کار مستقل نیست."
-            href="/manager/assessments"
-            tone="warning"
-          />
-          <ManagerAlert
-            title="دستورالعمل تحویل ویترین"
-            body="نسخه ۲ برای بخشی از کارکنان هنوز تأیید نشده است."
-            href="/manager/sops"
-            tone="danger"
-          />
+          {failedExams[0] ? (
+            <ManagerAlert
+              title="مردودی آزمون واقعی"
+              body={`${
+                state.users.find((u) => u.id === failedExams[0]!.userId)
+                  ?.fullName ?? "کارمند"
+              } در آزمون دوره با نمره ${toPersianDigits(
+                failedExams[0]!.score
+              )}٪ مردود شد — از پاسخ‌های درجه‌بندی‌شده. نمره آزمون مجوز کار نیست.`}
+              href="/manager/assessments"
+              tone="warning"
+            />
+          ) : (
+            <ManagerAlert
+              title="مردودی آزمون"
+              body="هیچ مردودی آزمون با پاسخ واقعی در این شعبه ثبت نشده است."
+              href="/manager/assessments"
+              tone="warning"
+            />
+          )}
+          {pendingAck[0] ? (
+            <ManagerAlert
+              title="دستورالعمل بدون تأیید"
+              body={`«${pendingAck[0]!.title}» برای بخشی از کارکنان هنوز تأیید نشده است — از داده ack واقعی.`}
+              href="/manager/sops"
+              tone="danger"
+            />
+          ) : (
+            <ManagerAlert
+              title="دستورالعمل‌ها"
+              body="همه SOPهای اجباری این شعبه تأیید شده‌اند — یا مورد معلقی نیست."
+              href="/manager/sops"
+              tone="danger"
+            />
+          )}
         </section>
 
         <section className="grid gap-5 lg:grid-cols-2">

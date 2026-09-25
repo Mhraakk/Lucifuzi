@@ -14,22 +14,30 @@ export default function CertificatesPage() {
     <AppShell title="مدارک" backHref="/employee/profile">
       <div className="mx-auto max-w-app space-y-4">
         <p className="muted text-sm leading-7">
-          گواهی‌ها نشان‌دهنده اتمام آموزش/آزمون دانش‌اند. مجوز کار مستقل جداگانه و
-          فقط پس از ارزیابی عملی ثبت می‌شود.
+          فقط گواهی‌هایی که به آزمون قبولی با پاسخ درجه‌بندی‌شده لینک شده‌اند اینجا
+          می‌آیند. مجوز کار مستقل جداگانه و فقط پس از ارزیابی عملی ثبت می‌شود.
         </p>
         {certs.length === 0 ? (
-          <EmptyState title="هنوز مدرکی صادر نشده" description="پس از قبولی در آزمون دوره‌ها اینجا ظاهر می‌شود." />
+          <EmptyState
+            title="هنوز مدرکی صادر نشده"
+            description="پس از قبولی واقعی در آزمون دوره (با پاسخ کامل) اینجا ظاهر می‌شود — نمره جعلی یا گواهی بدون آزمون نداریم."
+          />
         ) : (
           certs.map((c) => (
             <div key={c.id} className="surface p-5">
               <p className="text-xs faint mb-1">گالری طلای آریا</p>
               <h2 className="font-bold text-lg mb-2">{c.title}</h2>
               <p className="muted text-sm">
-                {user.fullName} · نمره {toPersianDigits(c.knowledgeScore)}٪
+                {user.fullName} · نمره آزمون {toPersianDigits(c.knowledgeScore)}٪
               </p>
               <p className="faint text-xs mt-3">
                 صدور: {formatJalaliDate(c.issuedAt)}
-                {c.expiresAt ? ` · اعتبار تا ${formatJalaliDate(c.expiresAt)}` : null}
+                {c.examAttemptId
+                  ? ` · شناسه آزمون ${c.examAttemptId}`
+                  : null}
+                {c.expiresAt
+                  ? ` · اعتبار تا ${formatJalaliDate(c.expiresAt)}`
+                  : null}
               </p>
             </div>
           ))

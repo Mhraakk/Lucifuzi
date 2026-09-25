@@ -22,6 +22,11 @@ import {
   savePersistedState,
   syncEvent,
 } from "./backend/persistence";
+import {
+  buildKnowledgeCertificate,
+  recomputeProfileKnowledge,
+  sanitizeEarnedResults,
+} from "./integrity";
 import type {
   AppState,
   AssignmentStatus,
@@ -79,6 +84,7 @@ function syncAliases(draft: AppState): void {
 
 function commit(draft: AppState): void {
   syncAliases(draft);
+  sanitizeEarnedResults(draft);
   state = draft;
   saveState();
   emit();
@@ -111,6 +117,7 @@ function appendAudit(
 export function loadState(): AppState {
   if (typeof window === "undefined") {
     state = createDemoState();
+    sanitizeEarnedResults(state);
     snapshot = state;
     return state;
   }
@@ -118,6 +125,7 @@ export function loadState(): AppState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       state = createDemoState();
+      sanitizeEarnedResults(state);
       snapshot = state;
       void hydrateFromIndexedDb();
       return state;
@@ -131,6 +139,7 @@ export function loadState(): AppState {
   } catch {
     state = createDemoState();
   }
+  sanitizeEarnedResults(state);
   snapshot = state;
   void hydrateFromIndexedDb();
   return state;
@@ -144,6 +153,7 @@ async function hydrateFromIndexedDb(): Promise<void> {
     (persisted.auditLogs?.length ?? 0) >= (state.auditLogs?.length ?? 0) &&
     persisted.currentUserId
   ) {
+    sanitizeEarnedResults(persisted);
     state = persisted;
     snapshot = state;
     emit();
@@ -170,6 +180,7 @@ export function getState(): AppState {
 
 export function resetToDemo(): AppState {
   state = createDemoState();
+  sanitizeEarnedResults(state);
   snapshot = state;
   saveState();
   emit();
@@ -283,7 +294,7 @@ export function startLesson(input: {
       startedAt: nowIso(),
       updatedAt: nowIso(),
       timeSpentSeconds: 0,
-      percent: 10,
+      percent: 0,
     };
     draft.lessonProgress.push(record);
   } else if (record.status === "not_started") {
@@ -387,22 +398,16 @@ export function submitQuizAttempt(input: {
   };
   draft.quizAttempts.push(attempt);
 
-  // Update aggregate knowledge on profile — NEVER authorization
-  const profile = draft.employeeProfiles.find((p) => p.userId === input.userId);
-  if (profile) {
-    const attempts = draft.quizAttempts.filter((a) => a.userId === input.userId);
-    const avg =
-      attempts.reduce((sum, a) => sum + a.score, 0) / Math.max(attempts.length, 1);
-    profile.knowledgeLevel = Math.round(avg);
-  }
+  // Knowledge only from graded attempts — never blend with fabricated seed
+  recomputeProfileKnowledge(draft, input.userId);
 
   appendAudit(draft, {
     actorUserId: input.userId,
     action: "quiz_submit",
     entityType: "quiz_attempt",
     entityId: attempt.id,
-    summary: `ثبت آزمون دانش با نمره ${pct} — بدون تغییر مجوز کار`,
-    metadata: { score: pct, workAuthorizationUnchanged: true },
+    summary: `ثبت آزمون دانش با نمره ${pct} از ${graded.length} سؤال واقعی — بدون تغییر مجوز کار`,
+    metadata: { score: pct, workAuthorizationUnchanged: true, answerCount: graded.length },
   });
 
   if (!attempt.passed) {
@@ -465,11 +470,45 @@ export function submitExamAttempt(input: {
   };
   draft.examAttempts.push(attempt);
 
-  const profile = draft.employeeProfiles.find((p) => p.userId === input.userId);
-  if (profile) {
-    profile.knowledgeLevel = Math.round(
-      (profile.knowledgeLevel * 0.4 + pct * 0.6)
+  recomputeProfileKnowledge(draft, input.userId);
+
+  // Issue knowledge certificate only on real pass with graded answers
+  if (attempt.passed && graded.length > 0) {
+    const course = draft.courses.find((c) => c.id === input.courseId);
+    const existing = draft.certificates.find(
+      (c) =>
+        c.userId === input.userId &&
+        c.courseId === input.courseId &&
+        c.examAttemptId
     );
+    if (!existing) {
+      const cert = buildKnowledgeCertificate({
+        id: uid("cert"),
+        organizationId: draft.organization.id,
+        userId: input.userId,
+        courseId: input.courseId,
+        courseTitle: course?.title ?? input.courseId,
+        examAttemptId: attempt.id,
+        score: pct,
+        issuedByUserId: input.userId,
+        certificateNumber: `ARYA-${Date.now().toString(36).toUpperCase()}`,
+      });
+      draft.certificates.push(cert);
+      appendAudit(draft, {
+        actorUserId: input.userId,
+        action: "certificate_issue",
+        entityType: "certificate",
+        entityId: cert.id,
+        summary: `صدور گواهی دانش از آزمون واقعی نمره ${pct}٪`,
+        metadata: { examAttemptId: attempt.id, score: pct },
+      });
+    } else {
+      // Refresh score from this newer attempt
+      existing.knowledgeScore = pct;
+      existing.score = pct;
+      existing.examAttemptId = attempt.id;
+      existing.issuedAt = nowIso();
+    }
   }
 
   appendAudit(draft, {
@@ -477,8 +516,13 @@ export function submitExamAttempt(input: {
     action: "exam_submit",
     entityType: "exam_attempt",
     entityId: attempt.id,
-    summary: `ثبت آزمون پایانی با نمره ${pct} — مجوز کار تغییر نکرد`,
-    metadata: { score: pct, authorizationGranted: false },
+    summary: `ثبت آزمون پایانی با نمره ${pct} از ${graded.length} سؤال واقعی — مجوز کار تغییر نکرد`,
+    metadata: {
+      score: pct,
+      authorizationGranted: false,
+      answerCount: graded.length,
+      certificateIssued: attempt.passed && graded.length > 0,
+    },
   });
 
   if (!attempt.passed) {
@@ -1422,24 +1466,55 @@ export function recordPracticalAssessmentFromUi(input: {
 // Re-export alias used by manager assessments page
 export { recordPracticalAssessmentFromUi as recordPracticalUi };
 
-/** Commit to a deep career track — sets jobRole + learning path */
+/** Commit to a deep career track — only after fit answers + real activity evidence */
 export function commitCareerTrack(input: {
   userId: string;
   jobRole: import("./types").JobRole;
   learningPathId: string;
-}): void {
+}): { ok: true } | { ok: false; reason: string } {
   const draft = cloneState(state);
   const ep = draft.employeeProfiles.find((e) => e.userId === input.userId);
-  if (!ep) return;
+  if (!ep) return { ok: false, reason: "پروفایل یافت نشد" };
+
+  const fitComplete = FIT_QUESTIONS_COUNT_GATE(ep.careerFitAnswers);
+  const realQuiz = draft.quizAttempts.filter(
+    (a) => a.userId === input.userId && (a.answers?.length ?? 0) > 0
+  ).length;
+  const realExam = draft.examAttempts.filter(
+    (a) => a.userId === input.userId && (a.answers?.length ?? 0) > 0
+  ).length;
+  const lessons = draft.lessonProgress.filter(
+    (p) => p.userId === input.userId && p.status === "completed"
+  ).length;
+  const scenarios = (draft.scenarioAttempts ?? []).filter(
+    (a) => a.userId === input.userId
+  ).length;
+  const studio = ep.studioSessionCount ?? 0;
+  const activityScore = realQuiz + realExam + lessons + scenarios + studio;
+
+  if (!fitComplete) {
+    return { ok: false, reason: "ابتدا شش سؤال سنجش تناسب را کامل کنید" };
+  }
+  if (activityScore < 1) {
+    return {
+      ok: false,
+      reason:
+        "تعهد به مسیر فقط با فعالیت واقعی: حداقل یک درس تکمیل‌شده، آزمونک، سناریو، یا جلسه استودیو",
+    };
+  }
+
   ep.jobRole = input.jobRole;
   ep.learningPathId = input.learningPathId;
   const path = draft.learningPaths.find((p) => p.id === input.learningPathId);
-  if (path && !draft.employeeAssignments.some(
-    (a) =>
-      a.employeeUserId === input.userId &&
-      a.learningPathId === input.learningPathId &&
-      a.status !== "completed"
-  )) {
+  if (
+    path &&
+    !draft.employeeAssignments.some(
+      (a) =>
+        a.employeeUserId === input.userId &&
+        a.learningPathId === input.learningPathId &&
+        a.status !== "completed"
+    )
+  ) {
     draft.employeeAssignments.push({
       id: `asg_career_${input.userId}_${input.learningPathId}`,
       organizationId: ep.organizationId,
@@ -1455,6 +1530,61 @@ export function commitCareerTrack(input: {
       isMandatory: true,
     });
   }
+  appendAudit(draft, {
+    actorUserId: input.userId,
+    action: "assignment_create",
+    entityType: "employee_profile",
+    entityId: ep.id,
+    summary: `تعهد به مسیر شغلی با شواهد واقعی (فعالیت=${activityScore})`,
+    metadata: {
+      jobRole: input.jobRole,
+      learningPathId: input.learningPathId,
+      realQuiz,
+      realExam,
+      lessons,
+      scenarios,
+      studio,
+    },
+  });
+  commit(draft);
+  return { ok: true };
+}
+
+function FIT_QUESTIONS_COUNT_GATE(
+  answers: Record<string, string> | undefined
+): boolean {
+  if (!answers) return false;
+  const required = ["energy", "hard", "learn", "pride", "drain", "mentor"];
+  return required.every((id) => Boolean(answers[id]));
+}
+
+/** Persist career fit answers on profile (auditable) — preference layer only */
+export function saveCareerFitAnswers(
+  userId: string,
+  answers: Record<string, string>
+): void {
+  const draft = cloneState(state);
+  const ep = draft.employeeProfiles.find((e) => e.userId === userId);
+  if (!ep) return;
+  ep.careerFitAnswers = { ...answers };
+  commit(draft);
+}
+
+/** Record a real studio / product-brainstorm session */
+export function recordStudioSession(userId?: string): void {
+  const uidTarget = userId ?? state.currentUserId;
+  const draft = cloneState(state);
+  const ep = draft.employeeProfiles.find((e) => e.userId === uidTarget);
+  if (!ep) return;
+  ep.studioSessionCount = (ep.studioSessionCount ?? 0) + 1;
+  appendAudit(draft, {
+    actorUserId: uidTarget,
+    action: "config_update",
+    entityType: "employee_profile",
+    entityId: ep.id,
+    summary: `جلسه استودیو/ایده‌پردازی ۳D ثبت شد (شماره ${ep.studioSessionCount})`,
+    metadata: { studioSessionCount: ep.studioSessionCount },
+  });
   commit(draft);
 }
 

@@ -253,11 +253,11 @@ export const employeeProfiles: EmployeeProfile[] = [
     branchId: BRANCH_CENTRAL,
     jobRole: "sales_associate",
     hireDate: "2024-01-15",
-    knowledgeLevel: 82,
+    knowledgeLevel: 0,
     practicalStatus: "competent",
     workAuthorization: "independent",
     supervisorId: "user_mgr_central",
-    streakDays: 12,
+    streakDays: 0,
   },
   {
     id: "ep_zahra",
@@ -266,7 +266,7 @@ export const employeeProfiles: EmployeeProfile[] = [
     branchId: BRANCH_CENTRAL,
     jobRole: "cashier",
     hireDate: "2024-02-20",
-    knowledgeLevel: 78,
+    knowledgeLevel: 0,
     practicalStatus: "competent",
     workAuthorization: "independent",
     supervisorId: "user_mgr_central",
@@ -278,7 +278,7 @@ export const employeeProfiles: EmployeeProfile[] = [
     branchId: BRANCH_CENTRAL,
     jobRole: "inventory",
     hireDate: "2024-03-10",
-    knowledgeLevel: 74,
+    knowledgeLevel: 0,
     practicalStatus: "supervised",
     workAuthorization: "supervised_only",
     supervisorId: "user_mgr_central",
@@ -290,7 +290,7 @@ export const employeeProfiles: EmployeeProfile[] = [
     branchId: BRANCH_SECOND,
     jobRole: "sales_associate",
     hireDate: "2024-04-05",
-    knowledgeLevel: 68,
+    knowledgeLevel: 0,
     practicalStatus: "supervised",
     workAuthorization: "supervised_only",
     supervisorId: "user_mgr_second",
@@ -302,7 +302,7 @@ export const employeeProfiles: EmployeeProfile[] = [
     branchId: BRANCH_SECOND,
     jobRole: "repair_intake",
     hireDate: "2024-05-12",
-    knowledgeLevel: 71,
+    knowledgeLevel: 0,
     practicalStatus: "competent",
     workAuthorization: "independent",
     supervisorId: "user_mgr_second",
@@ -314,7 +314,7 @@ export const employeeProfiles: EmployeeProfile[] = [
     branchId: BRANCH_CENTRAL,
     jobRole: "customer_service",
     hireDate: "2024-06-01",
-    knowledgeLevel: 85,
+    knowledgeLevel: 0,
     practicalStatus: "advanced",
     workAuthorization: "independent",
     supervisorId: "user_mgr_central",
@@ -326,7 +326,7 @@ export const employeeProfiles: EmployeeProfile[] = [
     branchId: BRANCH_SECOND,
     jobRole: "gold_purchasing",
     hireDate: "2024-07-18",
-    knowledgeLevel: 60,
+    knowledgeLevel: 0,
     practicalStatus: "training_required",
     workAuthorization: "none",
     supervisorId: "user_mgr_second",
@@ -339,12 +339,12 @@ export const employeeProfiles: EmployeeProfile[] = [
     branchId: BRANCH_CENTRAL,
     jobRole: "sales_associate",
     hireDate: "2025-01-08",
-    knowledgeLevel: 45,
+    knowledgeLevel: 0,
     practicalStatus: "not_evaluated",
     workAuthorization: "none",
     supervisorId: "user_mgr_central",
     learningPathId: "path_newhire",
-    streakDays: 3,
+    streakDays: 0,
     notes: "کارمند جدید — مسیر یادگیری تازه‌واردان",
   },
 ];
@@ -1811,7 +1811,7 @@ export const employeeCompetencies: EmployeeCompetency[] = [
     organizationId: ORG_ID,
     userId: "user_emp_nima",
     competencyId: "comp_product",
-    knowledgeLevel: 88,
+    knowledgeLevel: 0,
     practicalStatus: "competent",
     workAuthorization: "independent",
     lastAssessedAt: "2025-06-15T10:00:00.000Z",
@@ -1822,7 +1822,7 @@ export const employeeCompetencies: EmployeeCompetency[] = [
     organizationId: ORG_ID,
     userId: "user_emp_nima",
     competencyId: "comp_pricing",
-    knowledgeLevel: 84,
+    knowledgeLevel: 0,
     practicalStatus: "competent",
     workAuthorization: "independent",
     lastAssessedAt: "2025-06-15T10:00:00.000Z",
@@ -1833,7 +1833,7 @@ export const employeeCompetencies: EmployeeCompetency[] = [
     organizationId: ORG_ID,
     userId: "user_emp_leila",
     competencyId: "comp_product",
-    knowledgeLevel: 40,
+    knowledgeLevel: 0,
     practicalStatus: "not_evaluated",
     workAuthorization: "none",
   },
@@ -1842,7 +1842,7 @@ export const employeeCompetencies: EmployeeCompetency[] = [
     organizationId: ORG_ID,
     userId: "user_emp_leila",
     competencyId: "comp_pricing",
-    knowledgeLevel: 35,
+    knowledgeLevel: 0,
     practicalStatus: "not_evaluated",
     workAuthorization: "none",
   },
@@ -1851,7 +1851,7 @@ export const employeeCompetencies: EmployeeCompetency[] = [
     organizationId: ORG_ID,
     userId: "user_emp_amir",
     competencyId: "comp_pricing",
-    knowledgeLevel: 55,
+    knowledgeLevel: 0,
     practicalStatus: "training_required",
     workAuthorization: "none",
     lastAssessedAt: "2025-08-20T10:00:00.000Z",
@@ -1862,7 +1862,7 @@ export const employeeCompetencies: EmployeeCompetency[] = [
     organizationId: ORG_ID,
     userId: "user_emp_maryam",
     competencyId: "comp_sales",
-    knowledgeLevel: 70,
+    knowledgeLevel: 0,
     practicalStatus: "supervised",
     workAuthorization: "supervised_only",
     lastAssessedAt: "2025-07-10T10:00:00.000Z",
@@ -2260,44 +2260,8 @@ export const sopAcknowledgments: SopAcknowledgment[] = [
   },
 ];
 
-export const certificates: Certificate[] = [
-  {
-    id: "cert_nima_01",
-    organizationId: ORG_ID,
-    userId: "user_emp_nima",
-    courseId: "course_01",
-    title: "گواهی پایان دوره شروع کار در طلافروشی",
-    issuedAt: "2024-02-01T12:00:00.000Z",
-    issuedByUserId: "user_trainer",
-    knowledgeScore: 90,
-    score: 90,
-    certificateNumber: "ARYA-2024-0012",
-  },
-  {
-    id: "cert_nima_03",
-    organizationId: ORG_ID,
-    userId: "user_emp_nima",
-    courseId: "course_03",
-    title: "گواهی محاسبات قیمت طلا",
-    issuedAt: "2024-03-15T12:00:00.000Z",
-    issuedByUserId: "user_trainer",
-    knowledgeScore: 86,
-    score: 86,
-    certificateNumber: "ARYA-2024-0045",
-  },
-  {
-    id: "cert_fatemeh_05",
-    organizationId: ORG_ID,
-    userId: "user_emp_fatemeh",
-    courseId: "course_05",
-    title: "گواهی ارتباط با مشتری",
-    issuedAt: "2024-08-20T12:00:00.000Z",
-    issuedByUserId: "user_trainer",
-    knowledgeScore: 94,
-    score: 94,
-    certificateNumber: "ARYA-2024-0110",
-  },
-];
+/** No seeded certificates — issued only on real exam pass with graded answers. */
+export const certificates: Certificate[] = [];
 
 export const trainingRecommendations: TrainingRecommendation[] = [
   {
@@ -2455,23 +2419,11 @@ export const dailyTraining: DailyTraining[] = [
   },
 ];
 
-export const examAttempts: ExamAttempt[] = [
-  {
-    id: "exam_nima_03",
-    organizationId: ORG_ID,
-    userId: "user_emp_nima",
-    courseId: "course_03",
-    startedAt: "2024-03-14T10:00:00.000Z",
-    submittedAt: "2024-03-14T10:45:00.000Z",
-    score: 86,
-    maxScore: 100,
-    passed: true,
-    answers: [],
-  },
-];
+/** No seeded exam attempts — scores only from graded answers. */
+export const examAttempts: ExamAttempt[] = [];
 
 export function createDemoState(): AppState {
-  return {
+  const state: AppState = {
     organization,
     branches,
     users,
@@ -2540,4 +2492,12 @@ export function createDemoState(): AppState {
     currentUserId: "user_emp_leila",
     theme: "light",
   };
+  // Ensure knowledge/certs never ship fabricated
+  for (const ep of state.employeeProfiles) {
+    ep.knowledgeLevel = 0;
+  }
+  for (const ec of state.employeeCompetencies) {
+    ec.knowledgeLevel = 0;
+  }
+  return state;
 }

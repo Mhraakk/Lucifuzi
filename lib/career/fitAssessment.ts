@@ -1,19 +1,24 @@
 /**
- * Role-fit discovery quiz — deep enough that after theory/practice/design/exams
- * signals + answers, the candidate sees which gallery vocation fits.
+ * Role-fit discovery — preference answers + REAL activity evidence.
+ * Percent is absolute (capped), never relative-max forced to 100%.
+ * Ranking without graded attempts is labeled preference-only.
  */
 
-import type { AppState } from "@/lib/types";
+import type { AppState, JobRole } from "@/lib/types";
 import {
   CAREER_TRACKS,
   type CareerTrackId,
 } from "@/lib/career/tracks";
 import { courseProgressPercent } from "@/lib/store";
+import {
+  isRealExamAttempt,
+  isRealQuizAttempt,
+  latestCourseAttemptScore,
+} from "@/lib/integrity";
 
 export type FitQuestion = {
   id: string;
   promptFa: string;
-  /** Choice id → track weights */
   choices: Array<{
     id: string;
     labelFa: string;
@@ -182,57 +187,242 @@ export const FIT_QUESTIONS: FitQuestion[] = [
 
 export type FitAnswers = Record<string, string>;
 
+export type FitEvidence = {
+  preferencePoints: number;
+  activityPoints: number;
+  sources: string[];
+  hasGradedAttempts: boolean;
+};
+
 export type TrackFitScore = {
   trackId: CareerTrackId;
   score: number;
+  /** Absolute 0–100 — never forced to 100 by relative max */
   percent: number;
   titleFa: string;
   outcomeFa: string;
   learningPathId: string;
-  jobRole: CareerTrackId extends string ? import("@/lib/types").JobRole : never;
+  jobRole: JobRole;
+  evidence: FitEvidence;
+  /** True only when preference is complete AND real activity exists */
+  evidenceBacked: boolean;
 };
 
-function activityBoost(
+const PREFERENCE_CAP = 18; // max raw from 6 questions × ~3
+const ACTIVITY_CAP = 24;
+
+function emptyTotals(): Record<CareerTrackId, number> {
+  return { salesperson: 0, accountant: 0, designer: 0, ideator: 0 };
+}
+
+function emptyEvidence(): Record<CareerTrackId, FitEvidence> {
+  return {
+    salesperson: {
+      preferencePoints: 0,
+      activityPoints: 0,
+      sources: [],
+      hasGradedAttempts: false,
+    },
+    accountant: {
+      preferencePoints: 0,
+      activityPoints: 0,
+      sources: [],
+      hasGradedAttempts: false,
+    },
+    designer: {
+      preferencePoints: 0,
+      activityPoints: 0,
+      sources: [],
+      hasGradedAttempts: false,
+    },
+    ideator: {
+      preferencePoints: 0,
+      activityPoints: 0,
+      sources: [],
+      hasGradedAttempts: false,
+    },
+  };
+}
+
+function addActivity(
+  evidence: Record<CareerTrackId, FitEvidence>,
+  totals: Record<CareerTrackId, number>,
+  track: CareerTrackId,
+  points: number,
+  source: string,
+  graded = false
+): void {
+  if (points <= 0) return;
+  totals[track] += points;
+  evidence[track].activityPoints += points;
+  evidence[track].sources.push(source);
+  if (graded) evidence[track].hasGradedAttempts = true;
+}
+
+function activityEvidence(
   state: AppState,
   userId: string
-): Partial<Record<CareerTrackId, number>> {
-  const boost: Partial<Record<CareerTrackId, number>> = {};
+): {
+  totals: Record<CareerTrackId, number>;
+  evidence: Record<CareerTrackId, FitEvidence>;
+} {
+  const totals = emptyTotals();
+  const evidence = emptyEvidence();
+
+  // Graded quiz/exam by course → track
+  const salesCourses = ["course_04", "course_02", "course_05"];
+  const accountCourses = ["course_03", "course_10"];
+  const designCourses = ["course_02", "course_01"];
+  const ideaCourses = ["course_04", "course_05", "course_02"];
+
+  for (const cid of salesCourses) {
+    const s = latestCourseAttemptScore(state, userId, cid);
+    if (s !== null) {
+      addActivity(
+        evidence,
+        totals,
+        "salesperson",
+        s / 25,
+        `آزمونک/آزمون ${cid}: ${s}٪`,
+        true
+      );
+    }
+  }
+  for (const cid of accountCourses) {
+    const s = latestCourseAttemptScore(state, userId, cid);
+    if (s !== null) {
+      addActivity(
+        evidence,
+        totals,
+        "accountant",
+        s / 20,
+        `آزمونک/آزمون ${cid}: ${s}٪`,
+        true
+      );
+    }
+  }
+  for (const cid of designCourses) {
+    const s = latestCourseAttemptScore(state, userId, cid);
+    if (s !== null) {
+      addActivity(
+        evidence,
+        totals,
+        "designer",
+        s / 30,
+        `آزمونک/آزمون ${cid}: ${s}٪`,
+        true
+      );
+    }
+  }
+  for (const cid of ideaCourses) {
+    const s = latestCourseAttemptScore(state, userId, cid);
+    if (s !== null) {
+      addActivity(
+        evidence,
+        totals,
+        "ideator",
+        s / 35,
+        `آزمونک/آزمون ${cid}: ${s}٪`,
+        true
+      );
+    }
+  }
+
+  // Lesson progress (real completions only via courseProgressPercent)
   const salesProg =
     (courseProgressPercent(state, userId, "course_04") +
       courseProgressPercent(state, userId, "course_02")) /
     2;
   const priceProg = courseProgressPercent(state, userId, "course_03");
   const riskProg = courseProgressPercent(state, userId, "course_10");
-
-  if (salesProg > 20) boost.salesperson = (boost.salesperson ?? 0) + salesProg / 25;
-  if (priceProg > 20) boost.accountant = (boost.accountant ?? 0) + priceProg / 20;
-  if (riskProg > 20) {
-    boost.accountant = (boost.accountant ?? 0) + riskProg / 30;
+  if (salesProg > 0) {
+    addActivity(
+      evidence,
+      totals,
+      "salesperson",
+      salesProg / 40,
+      `پیشرفت درس فروش/محصول: ${Math.round(salesProg)}٪`
+    );
+  }
+  if (priceProg > 0) {
+    addActivity(
+      evidence,
+      totals,
+      "accountant",
+      priceProg / 35,
+      `پیشرفت درس قیمت: ${Math.round(priceProg)}٪`
+    );
+  }
+  if (riskProg > 0) {
+    addActivity(
+      evidence,
+      totals,
+      "accountant",
+      riskProg / 40,
+      `پیشرفت درس ریسک: ${Math.round(riskProg)}٪`
+    );
   }
 
-  const scenarios = state.scenarioAttempts?.filter((a) => a.userId === userId) ?? [];
-  if (scenarios.some((s) => s.scenarioId?.includes("sales"))) {
-    boost.salesperson = (boost.salesperson ?? 0) + 1.5;
-  }
-  if (scenarios.some((s) => s.scenarioId?.includes("fraud"))) {
-    boost.accountant = (boost.accountant ?? 0) + 1.2;
+  const scenarios =
+    state.scenarioAttempts?.filter((a) => a.userId === userId) ?? [];
+  for (const s of scenarios) {
+    if (s.scenarioId?.includes("sales")) {
+      addActivity(
+        evidence,
+        totals,
+        "salesperson",
+        1.5,
+        `سناریوی فروش واقعی · نمره ${s.score ?? "—"}`
+      );
+    }
+    if (s.scenarioId?.includes("fraud")) {
+      addActivity(
+        evidence,
+        totals,
+        "accountant",
+        1.2,
+        `سناریوی ریسک واقعی · نمره ${s.score ?? "—"}`
+      );
+    }
   }
 
-  // Studio / brainstorm affinity stored as local signal
-  try {
-    const raw = localStorage.getItem("arya_studio_affinity");
-    if (raw) {
-      const n = Number(raw);
-      if (n > 0) {
-        boost.designer = (boost.designer ?? 0) + Math.min(3, n / 2);
-        boost.ideator = (boost.ideator ?? 0) + Math.min(2.5, n / 2.5);
+  const studio =
+    state.employeeProfiles.find((p) => p.userId === userId)
+      ?.studioSessionCount ?? 0;
+  if (studio > 0) {
+    addActivity(
+      evidence,
+      totals,
+      "designer",
+      Math.min(4, studio * 0.8),
+      `${studio} جلسه استودیو ۳D ثبت‌شده`
+    );
+    addActivity(
+      evidence,
+      totals,
+      "ideator",
+      Math.min(3.5, studio * 0.7),
+      `${studio} جلسه ایده‌پردازی ثبت‌شده`
+    );
+  }
+
+  // Mark graded flag from any real attempts overall
+  const anyGraded =
+    (state.quizAttempts ?? []).some(
+      (a) => a.userId === userId && isRealQuizAttempt(a)
+    ) ||
+    (state.examAttempts ?? []).some(
+      (a) => a.userId === userId && isRealExamAttempt(a)
+    );
+  if (anyGraded) {
+    for (const t of Object.keys(evidence) as CareerTrackId[]) {
+      if (evidence[t].sources.some((s) => s.startsWith("آزمونک"))) {
+        evidence[t].hasGradedAttempts = true;
       }
     }
-  } catch {
-    /* ssr / private */
   }
 
-  return boost;
+  return { totals, evidence };
 }
 
 export function scoreCareerFit(
@@ -240,12 +430,8 @@ export function scoreCareerFit(
   state?: AppState,
   userId?: string
 ): TrackFitScore[] {
-  const totals: Record<CareerTrackId, number> = {
-    salesperson: 0,
-    accountant: 0,
-    designer: 0,
-    ideator: 0,
-  };
+  const prefTotals = emptyTotals();
+  const evidence = emptyEvidence();
 
   for (const q of FIT_QUESTIONS) {
     const choiceId = answers[q.id];
@@ -254,34 +440,59 @@ export function scoreCareerFit(
     for (const [track, w] of Object.entries(choice.weights) as Array<
       [CareerTrackId, number]
     >) {
-      totals[track] += w;
+      prefTotals[track] += w;
+      evidence[track].preferencePoints += w;
+      evidence[track].sources.push(`ترجیح: ${q.id}/${choice.id}`);
     }
   }
 
+  let actTotals = emptyTotals();
   if (state && userId) {
-    const boost = activityBoost(state, userId);
-    for (const [track, w] of Object.entries(boost) as Array<
-      [CareerTrackId, number]
-    >) {
-      totals[track] += w;
+    const act = activityEvidence(state, userId);
+    actTotals = act.totals;
+    for (const t of Object.keys(evidence) as CareerTrackId[]) {
+      evidence[t].activityPoints = act.evidence[t].activityPoints;
+      evidence[t].hasGradedAttempts = act.evidence[t].hasGradedAttempts;
+      evidence[t].sources = [
+        ...evidence[t].sources.filter((s) => s.startsWith("ترجیح")),
+        ...act.evidence[t].sources,
+      ];
     }
   }
 
-  const max = Math.max(...Object.values(totals), 1);
-  return CAREER_TRACKS.map((t) => ({
-    trackId: t.id,
-    score: totals[t.id],
-    percent: Math.round((totals[t.id] / max) * 100),
-    titleFa: t.titleFa,
-    outcomeFa: t.outcomeFa,
-    learningPathId: t.learningPathId,
-    jobRole: t.jobRole,
-  })).sort((a, b) => b.score - a.score);
+  const denom = PREFERENCE_CAP + ACTIVITY_CAP;
+  return CAREER_TRACKS.map((t) => {
+    const pref = Math.max(0, prefTotals[t.id]);
+    const act = Math.max(0, actTotals[t.id]);
+    const raw = pref + act;
+    const percent = Math.min(100, Math.round((raw / denom) * 100));
+    const ev = evidence[t.id];
+    const evidenceBacked =
+      fitIsComplete(answers) &&
+      (ev.activityPoints > 0 || ev.hasGradedAttempts);
+    return {
+      trackId: t.id,
+      score: raw,
+      percent,
+      titleFa: t.titleFa,
+      outcomeFa: t.outcomeFa,
+      learningPathId: t.learningPathId,
+      jobRole: t.jobRole,
+      evidence: ev,
+      evidenceBacked,
+    };
+  }).sort((a, b) => b.score - a.score);
 }
 
+/** @deprecated localStorage — prefer profile.careerFitAnswers via store */
 const FIT_KEY = "arya_career_fit_v1";
 
-export function loadFitAnswers(): FitAnswers {
+export function loadFitAnswers(
+  profileAnswers?: Record<string, string> | null
+): FitAnswers {
+  if (profileAnswers && Object.keys(profileAnswers).length > 0) {
+    return { ...profileAnswers };
+  }
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(FIT_KEY);
@@ -297,16 +508,33 @@ export function saveFitAnswers(answers: FitAnswers): void {
   localStorage.setItem(FIT_KEY, JSON.stringify(answers));
 }
 
+/** @deprecated use recordStudioSession from store — kept as no-op redirect */
 export function bumpStudioAffinity(): void {
-  if (typeof window === "undefined") return;
-  try {
-    const n = Number(localStorage.getItem("arya_studio_affinity") ?? "0");
-    localStorage.setItem("arya_studio_affinity", String(n + 1));
-  } catch {
-    /* ignore */
-  }
+  // Intentionally empty — StudioLanding must call recordStudioSession
 }
 
 export function fitIsComplete(answers: FitAnswers): boolean {
   return FIT_QUESTIONS.every((q) => Boolean(answers[q.id]));
+}
+
+export function activityEvidenceCount(
+  state: AppState,
+  userId: string
+): number {
+  const quizzes = (state.quizAttempts ?? []).filter(
+    (a) => a.userId === userId && isRealQuizAttempt(a)
+  ).length;
+  const exams = (state.examAttempts ?? []).filter(
+    (a) => a.userId === userId && isRealExamAttempt(a)
+  ).length;
+  const lessons = state.lessonProgress.filter(
+    (p) => p.userId === userId && p.status === "completed"
+  ).length;
+  const scenarios = (state.scenarioAttempts ?? []).filter(
+    (a) => a.userId === userId
+  ).length;
+  const studio =
+    state.employeeProfiles.find((p) => p.userId === userId)
+      ?.studioSessionCount ?? 0;
+  return quizzes + exams + lessons + scenarios + studio;
 }

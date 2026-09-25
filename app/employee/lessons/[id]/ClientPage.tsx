@@ -161,7 +161,7 @@ export default function LessonPage() {
           ) : null}
           <Pressable
             className="btn btn-primary w-full"
-            feedback={{ label: "درس تکمیل شد — دانش به‌روز شد", tone: "ok" }}
+            feedback={{ label: "درس تکمیل شد", tone: "ok" }}
             onPress={() => {
               saveLessonProgress(lesson.id, 100);
               completeLesson(lesson.id);

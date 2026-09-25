@@ -11,6 +11,7 @@ import {
 } from "@/lib/career/tracks";
 import {
   FIT_QUESTIONS,
+  activityEvidenceCount,
   fitIsComplete,
   loadFitAnswers,
   saveFitAnswers,
@@ -19,22 +20,26 @@ import {
 } from "@/lib/career/fitAssessment";
 import { sculptureSrc } from "@/lib/atelier/sculptures";
 import { toPersianDigits } from "@/lib/format";
+import { integrityReportForUser } from "@/lib/integrity";
 import { useAppState, useCurrentUser, useEmployeeProfile } from "@/lib/hooks";
-import { commitCareerTrack } from "@/lib/store";
+import { commitCareerTrack, saveCareerFitAnswers } from "@/lib/store";
 import { JOB_ROLE_LABELS } from "@/lib/types";
 
 /**
  * Deep vocation pathfinder — theory · reasoning · practice · design · exam
- * until the candidate knows: salesperson, accountant, designer, or ideator.
+ * Rankings show absolute % and cite real attempts; no fabricated scores.
  */
 export function CareerPathfinder({ compact = false }: { compact?: boolean }) {
   const state = useAppState();
   const user = useCurrentUser();
   const profile = useEmployeeProfile();
   const [trackId, setTrackId] = useState<CareerTrackId>("salesperson");
-  const [answers, setAnswers] = useState<FitAnswers>(() => loadFitAnswers());
+  const [answers, setAnswers] = useState<FitAnswers>(() =>
+    loadFitAnswers(profile?.careerFitAnswers)
+  );
   const [quizOpen, setQuizOpen] = useState(false);
   const [committed, setCommitted] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
 
   const track = getCareerTrack(trackId);
   const ranking = useMemo(
@@ -43,20 +48,31 @@ export function CareerPathfinder({ compact = false }: { compact?: boolean }) {
   );
   const top = ranking[0];
   const complete = fitIsComplete(answers);
+  const integrity = useMemo(
+    () => integrityReportForUser(state, user.id),
+    [state, user.id]
+  );
+  const activityN = activityEvidenceCount(state, user.id);
 
   function pickAnswer(qid: string, cid: string) {
     const next = { ...answers, [qid]: cid };
     setAnswers(next);
     saveFitAnswers(next);
+    saveCareerFitAnswers(user.id, next);
   }
 
   function commitTop() {
     if (!top) return;
-    commitCareerTrack({
+    setCommitError(null);
+    const res = commitCareerTrack({
       userId: user.id,
       jobRole: top.jobRole,
       learningPathId: top.learningPathId,
     });
+    if (!res.ok) {
+      setCommitError(res.reason);
+      return;
+    }
     setTrackId(top.trackId);
     setCommitted(true);
   }
@@ -64,26 +80,36 @@ export function CareerPathfinder({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
       <section className="career-compact surface p-4 animate-in">
-        <p className="atelier-kicker">دوره عمیق مهارتی · کشف نقش</p>
+        <p className="atelier-kicker">دوره عمیق مهارتی · داده واقعی</p>
         <h2 className="page-title !text-lg mb-2">
           فروشنده · حسابدار · طراح · ایده‌پرداز
         </h2>
         <p className="muted text-sm leading-7 mb-3">
-          تئوری، استدلال، عملی، طراحی ۳D و آزمون آن‌قدر عمیق‌اند که در پایان
-          می‌دانید برای کدام نقش گالری ساخته شده‌اید.
+          رتبه‌بندی فقط از ترجیح + آزمونک/آزمون/درس/سناریو/استودیوی ثبت‌شده —
+          بدون نمره جعلی.
         </p>
-        {complete && top ? (
-          <p className="career-compact__hint mb-3">
-            نزدیک‌ترین نقش الان: <strong>{top.titleFa}</strong> (
-            {toPersianDigits(top.percent)}٪ تناسب)
-          </p>
-        ) : (
-          <p className="career-compact__hint mb-3">
-            نقش فعلی پروفایل:{" "}
-            {profile ? JOB_ROLE_LABELS[profile.jobRole] : "—"}
-          </p>
-        )}
-        <Link href="/employee/career" className="btn btn-primary tap-react w-full text-sm">
+        <p className="career-compact__hint mb-3">
+          شواهد واقعی: {toPersianDigits(activityN)} · دانش محاسبه‌شده:{" "}
+          {toPersianDigits(integrity.knowledgeLevel)}٪
+          {complete && top ? (
+            <>
+              {" "}
+              · نزدیک‌ترین نقش: <strong>{top.titleFa}</strong> (
+              {toPersianDigits(top.percent)}٪
+              {top.evidenceBacked ? "" : " · فقط ترجیح"})
+            </>
+          ) : (
+            <>
+              {" "}
+              · نقش پروفایل:{" "}
+              {profile ? JOB_ROLE_LABELS[profile.jobRole] : "—"}
+            </>
+          )}
+        </p>
+        <Link
+          href="/employee/career"
+          className="btn btn-primary tap-react w-full text-sm"
+        >
           مسیر عمیق نقش من
         </Link>
       </section>
@@ -93,14 +119,44 @@ export function CareerPathfinder({ compact = false }: { compact?: boolean }) {
   return (
     <div className="career-pathfinder">
       <MotionEnter>
-        <p className="atelier-kicker">Deep Skill · Role Discovery</p>
+        <p className="atelier-kicker">Deep Skill · Real Evidence</p>
         <h1 className="page-title mb-2">کدام نقش گالری مال شماست؟</h1>
         <p className="muted text-sm leading-7 mb-4">
-          متقاضی بعد از دوره عمیق — نه یک آزمون سطحی — باید بتواند بگوید:
-          «حسابدار آنجا می‌شوم» یا «ایده‌پرداز / طراح / فروشنده آنجا». هر مسیر
-          پنج لایه دارد: تئوری · استدلال · عملی · طراحی · آزمون.
+          متقاضی بعد از دوره عمیق باید بتواند بگوید نقشش چیست. درصدها مطلق‌اند
+          و از ترجیح + شواهد واقعی ساخته می‌شوند — نه نرمال‌سازی جعلی به ۱۰۰٪.
         </p>
       </MotionEnter>
+
+      <section className="career-integrity surface p-4 mb-4">
+        <p className="section-title !mb-2">صحت‌سنجی داده شما</p>
+        <ul className="career-integrity__grid">
+          <li>
+            آزمونک واقعی: {toPersianDigits(integrity.quizAttempts)}
+          </li>
+          <li>
+            آزمون واقعی: {toPersianDigits(integrity.examAttempts)}
+          </li>
+          <li>
+            گواهی لینک‌شده: {toPersianDigits(integrity.certificates)}
+          </li>
+          <li>
+            درس تکمیل: {toPersianDigits(integrity.lessonCompleted)}
+          </li>
+          <li>
+            سناریو: {toPersianDigits(integrity.scenarioAttempts)}
+          </li>
+          <li>
+            استودیو ۳D: {toPersianDigits(integrity.studioSessions)}
+          </li>
+        </ul>
+        <p className="muted text-xs mt-2 leading-6">
+          سطح دانش پروفایل = میانگین نمرات آزمونک/آزمون با پاسخ درجه‌بندی‌شده:{" "}
+          <strong>{toPersianDigits(integrity.knowledgeLevel)}٪</strong>
+          {integrity.quizAttempts + integrity.examAttempts === 0
+            ? " — هنوز آزمونی ثبت نشده؛ عدد صفر است نه نمره ساختگی."
+            : null}
+        </p>
+      </section>
 
       <div className="career-track-tabs">
         {CAREER_TRACKS.map((t) => (
@@ -155,8 +211,8 @@ export function CareerPathfinder({ compact = false }: { compact?: boolean }) {
           <div>
             <p className="section-title !mb-1">سنجش تناسب نقش</p>
             <p className="muted text-sm leading-7">
-              شش سؤال استدلالی + سیگنال فعالیت آموزشی شما — نتیجه راهنماست؛ مجوز
-              کار همچنان فقط با ارزیابی عملی مدیر است.
+              شش سؤال ترجیحی + شواهد فعالیت واقعی. تعهد به مسیر بدون فعالیت
+              آموزشی مسدود است. مجوز کار همچنان فقط با ارزیابی عملی مدیر.
             </p>
           </div>
           <Pressable
@@ -180,7 +236,7 @@ export function CareerPathfinder({ compact = false }: { compact?: boolean }) {
                       className={`career-quiz__choice ${
                         answers[q.id] === c.id ? "is-on" : ""
                       }`}
-                      feedback={{ label: "ثبت شد", tone: "ok" }}
+                      feedback={{ label: "ترجیح ثبت شد", tone: "ok" }}
                       onPress={() => pickAnswer(q.id, c.id)}
                     >
                       {c.labelFa}
@@ -194,11 +250,16 @@ export function CareerPathfinder({ compact = false }: { compact?: boolean }) {
 
         {complete ? (
           <div className="career-rank mt-4">
-            <p className="text-sm font-bold mb-2">رتبه‌بندی تناسب شما</p>
+            <p className="text-sm font-bold mb-2">رتبه‌بندی تناسب (درصد مطلق)</p>
             <div className="career-rank__bars">
               {ranking.map((r) => (
                 <div key={r.trackId} className="career-rank__row">
-                  <span>{r.titleFa}</span>
+                  <span>
+                    {r.titleFa}
+                    {!r.evidenceBacked ? (
+                      <em className="career-rank__pref"> ترجیح</em>
+                    ) : null}
+                  </span>
                   <div className="career-rank__bar">
                     <i style={{ width: `${r.percent}%` }} />
                   </div>
@@ -209,20 +270,41 @@ export function CareerPathfinder({ compact = false }: { compact?: boolean }) {
             {top ? (
               <div className="career-rank__verdict mt-3">
                 <p className="text-sm leading-7">
-                  نزدیک‌ترین مسیر: <strong>{top.titleFa}</strong> — {top.outcomeFa}
+                  نزدیک‌ترین مسیر: <strong>{top.titleFa}</strong> —{" "}
+                  {top.outcomeFa}
+                </p>
+                <p className="muted text-xs mt-2 leading-6">
+                  شواهد این نقش: ترجیح{" "}
+                  {toPersianDigits(Math.round(top.evidence.preferencePoints))} +
+                  فعالیت{" "}
+                  {toPersianDigits(
+                    Math.round(top.evidence.activityPoints * 10) / 10
+                  )}
+                  {top.evidence.sources.filter((s) => !s.startsWith("ترجیح"))
+                    .length
+                    ? ` · ${top.evidence.sources
+                        .filter((s) => !s.startsWith("ترجیح"))
+                        .slice(0, 3)
+                        .join(" · ")}`
+                    : " · هنوز شاهد فعالیت واقعی برای این نقش نیست"}
                 </p>
                 <Pressable
                   className="btn btn-primary tap-react mt-3 w-full text-sm"
                   feedback={{
-                    label: committed ? "مسیر ثبت شد" : "تعهد به مسیر",
-                    tone: "ok",
+                    label: committed ? "مسیر ثبت شد" : "تلاش تعهد",
+                    tone: committed ? "ok" : "info",
                   }}
                   onPress={commitTop}
                 >
                   {committed
                     ? `مسیر «${top.titleFa}» روی پروفایل نشست`
-                    : `تعهد به مسیر ${top.titleFa} و باز کردن بسته عمیق`}
+                    : `تعهد به مسیر ${top.titleFa} (نیازمند شواهد واقعی)`}
                 </Pressable>
+                {commitError ? (
+                  <p className="text-xs mt-2 leading-6" style={{ color: "var(--danger, #b33)" }}>
+                    {commitError}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>

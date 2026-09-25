@@ -38,8 +38,9 @@ export default function ExamPage() {
     <AppShell title={`آزمون ${course.title}`} backHref={`/employee/courses/${id}`}>
       <div className="mx-auto max-w-app space-y-5">
         <p className="muted text-sm leading-7">
-          حد نصاب: {toPersianDigits(passing)}٪ · گواهی دانش در صورت قبولی صادر
-          می‌شود؛ مجوز کار مستقل فقط با ارزیابی عملی.
+          حد نصاب: {toPersianDigits(passing)}٪ · در صورت قبولی با پاسخ‌های
+          درجه‌بندی‌شده، گواهی دانش از همین آزمون صادر می‌شود؛ مجوز کار مستقل فقط
+          با ارزیابی عملی.
         </p>
         {questions.map((q, i) => (
           <section key={q.id} className="surface p-4">
@@ -92,6 +93,13 @@ export default function ExamPage() {
             type="button"
             className="btn btn-primary w-full"
             onClick={() => {
+              const answered = Object.keys(answers).length;
+              if (answered < questions.length) {
+                window.alert(
+                  "همه سؤال‌ها را پاسخ دهید — نمره بدون پاسخ واقعی ثبت نمی‌شود."
+                );
+                return;
+              }
               const res = submitExam({
                 courseId: id,
                 questionIds: questions.map((q) => q.id),

@@ -171,7 +171,7 @@ export interface EmployeeProfile {
   branchId: string;
   jobRole: JobRole;
   hireDate: string;
-  /** Aggregate quiz/exam knowledge 0–100 — informational only */
+  /** Aggregate quiz/exam knowledge 0–100 — from graded attempts only */
   knowledgeLevel: KnowledgeLevel;
   practicalStatus: PracticalStatus;
   /** Floor work rights — set ONLY via practical assessment */
@@ -180,6 +180,10 @@ export interface EmployeeProfile {
   learningPathId?: string;
   streakDays?: number;
   notes?: string;
+  /** Real studio / brainstorm sessions opened (not a preference click fake) */
+  studioSessionCount?: number;
+  /** Career fit preference answers — preference only until activity evidence exists */
+  careerFitAnswers?: Record<string, string>;
 }
 
 export interface RolePermissionMap {
@@ -489,6 +493,8 @@ export interface Certificate {
   score: KnowledgeLevel;
   expiresAt?: string;
   certificateNumber: string;
+  /** Required for integrity — certificate only valid when linked to a passed exam */
+  examAttemptId?: string;
 }
 
 export interface TrainingRecommendation {
