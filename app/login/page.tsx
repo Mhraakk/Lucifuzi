@@ -6,6 +6,7 @@ import { useState } from "react";
 import { JOB_ROLE_LABELS, SYSTEM_ROLE_LABELS } from "@/lib/types";
 import { useAppState } from "@/lib/hooks";
 import { setCurrentUser, setTheme } from "@/lib/store";
+import { sculptureSrc, sculptureWork } from "@/lib/atelier/sculptures";
 import { persistSession, createSession } from "@/lib/auth/session";
 import { syncEvent } from "@/lib/backend/persistence";
 
@@ -94,9 +95,9 @@ export default function LoginPage() {
       className="relative min-h-screen overflow-hidden"
       style={{ color: "var(--ink)" }}
     >
-      <div className="login-atelier" aria-hidden>
+      <div className="login-atelier login-atelier--marble" aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/atelier/atelier-products.png" alt="" />
+        <img src={sculptureSrc("login")} alt="" />
         <div className="login-atelier__veil" />
       </div>
 
@@ -112,12 +113,16 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* Brand on solid readable card — photo stays behind, never under text */}
+        {/* Brand on solid readable card — marble sculpture atmosphere behind */}
         <header className="login-hero-card mb-6 mt-auto">
           <h1 className="brand-mark mb-2">آریا</h1>
-          <p className="mb-3 text-base font-bold leading-7">آموزش عملیاتی گالری</p>
+          <p className="mb-3 text-base font-bold leading-7">آتلیه آموزش چشم و دست</p>
           <p className="text-sm leading-7 muted">
-            فرمول قیمت، ویترین، امنیت و فروش مشورتی — با تمرین لمسی زنده.
+            تئوری و عملی — تنها منبع آموزش. با فیلتر میکل‌آنژ و استادان ایتالیایی،
+            بینایی و دقت کارکنان آزموده می‌شود.
+          </p>
+          <p className="atelier-marble-credit mt-3">
+            {sculptureWork("login").artist} · {sculptureWork("login").title}
           </p>
         </header>
 

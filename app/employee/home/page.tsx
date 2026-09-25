@@ -10,6 +10,7 @@ import {
 } from "@/components/training/AtelierWall";
 import { FormulaStudio } from "@/components/training/FormulaStudio";
 import { PedagogyJourney } from "@/components/training/PedagogyJourney";
+import { VisualAtelierCanon } from "@/components/training/VisualAtelierCanon";
 import { Badge } from "@/components/ui/Feedback";
 import {
   formatJalaliDate,
@@ -90,11 +91,13 @@ export default function EmployeeHomePage() {
         </section>
 
         <AtelierProductHero
-          title="آموزش مثل ویترین گالری"
-          subtitle="محصول را مثل برندهای معتبر ارائه کنید: نور، سینی مخمل، روایت کوتاه — نه فشار فروش."
-          ctaHref="/employee/products"
-          ctaLabel="ویترین محصولات آموزشی"
+          title="چشم سنگ‌تراش، دست گالری‌دار"
+          subtitle="تئوری و عملی تنها منبع آموزش‌اند — بینایی، استدلال، زیبایی‌سنجی و دقت را مثل استادان ایتالیایی بیازمایید و بالا ببرید."
+          ctaHref="/employee/learn"
+          ctaLabel="ورود به آکادمی تئوری"
         />
+
+        <VisualAtelierCanon />
 
         <Link
           href="/employee/products"

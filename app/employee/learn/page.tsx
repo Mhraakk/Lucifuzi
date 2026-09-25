@@ -22,7 +22,7 @@ export default function LearnPage() {
           pathTitle={path?.title ?? "بسته شایستگی فروش"}
           pathDescription={
             path?.description ??
-            "آموزش عملیاتی گالری با استاندارد آمریکا، سوئیس و اروپا."
+            "تئوری و عملی — تنها منبع آموزش. بینایی، استدلال بصری و دقت با استاندارد آمریکا، سوئیس و اروپا."
           }
           recommended={recommended}
           others={others}

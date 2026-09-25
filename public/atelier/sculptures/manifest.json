@@ -1,0 +1,78 @@
+{
+  "license": "Public domain / CC0 — Cleveland Museum of Art Open Access, Met Museum Open Access",
+  "purpose": "Italian sculptural eye-training atmospheres for Arya jewelry staff pedagogy (theory + practice as sole training source)",
+  "slots": {
+    "intro": "canova.jpg",
+    "login": "mich-sistine.jpg",
+    "home": "canova.jpg",
+    "learn": "david.jpg",
+    "theory": "mich-sistine.jpg",
+    "practice": "bernini.jpg",
+    "skills": "mino.jpg",
+    "studio": "sansovino.jpg",
+    "products": "giambologna.jpg",
+    "wall": "pieta.jpg"
+  },
+  "works": [
+    {
+      "file": "canova.jpg",
+      "artist": "Antonio Canova",
+      "title": "Terpsichore Lyran",
+      "source": "Cleveland Museum of Art"
+    },
+    {
+      "file": "bernini.jpg",
+      "artist": "Gian Lorenzo Bernini",
+      "title": "Head of Proserpina",
+      "source": "Cleveland Museum of Art"
+    },
+    {
+      "file": "mich-sistine.jpg",
+      "artist": "Michelangelo Buonarroti",
+      "title": "Study for the Nude Youth over the Prophet Daniel (Sistine)",
+      "source": "Cleveland Museum of Art"
+    },
+    {
+      "file": "mich-youth.jpg",
+      "artist": "Michelangelo Buonarroti",
+      "title": "Study for the Nude Youth (recto)",
+      "source": "Cleveland Museum of Art"
+    },
+    {
+      "file": "mich-figures.jpg",
+      "artist": "Michelangelo Buonarroti",
+      "title": "Figure Studies for the Sistine Ceiling (verso)",
+      "source": "Cleveland Museum of Art"
+    },
+    {
+      "file": "david.jpg",
+      "artist": "Battista di Domenico Lorenzi",
+      "title": "Alpheus and Arethusa",
+      "source": "Metropolitan Museum of Art"
+    },
+    {
+      "file": "pieta.jpg",
+      "artist": "Tullio Lombardo",
+      "title": "A Young Warrior",
+      "source": "Metropolitan Museum of Art"
+    },
+    {
+      "file": "sansovino.jpg",
+      "artist": "Jacopo Sansovino",
+      "title": "Virgin and Child",
+      "source": "Cleveland Museum of Art"
+    },
+    {
+      "file": "mino.jpg",
+      "artist": "Mino da Fiesole",
+      "title": "Julius Caesar",
+      "source": "Cleveland Museum of Art"
+    },
+    {
+      "file": "giambologna.jpg",
+      "artist": "Giambologna",
+      "title": "Fata Morgana",
+      "source": "Cleveland Museum of Art"
+    }
+  ]
+}

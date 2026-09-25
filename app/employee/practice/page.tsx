@@ -6,6 +6,7 @@ import { AtelierProductStrip } from "@/components/training/AtelierWall";
 import { FormulaStudio } from "@/components/training/FormulaStudio";
 import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge } from "@/components/ui/Feedback";
+import { sculptureSrc, sculptureWork } from "@/lib/atelier/sculptures";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
 import { getTodayDaily } from "@/lib/store";
 
@@ -16,6 +17,7 @@ export default function PracticePage() {
   const recs = state.recommendations.filter(
     (r) => r.userId === user.id && !r.dismissed
   );
+  const marble = sculptureWork("practice");
 
   return (
     <AppShell title="تمرین">
@@ -23,8 +25,11 @@ export default function PracticePage() {
         <section className="surface p-4 animate-in">
           <h1 className="page-title mb-2">تمرین عملی</h1>
           <p className="muted text-sm leading-7">
-            فرمول قیمت، سناریوی فروش و ریسک — هر لمس خروجی می‌دهد. بدون ترتیب
-            اجباری؛ در سطح استاندارد گالری‌های معتبر.
+            ژانر عملی — نیمهٔ دوم منبع واحد آموزش. فرمول، سناریو و ریسک را با همان
+            دقت برنینی لمس کنید: بینایی، استدلال، زیبایی‌سنجی و دقت روی کف فروشگاه.
+          </p>
+          <p className="atelier-marble-credit mt-2">
+            {marble.artist} · {marble.title}
           </p>
         </section>
 
@@ -45,14 +50,14 @@ export default function PracticePage() {
           <div className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/atelier/atelier-wall.png"
+              src={sculptureSrc("practice")}
               alt=""
               className="h-36 w-full object-cover"
               loading="lazy"
             />
             <div className="atelier-wall__veil" aria-hidden />
             <div className="atelier-wall__intro !justify-center">
-              <p className="atelier-kicker">تمرین امروز</p>
+              <p className="atelier-kicker">تمرین امروز · چشم عملی</p>
               <p className="atelier-title !text-lg">
                 {daily?.title ?? "تمرین روزانه"}
               </p>

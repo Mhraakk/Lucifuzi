@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { toPersianDigits } from "@/lib/format";
+import { sculptureSrc, sculptureWork } from "@/lib/atelier/sculptures";
 
 export type WallPin = {
   id: string;
@@ -13,14 +14,14 @@ export type WallPin = {
 };
 
 const PIN_IMAGES = [
-  "/atelier/atelier-products.png",
-  "/illustrations/topic-product.png",
-  "/illustrations/topic-pricing.png",
-  "/illustrations/topic-sales.png",
-  "/illustrations/topic-security.png",
-  "/illustrations/topic-care.png",
-  "/illustrations/topic-inventory.png",
-  "/illustrations/topic-crm.png",
+  sculptureSrc("learn"),
+  sculptureSrc("theory"),
+  sculptureSrc("practice"),
+  sculptureSrc("skills"),
+  sculptureSrc("products"),
+  sculptureSrc("studio"),
+  sculptureSrc("home"),
+  sculptureSrc("wall"),
 ];
 
 /** Irregular mosaic sizes — gallery wall, not a sequence */
@@ -57,15 +58,18 @@ export function AtelierWall({
       <div className="atelier-wall__hero">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/atelier/atelier-board.png"
+          src={sculptureSrc("wall")}
           alt=""
-          className="atelier-wall__bg"
+          className="atelier-wall__bg atelier-wall__bg--marble"
           loading="lazy"
         />
         <div className="atelier-wall__veil" aria-hidden />
         <div className="atelier-wall__intro">
           {eyebrow ? <p className="atelier-kicker">{eyebrow}</p> : null}
           <h2 className="atelier-title">{title}</h2>
+          <p className="atelier-marble-credit">
+            {sculptureWork("wall").artist} · {sculptureWork("wall").title}
+          </p>
           {goalLabel ? <p className="atelier-lede">{goalLabel}</p> : null}
           <p className="atelier-score">
             <span>{toPersianDigits(overall)}</span>
@@ -104,7 +108,7 @@ export function AtelierWall({
   );
 }
 
-/** Product-led hero — real atelier tray photo, solid readable panel (no portrait). */
+/** Sculptural intro hero — Italian marble atmosphere + readable panel. */
 export function AtelierProductHero({
   title,
   subtitle,
@@ -116,18 +120,22 @@ export function AtelierProductHero({
   ctaHref?: string;
   ctaLabel?: string;
 }) {
+  const work = sculptureWork("intro");
   return (
-    <section className="atelier-product-hero animate-in">
+    <section className="atelier-product-hero atelier-product-hero--marble animate-in">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/atelier/atelier-products.png"
-        alt="مصنوعات طلا روی سینی مخمل گالری"
+        src={work.src}
+        alt={`${work.title} — ${work.artist}`}
         className="atelier-product-hero__img"
         loading="eager"
       />
       <div className="atelier-product-hero__panel">
-        <p className="atelier-kicker">گالری طلای آریا</p>
+        <p className="atelier-kicker">گالری طلای آریا · آتلیه چشم</p>
         <h2 className="atelier-title">{title}</h2>
+        <p className="atelier-marble-credit">
+          {work.artist} · {work.title}
+        </p>
         {subtitle ? <p className="atelier-lede">{subtitle}</p> : null}
         {ctaHref && ctaLabel ? (
           <Link
@@ -146,16 +154,18 @@ export function AtelierProductHero({
 export const AtelierMuseHero = AtelierProductHero;
 
 export function AtelierProductStrip() {
+  const work = sculptureWork("practice");
   return (
-    <figure className="atelier-strip animate-in">
+    <figure className="atelier-strip atelier-strip--marble animate-in">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/atelier/atelier-products.png"
-        alt="نمایش مصنوعات طلا روی سینی مخمل"
+        src={work.src}
+        alt={`${work.title} — ${work.artist}`}
         loading="lazy"
       />
       <figcaption>
-        نحوه ارائه محصول روی سینی مخمل — استاندارد ویترین گالری
+        {work.artist} · {work.title} — چشم را مثل سنگ‌تراش ایتالیایی تربیت کنید؛
+        سپس همان دقت را به ویترین طلا بیاورید.
       </figcaption>
     </figure>
   );

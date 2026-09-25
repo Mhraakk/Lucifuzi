@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { StandardsChart } from "@/components/training/StandardsChart";
 import { TopicVisual } from "@/components/training/TopicVisual";
 import { Badge, ProgressRing } from "@/components/ui/Feedback";
+import { sculptureSrc, sculptureWork } from "@/lib/atelier/sculptures";
 import { toPersianDigits } from "@/lib/format";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
 import {
@@ -23,6 +24,7 @@ export default function SkillsPage() {
         rows.reduce((s, r) => s + r.knowledgeLevel, 0) / rows.length
       )
     : 0;
+  const marble = sculptureWork("skills");
 
   return (
     <AppShell title="مهارت‌ها">
@@ -30,8 +32,12 @@ export default function SkillsPage() {
         <section className="animate-in">
           <h1 className="page-title mb-2">نقشه شایستگی</h1>
           <p className="muted text-sm leading-7">
-            سه لایه جدا (اصل مشترک آموزش حرفه‌ای آمریکا و اروپا): دانش آزمون ≠
-            وضعیت عملی ≠ مجوز کار. فقط ارزیابی عملی مشاهده‌شده مجوز می‌دهد.
+            تئوری و عملی تنها منبع‌اند. سه لایه جدا: دانش آزمون ≠ وضعیت عملی ≠
+            مجوز کار. فیلتر بصری آریا بینایی و دقت را می‌سنجد — فقط ارزیابی عملی
+            مشاهده‌شده مجوز می‌دهد.
+          </p>
+          <p className="atelier-marble-credit mt-2">
+            {marble.artist} · {marble.title}
           </p>
         </section>
 
@@ -43,7 +49,7 @@ export default function SkillsPage() {
           <div className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/atelier/atelier-wall.png"
+              src={sculptureSrc("skills")}
               alt=""
               className="h-32 w-full object-cover"
               loading="lazy"
@@ -51,7 +57,7 @@ export default function SkillsPage() {
             <div className="atelier-wall__veil" aria-hidden />
             <div className="relative z-[1] flex items-center justify-between gap-4 p-5">
               <div>
-                <p className="atelier-kicker">تابلوی مجوز</p>
+                <p className="atelier-kicker">تابلوی مجوز · دقت مینو</p>
                 <p className="atelier-title !text-lg">
                   {toPersianDigits(independent)} از {toPersianDigits(rows.length)}{" "}
                   مستقل

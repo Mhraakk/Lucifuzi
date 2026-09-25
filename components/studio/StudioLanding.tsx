@@ -42,13 +42,13 @@ export function StudioLanding() {
           <div className="jx-arch-hero__piece" />
         </div>
         <div className="jx-arch-hero__copy">
-          <p className="jx-eyebrow">Jewellery Atelier · آریا</p>
+          <p className="jx-eyebrow">Sculpture · Craft · آریا</p>
           <h1>
             Modern <em>Ideas</em>
           </h1>
           <p className="jx-arch-hero__lede">
-            ماده خام طلا را با انگشت شکل دهید — حلقه، زنجیر، دستبند و نگین — سپس
-            ارائه دهید.
+            ژانر عملی در فضا: ماده خام طلا را با انگشت شکل دهید — همان دقت
+            سنگ‌تراشی ایتالیایی برای بینایی و مهارت لمسی — سپس ارائه دهید.
           </p>
           <Pressable
             className="jx-cta jx-cta--ink tap-react"

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useAppState } from "@/lib/hooks";
 import { setCurrentUser } from "@/lib/store";
+import { sculptureSrc } from "@/lib/atelier/sculptures";
 import { useEffect } from "react";
 
 export default function HomeRedirect() {
@@ -26,7 +27,7 @@ export default function HomeRedirect() {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
       <div className="login-atelier" aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/atelier/atelier-wall.png" alt="" />
+        <img src={sculptureSrc("intro")} alt="" />
         <div className="login-atelier__veil" />
       </div>
       <div className="relative z-[1] login-hero-card mx-6 text-center">

@@ -71,13 +71,13 @@ const REGIONS = [
 const GATES = [
   {
     id: "know",
-    title: "دانش",
-    body: "آزمون و درس — فقط سطح دانش را به‌روز می‌کند.",
+    title: "تئوری",
+    body: "درس و استاندارد — چشم و استدلال را با مطالعهٔ فرم (میکل‌آنژ) می‌سازد.",
   },
   {
     id: "prac",
     title: "عملی",
-    body: "سناریو و مشاهده روی کف فروشگاه — مهارت واقعی.",
+    body: "سناریو، فرمول، ویترین — مهارت واقعی با دقت سنگ‌تراشی (برنینی).",
   },
   {
     id: "auth",
@@ -100,10 +100,11 @@ export function PedagogyJourney() {
   return (
     <section className="pedagogy-journey">
       <MotionEnter>
-        <p className="atelier-kicker">سه روش · اصول کامل</p>
+        <p className="atelier-kicker">سه روش · اصول کامل · آتلیه چشم</p>
         <h2 className="page-title !text-xl mb-2">US · CH · EU در عمل</h2>
         <p className="muted text-sm leading-7 mb-4">
-          هر منطقه را لمس کنید؛ اصولش با توضیح واقعی باز می‌شود — نه تیتر خالی.
+          تئوری و عملی تنها منبع آموزش‌اند؛ اصول منطقه‌ای را لمس کنید تا با فیلتر
+          بصری آریا گره بخورند.
         </p>
       </MotionEnter>
 

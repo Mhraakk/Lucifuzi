@@ -7,6 +7,7 @@ import { useAppState, useCurrentUser, useUnreadCount } from "@/lib/hooks";
 import { isManagerLike } from "@/lib/permissions";
 import { setTheme } from "@/lib/store";
 import { AmbientBackdrop } from "@/components/layout/AmbientBackdrop";
+import { sculptureSlotFromPath } from "@/lib/atelier/sculptures";
 
 const employeeNav = [
   { href: "/employee/home", label: "خانه", icon: "home" },
@@ -134,7 +135,9 @@ export function AppShell({
       className="app-atmosphere relative min-h-screen text-[var(--ink)]"
       style={{ background: "transparent" }}
     >
-      <AmbientBackdrop variant={manager ? "wall" : "products"} />
+      <AmbientBackdrop
+        variant={manager ? "wall" : sculptureSlotFromPath(pathname)}
+      />
       <header className="sticky top-0 z-30 border-b hairline glass-bar">
         <div className="mx-auto flex max-w-desk items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">

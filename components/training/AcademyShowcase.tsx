@@ -11,6 +11,7 @@ import {
   type StandardRegion,
 } from "@/lib/standards";
 import type { Course } from "@/lib/types";
+import { sculptureSrc, sculptureWork } from "@/lib/atelier/sculptures";
 
 type FilterId = "all" | "path" | "us" | "ch" | "eu" | "other";
 
@@ -68,26 +69,29 @@ export function AcademyShowcase({
     return <p className="muted">دوره‌ای یافت نشد.</p>;
   }
 
-  const heroImg =
-    hero.coverImage ?? illustrationSrcForCourse(hero.id);
+  const heroImg = sculptureSrc("learn");
   const featuredImg =
     featured.coverImage ?? illustrationSrcForCourse(featured.id);
+  const marble = sculptureWork("theory");
 
   return (
     <div className="jx-landing jx-theme">
-      {/* Hero — exact ecommerce landing structure */}
+      {/* Hero — sculptural theory atmosphere */}
       <section className="jx-hero">
         <div className="jx-hero__visual">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={heroImg} alt={hero.title} />
+          <img src={heroImg} alt={marble.title} />
           <div className="jx-hero__wash" aria-hidden />
         </div>
         <div className="jx-hero__copy">
-          <p className="jx-eyebrow">Academy · گالری طلای آریا</p>
-          <h1 className="jx-hero__title">آموزش کارکنان</h1>
+          <p className="jx-eyebrow">Theory · آتلیه چشم · میکل‌آنژ</p>
+          <h1 className="jx-hero__title">آموزش تئوری</h1>
           <p className="jx-hero__lede">
             {pathDescription ||
-              "دوره‌های عملیاتی با استاندارد آمریکا، سوئیس و اروپا — دانش ≠ مجوز کار."}
+              "تئوری و عملی تنها منبع آموزش‌اند — بینایی، استدلال بصری و دقت را با استاندارد آمریکا، سوئیس و اروپا بسازید."}
+          </p>
+          <p className="atelier-marble-credit" style={{ marginTop: "0.35rem" }}>
+            {marble.artist} · {marble.title}
           </p>
           <div className="jx-hero__actions">
             <Link
@@ -96,8 +100,8 @@ export function AcademyShowcase({
             >
               شروع «{hero.title}»
             </Link>
-            <Link href="/employee/products" className="jx-cta jx-cta--ghost tap-react">
-              ویترین محصول
+            <Link href="/employee/practice" className="jx-cta jx-cta--ghost tap-react">
+              ژانر عملی
             </Link>
           </div>
         </div>
@@ -238,17 +242,18 @@ export function AcademyShowcase({
 
       {/* Closing editorial band */}
       <section className="jx-editorial">
-        <p className="jx-eyebrow">Pedagogy</p>
-        <h2>دانش · عملی · مجوز کار</h2>
+        <p className="jx-eyebrow">Theory · Practice · Eye</p>
+        <h2>تئوری · عملی · مجوز کار</h2>
         <p>
-          آزمون فقط دانش را می‌سنجد. مهارت روی کف فروشگاه دیده می‌شود. مجوز کار
-          مستقل فقط با ارزیابی عملی مدیر صادر می‌شود — نه با نمره و نه با AI.
+          تئوری و عملی تنها منبع آموزش‌اند. آزمون فقط دانش را می‌سنجد؛ مهارت روی کف
+          فروشگاه با فیلتر بصری (بینایی، استدلال، زیبایی‌سنجی، دقت) دیده می‌شود.
+          مجوز کار مستقل فقط با ارزیابی عملی مدیر صادر می‌شود.
         </p>
         <Link href="/employee/studio" className="jx-cta tap-react">
-          رفتن به استودیو ۳D
+          استودیو ۳D — مهارت لمسی
         </Link>
         <Link href="/employee/practice" className="jx-cta jx-cta--ghost tap-react" style={{ marginTop: "0.55rem" }}>
-          تمرین عملی
+          ژانر عملی
         </Link>
       </section>
     </div>

@@ -3506,3 +3506,208 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* —— Italian marble / sculptural eye-training —— */
+.ambient-backdrop--marble .ambient-backdrop__photo {
+  filter: saturate(0.35) contrast(1.05) brightness(1.12) sepia(0.12);
+  opacity: 0.32;
+  object-position: center 28%;
+}
+
+[data-theme="dark"] .ambient-backdrop--marble .ambient-backdrop__photo {
+  opacity: 0.22;
+  filter: saturate(0.25) contrast(1.1) brightness(0.5) sepia(0.08);
+}
+
+.atelier-marble-credit {
+  margin: 0.35rem 0 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+.atelier-wall__bg--marble {
+  filter: saturate(0.4) contrast(1.02) brightness(1.05);
+  object-position: center 22%;
+}
+
+.atelier-product-hero--marble .atelier-product-hero__img {
+  filter: saturate(0.45) contrast(1.04);
+  object-position: center 20%;
+}
+
+.atelier-strip--marble img {
+  filter: saturate(0.4) contrast(1.02);
+  object-position: center 25%;
+  max-height: 200px;
+  width: 100%;
+  object-fit: cover;
+}
+
+.login-atelier--marble img {
+  filter: saturate(0.3) contrast(1.08) brightness(0.92) sepia(0.15);
+  object-position: center 18% !important;
+}
+
+.visual-canon {
+  margin-bottom: 0.35rem;
+}
+
+.visual-canon__genres {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.visual-canon__genre {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 0.65rem;
+  align-items: center;
+  text-align: right;
+  width: 100%;
+  padding: 0.55rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(252, 250, 246, 0.96);
+  color: var(--ink-muted);
+}
+
+.visual-canon__genre img {
+  width: 52px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+  filter: saturate(0.4);
+}
+
+.visual-canon__genre strong {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--ink);
+  margin-bottom: 0.15rem;
+}
+
+.visual-canon__genre em {
+  display: block;
+  font-style: normal;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.visual-canon__genre.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.visual-canon__stage {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  min-height: 220px;
+  border: 1px solid var(--line);
+}
+
+.visual-canon__marble {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  object-position: center 22%;
+  display: block;
+  filter: saturate(0.42) contrast(1.04);
+}
+
+.visual-canon__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    color-mix(in srgb, var(--atelier-ivory, #f3efe6) 94%, transparent) 0%,
+    color-mix(in srgb, var(--atelier-ivory, #f3efe6) 58%, transparent) 48%,
+    transparent 100%
+  );
+}
+
+.visual-canon__copy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.1rem 1.15rem 1.2rem;
+}
+
+.visual-canon__title {
+  margin: 0.2rem 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.visual-canon__body {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--ink-muted);
+  max-width: 18rem;
+}
+
+.visual-canon__trains {
+  margin: 0.45rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: var(--accent-deep);
+}
+
+.visual-canon__faculties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.visual-canon__chip {
+  min-height: 36px;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.visual-canon__chip.is-on {
+  background: var(--ink);
+  color: #faf7f2;
+  border-color: var(--ink);
+}
+
+[data-theme="dark"] .visual-canon__genre {
+  background: rgba(22, 20, 18, 0.92);
+}
+
+[data-theme="dark"] .visual-canon__veil {
+  background: linear-gradient(
+    105deg,
+    rgba(12, 11, 10, 0.92) 0%,
+    rgba(12, 11, 10, 0.55) 48%,
+    transparent 100%
+  );
+}
+
+[data-theme="dark"] .visual-canon__chip.is-on {
+  background: var(--accent);
+  color: #141210;
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .visual-canon__marble {
+    animation: ambient-kenburns 28s var(--ease-soft) infinite alternate;
+  }
+}
+
