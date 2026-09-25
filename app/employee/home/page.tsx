@@ -108,6 +108,14 @@ export default function EmployeeHomePage() {
         <ArsenalWorkbench compact />
 
         <Link
+          href="/employee/trials"
+          className="jx-cta tap-react !self-stretch text-center"
+          style={{ display: "block" }}
+        >
+          آزمایش نقش · فروش · عملیات · ساخت · ذوب · ایده · نوسان · معامله · کیفی
+        </Link>
+
+        <Link
           href="/employee/products"
           className="jx-cta tap-react !self-stretch text-center"
           style={{ display: "block" }}

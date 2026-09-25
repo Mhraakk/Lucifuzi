@@ -74,7 +74,9 @@ export type AuditAction =
   | "authorization_change"
   | "certificate_issue"
   | "scenario_complete"
-  | "config_update";
+  | "config_update"
+  | "trial_complete"
+  | "responsibility_assign";
 
 export type ScenarioType = "sales" | "fraud" | "service" | "security" | "inventory";
 
@@ -400,6 +402,43 @@ export interface PracticalAssessment {
   score?: number;
   notes: string;
   evidenceChecklist: string[];
+  /** Optional link to a passed role trial */
+  trialAttemptId?: string;
+}
+
+/** Result of an authentic role-environment trial (evidence only — not authorization). */
+export interface TrialAttempt {
+  id: string;
+  organizationId: string;
+  userId: string;
+  trialId: string;
+  envId: string;
+  competencyId: string;
+  startedAt: string;
+  completedAt: string;
+  score: number;
+  maxScore: number;
+  percent: number;
+  passed: boolean;
+  answers: Record<string, string[]>;
+  toolsUsed: string[];
+  missedStepIds: string[];
+}
+
+/** Manager-assigned floor responsibility after practical + trial evidence. */
+export interface ResponsibilityAssignment {
+  id: string;
+  organizationId: string;
+  employeeUserId: string;
+  envId: string;
+  competencyId: string;
+  responsibilityFa: string;
+  workAuthorization: WorkAuthorization;
+  assignedByUserId: string;
+  assignedAt: string;
+  trialAttemptId?: string;
+  practicalAssessmentId?: string;
+  active: boolean;
 }
 
 export interface TrainingScenario {
@@ -595,6 +634,8 @@ export interface AppState {
   competencies: Competency[];
   employeeCompetencies: EmployeeCompetency[];
   practicalAssessments: PracticalAssessment[];
+  trialAttempts: TrialAttempt[];
+  responsibilityAssignments: ResponsibilityAssignment[];
   trainingScenarios: TrainingScenario[];
   scenarios: TrainingScenario[];
   scenarioSteps: ScenarioStep[];

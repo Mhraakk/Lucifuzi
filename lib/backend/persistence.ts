@@ -94,7 +94,9 @@ export type SyncEvent = {
     | "scenario_coach"
     | "quiz_fail"
     | "auth_login"
-    | "practical_evidence";
+    | "practical_evidence"
+    | "trial_complete"
+    | "responsibility_assign";
   userId: string;
   payload: Record<string, string | number | boolean | null>;
   at: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { PRACTICAL_STATUS_LABELS, type PracticalStatus } from "@/lib/types";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
@@ -88,6 +89,12 @@ export default function AssessmentsPage() {
             این فرم تنها مسیر صدور «مجوز کار مستقل» است. مربی AI فقط چک‌لیست و
             یادداشت پیشنهاد می‌دهد — مجوز را انسان صادر می‌کند.
           </p>
+          <Link
+            href="/manager/responsibilities"
+            className="btn btn-secondary mt-3 inline-flex text-sm"
+          >
+            محول مسئولیت از روی آزمایش نقش
+          </Link>
         </section>
 
         {coach ? (

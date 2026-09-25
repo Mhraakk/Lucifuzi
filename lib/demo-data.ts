@@ -1803,6 +1803,61 @@ export const competencies: Competency[] = [
     relatedJobRoles: ["repair_intake", "customer_service"],
     relatedCourseIds: ["course_08"],
   },
+  {
+    id: "comp_melt",
+    organizationId: ORG_ID,
+    code: "ARYA-MLT",
+    title: "ذوب و ریخته‌گری ایمن",
+    description:
+      "PPE، Dual Control، توزین قبل/بعد، ثبت کوره — مجوز فقط پس از آزمایشگاه عملی.",
+    category: "ذوب",
+    relatedJobRoles: ["gold_purchasing", "inventory", "back_office"],
+    relatedCourseIds: ["course_10"],
+  },
+  {
+    id: "comp_craft",
+    organizationId: ORG_ID,
+    code: "ARYA-CRF",
+    title: "ساخت و تلرانس قطعه",
+    description:
+      "موم، کولیس، سوهان، بازرسی ۳D — ساخت تحت نظارت تا ارزیابی عملی.",
+    category: "ساخت",
+    relatedJobRoles: ["designer", "repair_intake"],
+    relatedCourseIds: ["course_02"],
+  },
+  {
+    id: "comp_ideation",
+    organizationId: ORG_ID,
+    code: "ARYA-IDE",
+    title: "ایده‌پردازی و ارائه ۳D",
+    description:
+      "واریانت، کارت ایده، اوربیت ارائه — خلاقیت با معیار فروش/ساخت.",
+    category: "ایده",
+    relatedJobRoles: ["ideator", "designer", "sales_associate"],
+    relatedCourseIds: ["course_05"],
+  },
+  {
+    id: "comp_trade",
+    organizationId: ORG_ID,
+    code: "ARYA-TRD",
+    title: "خرید طلا و معامله‌گری میز",
+    description:
+      "محک، XRF، اسپرد، UV اسکناس — پرداخت فقط پس از Dual Control.",
+    category: "معامله",
+    relatedJobRoles: ["gold_purchasing", "store_manager", "accountant"],
+    relatedCourseIds: ["course_10"],
+  },
+  {
+    id: "comp_quality",
+    organizationId: ORG_ID,
+    code: "ARYA-QC",
+    title: "کنترل کیفیت قطعه",
+    description:
+      "طبقه‌بندی نقص A/B/C، کولیس، ذره‌بین — دروازه ویترین.",
+    category: "کیفیت",
+    relatedJobRoles: ["designer", "repair_intake", "inventory", "store_manager"],
+    relatedCourseIds: ["course_02"],
+  },
 ];
 
 export const employeeCompetencies: EmployeeCompetency[] = [
@@ -2446,6 +2501,8 @@ export function createDemoState(): AppState {
     competencies,
     employeeCompetencies,
     practicalAssessments,
+    trialAttempts: [],
+    responsibilityAssignments: [],
     trainingScenarios,
     scenarios: trainingScenarios,
     scenarioSteps,

@@ -14,17 +14,17 @@ import { clearSession, readSession } from "@/lib/auth/session";
 const employeeNav = [
   { href: "/employee/home", label: "خانه", icon: "home" },
   { href: "/employee/learn", label: "آموزش", icon: "learn" },
+  { href: "/employee/trials", label: "آزمایش", icon: "practice" },
   { href: "/employee/studio", label: "استودیو", icon: "studio" },
-  { href: "/employee/products", label: "محصولات", icon: "gem" },
   { href: "/employee/profile", label: "من", icon: "profile" },
 ];
 
 const managerNav = [
   { href: "/manager/dashboard", label: "خانه", icon: "home" },
-  { href: "/ops", label: "پلتفرم", icon: "spark" },
   { href: "/manager/employees", label: "کارکنان", icon: "people" },
   { href: "/manager/training", label: "آموزش", icon: "learn" },
-  { href: "/manager/assessments", label: "ارزیابی", icon: "check" },
+  { href: "/manager/responsibilities", label: "مسئولیت", icon: "check" },
+  { href: "/manager/assessments", label: "ارزیابی", icon: "spark" },
 ];
 
 function NavIcon({ name }: { name: string }) {

@@ -178,7 +178,7 @@ export function sculptureSlotFromPath(pathname: string): SculptureSlot {
   if (pathname.includes("/learn") || pathname.includes("/courses") || pathname.includes("/lessons")) {
     return "learn";
   }
-  if (pathname.includes("/practice") || pathname.includes("/scenario") || pathname.includes("/quiz") || pathname.includes("/formula")) {
+  if (pathname.includes("/practice") || pathname.includes("/scenario") || pathname.includes("/quiz") || pathname.includes("/formula") || pathname.includes("/trials") || pathname.includes("/responsibilities")) {
     return "practice";
   }
   if (pathname.includes("/studio")) return "studio";

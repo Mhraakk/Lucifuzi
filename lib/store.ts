@@ -40,15 +40,18 @@ import type {
   PracticalStatus,
   QuizAnswer,
   QuizAttempt,
+  ResponsibilityAssignment,
   ScenarioAttempt,
   SopAcknowledgment,
   RecommendationReason,
   TrainingRecommendation,
   TrainingScenario,
+  TrialAttempt,
   User,
   WorkAuthorization,
 } from "./types";
 import type { ScenarioCoachResult } from "./ai/scenarioCoach";
+import { scoreTrial, trialById, envById } from "./trials/catalog";
 
 const STORAGE_KEY = LEGACY_STORAGE_KEY;
 
@@ -81,6 +84,10 @@ function syncAliases(draft: AppState): void {
   draft.recommendations = draft.trainingRecommendations;
   draft.modules = draft.courseModules;
   draft.questions = draft.quizQuestions;
+  if (!Array.isArray(draft.trialAttempts)) draft.trialAttempts = [];
+  if (!Array.isArray(draft.responsibilityAssignments)) {
+    draft.responsibilityAssignments = [];
+  }
 }
 
 function commit(draft: AppState): void {
@@ -1670,4 +1677,213 @@ export function markNotificationRead(
   userId?: string
 ): void {
   markNotificationReadInternal(notificationId, userId ?? state.currentUserId);
+}
+
+/**
+ * Complete an authentic role trial. Produces evidence only —
+ * does NOT grant WorkAuthorization (manager practical still required).
+ */
+export function completeRoleTrial(input: {
+  trialId: string;
+  answers: Record<string, string[]>;
+  toolsUsed: string[];
+  userId?: string;
+}): TrialAttempt {
+  const trial = trialById(input.trialId);
+  if (!trial) throw new Error("آزمایش یافت نشد");
+  const env = envById(trial.envId);
+  if (!env) throw new Error("محیط آزمایش یافت نشد");
+
+  const draft = cloneState(state);
+  const userId = input.userId ?? draft.currentUserId;
+  const scored = scoreTrial(trial, input.answers);
+  const startedAt = nowIso();
+  const attempt: TrialAttempt = {
+    id: uid("ta"),
+    organizationId: draft.organization.id,
+    userId,
+    trialId: trial.id,
+    envId: env.id,
+    competencyId: env.competencyId,
+    startedAt,
+    completedAt: startedAt,
+    score: scored.score,
+    maxScore: scored.max,
+    percent: scored.percent,
+    passed: scored.passed,
+    answers: input.answers,
+    toolsUsed: input.toolsUsed,
+    missedStepIds: scored.missed,
+  };
+  draft.trialAttempts.push(attempt);
+
+  appendAudit(draft, {
+    actorUserId: userId,
+    action: "trial_complete",
+    entityType: "trial_attempt",
+    entityId: attempt.id,
+    summary: scored.passed
+      ? `قبول آزمایش «${trial.titleFa}» (${scored.percent}٪) — فقط شواهد؛ مجوز کار صادر نشد`
+      : `رد آزمایش «${trial.titleFa}» (${scored.percent}٪)`,
+    metadata: {
+      percent: scored.percent,
+      passed: scored.passed,
+      envId: env.id,
+      workAuthorizationUnchanged: true,
+    },
+  });
+
+  if (scored.passed) {
+    draft.notifications.push({
+      id: uid("nt"),
+      organizationId: draft.organization.id,
+      userId,
+      type: "assessment",
+      title: "شواهد آزمایش نقش آماده است",
+      body: `آزمایش «${trial.titleFa}» قبول شد. برای محول کردن مسئولیت، مدیر باید ارزیابی عملی ثبت کند.`,
+      href: "/manager/responsibilities",
+      createdAt: nowIso(),
+      read: false,
+    });
+  }
+
+  commit(draft);
+  void syncEvent({
+    type: "trial_complete",
+    userId,
+    at: nowIso(),
+    payload: { trialId: trial.id, percent: scored.percent, passed: scored.passed },
+  });
+  return attempt;
+}
+
+/**
+ * Assign floor responsibility after trial evidence + practical assessment.
+ * Still goes through recordPracticalAssessment for WorkAuthorization.
+ */
+export function assignResponsibilityFromTrial(input: {
+  employeeUserId: string;
+  trialAttemptId: string;
+  practicalStatus: PracticalStatus;
+  notes: string;
+}): ResponsibilityAssignment {
+  const draft = cloneState(state);
+  const attempt = draft.trialAttempts.find((t) => t.id === input.trialAttemptId);
+  if (!attempt) throw new Error("نتیجه آزمایش یافت نشد");
+  if (!attempt.passed) throw new Error("فقط آزمایش قبول‌شده مبنای مسئولیت است");
+  if (attempt.userId !== input.employeeUserId) {
+    throw new Error("آزمایش متعلق به این کارمند نیست");
+  }
+  const env = envById(attempt.envId as import("./trials/catalog").TrialEnvId);
+  if (!env) throw new Error("محیط نامعتبر");
+
+  const auth: WorkAuthorization =
+    input.practicalStatus === "competent" || input.practicalStatus === "advanced"
+      ? env.suggestedAuth === "supervised_only"
+        ? "independent"
+        : "independent"
+      : input.practicalStatus === "supervised"
+        ? "supervised_only"
+        : "none";
+
+  // Prefer independent only for advanced; competent on high-risk envs stays supervised_only
+  const highRisk = ["melt_lab", "buy_desk", "ops_desk"].includes(env.id);
+  const workAuthorization: WorkAuthorization =
+    input.practicalStatus === "advanced"
+      ? "independent"
+      : input.practicalStatus === "competent"
+        ? highRisk
+          ? "supervised_only"
+          : "independent"
+        : auth;
+
+  const evidence = [
+    `آزمایش ${attempt.trialId}: ${attempt.percent}٪`,
+    `محیط: ${env.titleFa}`,
+    ...attempt.toolsUsed.map((t) => `ابزار: ${t}`),
+    ...input.notes ? [input.notes] : [],
+  ];
+
+  // Use live recordPracticalAssessment (commits itself) — then append responsibility
+  recordPracticalAssessment({
+    assessorUserId: state.currentUserId,
+    employeeUserId: input.employeeUserId,
+    competencyId: env.competencyId,
+    practicalStatus: input.practicalStatus,
+    workAuthorization,
+    notes: input.notes || `محول مسئولیت بر اساس آزمایش نقش ${attempt.trialId}`,
+    evidenceChecklist: evidence,
+    score: attempt.percent,
+  });
+
+  const draft2 = cloneState(state);
+  const lastPa = draft2.practicalAssessments[draft2.practicalAssessments.length - 1];
+  if (lastPa) lastPa.trialAttemptId = attempt.id;
+
+  // Deactivate prior assignment for same env
+  for (const r of draft2.responsibilityAssignments) {
+    if (r.employeeUserId === input.employeeUserId && r.envId === env.id && r.active) {
+      r.active = false;
+    }
+  }
+
+  const assignment: ResponsibilityAssignment = {
+    id: uid("ra"),
+    organizationId: draft2.organization.id,
+    employeeUserId: input.employeeUserId,
+    envId: env.id,
+    competencyId: env.competencyId,
+    responsibilityFa: env.responsibilityFa,
+    workAuthorization,
+    assignedByUserId: draft2.currentUserId,
+    assignedAt: nowIso(),
+    trialAttemptId: attempt.id,
+    practicalAssessmentId: lastPa?.id,
+    active: true,
+  };
+  draft2.responsibilityAssignments.push(assignment);
+
+  appendAudit(draft2, {
+    actorUserId: draft2.currentUserId,
+    action: "responsibility_assign",
+    entityType: "responsibility",
+    entityId: assignment.id,
+    summary: `محول مسئولیت «${env.responsibilityFa}» با مجوز ${workAuthorization}`,
+    metadata: {
+      envId: env.id,
+      workAuthorization,
+      trialAttemptId: attempt.id,
+    },
+  });
+
+  draft2.notifications.push({
+    id: uid("nt"),
+    organizationId: draft2.organization.id,
+    userId: input.employeeUserId,
+    type: "assessment",
+    title: "مسئولیت کف محول شد",
+    body: env.responsibilityFa,
+    href: "/employee/trials",
+    createdAt: nowIso(),
+    read: false,
+  });
+
+  commit(draft2);
+  return assignment;
+}
+
+/** True if user holds active responsibility for an environment at required auth. */
+export function hasEnvironmentResponsibility(
+  userId: string,
+  envId: string,
+  minAuth: WorkAuthorization = "supervised_only",
+  appState: AppState = state
+): boolean {
+  const order: WorkAuthorization[] = ["none", "supervised_only", "independent"];
+  const need = order.indexOf(minAuth);
+  const active = appState.responsibilityAssignments.find(
+    (r) => r.employeeUserId === userId && r.envId === envId && r.active
+  );
+  if (!active) return false;
+  return order.indexOf(active.workAuthorization) >= need;
 }
