@@ -11,3 +11,7 @@ ios/App/build
 ios/DerivedData
 *.xcuserdata
 .vercel
+
+.playwright-mcp/
+learn-academy-shakuro.png
+products-shakuro.png
