@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { JOB_ROLE_LABELS, SYSTEM_ROLE_LABELS } from "@/lib/types";
 import { useAppState } from "@/lib/hooks";
 import { setCurrentUser, setTheme } from "@/lib/store";
+import { persistSession, createSession } from "@/lib/auth/session";
+import { syncEvent } from "@/lib/backend/persistence";
 
 export default function LoginPage() {
   const state = useAppState();
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [pin, setPin] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+
   const employees = state.users.filter((u) =>
     state.employeeProfiles.some((p) => p.userId === u.id)
   );
@@ -19,9 +27,64 @@ export default function LoginPage() {
       u.systemRole === "trainer"
   );
 
-  function enter(userId: string, asManager: boolean) {
+  async function enter(userId: string, asManager: boolean) {
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) return;
     setCurrentUser(userId);
+    const token = createSession(user);
+    persistSession(token);
+    void syncEvent({
+      type: "auth_login",
+      userId,
+      at: new Date().toISOString(),
+      payload: { mode: "persona", role: user.systemRole },
+    });
+    try {
+      await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+    } catch {
+      /* offline demo ok */
+    }
     router.push(asManager ? "/manager/dashboard" : "/employee/home");
+  }
+
+  async function loginWithPin() {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, pin }),
+      });
+      const data = (await res.json()) as {
+        token?: string;
+        user?: { id: string; systemRole: string };
+        error?: string;
+      };
+      if (!res.ok || !data.token || !data.user) {
+        throw new Error(data.error ?? "ورود ناموفق");
+      }
+      persistSession(data.token);
+      setCurrentUser(data.user.id);
+      void syncEvent({
+        type: "auth_login",
+        userId: data.user.id,
+        at: new Date().toISOString(),
+        payload: { mode: "pin", role: data.user.systemRole },
+      });
+      const isMgr = ["manager", "owner", "trainer"].includes(
+        data.user.systemRole
+      );
+      router.push(isMgr ? "/manager/dashboard" : "/employee/home");
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "ورود ناموفق");
+    } finally {
+      setAuthLoading(false);
+    }
   }
 
   return (
@@ -48,20 +111,53 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <header className="mb-10 animate-in text-center">
+        <header className="mb-8 animate-in text-center">
           <p className="mb-4 text-[11px] faint tracking-[0.18em]">
             گالری طلای آریا
           </p>
           <h1 className="brand-mark mb-4">آریا آموزش</h1>
           <p className="mx-auto max-w-xs muted text-sm leading-7">
-            آموزش روی دیوار ویترین — ارائه محصول مثل گالری‌های معتبر، نه نردبان
-            مصنوعی.
+            ورود با PIN یا انتخاب نقش دمو — نشست در IndexedDB و session ذخیره
+            می‌شود.
           </p>
         </header>
 
+        <section className="mb-6 surface p-4 animate-in space-y-3">
+          <p className="section-title !mb-0">ورود با PIN</p>
+          <p className="faint text-[0.65rem]">دمو: PIN همه کاربران ۱۲۳۴</p>
+          <input
+            className="field"
+            type="email"
+            placeholder="ایمیل سازمانی"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            className="field"
+            type="password"
+            inputMode="numeric"
+            placeholder="PIN چهار رقمی"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+          />
+          {authError ? (
+            <p className="text-xs" style={{ color: "var(--danger)" }}>
+              {authError}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-primary w-full"
+            disabled={authLoading || email.trim().length < 3 || pin.length < 4}
+            onClick={() => void loginWithPin()}
+          >
+            {authLoading ? "در حال ورود..." : "ورود امن"}
+          </button>
+        </section>
+
         <section className="mb-7 animate-in" style={{ animationDelay: "0.08s" }}>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="section-title">کارکنان</h2>
+            <h2 className="section-title">کارکنان (ورود سریع)</h2>
             <span className="chip">دمو</span>
           </div>
           <div className="stagger space-y-2.5">
@@ -74,7 +170,7 @@ export default function LoginPage() {
                 <button
                   key={u.id}
                   type="button"
-                  onClick={() => enter(u.id, false)}
+                  onClick={() => void enter(u.id, false)}
                   className="surface surface-interactive flex w-full items-center gap-3 p-3.5 text-right"
                 >
                   <span
@@ -93,13 +189,6 @@ export default function LoginPage() {
                       {branch ? ` · ${branch.name}` : ""}
                     </p>
                   </div>
-                  <svg
-                    className="nav-icon faint shrink-0"
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
-                    <path d="M15 6l-6 6 6 6" />
-                  </svg>
                 </button>
               );
             })}
@@ -113,7 +202,7 @@ export default function LoginPage() {
               <button
                 key={u.id}
                 type="button"
-                onClick={() => enter(u.id, true)}
+                onClick={() => void enter(u.id, true)}
                 className="surface surface-interactive w-full p-3.5 text-right"
               >
                 <p className="font-bold">{u.fullName}</p>

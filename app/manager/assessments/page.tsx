@@ -1,17 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PRACTICAL_STATUS_LABELS, type PracticalStatus } from "@/lib/types";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
 import { recordPracticalAssessmentFromUi } from "@/lib/store";
-
-const CRITERIA_DEFAULT = [
-  "شمارش / دقت",
-  "ثبت مستندات",
-  "نحوه کار با کالا",
-  "رعایت رویه",
-];
+import { suggestAssessmentCoach } from "@/lib/ai/assessmentCoach";
 
 export default function AssessmentsPage() {
   const state = useAppState();
@@ -25,11 +19,65 @@ export default function AssessmentsPage() {
   const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? "");
   const [competencyId, setCompetencyId] = useState("comp_security");
   const [status, setStatus] = useState<PracticalStatus>("supervised");
-  const [notes, setNotes] = useState(
-    "دانش آزمون خوب است؛ برای کار مستقل هنوز نیاز به نظارت دارد."
-  );
-  const [checks, setChecks] = useState<boolean[]>([true, true, true, false]);
+  const [notes, setNotes] = useState("");
+  const [checks, setChecks] = useState<boolean[]>([]);
   const [done, setDone] = useState(false);
+  const [coachApplied, setCoachApplied] = useState(false);
+
+  const competency = state.competencies.find((c) => c.id === competencyId);
+  const employee = state.users.find((u) => u.id === employeeId);
+  const ec = state.employeeCompetencies.find(
+    (e) => e.userId === employeeId && e.competencyId === competencyId
+  );
+
+  const coach = useMemo(() => {
+    if (!competency || !employee) return null;
+    const sopLag = state.sops.filter((sop) => {
+      if (!sop.requiresAcknowledgment) return false;
+      return !state.sopAcknowledgments.some(
+        (a) =>
+          a.userId === employeeId &&
+          a.sopId === sop.id &&
+          a.versionId === sop.currentVersionId
+      );
+    }).length;
+    const failedExamRecently = state.examAttempts.some(
+      (e) => e.userId === employeeId && !e.passed
+    );
+    return suggestAssessmentCoach({
+      competency,
+      employeeName: employee.fullName,
+      knowledgeLevel: ec?.knowledgeLevel ?? 0,
+      currentAuth: ec?.workAuthorization ?? "none",
+      practicalStatus: ec?.practicalStatus,
+      sopLagCount: sopLag,
+      failedExamRecently,
+    });
+  }, [competency, employee, employeeId, ec, state]);
+
+  const criteriaLabels =
+    checks.length && coachApplied && coach
+      ? coach.checklist
+      : coach?.checklist ?? [
+          "شمارش / کنترل",
+          "ثبت مستندات",
+          "نحوه کار با کالا",
+          "رعایت رویه",
+        ];
+
+  function applyCoach() {
+    if (!coach) return;
+    setChecks(coach.checklist.map(() => false));
+    setNotes(coach.suggestedNotes);
+    setCoachApplied(true);
+  }
+
+  // Keep checks array length in sync when competency changes before coach apply
+  const displayLabels = criteriaLabels;
+  const displayChecks =
+    checks.length === displayLabels.length
+      ? checks
+      : displayLabels.map((_, i) => checks[i] ?? false);
 
   return (
     <AppShell title="ارزیابی عملی">
@@ -37,10 +85,41 @@ export default function AssessmentsPage() {
         <section>
           <h1 className="page-title mb-2">ارزیابی عملی شایستگی</h1>
           <p className="muted text-sm leading-7">
-            این فرم تنها مسیر صدور «مجوز کار مستقل» است. نمره آزمون اینجا به‌صورت
-            خودکار مجوز نمی‌سازد.
+            این فرم تنها مسیر صدور «مجوز کار مستقل» است. مربی AI فقط چک‌لیست و
+            یادداشت پیشنهاد می‌دهد — مجوز را انسان صادر می‌کند.
           </p>
         </section>
+
+        {coach ? (
+          <div className="surface p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="section-title !mb-0">مربی ارزیابی AI</p>
+              <button
+                type="button"
+                className="btn btn-secondary !min-h-9 text-xs"
+                onClick={applyCoach}
+              >
+                پر کردن چک‌لیست
+              </button>
+            </div>
+            <p className="text-xs muted leading-6">{coach.suggestedNotes}</p>
+            {coach.renewalHint ? (
+              <p className="text-xs" style={{ color: "var(--warning)" }}>
+                {coach.renewalHint}
+              </p>
+            ) : null}
+            <ul className="space-y-1">
+              {coach.evidenceNeeded.map((e) => (
+                <li key={e} className="faint text-[0.7rem] leading-5">
+                  · {e}
+                </li>
+              ))}
+            </ul>
+            <p className="faint text-[0.65rem]">
+              دامنه: {coach.domainCodes.join(" · ") || "—"} · AI مجوز کار نمی‌دهد
+            </p>
+          </div>
+        ) : null}
 
         <div className="surface p-4 space-y-3">
           <div>
@@ -48,7 +127,11 @@ export default function AssessmentsPage() {
             <select
               className="field"
               value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
+              onChange={(e) => {
+                setEmployeeId(e.target.value);
+                setCoachApplied(false);
+                setDone(false);
+              }}
             >
               {employees.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -62,7 +145,11 @@ export default function AssessmentsPage() {
             <select
               className="field"
               value={competencyId}
-              onChange={(e) => setCompetencyId(e.target.value)}
+              onChange={(e) => {
+                setCompetencyId(e.target.value);
+                setCoachApplied(false);
+                setDone(false);
+              }}
             >
               {state.competencies.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -90,13 +177,16 @@ export default function AssessmentsPage() {
           <div>
             <p className="label">معیارها</p>
             <div className="space-y-2">
-              {CRITERIA_DEFAULT.map((label, i) => (
-                <label key={label} className="flex min-h-[44px] items-center gap-2 text-sm">
+              {displayLabels.map((label, i) => (
+                <label
+                  key={`${label}-${i}`}
+                  className="flex min-h-[44px] items-center gap-2 text-sm"
+                >
                   <input
                     type="checkbox"
-                    checked={checks[i]}
+                    checked={!!displayChecks[i]}
                     onChange={(e) => {
-                      const next = [...checks];
+                      const next = [...displayChecks];
                       next[i] = e.target.checked;
                       setChecks(next);
                     }}
@@ -112,6 +202,7 @@ export default function AssessmentsPage() {
               className="field min-h-[100px]"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              placeholder="یادداشت ساخت‌یافته یا پیشنهاد مربی AI را ویرایش کنید"
             />
           </div>
           <button
@@ -122,10 +213,13 @@ export default function AssessmentsPage() {
                 userId: employeeId,
                 competencyId,
                 status,
-                notes,
-                criteria: CRITERIA_DEFAULT.map((label, i) => ({
+                notes:
+                  notes ||
+                  coach?.suggestedNotes ||
+                  "ارزیابی عملی ثبت شد.",
+                criteria: displayLabels.map((label, i) => ({
                   label,
-                  met: !!checks[i],
+                  met: !!displayChecks[i],
                 })),
               });
               setDone(true);

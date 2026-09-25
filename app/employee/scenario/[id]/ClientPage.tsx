@@ -10,6 +10,7 @@ import { useAppState } from "@/lib/hooks";
 import { submitScenario } from "@/lib/store";
 import { enrichScenario } from "@/lib/view";
 import type { IllustrationKey } from "@/lib/illustrations";
+import type { ScenarioCoachResult } from "@/lib/ai/scenarioCoach";
 
 export default function ScenarioPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,7 @@ export default function ScenarioPage() {
   const [score, setScore] = useState(0);
   const [tagScores, setTagScores] = useState<Record<string, number>>({});
   const [finished, setFinished] = useState(false);
+  const [coach, setCoach] = useState<ScenarioCoachResult | null>(null);
 
   const step = useMemo(
     () => scenario?.steps.find((s) => s.id === stepId),
@@ -71,7 +73,7 @@ export default function ScenarioPage() {
       const weak = Object.entries(nextTags)
         .filter(([, v]) => v <= 0)
         .map(([k]) => k);
-      submitScenario({
+      const result = submitScenario({
         scenarioId: scenario.id,
         path: nextPath,
         score: Math.max(0, nextScore),
@@ -79,6 +81,7 @@ export default function ScenarioPage() {
         strongTags: strong,
         weakTags: weak,
       });
+      setCoach(result.coach);
       setFinished(true);
       return;
     }
@@ -153,9 +156,9 @@ export default function ScenarioPage() {
         ) : null}
 
         {finished ? (
-          <section className="surface p-5">
+          <section className="surface p-5 space-y-4">
             <p className="page-title !text-xl mb-2">
-              امتیاز: {toPersianDigits(Math.max(0, score))} /{" "}
+              امتیاز مسیر: {toPersianDigits(Math.max(0, score))} /{" "}
               {toPersianDigits(maxScore || 1)}
             </p>
             <div className="mb-3 flex flex-wrap gap-2">
@@ -170,10 +173,54 @@ export default function ScenarioPage() {
                 </Badge>
               ))}
             </div>
+
+            {coach ? (
+              <div
+                className="rounded-xl p-4 space-y-3"
+                style={{ background: "var(--bg-soft)" }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-bold">مربی رفتاری AI</p>
+                  <Badge tone="accent">{coach.competencyFocus}</Badge>
+                </div>
+                <p className="text-sm leading-7">
+                  نمره رفتاری: {toPersianDigits(coach.percent)}٪ —{" "}
+                  <span className="faint">فقط شواهد · بدون مجوز کار</span>
+                </p>
+                <p className="text-xs leading-6 muted">{coach.managerSummary}</p>
+                <ul className="space-y-1.5">
+                  {coach.rubric.map((r) => (
+                    <li
+                      key={r.id}
+                      className="text-xs leading-6 flex justify-between gap-2"
+                    >
+                      <span>
+                        {r.passed ? "✓" : "○"} {r.label}
+                      </span>
+                      <span className="faint">{r.competencyCode}</span>
+                    </li>
+                  ))}
+                </ul>
+                {coach.suggestedCourseIds[0] ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary w-full text-sm"
+                    onClick={() =>
+                      router.push(
+                        `/employee/courses/${coach.suggestedCourseIds[0]}`
+                      )
+                    }
+                  >
+                    دوره remediation پیشنهادی
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
             {scenario.relatedLessonIds[0] ? (
               <button
                 type="button"
-                className="btn btn-primary w-full mb-2"
+                className="btn btn-secondary w-full"
                 onClick={() =>
                   router.push(
                     `/employee/lessons/${scenario.relatedLessonIds[0]}`

@@ -1,16 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { ManagerAlert } from "@/components/training/Cards";
 import { Badge } from "@/components/ui/Feedback";
 import { toPersianDigits } from "@/lib/format";
 import { useAppState, useCurrentUser } from "@/lib/hooks";
+import {
+  getFloorReadiness,
+  runSopRemediationSweep,
+} from "@/lib/store";
 import { WORK_AUTH_LABELS } from "@/lib/types";
 
 export default function ManagerDashboard() {
   const state = useAppState();
   const user = useCurrentUser();
+  const [sweepMsg, setSweepMsg] = useState<string | null>(null);
+
   const branchEmployees = state.users.filter((u) => {
     if (u.systemRole !== "employee") return false;
     if (user.systemRole === "owner") return true;
@@ -61,6 +68,21 @@ export default function ManagerDashboard() {
     return days < 60;
   });
 
+  const floorNotReady = useMemo(() => {
+    return getFloorReadiness(state).filter((row) =>
+      branchEmployees.some((e) => e.id === row.userId)
+    );
+  }, [state, branchEmployees]);
+
+  function runSweep() {
+    const n = runSopRemediationSweep(user.id);
+    setSweepMsg(
+      n > 0
+        ? `${toPersianDigits(n)} اقدام remediation ثبت شد (تکلیف/اعلان — بدون مجوز کار).`
+        : "مورد جدیدی برای remediation نبود."
+    );
+  }
+
   return (
     <AppShell title="داشبورد مدیر">
       <div className="mx-auto max-w-desk space-y-5">
@@ -77,7 +99,7 @@ export default function ManagerDashboard() {
             { label: "آموزش ناتمام", value: unfinished.length },
             { label: "مردودی آزمون", value: failedExams.length },
             { label: "SOP بدون تأیید", value: pendingAck.length },
-            { label: "مجوز مستقل فعال", value: readyIndependent.length },
+            { label: "فردا روی ویترین آماده نیست", value: floorNotReady.length },
           ].map((m) => (
             <div key={m.label} className="surface p-4">
               <p className="mb-1 text-xs faint">{m.label}</p>
@@ -90,6 +112,51 @@ export default function ManagerDashboard() {
             </div>
           ))}
         </div>
+
+        <section className="surface p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="section-title !mb-1">چه کسی فردا روی ویترین آماده نیست؟</h2>
+              <p className="faint text-xs leading-5">
+                مجوز کار، تکلیف اجباری، دانش پایین، SOP بدون ack — remediation خودکار مجوز نمی‌دهد.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary !min-h-10 text-xs"
+              onClick={runSweep}
+            >
+              جارو remediation
+            </button>
+          </div>
+          {sweepMsg ? (
+            <p className="text-xs" style={{ color: "var(--accent-deep)" }}>
+              {sweepMsg}
+            </p>
+          ) : null}
+          <div className="space-y-2">
+            {floorNotReady.length === 0 ? (
+              <p className="muted text-sm">همه کارکنان شاخه از نظر چک‌لیست آماده‌اند.</p>
+            ) : (
+              floorNotReady.slice(0, 8).map((row) => (
+                <Link
+                  key={row.userId}
+                  href={`/manager/employees?focus=${row.userId}`}
+                  className="surface flex flex-col gap-1 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  style={{ background: "var(--bg-soft)" }}
+                >
+                  <p className="font-semibold text-sm">{row.fullName}</p>
+                  <p className="muted text-xs leading-6">
+                    {row.reasons.slice(0, 3).join(" · ")}
+                  </p>
+                </Link>
+              ))
+            )}
+          </div>
+          <p className="faint text-[0.65rem]">
+            مجوز مستقل فعال در شایستگی‌ها: {toPersianDigits(readyIndependent.length)}
+          </p>
+        </section>
 
         <section className="grid gap-3 md:grid-cols-2">
           <ManagerAlert
@@ -117,7 +184,6 @@ export default function ManagerDashboard() {
             <div className="space-y-2">
               {branchEmployees.map((e) => {
                 const open = unfinished.filter((a) => a.employeeUserId === e.id);
-                const profile = state.employeeProfiles.find((p) => p.userId === e.id);
                 return (
                   <Link
                     key={e.id}
@@ -128,7 +194,6 @@ export default function ManagerDashboard() {
                       <p className="font-semibold text-sm">{e.fullName}</p>
                       <p className="muted text-xs mt-1">
                         {state.branches.find((b) => b.id === e.branchId)?.name}
-                        
                       </p>
                     </div>
                     <Badge tone={open.length ? "warning" : "success"}>

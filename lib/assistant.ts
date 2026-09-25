@@ -1,63 +1,91 @@
-export type AssistantResult = {
+import {
+  buildGroundedContext,
+  citationsFromHits,
+  composeRagAnswer,
+  retrieveKnowledge,
+  type Citation,
+} from "@/lib/knowledge/rag";
+
+export type AssistantRagResult = {
   answer: string;
+  citations: Citation[];
   sopId?: string;
+  lessonId?: string;
+  refused: boolean;
+  mode: "rag" | "rag+llm" | "refused";
   error?: string;
 };
 
-const KNOWLEDGE: { keys: string[]; answer: string; sopId?: string }[] = [
-  {
-    keys: ["اجرت"],
-    answer:
-      "اجرت هزینه‌ای است که بابت ساخت و پرداخت مصنوع طلا به مبلغ ارزش طلا اضافه می‌شود. در گالری آریا اجرت معمولاً بر اساس گرم و سیاست قیمت‌گذاری سازمان محاسبه می‌شود و نباید با «قیمت روز طلا» قاطی شود. جزئیات فرمول در تنظیمات سازمان و درس محاسبات آمده است.",
-  },
-  {
-    keys: ["نیم‌ست", "سرویس", "نیم ست"],
-    answer:
-      "سرویس معمولاً مجموعه کامل‌تری از قطعات هماهنگ (مثلاً گردنبند، گوشواره، انگشتر و…) است. نیم‌ست اغلب دو قطعه مکمل مثل گردنبند و گوشواره را پوشش می‌دهد. هنگام معرفی، تفاوت تعداد قطعات، هماهنگی و بودجه را شفاف بگویید.",
-  },
-  {
-    keys: ["گرونه", "گران", "قیمت"],
-    answer:
-      "اعتراض قیمت را شخصی نگیرید. اجزای قیمت (وزن، عیار، اجرت، سود) را ساده توضیح دهید، گزینه هم‌رده با اجرت کمتر پیشنهاد کنید و تخفیف را فقط در چارچوب سیاست شعبه مطرح کنید. درس «مدیریت اعتراض قیمت» را مرور کنید.",
-  },
-  {
-    keys: ["تعمیر", "پذیرش"],
-    answer:
-      "مراحل استاندارد پذیرش تعمیر: عکس از چند زاویه، ثبت آسیب و متعلقات، وزن قبل از پذیرش، تأیید مشتری، صدور رسید، تحویل به کارگاه. بدون عکس و وزن پذیرش نکنید.",
-    sopId: "sop_repair",
-  },
-  {
-    keys: ["ویترین", "تحویل ویترین"],
-    answer:
-      "تحویل ویترین باید با شمارش مشترک تحویل‌دهنده و گیرنده، تطبیق با سیستم و ثبت مغایرت قبل از جابه‌جایی دسترسی انجام شود. تحویل شفاهی بدون ثبت معتبر نیست.",
-    sopId: "sop_vitrine",
-  },
-  {
-    keys: ["پرداخت", "رسید", "انتقال"],
-    answer:
-      "تصویر رسید موبایل جایگزین تأیید سیستم نیست. کالا را تا تأیید پرداخت در سیستم کنار بگذارید و در صورت اصرار مشتری به مدیر ارجاع دهید.",
-    sopId: "sop_emergency",
-  },
-];
-
-/** Offline-safe educational assistant — works in static / Capacitor builds */
-export function answerAssistantQuestion(questionRaw: string): AssistantResult {
+/** Offline / client RAG entrypoint */
+export function answerWithRag(questionRaw: string): AssistantRagResult {
   const question = questionRaw.trim();
   if (question.length < 3) {
-    return { answer: "", error: "سؤال را کامل‌تر بنویسید." };
+    return {
+      answer: "",
+      citations: [],
+      refused: true,
+      mode: "refused",
+      error: "سؤال را کامل‌تر بنویسید.",
+    };
   }
 
-  const hit = KNOWLEDGE.find((k) =>
-    k.keys.some((key) => question.includes(key))
-  );
-
-  if (hit) {
-    return { answer: hit.answer, sopId: hit.sopId };
-  }
+  const hits = retrieveKnowledge(question, 5);
+  const composed = composeRagAnswer(question, hits);
+  const sopId = composed.citations.find((c) => c.sopId)?.sopId;
+  const lessonId = composed.citations.find((c) => c.lessonId)?.lessonId;
 
   return {
-    answer:
-      "این مورد در دانش‌نامه تأییدشده پیدا نشد. اگر به رویه داخلی مربوط است، دستورالعمل (SOP) مرتبط را باز کنید یا از مدیر بپرسید — دستیار حق جعل سیاست سازمان را ندارد.",
-    sopId: "sop_vitrine",
+    answer: composed.answer,
+    citations: composed.citations,
+    sopId,
+    lessonId,
+    refused: composed.refused,
+    mode: composed.refused ? "refused" : "rag",
   };
 }
+
+export async function enrichWithLlmIfAvailable(
+  question: string,
+  base: AssistantRagResult
+): Promise<AssistantRagResult> {
+  if (base.refused || !process.env.OPENAI_API_KEY) return base;
+  const hits = retrieveKnowledge(question, 5);
+  if (hits.length === 0) return base;
+
+  try {
+    const OpenAI = (await import("openai")).default;
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const context = buildGroundedContext(hits);
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      max_tokens: 550,
+      messages: [
+        {
+          role: "system",
+          content: `شما دستیار شیفت گالری طلای آریا هستید.
+فقط از «منابع تأییدشده» زیر پاسخ بدهید. اگر پاسخ در منابع نیست بگویید پیدا نشد.
+سیاست شعبه را اختراع نکنید. فارسی، کوتاه، عملیاتی.
+مجوز کار صادر نکنید. در پایان منابع را نام ببرید.`,
+        },
+        {
+          role: "user",
+          content: `سؤال:\n${question}\n\nمنابع تأییدشده:\n${context}`,
+        },
+      ],
+    });
+    const answer =
+      completion.choices[0]?.message?.content?.trim() ?? base.answer;
+    return {
+      ...base,
+      answer,
+      citations: citationsFromHits(hits),
+      mode: "rag+llm",
+    };
+  } catch {
+    return base;
+  }
+}
+
+/** @deprecated use answerWithRag — kept for compatibility */
+export { answerWithRag as answerAssistantQuestion };

@@ -7,6 +7,21 @@ import {
   canGrantWorkAuthorization,
   getAuthContext,
 } from "./permissions";
+import {
+  applyRemediationAction,
+  findSkillGapActions,
+  findSopLagActions,
+  listNotFloorReady,
+  remediationFromFailedQuiz,
+  remediationFromWeakScenario,
+} from "./remediation";
+import { coachScenario } from "./ai/scenarioCoach";
+import {
+  LEGACY_STORAGE_KEY,
+  loadPersistedState,
+  savePersistedState,
+  syncEvent,
+} from "./backend/persistence";
 import type {
   AppState,
   AssignmentStatus,
@@ -24,10 +39,12 @@ import type {
   SopAcknowledgment,
   RecommendationReason,
   TrainingRecommendation,
+  TrainingScenario,
   WorkAuthorization,
 } from "./types";
+import type { ScenarioCoachResult } from "./ai/scenarioCoach";
 
-const STORAGE_KEY = "arya-jewelry-training-state-v3";
+const STORAGE_KEY = LEGACY_STORAGE_KEY;
 
 type Listener = () => void;
 
@@ -102,6 +119,7 @@ export function loadState(): AppState {
     if (!raw) {
       state = createDemoState();
       snapshot = state;
+      void hydrateFromIndexedDb();
       return state;
     }
     const parsed = JSON.parse(raw) as AppState;
@@ -114,7 +132,22 @@ export function loadState(): AppState {
     state = createDemoState();
   }
   snapshot = state;
+  void hydrateFromIndexedDb();
   return state;
+}
+
+async function hydrateFromIndexedDb(): Promise<void> {
+  const persisted = await loadPersistedState();
+  if (!persisted?.organization?.id || !Array.isArray(persisted.users)) return;
+  // Prefer IDB if it has more audit activity (newer backend writes)
+  if (
+    (persisted.auditLogs?.length ?? 0) >= (state.auditLogs?.length ?? 0) &&
+    persisted.currentUserId
+  ) {
+    state = persisted;
+    snapshot = state;
+    emit();
+  }
 }
 
 export function saveState(next?: AppState): void {
@@ -128,6 +161,7 @@ export function saveState(next?: AppState): void {
   } catch {
     // quota / private mode — ignore
   }
+  void savePersistedState(state);
 }
 
 export function getState(): AppState {
@@ -371,6 +405,24 @@ export function submitQuizAttempt(input: {
     metadata: { score: pct, workAuthorizationUnchanged: true },
   });
 
+  if (!attempt.passed) {
+    applyRemediationAction(
+      draft,
+      remediationFromFailedQuiz({
+        userId: input.userId,
+        courseId: input.courseId,
+        score: pct,
+      }),
+      input.userId
+    );
+    void syncEvent({
+      type: "quiz_fail",
+      userId: input.userId,
+      at: nowIso(),
+      payload: { courseId: input.courseId, score: pct },
+    });
+  }
+
   refreshRecommendationsForUser(draft, input.userId);
   commit(draft);
   return attempt;
@@ -428,6 +480,24 @@ export function submitExamAttempt(input: {
     summary: `ثبت آزمون پایانی با نمره ${pct} — مجوز کار تغییر نکرد`,
     metadata: { score: pct, authorizationGranted: false },
   });
+
+  if (!attempt.passed) {
+    applyRemediationAction(
+      draft,
+      remediationFromFailedQuiz({
+        userId: input.userId,
+        courseId: input.courseId,
+        score: pct,
+      }),
+      input.userId
+    );
+    void syncEvent({
+      type: "quiz_fail",
+      userId: input.userId,
+      at: nowIso(),
+      payload: { courseId: input.courseId, score: pct, kind: "exam" },
+    });
+  }
 
   refreshRecommendationsForUser(draft, input.userId);
   commit(draft);
@@ -582,6 +652,16 @@ export function recordPracticalAssessment(input: {
   });
 
   refreshRecommendationsForUser(draft, input.employeeUserId);
+  void syncEvent({
+    type: "practical_evidence",
+    userId: input.employeeUserId,
+    at: nowIso(),
+    payload: {
+      competencyId: input.competencyId,
+      workAuthorization: input.workAuthorization,
+      assessorUserId: input.assessorUserId,
+    },
+  });
   commit(draft);
   return assessment;
 }
@@ -1112,15 +1192,146 @@ export function submitScenario(input: {
   maxScore: number;
   strongTags: string[];
   weakTags: string[];
-}): ScenarioAttempt {
-  return completeScenarioAttempt({
-    userId: state.currentUserId,
+}): { attempt: ScenarioAttempt; coach: ScenarioCoachResult } {
+  const draft = cloneState(state);
+  const scenario = draft.trainingScenarios.find((s) => s.id === input.scenarioId);
+  const percent =
+    input.maxScore <= 0
+      ? 0
+      : Math.round((Math.max(0, input.score) / input.maxScore) * 100);
+  const succeeded = percent >= 60;
+
+  const attempt: ScenarioAttempt = {
+    id: uid("scatt"),
+    organizationId: draft.organization.id,
+    userId: draft.currentUserId,
     scenarioId: input.scenarioId,
-    pathTaken: input.path.map((p) => `${p.stepId}:${p.choiceId}`),
+    startedAt: nowIso(),
+    completedAt: nowIso(),
     score: input.score,
     maxScore: input.maxScore,
-    succeeded: input.score >= input.maxScore * 0.6,
+    pathTaken: input.path.map((p) => `${p.stepId}:${p.choiceId}`),
+    succeeded,
+  };
+  draft.scenarioAttempts.push(attempt);
+
+  const coach = scenario
+    ? coachScenario({
+        scenario,
+        score: input.score,
+        maxScore: input.maxScore,
+        strongTags: input.strongTags,
+        weakTags: input.weakTags,
+      })
+    : ({
+        scenarioId: input.scenarioId,
+        overallScore: 0,
+        maxScore: 100,
+        percent: 0,
+        competencyFocus: "ARYA-SAL",
+        strengths: input.strongTags,
+        weaknesses: input.weakTags,
+        suggestedLessonIds: [],
+        suggestedCourseIds: [],
+        rubric: [],
+        managerSummary: "سناریو یافت نشد.",
+        grantsWorkAuthorization: false,
+        evidenceOnly: true,
+      } satisfies ScenarioCoachResult);
+
+  appendAudit(draft, {
+    actorUserId: draft.currentUserId,
+    action: "scenario_complete",
+    entityType: "scenario_attempt",
+    entityId: attempt.id,
+    summary: `تکمیل سناریو — امتیاز ${percent}٪ · مربی ${coach.percent}٪ (فقط شواهد، بدون مجوز کار)`,
+    metadata: {
+      score: percent,
+      coachPercent: coach.percent,
+      grantsWorkAuthorization: false,
+    },
   });
+
+  if (coach.percent < 60 || percent < 60) {
+    applyRemediationAction(
+      draft,
+      remediationFromWeakScenario({
+        userId: draft.currentUserId,
+        scenarioId: input.scenarioId,
+        courseId: coach.suggestedCourseIds[0] ?? scenario?.relatedCourseIds[0],
+        percent: Math.min(coach.percent, percent),
+        focusCode: coach.competencyFocus,
+      }),
+      draft.currentUserId
+    );
+  }
+
+  void syncEvent({
+    type: "scenario_coach",
+    userId: draft.currentUserId,
+    at: nowIso(),
+    payload: {
+      scenarioId: input.scenarioId,
+      coachPercent: coach.percent,
+      grantsWorkAuthorization: false,
+    },
+  });
+
+  refreshRecommendationsForUser(draft, draft.currentUserId);
+  commit(draft);
+  return { attempt, coach };
+}
+
+/** Run SOP-lag + skill-gap remediation sweep (manager dashboard / cron-like) */
+export function runSopRemediationSweep(actorUserId: string): number {
+  const draft = cloneState(state);
+  const actions = [
+    ...findSopLagActions(draft),
+    ...findSkillGapActions(draft),
+  ];
+  let applied = 0;
+  for (const action of actions) {
+    const beforeAsg = draft.employeeAssignments.length;
+    const beforeNtf = draft.notifications.length;
+    applyRemediationAction(draft, action, actorUserId);
+    if (
+      draft.employeeAssignments.length > beforeAsg ||
+      draft.notifications.length > beforeNtf
+    ) {
+      applied += 1;
+    }
+  }
+  if (applied > 0) {
+    appendAudit(draft, {
+      actorUserId,
+      action: "assignment_create",
+      entityType: "remediation",
+      entityId: uid("rem"),
+      summary: `جارو remediation: ${applied} اقدام (SOP / شکاف دانش) — بدون تغییر مجوز کار`,
+    });
+    void syncEvent({
+      type: "remediation",
+      userId: actorUserId,
+      at: nowIso(),
+      payload: { applied, totalCandidates: actions.length },
+    });
+    commit(draft);
+  }
+  return applied;
+}
+
+export function getFloorReadiness(appState: AppState = state) {
+  return listNotFloorReady(appState);
+}
+
+export function getScenarioCoachPreview(
+  scenario: TrainingScenario,
+  score: number,
+  maxScore: number,
+  strongTags: string[],
+  weakTags: string[]
+): ScenarioCoachResult {
+  return coachScenario({ scenario, score, maxScore, strongTags, weakTags });
 }
 
 export function searchContent(query: string, appState: AppState = state) {
