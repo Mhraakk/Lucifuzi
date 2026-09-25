@@ -106,7 +106,7 @@ export const TRIAL_TOOLS: TrialTool[] = [
   { id: "scale_0_01", titleFa: "ترازو ۰٫۰۱g", envIds: ["melt_lab", "buy_desk", "qc_station"], howFa: "وزن قبل/بعد ذوب و خرید دست‌دوم." },
   { id: "sketch_pad", titleFa: "دفتر اسکیس ایده", envIds: ["ideation_studio"], howFa: "سه واریانت قبل از ساخت ذهنی ۳D." },
   { id: "studio_orbit", titleFa: "دوربین ۳D اوربیت", envIds: ["ideation_studio", "craft_bench"], howFa: "چرخش قطعه برای ارائه و بازرسی." },
-  { id: "fx_board", titleFa: "تابلو نرخ لحظه‌ای", envIds: ["market_desk", "buy_desk"], howFa: "XAU و دلار را قبل از اعلام قیمت چک کنید." },
+  { id: "fx_board", titleFa: "تابلو نرخ لحظه‌ای", envIds: ["market_desk", "buy_desk", "sales_floor"], howFa: "XAU و دلار را قبل از اعلام قیمت چک کنید." },
   { id: "spread_card", titleFa: "کارت اسپرد خرید/فروش", envIds: ["market_desk", "buy_desk"], howFa: "حداقل اسپرد مجاز شعبه را رعایت کنید." },
   { id: "acid_kit", titleFa: "کیت اسید محک", envIds: ["buy_desk", "qc_station"], howFa: "فقط روی نمونه خراش کنترل‌شده؛ PPE اجباری." },
   { id: "xrf_gun", titleFa: "دستگاه XRF", envIds: ["buy_desk", "qc_station"], howFa: "عیار تقریبی — نتیجه را در برگه خرید ثبت کنید." },
@@ -761,7 +761,11 @@ export function trialsForEnv(envId: TrialEnvId): RoleTrial[] {
 }
 
 export function toolsForEnv(envId: TrialEnvId): TrialTool[] {
-  return TRIAL_TOOLS.filter((t) => t.envIds.includes(envId));
+  const env = envById(envId);
+  if (!env) return TRIAL_TOOLS.filter((t) => t.envIds.includes(envId));
+  return env.toolIds
+    .map((id) => TRIAL_TOOLS.find((t) => t.id === id))
+    .filter((t): t is TrialTool => Boolean(t));
 }
 
 export function trialById(id: string): RoleTrial | undefined {
