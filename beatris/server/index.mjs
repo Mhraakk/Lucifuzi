@@ -18,55 +18,8 @@ const SECURITY = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
 
-/** Request handler for `/api/*` only (used as-is by the Vercel function). */
-export function createApiHandler({ db, secret, demo, quiet = false }) {
+export function createServer({ db, secret, demo, quiet = false }) {
   const handle = createApi({ db, signer: makeSigner(secret), demo });
-  function readBody(req) {
-    return new Promise((resolve, reject) => {
-      let size = 0;
-      const chunks = [];
-      req.on('data', (c) => {
-        size += c.length;
-        if (size > 128 * 1024) {
-          reject(new HttpError(413, 'درخواست بیش از حد بزرگ است.'));
-          req.destroy();
-        } else chunks.push(c);
-      });
-      req.on('end', () => {
-        if (!chunks.length) return resolve({});
-        try {
-          resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-        } catch {
-          reject(new HttpError(400, 'بدنه درخواست JSON معتبر نیست.'));
-        }
-      });
-      req.on('error', reject);
-    });
-  }
-
-  return async (req, res) => {
-    const url = new URL(req.url, 'http://local');
-    const ip = String(req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? '').split(',')[0].trim();
-    const send = (status, obj) => {
-      const body = JSON.stringify(obj);
-      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...SECURITY });
-      res.end(body);
-    };
-    try {
-      const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
-      const out = await handle(req, url, body, ip);
-      send(200, out);
-    } catch (e) {
-      if (e instanceof HttpError) return send(e.status, { error: e.message });
-      if (!quiet) console.error('[beatris]', req.method, url.pathname, e);
-      send(500, { error: 'خطای داخلی سرور. دوباره تلاش کنید.' });
-    }
-  };
-}
-
-/** Full local server: static files from public/ plus the API. */
-export function createServer(opts) {
-  const api = createApiHandler(opts);
   const fileCache = new Map();
 
   async function serveStatic(req, res, pathname) {
@@ -97,18 +50,56 @@ export function createServer(opts) {
     res.end(req.method === 'HEAD' ? undefined : useGz ? entry.gz : entry.buf);
   }
 
-
-  return http.createServer((req, res) => {
-    const { pathname } = new URL(req.url, 'http://local');
-    if (pathname.startsWith('/api/')) return api(req, res);
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405);
-      return res.end();
-    }
-    return serveStatic(req, res, pathname).catch(() => {
-      res.writeHead(500);
-      res.end();
+  function readBody(req) {
+    return new Promise((resolve, reject) => {
+      let size = 0;
+      const chunks = [];
+      req.on('data', (c) => {
+        size += c.length;
+        if (size > 128 * 1024) {
+          reject(new HttpError(413, 'درخواست بیش از حد بزرگ است.'));
+          req.destroy();
+        } else chunks.push(c);
+      });
+      req.on('end', () => {
+        if (!chunks.length) return resolve({});
+        try {
+          resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+        } catch {
+          reject(new HttpError(400, 'بدنه درخواست JSON معتبر نیست.'));
+        }
+      });
+      req.on('error', reject);
     });
+  }
+
+  return http.createServer(async (req, res) => {
+    const url = new URL(req.url, 'http://local');
+    const ip = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim();
+    if (!url.pathname.startsWith('/api/')) {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.writeHead(405);
+        return res.end();
+      }
+      return serveStatic(req, res, url.pathname).catch(() => {
+        res.writeHead(500);
+        res.end();
+      });
+    }
+    const send = (status, obj) => {
+      const body = JSON.stringify(obj);
+      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...SECURITY });
+      res.end(body);
+    };
+    try {
+      const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
+      const out = await handle(req, url, body, ip);
+      send(200, out);
+    } catch (e) {
+      if (e instanceof HttpError) return send(e.status, { error: e.message });
+      if (!quiet) console.error('[beatris]', req.method, url.pathname, e);
+      send(500, { error: 'خطای داخلی سرور. دوباره تلاش کنید.' });
+    }
   });
 }
 
@@ -119,9 +110,9 @@ if (isMain) {
     console.error('[beatris] content errors:\n' + errors.join('\n'));
     process.exit(1);
   }
-  const demo = process.env.BEATRIS_DEMO === 'true';
-  const db = await openDb({ dataDir: process.env.BEATRIS_DATA_DIR || path.resolve('data') });
-  await seedUsers(db, process.env, demo);
+  const demo = process.env.BEATRIS_DEMO === 'true' || process.env.BEATRIS_DEMO_OTP === 'true';
+  const db = openDb();
+  seedUsers(db, process.env, demo);
   const server = createServer({ db, secret: resolveSecret(), demo });
   const port = Number(process.env.PORT) || 3000;
   server.listen(port, '0.0.0.0', () => console.log(`[beatris] listening on :${port}${demo ? ' (demo accounts on)' : ''}`));

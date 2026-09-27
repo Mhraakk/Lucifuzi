@@ -3,7 +3,7 @@ import { readdirSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 const walk = (d) => readdirSync(d).flatMap((f) => { const p = path.join(d, f); return statSync(p).isDirectory() ? walk(p) : p.endsWith('.mjs') ? [p] : []; });
-const files = ['api', 'server', 'content', 'public/js', 'scripts', 'tests'].flatMap(walk);
+const files = ['server', 'content', 'public/js', 'scripts', 'tests'].flatMap(walk);
 for (const f of files) execFileSync(process.execPath, ['--check', f]);
 const { validateContent } = await import('../content/index.mjs');
 const errors = validateContent();

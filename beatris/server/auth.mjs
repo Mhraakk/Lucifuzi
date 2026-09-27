@@ -60,28 +60,28 @@ export function makeSigner(secret) {
 
 export function resolveSecret(env = process.env) {
   const s = env.BEATRIS_TOKEN_SECRET;
-  const prod = env.NODE_ENV === 'production' || !!env.VERCEL;
+  const prod = env.NODE_ENV === 'production' || !!env.RAILWAY_ENVIRONMENT;
   if (s && s.length >= 16) return s;
   if (prod) throw new Error('BEATRIS_TOKEN_SECRET (≥16 chars) is required in production.');
   console.warn('[beatris] BEATRIS_TOKEN_SECRET not set — using an ephemeral dev secret.');
   return randomUUID() + randomUUID();
 }
 
-/** Fixed-window limiter persisted in the database, so it holds across serverless instances. */
-export function makeLimiter(db, scope, max, windowMs) {
-  const k = (key) => `${scope}:${key}`;
+/** Fixed-window limiter kept in memory (single instance on Railway). */
+export function makeLimiter(max, windowMs) {
+  const hits = new Map();
   return {
-    async blocked(key) {
-      const h = await db.get('SELECT n, until_ms FROM login_limits WHERE key=?', k(key));
-      return !!h && h.until_ms > Date.now() && h.n >= max;
+    blocked(key) {
+      const h = hits.get(key);
+      return !!h && h.until > Date.now() && h.n >= max;
     },
-    async fail(key) {
+    fail(key) {
       const now = Date.now();
-      await db.run(
-        'INSERT INTO login_limits(key,n,until_ms) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET n = CASE WHEN login_limits.until_ms < ? THEN 1 ELSE login_limits.n + 1 END, until_ms = CASE WHEN login_limits.until_ms < ? THEN excluded.until_ms ELSE login_limits.until_ms END',
-        k(key), now + windowMs, now, now,
-      );
+      const h = hits.get(key);
+      if (!h || h.until < now) hits.set(key, { n: 1, until: now + windowMs });
+      else h.n++;
+      if (hits.size > 5000) for (const [k, v] of hits) if (v.until < now) hits.delete(k);
     },
-    reset: (key) => db.run('DELETE FROM login_limits WHERE key=?', k(key)),
+    reset: (key) => hits.delete(key),
   };
 }

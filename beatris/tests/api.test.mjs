@@ -13,8 +13,8 @@ const call = async (method, path, body, token) => {
 const login = async (phone) => (await call('POST', '/api/auth/login', { phone, pin: '۱۲۳۴' })).body.token;
 
 before(async () => {
-  const db = await openDb({ url: '' });
-  await seedUsers(db, {}, true);
+  const db = openDb(':memory:');
+  seedUsers(db, {}, true);
   server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;

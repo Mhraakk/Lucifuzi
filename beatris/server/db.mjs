@@ -1,10 +1,10 @@
-/**
- * Postgres access layer.
- * - Production (Vercel): Neon serverless Pool, from DATABASE_URL / POSTGRES_URL.
- * - Local dev & tests: PGlite (in-process Postgres), in memory or in a data dir.
- * SQL is written with `?` placeholders; they are rewritten to `$n` here.
- */
+import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+
 const SCHEMA = `
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS exam_attempts (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   course_id TEXT NOT NULL,
-  score DOUBLE PRECISION NOT NULL,
+  score REAL NOT NULL,
   passed INTEGER NOT NULL,
   detail_json TEXT NOT NULL,
   created_at TEXT NOT NULL
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS certificates (
   code TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   course_id TEXT NOT NULL,
-  score DOUBLE PRECISION NOT NULL,
+  score REAL NOT NULL,
   issued_at TEXT NOT NULL,
   UNIQUE (user_id, course_id)
 );
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS cards (
   PRIMARY KEY (user_id, card_id)
 );
 CREATE TABLE IF NOT EXISTS drills (
-  id BIGSERIAL PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind TEXT NOT NULL,
   correct INTEGER NOT NULL,
@@ -123,86 +123,48 @@ CREATE TABLE IF NOT EXISTS activity (
 );
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT);
 CREATE TABLE IF NOT EXISTS audit (
-  id BIGSERIAL PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,
   action TEXT NOT NULL,
   detail_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL
-);CREATE TABLE IF NOT EXISTS login_limits (
-  key TEXT PRIMARY KEY,
-  n INTEGER NOT NULL,
-  until_ms BIGINT NOT NULL
 );
 `;
 
-const INT8 = 20;
-const NUMERIC = 1700;
-
-export const databaseUrl = (env = process.env) => env.DATABASE_URL || env.POSTGRES_URL || env.DATABASE_URL_UNPOOLED || env.POSTGRES_URL_NON_POOLING || '';
-
-const toPg = (sql) => {
-  let i = 0;
-  return sql.replace(/\?/g, () => `$${++i}`);
-};
-
-function wrap(query, tx) {
-  const all = async (sql, ...p) => (await query(toPg(sql), p)).rows;
-  return {
-    all,
-    get: async (sql, ...p) => (await all(sql, ...p))[0],
-    run: async (sql, ...p) => ({ changes: (await query(toPg(sql), p)).affectedRows }),
-    tx,
-  };
+export function openDb(dir = process.env.BEATRIS_DATA_DIR || path.resolve('data'), file = 'beatris-v2.db', { snapshot = false } = {}) {
+  if (dir !== ':memory:') mkdirSync(dir, { recursive: true });
+  const db = new DatabaseSync(dir === ':memory:' ? ':memory:' : path.join(dir, file));
+  db.exec(snapshot ? SCHEMA.replace('PRAGMA journal_mode = WAL;', 'PRAGMA journal_mode = DELETE;') : SCHEMA);
+  db.prepare("INSERT OR IGNORE INTO meta(key,value) VALUES ('schema_version','2')").run();
+  return wrap(db);
 }
 
-async function openNeon(url) {
-  const { Pool, types } = await import('@neondatabase/serverless');
-  types.setTypeParser(INT8, Number);
-  types.setTypeParser(NUMERIC, Number);
-  const pool = new Pool({ connectionString: url, max: 5 });
-  const query = async (text, values, client = pool) => {
-    const r = await client.query(text, values);
-    return { rows: r.rows, affectedRows: r.rowCount ?? 0 };
-  };
-  const db = wrap(query, async (fn) => {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const r = await fn(wrap((t, v) => query(t, v, client)));
-      await client.query('COMMIT');
-      return r;
-    } catch (e) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw e;
-    } finally {
-      client.release();
+function wrap(db) {
+  const cache = new Map();
+  const stmt = (sql) => {
+    let s = cache.get(sql);
+    if (!s) {
+      s = db.prepare(sql);
+      cache.set(sql, s);
     }
-  });
-  db.exec = (sql) => pool.query(sql);
-  db.close = () => pool.end();
-  return db;
-}
-
-async function openLocal(dataDir) {
-  const { PGlite } = await import('@electric-sql/pglite');
-  const pg = new PGlite(dataDir || undefined, { parsers: { [INT8]: Number, [NUMERIC]: Number } });
-  const query = async (text, values, conn = pg) => {
-    const r = await conn.query(text, values);
-    return { rows: r.rows, affectedRows: r.affectedRows ?? 0 };
+    return s;
   };
-  const db = wrap(query, (fn) => pg.transaction((t) => fn(wrap((s, v) => query(s, v, t)))));
-  db.exec = (sql) => pg.exec(sql);
-  db.close = () => pg.close();
-  return db;
-}
-
-/**
- * @param {{ url?: string, dataDir?: string }} opts  url → Neon; otherwise PGlite
- *   (dataDir omitted = in-memory).
- */
-export async function openDb({ url = databaseUrl(), dataDir } = {}) {
-  const db = url ? await openNeon(url) : await openLocal(dataDir);
-  await db.exec(SCHEMA);
-  await db.run("INSERT INTO meta(key,value) VALUES ('schema_version','3') ON CONFLICT (key) DO NOTHING");
-  return db;
+  return {
+    raw: db,
+    all: (sql, ...p) => stmt(sql).all(...p),
+    get: (sql, ...p) => stmt(sql).get(...p),
+    run: (sql, ...p) => stmt(sql).run(...p),
+    tx(fn) {
+      db.exec('BEGIN');
+      try {
+        const r = fn();
+        db.exec('COMMIT');
+        return r;
+      } catch (e) {
+        db.exec('ROLLBACK');
+        throw e;
+      }
+    },
+    close: () => db.close(),
+  };
 }
