@@ -1,0 +1,114 @@
+import { html, store, fa, $, navigate } from '../core.mjs';
+import { back, ICON } from '../ui.mjs';
+import * as K from '../calc.mjs';
+
+const TOOLS = {
+  invoice: { title: 'ماشین‌حساب فاکتور', desc: 'ارزش طلا، اجرت، سود و مالیات فقط بر اجرت و سود.' },
+  mazaneh: { title: 'مظنه و قیمت گرم', desc: 'تبدیل دوطرفه مظنه، گرم ۱۸ و گرم طلای خالص؛ قیمت قطعه آب‌شده.' },
+  buyback: { title: 'خرید طلای مستعمل', desc: 'بر اساس عیار سنجیده‌شده و کسر اعلام‌شده فروشگاه.' },
+  coin: { title: 'ارزش ذاتی سکه', desc: 'سکه تمام، نیم و ربع و حباب نسبت به قیمت بازار.' },
+  density: { title: 'چگالی و تخمین عیار', desc: 'وزن در هوا و در آب ← چگالی ← هزارم تقریبی.' },
+  ring: { title: 'مبدل سایز انگشتر', desc: 'محیط (ISO)، قطر و سایز آمریکا.' },
+  karat: { title: 'عیار و وزن', desc: 'طلای خالص قطعه و وزن همان مدل در آلیاژ دیگر.' },
+};
+
+export function toolsPage(root) {
+  root.innerHTML = String(html`<h1>ابزار</h1><p class="lead">ابزارهای پشت پیشخوان. همه محاسبه‌ها روی همین دستگاه انجام می‌شود و قیمت مرجع از تنظیمات مدیر می‌آید.</p>
+    <a class="tray row" href="/studio" data-link style="margin-top:16px"><span class="row-main"><span class="row-t">استودیوی سه‌بعدی</span><span class="row-s">انگشتر، تک‌نگین، النگو، زنجیر و شمش را بسازید؛ وزن از حجم واقعی مدل حساب می‌شود.</span></span><span class="chev">${ICON.chev}</span></a>
+    <ul class="rows" style="margin-top:14px">${Object.entries(TOOLS).map(([id, t]) => html`<li><a class="row" href="/tools/${id}" data-link><span class="row-main"><span class="row-t">${t.title}</span><span class="row-s">${t.desc}</span></span><span class="chev">${ICON.chev}</span></a></li>`)}</ul>`);
+}
+
+const field = (name, label, value, extra = '') => html`<label class="field">${label}<input class="input ltr" name="${name}" inputmode="decimal" value="${value}" ${extra}></label>`;
+const ledger = (rows) => html`<div class="ledger">${rows.map(([k, v]) => html`<div><span>${k}</span><span class="num">${v}</span></div>`)}</div>`;
+
+export function toolPage(root, { id }) {
+  const t = TOOLS[id];
+  if (!t) return navigate('/tools', { replace: true });
+  const pr = store.me.pricing;
+  const f0 = (n) => K.fmt(n, 0).replace(/٬/g, ',');
+  const forms = {
+    invoice: html`<div class="form cols">
+      ${field('weight', 'وزن (گرم)', '5')}${field('p750', 'قیمت هر گرم ۱۸ عیار (تومان)', f0(pr.p750))}
+      <label class="field">عیار<select class="input" name="fineness">${K.KARATS.map((k) => html`<option value="${k.fineness}" ${k.fineness === 750 ? 'selected' : ''}>${fa(k.karat)} عیار (${fa(k.fineness)})</option>`)}</select></label>
+      <label class="field">نوع اجرت<select class="input" name="mode"><option value="percent">درصدی</option><option value="perGram">مبلغ هر گرم</option><option value="fixed">مبلغ کل</option></select></label>
+      ${field('ojrat', 'اجرت', '15')}${field('profit', 'سود فروشنده (٪)', String(pr.profitPct))}${field('vat', 'مالیات بر ارزش افزوده (٪)', String(pr.vatPct))}</div>`,
+    mazaneh: html`<div class="form cols">${field('m', 'مظنه (تومان)', f0(K.mazanehFromG750(pr.p750)))}${field('g', 'قیمت هر گرم ۱۸ (تومان)', f0(pr.p750))}</div>
+      <h3 style="margin-top:18px">قطعه آب‌شده</h3><div class="form cols">${field('aw', 'وزن (گرم)', '50')}${field('af', 'عیار ری‌گیری', '740')}</div>`,
+    buyback: html`<div class="form cols">${field('weight', 'وزن کل (گرم)', '12')}${field('nongold', 'وزن اجزای غیرطلا (گرم)', '0')}${field('fin', 'عیار سنجیده‌شده', '740')}${field('p750', 'قیمت هر گرم ۱۸ (تومان)', f0(pr.p750))}${field('deduct', 'کسر اعلام‌شده (٪)', String(pr.buybackDeductPct))}</div>`,
+    coin: html`<div class="form cols">${field('p750', 'قیمت هر گرم ۱۸ (تومان)', f0(pr.p750))}${field('market', 'قیمت بازار سکه تمام (اختیاری)', '')}</div>`,
+    density: html`<div class="form cols">${field('air', 'وزن در هوا (گرم)', '10.00')}${field('water', 'وزن در آب (گرم)', '9.35')}</div>`,
+    ring: html`<div class="seg" role="group" style="margin-bottom:12px"><button type="button" data-mode="iso" aria-pressed="true">محیط (ISO)</button><button type="button" data-mode="d" aria-pressed="false">قطر</button><button type="button" data-mode="us" aria-pressed="false">سایز آمریکا</button></div>
+      <div class="form">${field('v', 'مقدار', '54')}</div>`,
+    karat: html`<div class="form cols">${field('weight', 'وزن قطعه (گرم)', '6')}
+      <label class="field">آلیاژ فعلی<select class="input" name="from">${K.ALLOYS.map((a) => html`<option value="${a.id}" ${a.id === 'au18y' ? 'selected' : ''}>${a.label}</option>`)}</select></label>
+      <label class="field">آلیاژ مقصد<select class="input" name="to">${K.ALLOYS.map((a) => html`<option value="${a.id}" ${a.id === 'au22' ? 'selected' : ''}>${a.label}</option>`)}</select></label></div>`,
+  };
+  root.innerHTML = String(html`${back('/tools', 'ابزار')}<h1>${t.title}</h1><p class="lead">${t.desc}</p>
+    <div class="calc-out" id="out" aria-live="polite"></div><form class="tray" id="tf" style="margin-top:14px">${forms[id]}</form>`);
+
+  const form = $('#tf', root);
+  let ringMode = 'iso';
+  const v = (n) => K.parseNum(form.elements[n]?.value);
+  const out = $('#out', root);
+  const T = (n) => K.fmtT(n);
+  const compute = () => {
+    let rows = [];
+    let note = '';
+    if (id === 'invoice') {
+      const r = K.invoice({ weight: v('weight'), p750: v('p750'), fineness: v('fineness'), ojratMode: form.elements.mode.value, ojrat: v('ojrat'), profitPct: v('profit'), vatPct: v('vat') });
+      rows = [['ارزش طلا (معاف از مالیات)', T(r.goldValue)], ['اجرت ساخت', T(r.ojrat)], ['سود فروشنده', T(r.profit)], ['پایه مالیات (اجرت + سود)', T(r.taxable)], ['مالیات بر ارزش افزوده', T(r.vat)], ['مبلغ نهایی', T(r.total)]];
+      note = 'سود از مجموع ارزش طلا و اجرت حساب شده است. اگر سیاست فروشگاه متفاوت است، مدیر در تنظیمات تغییر دهد.';
+    } else if (id === 'mazaneh') {
+      const m = v('m');
+      const g = K.g750FromMazaneh(m);
+      rows = [['قیمت هر گرم ۱۸ عیار', T(g)], ['قیمت هر گرم طلای خالص', T(m / K.MAZANEH_TO_G1000)], ['قیمت هر مثقال ۱۸ عیار', T(g * K.MESGHAL_G)], ['ارزش قطعه آب‌شده', T(K.moltenPiecePrice(v('aw'), v('af'), m))]];
+      note = 'مظنه ÷ ۴٫۳۳۱۸ = گرم ۱۸. تغییر قیمت گرم ۱۸، مظنه را هم به‌روز می‌کند.';
+    } else if (id === 'buyback') {
+      const r = K.buyback({ weight: v('weight'), nonGoldWeight: v('nongold'), p750: v('p750'), testedFineness: v('fin'), deductPct: v('deduct') });
+      rows = [['وزن خالص طلا', `${K.fmt(r.netWeight, 2)} گرم`], ['ارزش به عیار سنجیده', T(r.gross)], ['کسر فروشگاه', T(r.deduction)], ['مبلغ پرداختی', T(r.payout)]];
+      note = 'خرید طلای مستعمل مالیات بر ارزش افزوده ندارد.';
+    } else if (id === 'coin') {
+      const p = v('p750');
+      const market = v('market');
+      rows = K.COINS.map((c) => [c.label, T(K.coinIntrinsic(c, p))]);
+      if (Number.isFinite(market) && market > 0) {
+        const intr = K.coinIntrinsic(K.COINS[0], p);
+        rows.push(['حباب سکه تمام', `${T(market - intr)} (${K.fmt(((market - intr) / intr) * 100, 1)}٪)`]);
+      }
+      note = 'ارزش ذاتی = وزن × ۹۰۰ ÷ ۷۵۰ × قیمت گرم ۱۸. حباب پیش‌بینی نمی‌شود؛ فقط توضیح داده می‌شود.';
+    } else if (id === 'density') {
+      const d = K.densityFromWeighing(v('air'), v('water'));
+      const f = K.finenessFromDensity(d);
+      const k = Number.isFinite(f) ? K.nearestKarat(f) : null;
+      rows = [['چگالی', Number.isFinite(d) ? `${K.fmt(d, 2)} g/cm³` : '—'], ['هزارم تخمینی (آلیاژ زرد)', Number.isFinite(f) ? K.fmt(f, 0) : '—'], ['نزدیک‌ترین عیار استاندارد', k ? `${fa(k.karat)} عیار (${fa(k.fineness)})` : '—']];
+      note = 'فقط برای طلای ساده توپر. سنگ، حفره، لحیم و تنگستن نتیجه را بی‌اعتبار می‌کنند؛ مرجع نهایی ری‌گیری است.';
+    } else if (id === 'ring') {
+      const x = v('v');
+      const r = ringMode === 'iso' ? K.ringFromCircumference(x) : ringMode === 'd' ? K.ringFromDiameter(x) : K.ringFromUS(x);
+      rows = [['سایز ISO (محیط داخلی)', `${K.fmt(r.iso, 1)} mm`], ['قطر داخلی', `${K.fmt(r.diameter, 2)} mm`], ['سایز آمریکا', K.fmt(Math.round(r.us * 4) / 4, 2)]];
+      note = 'برای انگشتر پهن نیم تا یک سایز بزرگ‌تر را هم امتحان کنید.';
+    } else if (id === 'karat') {
+      const a = K.alloyById(form.elements.from.value);
+      const b = K.alloyById(form.elements.to.value);
+      const w = v('weight');
+      rows = [['طلای خالص قطعه فعلی', a.fineness ? `${K.fmt(K.pureGold(w, a.fineness), 3)} گرم` : '—'], [`وزن همان مدل در ${b.label}`, `${K.fmt(K.weightInOtherAlloy(w, a.density, b.density), 2)} گرم`], ['نسبت چگالی', `${K.fmt(a.density, 1)} ← ${K.fmt(b.density, 1)}`]];
+      note = 'چگالی‌ها تقریبی‌اند و به دستور آلیاژ بستگی دارند.';
+    }
+    out.innerHTML = String(html`${ledger(rows)}<p class="small" style="margin-top:10px">${note}</p>`);
+  };
+  form.addEventListener('submit', (e) => e.preventDefault());
+  form.addEventListener('input', (e) => {
+    if (id === 'mazaneh' && e.target.name === 'g') form.elements.m.value = f0(K.mazanehFromG750(v('g')));
+    if (id === 'mazaneh' && e.target.name === 'm') form.elements.g.value = f0(K.g750FromMazaneh(v('m')));
+    compute();
+  });
+  form.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mode]');
+    if (!b) return;
+    ringMode = b.dataset.mode;
+    form.querySelectorAll('[data-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    form.elements.v.value = ringMode === 'iso' ? '54' : ringMode === 'd' ? '17.2' : '7';
+    compute();
+  });
+  compute();
+}

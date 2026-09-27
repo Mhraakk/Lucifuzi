@@ -1,0 +1,22 @@
+{
+  "name": "beatris",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Beatris — آموزش کارکنان گالری طلا (Vercel + Neon Postgres)",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "BEATRIS_DEMO=true node --watch server/index.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
+  }
+}
