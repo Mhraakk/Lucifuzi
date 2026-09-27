@@ -121,6 +121,72 @@ export const ringFromUS = (us) => ringFromDiameter(11.63 + 0.8128 * num(us));
 
 export const weightInOtherAlloy = (weight, fromDensity, toDensity) => (num(weight) * num(toDensity)) / num(fromDensity);
 
+/* ---------- workshop mathematics (the rare part of the trade) ---------- */
+
+/**
+ * Change the fineness of a melt by adding metal of fineness `addFineness`.
+ * Returns grams to add (x) and the new total weight. Lowering: add master alloy (fineness 0).
+ * Raising: add pure gold (999.9). Mass balance: (w·f + x·fa) / (w + x) = target.
+ */
+export function alloyAdjust({ weight, fineness, target, addFineness }) {
+  const w = num(weight), f = num(fineness), t = num(target);
+  const fa = addFineness ?? (t < f ? 0 : 999.9);
+  if (!(w > 0) || !(t > 0) || t === fa || (t - f) * (fa - t) < 0) return { add: NaN, total: NaN, addFineness: fa };
+  const add = (w * (t - f)) / (fa - t);
+  return { add, total: w + add, addFineness: fa, pureBefore: (w * f) / 1000, pureAfter: ((w + add) * t) / 1000 };
+}
+
+export const WAX_DENSITY = 0.95; // g/cm³, typical carving/injection wax
+export const RESIN_DENSITY = 1.12; // g/cm³, castable photopolymer
+/** Metal weight of a casting from its wax (or resin) model weight. sprue = extra fraction for sprue and button. */
+export function waxToMetal({ waxWeight, metalDensity, modelDensity = WAX_DENSITY, sprue = 0.35 }) {
+  const metal = (num(waxWeight) * num(metalDensity)) / num(modelDensity);
+  return { metal, melt: metal * (1 + num(sprue)), ratio: num(metalDensity) / num(modelDensity) };
+}
+
+/** Plating: mass (g) of a layer = area (cm²) × thickness (µm → cm) × density. */
+export const PLATING = { rhodium: 12.41, gold: 19.32, palladium: 12.02, silver: 10.49 };
+export function platingMass({ areaCm2, microns, density }) {
+  return num(areaCm2) * num(microns) * 1e-4 * num(density);
+}
+
+/**
+ * Estimated carat weight from millimetre measurements (industry formulas for diamond),
+ * scaled by specific gravity for other stones. L = length, W = width, D = depth (mm).
+ */
+export const STONE_FACTORS = {
+  round: { k: 0.0061, label: 'برلیان گرد (قطر² × عمق)' },
+  oval: { k: 0.0062, label: 'بیضی' },
+  princess: { k: 0.0083, label: 'پرنسس / مربعی' },
+  emerald: { k: 0.0092, label: 'زمردی (نسبت ~۱٫۵)' },
+  cushion: { k: 0.0081, label: 'کوسن' },
+  pear: { k: 0.0059, label: 'اشکی' },
+  marquise: { k: 0.00565, label: 'مارکیز' },
+  heart: { k: 0.0059, label: 'قلب' },
+};
+export function stoneCarat({ cut = 'round', L, W, D, sg = 3.52 }) {
+  const f = STONE_FACTORS[cut] ?? STONE_FACTORS.round;
+  const l = num(L), d = num(D);
+  const w = cut === 'round' ? l : num(W);
+  return f.k * l * w * d * (num(sg) / 3.52);
+}
+
+/** Metal to add (positive) or remove (negative) when resizing a band. Sizes as ISO circumference (mm). */
+export function resizeMetal({ fromSize, toSize, width, thickness, density }) {
+  const dc = num(toSize) - num(fromSize);
+  const grams = (dc * num(width) * num(thickness) * num(density)) / 1000;
+  return { deltaMm: dc, grams };
+}
+
+/** Length of round wire (mm) obtainable from a weight; and sheet area (mm²) for a given thickness. */
+export function wireLength({ weight, diameter, density }) {
+  const r = num(diameter) / 2;
+  return ((num(weight) / num(density)) * 1000) / (Math.PI * r * r);
+}
+export function sheetArea({ weight, thickness, density }) {
+  return ((num(weight) / num(density)) * 1000) / num(thickness);
+}
+
 /* ---------- formatting ---------- */
 export const faDigits = (s) => String(s).replace(/\d/g, (d) => FA[Number(d)]);
 export function fmt(n, digits = 0) {

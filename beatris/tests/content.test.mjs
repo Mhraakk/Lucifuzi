@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from '../content/index.mjs';
-import { checkNumeric, invoice, g750FromMazaneh, moltenPiecePrice, buyback, coinIntrinsic, COINS, densityFromWeighing } from '../public/js/calc.mjs';
+import { checkNumeric, invoice, g750FromMazaneh, moltenPiecePrice, buyback, coinIntrinsic, COINS, densityFromWeighing, alloyAdjust, waxToMetal, platingMass, stoneCarat, resizeMetal, wireLength } from '../public/js/calc.mjs';
 
 test('یکپارچگی محتوا', () => assert.deepEqual(C.validateContent(), []));
 test('حجم برنامه آموزشی', () => {
-  assert.equal(C.COURSES.length, 8);
+  assert.equal(C.COURSES.length, 9);
   assert.ok(C.LESSONS.size >= 30);
   assert.ok(C.QUESTIONS.size >= 90);
   assert.ok(C.SCENARIOS.length >= 8);
@@ -21,6 +21,13 @@ test('پاسخ عددی پرسش‌ها با موتور محاسبه یکی اس
   ok('m4q3', moltenPiecePrice(50, 740, 30e6));
   ok('m5q1', coinIntrinsic(COINS[0], 8e6));
   ok('a3q1', densityFromWeighing(10, 9.35));
+  ok('r2q1', alloyAdjust({ weight: 100, fineness: 750, target: 585 }).add);
+  ok('r2q2', alloyAdjust({ weight: 10, fineness: 585, target: 750 }).add);
+  ok('r3q1', waxToMetal({ waxWeight: 1.2, metalDensity: 15.5 }).metal);
+  ok('r4q1', platingMass({ areaCm2: 2, microns: 0.2, density: 12.41 }));
+  ok('r5q1', stoneCarat({ cut: 'round', L: 6.5, D: 4 }));
+  ok('r6q1', resizeMetal({ fromSize: 54, toSize: 56, width: 4, thickness: 1.8, density: 15.5 }).grams);
+  ok('r6q2', wireLength({ weight: 1, diameter: 1, density: 15.5 }));
 });
 test('نمای عمومی پاسخ‌ها را لو نمی‌دهد', () => {
   const json = JSON.stringify([C.bootstrap(), ...[...C.LESSONS.keys()].map(C.publicLesson), ...C.SCENARIOS.map(C.publicScenario)]);

@@ -46,3 +46,25 @@ test('تمرین‌های تولیدی قطعی و قابل حل‌اند', () =
       assert.ok(K.checkNumeric(a.answer, a.answer, a.tol));
     }
 });
+
+test('کارگاه: آلیاژسازی، ریخته‌گری، آبکاری، وزن سنگ، سایز', () => {
+  // 100 g of 750 lowered to 585 with master alloy (fineness 0)
+  const lo = K.alloyAdjust({ weight: 100, fineness: 750, target: 585 });
+  near(lo.add, 28.205, 0.01);
+  near(lo.pureAfter, 75, 1e-9);
+  // 10 g of 585 raised to 750 with 999.9 fine gold
+  near(K.alloyAdjust({ weight: 10, fineness: 585, target: 750 }).add, 6.6027, 0.001);
+  assert.ok(Number.isNaN(K.alloyAdjust({ weight: 10, fineness: 750, target: 800, addFineness: 0 }).add));
+  // 1 g wax → 18k yellow (15.5) ≈ 16.3 g metal
+  near(K.waxToMetal({ waxWeight: 1, metalDensity: 15.5 }).metal, 16.316, 0.01);
+  // 2 cm² rhodium, 0.2 µm → 0.000496 g
+  near(K.platingMass({ areaCm2: 2, microns: 0.2, density: 12.41 }), 0.00049640, 1e-8);
+  // 6.5 mm round, 4.0 mm deep ≈ 1.03 ct
+  near(K.stoneCarat({ cut: 'round', L: 6.5, D: 4 }), 1.0309, 0.001);
+  // ruby (sg 4.0) of the same size is heavier
+  assert.ok(K.stoneCarat({ cut: 'round', L: 6.5, D: 4, sg: 4 }) > 1.1);
+  // resize 54 → 56 on a 4 × 1.8 band in 18k = 0.2232 g
+  near(K.resizeMetal({ fromSize: 54, toSize: 56, width: 4, thickness: 1.8, density: 15.5 }).grams, 0.2232, 1e-4);
+  // 1 g of 18k as 1 mm wire ≈ 82.1 mm
+  near(K.wireLength({ weight: 1, diameter: 1, density: 15.5 }), 82.14, 0.05);
+});

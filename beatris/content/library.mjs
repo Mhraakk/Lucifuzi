@@ -72,4 +72,4 @@ export const GLOSSARY = [
   { id: 'chainrec', term: 'زنجیره ردیابی', def: 'ثبت هر جابه‌جایی قطعه امانی یا تعمیری با وزن، تاریخ و امضا.' },
 ];
 
-export const PATH = ['c-metal', 'c-price', 'c-sales', 'c-security', 'c-product', 'c-gems', 'c-assay', 'c-service'];
+export const PATH = ['c-metal', 'c-price', 'c-sales', 'c-security', 'c-product', 'c-gems', 'c-assay', 'c-service', 'c-rare'];

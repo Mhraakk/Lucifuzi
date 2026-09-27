@@ -10,12 +10,25 @@ const TOOLS = {
   density: { title: 'چگالی و تخمین عیار', desc: 'وزن در هوا و در آب ← چگالی ← هزارم تقریبی.' },
   ring: { title: 'مبدل سایز انگشتر', desc: 'محیط (ISO)، قطر و سایز آمریکا.' },
   karat: { title: 'عیار و وزن', desc: 'طلای خالص قطعه و وزن همان مدل در آلیاژ دیگر.' },
+  alloy: { title: 'آلیاژسازی', desc: 'پایین یا بالا بردن عیار ذوب: چند گرم آلیاژ یا طلای ۹۹۹٫۹؟', rare: true },
+  casting: { title: 'ریخته‌گری موم و رزین', desc: 'وزن فلز از وزن مدل مومی یا چاپ سه‌بعدی، و فلز لازم برای ذوب.', rare: true },
+  plating: { title: 'آبکاری', desc: 'جرم رودیوم یا طلای لایه آبکاری از مساحت و ضخامت.', rare: true },
+  stone: { title: 'قیراط از ابعاد', desc: 'وزن سنگ نشانده‌شده از طول، عرض و عمق؛ برای الماس و سنگ‌های رنگی.', rare: true },
+  resize: { title: 'سایز، مفتول و ورق', desc: 'فلز لازم برای تغییر سایز؛ طول مفتول و مساحت ورق از وزن.', rare: true },
 };
+const TOOL_ICON = { invoice: 'tools', mazaneh: 'tools', buyback: 'tools', coin: 'tools', density: 'tools', ring: 'ring', karat: 'ring', alloy: 'cube', casting: 'cube', plating: 'sun', stone: 'cube', resize: 'ring' };
+const GEM_SG = [['3.52', 'الماس ۳٫۵۲'], ['4.00', 'یاقوت / یاقوت کبود ۴٫۰۰'], ['2.72', 'زمرد ۲٫۷۲'], ['2.65', 'آمتیست / کوارتز ۲٫۶۵'], ['3.53', 'توپاز ۳٫۵۳'], ['3.60', 'اسپینل ۳٫۶۰'], ['3.35', 'تانزانیت ۳٫۳۵']];
 
 export function toolsPage(root) {
-  root.innerHTML = String(html`<h1>ابزار</h1><p class="lead">ابزارهای پشت پیشخوان. همه محاسبه‌ها روی همین دستگاه انجام می‌شود و قیمت مرجع از تنظیمات مدیر می‌آید.</p>
-    <a class="tray row" href="/studio" data-link style="margin-top:16px"><span class="row-main"><span class="row-t">استودیوی سه‌بعدی</span><span class="row-s">انگشتر، تک‌نگین، النگو، زنجیر و شمش را بسازید؛ وزن از حجم واقعی مدل حساب می‌شود.</span></span><span class="chev">${ICON.chev}</span></a>
-    <ul class="rows" style="margin-top:14px">${Object.entries(TOOLS).map(([id, t]) => html`<li><a class="row" href="/tools/${id}" data-link><span class="row-main"><span class="row-t">${t.title}</span><span class="row-s">${t.desc}</span></span><span class="chev">${ICON.chev}</span></a></li>`)}</ul>`);
+  const card = ([id, t]) => html`<a class="tool-card" href="/tools/${id}" data-link><span class="ico">${ICON[TOOL_ICON[id]] ?? ICON.tools}</span><b>${t.title}</b><span>${t.desc}</span></a>`;
+  const entries = Object.entries(TOOLS);
+  root.innerHTML = String(html`<span class="eyebrow">پشت پیشخوان</span><h1 style="margin-top:10px">ابزار</h1><p class="lead">همه محاسبه‌ها روی همین دستگاه انجام می‌شود و قیمت مرجع از تنظیمات مدیر می‌آید.</p>
+    <div class="tool-grid" style="margin-top:22px">
+      <a class="tool-card feature" href="/studio" data-link><span class="ico">${ICON.cube}</span><span class="eyebrow">استودیوی سه‌بعدی</span><b>طراحی کن، وزن کن، خروجی بگیر.</b><span>۱۵ نوع قطعه، ۹ آلیاژ، ۱۲ سنگ؛ تصویر تا ۸K، فایل STL برای چاپ و ریخته‌گری و ویدیوی ۳۶۰ درجه.</span></a>
+      ${entries.filter(([, t]) => !t.rare).map(card)}
+    </div>
+    <h2>دانش نایاب کارگاه</h2>
+    <div class="tool-grid">${entries.filter(([, t]) => t.rare).map(card)}</div>`);
 }
 
 const field = (name, label, value, extra = '') => html`<label class="field">${label}<input class="input ltr" name="${name}" inputmode="decimal" value="${value}" ${extra}></label>`;
@@ -24,6 +37,7 @@ const ledger = (rows) => html`<div class="ledger">${rows.map(([k, v]) => html`<d
 export function toolPage(root, { id }) {
   const t = TOOLS[id];
   if (!t) return navigate('/tools', { replace: true });
+  const alloySel = (name, sel) => html`<label class="field">فلز<select class="input" name="${name}">${K.ALLOYS.map((a) => html`<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${a.label} (${fa(a.density)})</option>`)}</select></label>`;
   const pr = store.me.pricing;
   const f0 = (n) => K.fmt(n, 0).replace(/٬/g, ',');
   const forms = {
@@ -42,6 +56,18 @@ export function toolPage(root, { id }) {
     karat: html`<div class="form cols">${field('weight', 'وزن قطعه (گرم)', '6')}
       <label class="field">آلیاژ فعلی<select class="input" name="from">${K.ALLOYS.map((a) => html`<option value="${a.id}" ${a.id === 'au18y' ? 'selected' : ''}>${a.label}</option>`)}</select></label>
       <label class="field">آلیاژ مقصد<select class="input" name="to">${K.ALLOYS.map((a) => html`<option value="${a.id}" ${a.id === 'au22' ? 'selected' : ''}>${a.label}</option>`)}</select></label></div>`,
+    alloy: html`<div class="form cols">${field('weight', 'وزن ذوب فعلی (گرم)', '100')}${field('fin', 'عیار فعلی (هزارم)', '750')}${field('target', 'عیار هدف (هزارم)', '585')}${field('addf', 'عیار فلز افزودنی (۰ = آلیاژ آماده)', '0')}</div>`,
+    casting: html`<div class="form cols">${field('wax', 'وزن مدل (گرم)', '1.2')}
+      <label class="field">جنس مدل<select class="input" name="model"><option value="${K.WAX_DENSITY}">موم ریخته‌گری (۰٫۹۵)</option><option value="${K.RESIN_DENSITY}">رزین چاپ سه‌بعدی (۱٫۱۲)</option></select></label>
+      ${alloySel('metal', 'au18y')}${field('sprue', 'راهگاه و دکمه (٪)', '35')}</div>`,
+    plating: html`<div class="form cols">${field('area', 'مساحت سطح (سانتی‌متر مربع)', '2')}${field('mic', 'ضخامت (میکرون)', '0.2')}
+      <label class="field">فلز آبکاری<select class="input" name="pm">${Object.entries(K.PLATING).map(([k, d]) => html`<option value="${d}">${{ rhodium: 'رودیوم', gold: 'طلا', palladium: 'پالادیوم', silver: 'نقره' }[k]} (${fa(d)})</option>`)}</select></label></div>`,
+    stone: html`<div class="form cols">
+      <label class="field">تراش<select class="input" name="cut">${Object.entries(K.STONE_FACTORS).map(([k, f]) => html`<option value="${k}">${f.label}</option>`)}</select></label>
+      ${field('L', 'طول یا قطر (mm)', '6.5')}${field('W', 'عرض (mm) — برای گرد لازم نیست', '6.5')}${field('D', 'عمق (mm)', '4')}
+      <label class="field">سنگ (چگالی)<select class="input" name="sg">${GEM_SG.map(([v, l]) => html`<option value="${v}">${l}</option>`)}</select></label></div>`,
+    resize: html`<div class="form cols">${field('from', 'سایز فعلی (ISO)', '54')}${field('to', 'سایز جدید (ISO)', '56')}${field('w', 'پهنای رکاب (mm)', '4')}${field('t', 'ضخامت رکاب (mm)', '1.8')}${alloySel('metal', 'au18y')}</div>
+      <h3 style="margin-top:18px">مفتول و ورق</h3><div class="form cols">${field('gw', 'وزن فلز (گرم)', '1')}${field('dia', 'قطر مفتول (mm)', '1')}${field('th', 'ضخامت ورق (mm)', '0.5')}</div>`,
   };
   root.innerHTML = String(html`${back('/tools', 'ابزار')}<h1>${t.title}</h1><p class="lead">${t.desc}</p>
     <div class="calc-out" id="out" aria-live="polite"></div><form class="tray" id="tf" style="margin-top:14px">${forms[id]}</form>`);
@@ -93,6 +119,33 @@ export function toolPage(root, { id }) {
       const w = v('weight');
       rows = [['طلای خالص قطعه فعلی', a.fineness ? `${K.fmt(K.pureGold(w, a.fineness), 3)} گرم` : '—'], [`وزن همان مدل در ${b.label}`, `${K.fmt(K.weightInOtherAlloy(w, a.density, b.density), 2)} گرم`], ['نسبت چگالی', `${K.fmt(a.density, 1)} ← ${K.fmt(b.density, 1)}`]];
       note = 'چگالی‌ها تقریبی‌اند و به دستور آلیاژ بستگی دارند.';
+    }
+    else if (id === 'alloy') {
+      const r = K.alloyAdjust({ weight: v('weight'), fineness: v('fin'), target: v('target'), addFineness: v('addf') });
+      rows = Number.isFinite(r.add)
+        ? [[r.addFineness === 0 ? 'آلیاژ آماده لازم' : `فلز ${K.fmt(r.addFineness, 1)} لازم`, `${K.fmt(r.add, 3)} گرم`], ['وزن نهایی ذوب', `${K.fmt(r.total, 3)} گرم`], ['طلای خالص قبل', `${K.fmt(r.pureBefore, 3)} گرم`], ['طلای خالص بعد', `${K.fmt(r.pureAfter, 3)} گرم`]]
+        : [['نتیجه', 'با این فلز افزودنی رسیدن به عیار هدف ممکن نیست']];
+      note = 'برای پایین آوردن عیار فلز افزودنی را ۰ (آلیاژ آماده) و برای بالا بردن ۹۹۹٫۹ بگذارید. پس از ذوب، عیار را دوباره بسنجید.';
+    } else if (id === 'casting') {
+      const a = K.alloyById(form.elements.metal.value);
+      const r = K.waxToMetal({ waxWeight: v('wax'), metalDensity: a.density, modelDensity: Number(form.elements.model.value), sprue: v('sprue') / 100 });
+      rows = [['ضریب مدل به فلز', `× ${K.fmt(r.ratio, 2)}`], [`وزن قطعه در ${a.label}`, `${K.fmt(r.metal, 3)} گرم`], ['فلز لازم برای ذوب', `${K.fmt(r.melt, 2)} گرم`]];
+      note = 'وزن نهایی پس از پرداخت و سوهان‌کاری معمولاً کمی کمتر از عدد ریخته است.';
+    } else if (id === 'plating') {
+      const g = K.platingMass({ areaCm2: v('area'), microns: v('mic'), density: Number(form.elements.pm.value) });
+      rows = [['جرم لایه', `${K.fmt(g * 1000, 3)} میلی‌گرم`], ['به گرم', `${K.fmt(g, 6)} گرم`]];
+      note = 'مساحت سطح هر مدل در استودیوی سه‌بعدی نمایش داده می‌شود.';
+    } else if (id === 'stone') {
+      const cut = form.elements.cut.value;
+      const sg = Number(form.elements.sg.value);
+      const ct = K.stoneCarat({ cut, L: v('L'), W: v('W'), D: v('D'), sg });
+      rows = [['وزن تخمینی', `≈ ${K.fmt(ct, 2)} قیراط`], ['به گرم', `${K.fmt(ct * 0.2, 3)} گرم`], ['اگر الماس بود', `${K.fmt(K.stoneCarat({ cut, L: v('L'), W: v('W'), D: v('D') }), 2)} قیراط`]];
+      note = 'فرمول تجربی است؛ کمربند ضخیم یا بدنه برآمده نتیجه را چند درصد تغییر می‌دهد.';
+    } else if (id === 'resize') {
+      const a = K.alloyById(form.elements.metal.value);
+      const r = K.resizeMetal({ fromSize: v('from'), toSize: v('to'), width: v('w'), thickness: v('t'), density: a.density });
+      rows = [[r.grams >= 0 ? 'فلز لازم برای افزودن' : 'فلز برداشته‌شده', `${K.fmt(Math.abs(r.grams), 3)} گرم`], ['طول مفتول از وزن داده‌شده', `${K.fmt(K.wireLength({ weight: v('gw'), diameter: v('dia'), density: a.density }), 1)} mm`], ['مساحت ورق از وزن داده‌شده', `${K.fmt(K.sheetArea({ weight: v('gw'), thickness: v('th'), density: a.density }), 1)} mm²`]];
+      note = 'هر یک سایز ISO یعنی یک میلی‌متر در محیط داخلی.';
     }
     out.innerHTML = String(html`${ledger(rows)}<p class="small" style="margin-top:10px">${note}</p>`);
   };

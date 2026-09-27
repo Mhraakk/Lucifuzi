@@ -1,11 +1,12 @@
 import { COURSES_A } from './courses-a.mjs';
 import { COURSES_B } from './courses-b.mjs';
+import { COURSES_RARE } from './courses-rare.mjs';
 import { SCENARIOS } from './scenarios.mjs';
 import { SOPS } from './sops.mjs';
 import { REFERENCES, GLOSSARY, PATH } from './library.mjs';
 
 const byPath = (a, b) => PATH.indexOf(a.id) - PATH.indexOf(b.id);
-export const COURSES = [...COURSES_A, ...COURSES_B].sort(byPath);
+export const COURSES = [...COURSES_A, ...COURSES_B, ...COURSES_RARE].sort(byPath);
 export { SCENARIOS, SOPS, REFERENCES, GLOSSARY, PATH };
 
 export const LESSONS = new Map();

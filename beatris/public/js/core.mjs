@@ -149,6 +149,7 @@ export async function render() {
     main.replaceChildren(page);
     window.scrollTo(0, 0);
     cleanup = (await r.handler(page, m.groups ?? {})) ?? null;
+    reveal(page);
     const h1 = $('h1', page);
     document.title = h1 ? `${h1.textContent} · بئاتریس` : 'بئاتریس';
   } catch (e) {
@@ -167,6 +168,26 @@ document.addEventListener('click', (e) => {
   navigate(url.pathname + url.search);
 });
 window.addEventListener('popstate', () => render());
+
+/* ---------- motion: staggered reveal on scroll + pointer light ---------- */
+const io = 'IntersectionObserver' in window ? new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && (e.target.classList.add('in'), io.unobserve(e.target))), { rootMargin: '0px 0px -6% 0px' }) : null;
+export function reveal(root) {
+  if (!io || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const els = $$(':scope > *:not(.home-hero):not(.studio3d):not(.paper), .rows > li, .grid2 > *, .bento > *, .tool-grid > *, .stats > div, .era-item', root);
+  els.forEach((el, i) => {
+    if (el.classList.contains('rv')) return;
+    el.classList.add('rv');
+    el.style.setProperty('--i', String(i % 8));
+    io.observe(el);
+  });
+}
+document.addEventListener('pointermove', (e) => {
+  const el = e.target.closest?.('.tray, .tile, .tool-card');
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+  el.style.setProperty('--my', `${e.clientY - r.top}px`);
+}, { passive: true });
 
 /** Delegate [data-act] clicks inside a root to a handler map. */
 export function actions(root, map) {
