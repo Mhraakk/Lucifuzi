@@ -280,6 +280,15 @@ async function loginUI(page) {
     check('invoice prefilled from studio', noBadNumbers(out) && out.length > 20);
   });
 
+  await step('hostile URL parameters fall back safely', async () => {
+    await go(page, '/tools/toString', 800);
+    check('/tools/toString → tools list', new URL(page.url()).pathname === '/tools');
+    await go(page, '/drill?k=constructor', 1200);
+    check('/drill?k=constructor → default drill', (await page.$eval('[data-k="invoice"]', (b) => b.getAttribute('aria-pressed')).catch(() => null)) === 'true');
+    await go(page, '/coins?kind=__proto__&coin=toString&seal=valueOf&scenario=hasOwnProperty', 5000);
+    check('/coins with prototype keys → genuine full coin', /تمام امامی/.test(await text(page, '#ltitle')));
+  });
+
   await step('coin lab: study, tools, seal, game, course link', async () => {
     const geoCheck = await page.evaluate(async () => {
       const [C3, K] = await Promise.all([import('/js/three/coins3d.mjs'), import('/js/coins.mjs')]);

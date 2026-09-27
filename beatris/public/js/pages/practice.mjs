@@ -170,7 +170,7 @@ export async function cardsPage(root) {
 /* ---------------- drills ---------------- */
 export async function drillPage(root) {
   const params = new URLSearchParams(location.search);
-  let kind = params.get('k') in DRILL_KINDS ? params.get('k') : 'invoice';
+  let kind = Object.hasOwn(DRILL_KINDS, params.get('k') ?? '') ? params.get('k') : 'invoice';
   let streak = 0;
   let drill;
   const base = store.me.pricing.p750;

@@ -35,6 +35,9 @@ const f2 = (n) => fmt(n, 2);
 /** Probability as a Persian percentage; never prints a false 0 % or 100 %. */
 const pct = (p) => (p < 0.001 ? 'کمتر از ۰٫۱٪' : p > 0.999 ? 'بیش از ۹۹٫۹٪' : `${fmt(p * 100, p < 0.1 || p > 0.9 ? 1 : 0)}٪`);
 
+/** A URL parameter is used only if it names one of the table's own keys (never "toString" and the like). */
+const pickKey = (table, key, fallback) => (key != null && Object.hasOwn(table, key) ? key : fallback);
+
 function disposeTree(obj) {
   obj.traverse((o) => {
     o.geometry?.dispose?.();
@@ -51,10 +54,10 @@ export async function coinLabPage(root) {
   const S = {
     area: mode === 'seal' || mode === 'sealgame' ? 'seal' : 'coin',
     game: mode === 'game' || mode === 'sealgame',
-    coin: COIN_TYPES[q.get('coin')] ? q.get('coin') : 'emami',
-    kind: SPECIMENS[q.get('kind')] ? q.get('kind') : 'genuine',
-    sealType: SEAL_TYPES[q.get('seal')] ? q.get('seal') : 'bank',
-    scenario: SEAL_SCENARIOS[q.get('scenario')] ? q.get('scenario') : 'S0',
+    coin: pickKey(COIN_TYPES, q.get('coin'), 'emami'),
+    kind: pickKey(SPECIMENS, q.get('kind'), 'genuine'),
+    sealType: pickKey(SEAL_TYPES, q.get('seal'), 'bank'),
+    scenario: pickKey(SEAL_SCENARIOS, q.get('scenario'), 'S0'),
     coinCtx: 'counter',
     sealCtx: 'market',
     rate: null, // user override of the overall fraud rate (study only)
@@ -572,6 +575,7 @@ export async function coinLabPage(root) {
 
   const part = (name) => sealMesh?.children.find((o) => o.userData.part === name);
   function useSealTool(k) {
+    tweens.clear(); // e.g. a running hologram light sweep must not re-light the scene for the next tool
     S.lastTool = k;
     S.measured[k] = true;
     if (k === 'magnet') magnetTest();

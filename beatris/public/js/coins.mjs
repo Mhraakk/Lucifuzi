@@ -268,7 +268,8 @@ export function rankTests(prior, lik, evidence, tests, safe) {
 export function binaryPosterior(prior, sens, fp, flagged = true) {
   const a = prior * (flagged ? sens : 1 - sens);
   const b = (1 - prior) * (flagged ? fp : 1 - fp);
-  return a / (a + b);
+  // a result the model calls impossible (e.g. certainty met by contradicting evidence) carries no usable information
+  return a + b > 0 ? a / (a + b) : prior;
 }
 /** Likelihood ratios of a test: LR+ = sens / fp, LR− = (1 − sens) / (1 − fp). */
 export const likelihoodRatios = (sens, fp) => ({ pos: sens / fp, neg: (1 - sens) / (1 - fp) });
@@ -279,7 +280,7 @@ export const DECISION = [
   { max: 0.25, key: 'more', label: 'آزمون بیشتر', note: 'هنوز مطمئن نیستید؛ آزمون پیشنهادی بعدی را انجام دهید.' },
   { max: 1.01, key: 'reject', label: 'رد یا ارجاع', note: 'نرخ پلمپ یا سکه را ندهید؛ تأیید آزمایشگاهی لازم است.' },
 ];
-export const decide = (pFraud) => DECISION.find((d) => pFraud < d.max);
+export const decide = (pFraud) => (Number.isFinite(pFraud) ? DECISION.find((d) => pFraud < d.max) : DECISION[1]);
 
 /** Rescale a prior so the non-safe hypotheses sum to `rate`, keeping their mix. */
 export function withFraudRate(prior, safe, rate) {

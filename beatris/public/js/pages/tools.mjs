@@ -38,7 +38,7 @@ const field = (name, label, value, extra = '') => html`<label class="field">${la
 const ledger = (rows) => html`<div class="ledger">${rows.map(([k, v]) => html`<div><span>${k}</span><span class="num">${v}</span></div>`)}</div>`;
 
 export function toolPage(root, { id }) {
-  const t = TOOLS[id];
+  const t = Object.hasOwn(TOOLS, id) ? TOOLS[id] : null;
   if (!t) return navigate('/tools', { replace: true });
   const alloySel = (name, sel) => html`<label class="field">فلز<select class="input" name="${name}">${K.ALLOYS.map((a) => html`<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${a.label} (${fa(a.density)})</option>`)}</select></label>`;
   const pr = store.me.pricing;
