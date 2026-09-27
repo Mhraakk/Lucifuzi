@@ -1,4 +1,4 @@
-import { html, raw, fa, store, toast, $, $$ } from '../core.mjs';
+import { html, raw, fa, store, toast, api, $, $$ } from '../core.mjs';
 import { ICON } from '../ui.mjs';
 import { ALLOYS, alloyById, fmt, fmtT, pricePerGramAt, ringFromCircumference } from '../calc.mjs';
 
@@ -124,10 +124,15 @@ export async function studioPage(root) {
     const d = typeof json === 'string' ? JSON.parse(json) : json;
     for (const o of objs.values()) stage.root.remove(o.group);
     objs.clear();
-    S.parts = (d.parts ?? []).filter((p) => J.PIECES[p.type]);
+    S.parts = (Array.isArray(d.parts) ? d.parts : []).filter((p) => J.PIECES[p?.type]).slice(0, 24).map(sanitize);
     uid = Math.max(1, ...S.parts.map((p) => p.id + 1));
     S.sel = S.parts.find((p) => p.id === d.sel)?.id ?? S.parts[0]?.id ?? null;
-    Object.assign(S.scene, d.scene ?? {});
+    const sc = d.scene ?? {};
+    if (ENVS.some(([k]) => k === sc.env)) S.scene.env = sc.env;
+    if (BACKDROPS.some(([k]) => k === sc.backdrop)) S.scene.backdrop = sc.backdrop;
+    if (Number.isFinite(sc.exposure)) S.scene.exposure = Math.min(2, Math.max(0.4, sc.exposure));
+    if (typeof sc.bloom === 'boolean') S.scene.bloom = sc.bloom;
+    if (typeof sc.shadow === 'boolean') S.scene.shadow = sc.shadow;
     applyScene();
     await Promise.all(S.parts.map((p) => rebuild(p)));
     select(S.sel);
@@ -136,6 +141,28 @@ export async function studioPage(root) {
     if (record) pushHistory();
   }
   const cur = () => S.parts.find((p) => p.id === S.sel) ?? null;
+  /** Project files and saved state are untrusted: clamp every number to the piece's range. */
+  function sanitize(raw) {
+    const def = J.PIECES[raw.type];
+    const base = newPart(raw.type);
+    const num = (v, lo, hi, dflt) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : dflt);
+    for (const [k, [dflt, lo, hi]] of Object.entries(def.params)) base.params[k] = num(raw.params?.[k], lo, hi, dflt);
+    for (const k of Object.keys(def.opts)) {
+      const v = raw.opts?.[k];
+      if (typeof v === 'string') base.opts[k] = v.slice(0, 40);
+      else if (typeof v === 'boolean') base.opts[k] = v;
+    }
+    if (typeof raw.opts?.imageData === 'string' && raw.opts.imageData.startsWith('data:image/') && raw.opts.imageData.length < 4e6) base.opts.imageData = raw.opts.imageData;
+    if (Mt.METALS[raw.alloy]) base.alloy = raw.alloy;
+    if (Mt.FINISHES.some(([f]) => f === raw.finish)) base.finish = raw.finish;
+    if (Mt.GEMS[raw.gem]) base.gem = raw.gem;
+    if (Mt.GEMS[raw.gem2]) base.gem2 = raw.gem2;
+    base.pos = [0, 1, 2].map((i) => num(raw.pos?.[i], -500, 500, 0));
+    base.rot = [0, 1, 2].map((i) => num(raw.rot?.[i], -10, 10, 0));
+    base.scale = num(raw.scale, 0.05, 20, 1);
+    base.id = Number.isInteger(raw.id) && raw.id > 0 ? raw.id : base.id;
+    return base;
+  }
 
   /* ---------------- building ---------------- */
   const loadImage = (src) => {
@@ -279,7 +306,8 @@ export async function studioPage(root) {
     }
     for (const g of m.gems) rows.push([`${Mt.GEMS[g.kind]?.label ?? g.kind}${g.count > 1 ? ` × ${fa(g.count)}` : ''}`, `${fmt(g.each, 3)} قیراط${g.count > 1 ? ` (جمع ${fmt(g.ct, 2)})` : ''}`]);
     const cmp = J.PIECES[p.type].noMetal ? '' : html`<h3 style="margin-top:14px">همین قطعه در آلیاژهای دیگر</h3><div class="compare">${ALLOYS.map((al) => html`<button data-alloy="${al.id}" aria-pressed="${al.id === p.alloy}"><b>${fmt((m.vol / 1000) * al.density, 2)} گ</b><span>${al.label}</span></button>`)}</div>`;
-    return html`<div class="kv">${rows.map(([k, v]) => html`<span>${k}</span><b>${fa(v)}</b>`)}</div>${cmp}`;
+    const inv = m.a.fineness ? html`<a class="btn small" style="margin-top:14px" href="/tools/invoice?weight=${m.grams.toFixed(3)}&fineness=${m.a.fineness}" data-link>پیش‌فاکتور همین قطعه</a>` : '';
+    return html`<div class="kv">${rows.map(([k, v]) => html`<span>${k}</span><b>${fa(v)}</b>`)}</div>${inv}${cmp}`;
   }
 
   /* ---------------- panel ---------------- */
@@ -352,7 +380,10 @@ export async function studioPage(root) {
         <div class="actions" style="margin-top:0">
           <button class="btn small" data-act="export">${ICON.download} تصویر و مدل</button>
           <button class="btn small ghost" data-act="video">${ICON.video} ویدیوی ۳۶۰°</button>
-          <button class="btn small ghost" data-act="save">ذخیره پروژه</button>
+          <button class="btn small ghost" data-act="card">کارت مشخصات برای مشتری</button>
+          <button class="btn small ghost" data-act="publish">ذخیره در گالری تیم</button>
+          <button class="btn small ghost" data-act="gallery">گالری تیم</button>
+          <button class="btn small ghost" data-act="save">فایل پروژه</button>
           <label class="btn small ghost" style="cursor:pointer">بازکردن پروژه<input type="file" accept=".json,application/json" data-load hidden></label>
         </div>
         <p class="small">STL و OBJ به میلی‌متر برای چاپ سه‌بعدی و ریخته‌گری؛ GLB و USDZ به متر برای وب و واقعیت افزوده.</p>
@@ -539,6 +570,9 @@ export async function studioPage(root) {
       download(r.blob, `beatris-${Date.now()}.png`);
     } else if (act === 'export') exportDialog();
     else if (act === 'video') videoDialog();
+    else if (act === 'card') specCardDialog();
+    else if (act === 'publish') publishDialog();
+    else if (act === 'gallery') galleryDialog();
     else if (act === 'save') download(new Blob([snapshotState()], { type: 'application/json' }), `beatris-project-${Date.now()}.json`);
   }
 
@@ -683,6 +717,177 @@ export async function studioPage(root) {
       download(new Blob([data], { type: 'model/vnd.usdz+zip' }), `${name}.usdz`);
     }
     toast('فایل آماده شد.', 'ok');
+  }
+
+  const blobToDataURL = (b) => new Promise((res) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.readAsDataURL(b);
+  });
+  const partsLabel = () => [...new Set(S.parts.map((p) => J.PIECES[p.type].label))].join(' + ');
+  function summaryLine() {
+    const t = totals();
+    const p = S.parts.find((x) => !J.PIECES[x.type].noMetal);
+    const bits = [];
+    if (p) bits.push(`${alloyById(p.alloy).label} · ${fmt(t.grams, 2)} گرم`);
+    if (t.ct) bits.push(`سنگ ${fmt(t.ct, 2)} قیراط`);
+    return fa(bits.join(' · '));
+  }
+
+  function publishDialog() {
+    if (!S.parts.length) return toast('صحنه خالی است.');
+    modal(
+      String(html`<h3 style="font-family:var(--display);font-size:26px">ذخیره در گالری تیم</h3><p class="small">همکاران شعبه طرح را می‌بینند و می‌توانند آن را باز کنند.</p>
+      <label class="field" style="margin:12px 0">نام طرح<input class="input" id="dtitle" maxlength="80" value="${partsLabel()}"></label>
+      <div class="actions"><button class="btn" data-pub>ذخیره</button></div>`),
+      (m, close) => {
+        m.addEventListener('click', async (e) => {
+          const b = e.target.closest('[data-pub]');
+          if (!b) return;
+          b.classList.add('is-busy');
+          try {
+            const shot = await stage.snapshot({ width: 480, height: 480, type: 'image/jpeg', quality: 0.8 });
+            const project = JSON.parse(snapshotState());
+            await api('/api/designs', { method: 'POST', body: { title: $('#dtitle', m).value, summary: summaryLine(), thumb: await blobToDataURL(shot.blob), project } });
+            toast('در گالری تیم ذخیره شد.', 'ok');
+            close();
+          } catch (err) {
+            toast(err.message, 'error');
+            b.classList.remove('is-busy');
+          }
+        });
+      },
+    );
+  }
+
+  async function galleryDialog() {
+    let list;
+    try {
+      list = (await api('/api/designs')).designs;
+    } catch (err) {
+      return toast(err.message, 'error');
+    }
+    const me = store.me.user;
+    const canDel = (d) => d.userId === me.id || store.isAdmin();
+    modal(
+      String(html`<h3 style="font-family:var(--display);font-size:26px;margin-bottom:12px">گالری تیم</h3>
+      ${list.length
+        ? html`<div class="gallery">${list.map((d) => html`<figure data-open="${d.id}"><img src="${d.thumb}" alt="${d.title}" loading="lazy"><figcaption><b>${d.title}</b><span>${d.summary}</span><span>${d.author} · ${new Date(d.createdAt).toLocaleDateString('fa-IR')}</span></figcaption>${canDel(d) ? html`<button data-del-design="${d.id}" title="حذف">×</button>` : ''}</figure>`)}</div>`
+        : html`<p class="small">هنوز طرحی ذخیره نشده است. اولین طرح را از «ذخیره در گالری تیم» بسازید.</p>`}`),
+      (m, close) => {
+        m.addEventListener('click', async (e) => {
+          const del = e.target.closest('[data-del-design]');
+          if (del) {
+            e.stopPropagation();
+            try {
+              await api(`/api/designs/${del.dataset.delDesign}`, { method: 'DELETE' });
+              del.closest('figure').remove();
+              toast('طرح حذف شد.', 'ok');
+            } catch (err) {
+              toast(err.message, 'error');
+            }
+            return;
+          }
+          const f = e.target.closest('[data-open]');
+          if (!f) return;
+          try {
+            const d = await api(`/api/designs/${f.dataset.open}`);
+            close();
+            await restore(d.project);
+            toast(fa(`«${d.title}» باز شد.`), 'ok');
+          } catch (err) {
+            toast(err.message, 'error');
+          }
+        });
+      },
+    );
+  }
+
+  /** A portrait card (1080×1350) for WhatsApp / Instagram: render + specifications. */
+  function specCardDialog() {
+    if (!S.parts.length) return toast('صحنه خالی است.');
+    modal(
+      String(html`<h3 style="font-family:var(--display);font-size:26px">کارت مشخصات</h3><p class="small">تصویر عمودی ۱۰۸۰×۱۳۵۰ با رندر طرح و مشخصات، آماده ارسال برای مشتری.</p>
+      <label class="field" style="margin:12px 0">عنوان روی کارت<input class="input" id="ctitle" maxlength="60" value="${partsLabel()}"></label>
+      <label class="small" style="display:flex;gap:8px;margin-bottom:14px"><input type="checkbox" id="cprice" checked> ارزش طلا با قیمت امروز روی کارت باشد</label>
+      <div class="actions"><button class="btn" data-mk>ساخت و اشتراک</button></div>`),
+      (m, close) => {
+        m.addEventListener('click', async (e) => {
+          const b = e.target.closest('[data-mk]');
+          if (!b) return;
+          b.classList.add('is-busy');
+          try {
+            const blob = await specCard($('#ctitle', m).value, $('#cprice', m).checked);
+            const file = new File([blob], `beatris-card-${Date.now()}.png`, { type: 'image/png' });
+            if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: $('#ctitle', m).value }).catch(() => download(blob, file.name));
+            else download(blob, file.name);
+            close();
+          } catch (err) {
+            console.error(err);
+            toast('کارت ساخته نشد.', 'error');
+            b.classList.remove('is-busy');
+          }
+        });
+      },
+    );
+  }
+  async function specCard(title, withPrice) {
+    await Promise.all(['600 64px Markazi', '400 30px Vazirmatn', '700 30px Vazirmatn', '600 30px Kufi'].map((f) => document.fonts.load(f, 'طلا ۱۲۳')));
+    const W = 1080, H = 1350;
+    const c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    const g = c.getContext('2d');
+    const bg = g.createRadialGradient(W * 0.5, H * 0.32, 40, W * 0.5, H * 0.4, W * 0.95);
+    bg.addColorStop(0, '#3a2c16');
+    bg.addColorStop(0.55, '#15110b');
+    bg.addColorStop(1, '#080705');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, W, H);
+    const shot = await stage.snapshot({ width: 1080, height: 900, transparent: true });
+    const img = await createImageBitmap(shot.blob);
+    g.drawImage(img, 0, 70, 1080, 900);
+    const gold = g.createLinearGradient(0, 0, W, 0);
+    gold.addColorStop(0, '#fff3cf');
+    gold.addColorStop(0.45, '#e3b862');
+    gold.addColorStop(1, '#a8761f');
+    g.direction = 'rtl';
+    g.textAlign = 'right';
+    const R = W - 80;
+    g.fillStyle = '#e3b862';
+    g.font = '600 30px Kufi';
+    g.fillText('بئاتریس', R, 86);
+    g.fillStyle = '#a2977f';
+    g.font = '400 24px Vazirmatn';
+    g.textAlign = 'left';
+    g.fillText(new Date().toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }), 80, 86);
+    g.textAlign = 'right';
+    g.fillStyle = gold;
+    g.font = '600 76px Markazi';
+    g.fillText(title || partsLabel(), R, 1035);
+    const t = totals();
+    const lines = [];
+    for (const p of S.parts) {
+      const mm = metricsFor(p);
+      if (!mm) continue;
+      if (!J.PIECES[p.type].noMetal) lines.push(`${J.PIECES[p.type].label} · ${mm.a.label} · ${fmt(mm.grams, 2)} گرم`);
+      for (const gm of mm.gems) lines.push(`${Mt.GEMS[gm.kind]?.label ?? ''}${gm.count > 1 ? ` × ${gm.count}` : ''} · ${fmt(gm.ct, 2)} قیراط`);
+    }
+    g.fillStyle = '#efe6d2';
+    g.font = '400 32px Vazirmatn';
+    lines.slice(0, withPrice && t.gold ? 3 : 4).forEach((l, i) => g.fillText(fa(l), R, 1105 + i * 50));
+    if (withPrice && t.gold) {
+      g.fillStyle = '#f7e6b0';
+      g.font = '700 38px Vazirmatn';
+      g.fillText(fa(`ارزش طلا امروز: ${fmtT(t.gold)}`), R, Math.min(H - 110, 1105 + Math.min(4, lines.length) * 50 + 20));
+    }
+    g.fillStyle = '#6f6655';
+    g.font = '400 20px Vazirmatn';
+    g.fillText('وزن و قیراط از مدل سه‌بعدی محاسبه شده و تخمینی است؛ وزن نهایی پس از ساخت اعلام می‌شود.', R, H - 58);
+    g.strokeStyle = 'rgba(227,184,98,.35)';
+    g.lineWidth = 2;
+    g.strokeRect(36, 36, W - 72, H - 72);
+    return new Promise((res) => c.toBlob(res, 'image/png'));
   }
 
   function videoDialog() {

@@ -309,6 +309,41 @@ export function createApi({ db, signer, demo }) {
     return { inAt: r.in_at, outAt: r.out_at };
   });
 
+  /* ---------------- design gallery (shared by the whole team) ---------------- */
+  const MAX_PROJECT = 1_500_000;
+  const MAX_THUMB = 150_000; // ~40 KB JPEG from the studio; keeps the gallery list light
+  on('GET', '/api/designs', 'auth', () => ({
+    designs: db
+      .all('SELECT d.id, d.title, d.summary, d.thumb, d.created_at AS createdAt, d.user_id AS userId, u.name AS author FROM designs d JOIN users u ON u.id=d.user_id ORDER BY d.created_at DESC LIMIT 120'),
+  }));
+  on('GET', '/api/designs/:id', 'auth', ({ params }) => {
+    const d = db.get('SELECT id, title, summary, project_json, created_at FROM designs WHERE id=?', params.id);
+    if (!d) throw notFound('طرح پیدا نشد.');
+    return { id: d.id, title: d.title, summary: d.summary, project: JSON.parse(d.project_json), createdAt: d.created_at };
+  });
+  on('POST', '/api/designs', 'auth', ({ user, body }) => {
+    const title = String(body.title ?? '').trim().slice(0, 80);
+    if (title.length < 2) throw bad('برای طرح یک نام بنویسید.');
+    const thumb = String(body.thumb ?? '');
+    if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(thumb) || thumb.length > MAX_THUMB) throw bad('تصویر کوچک طرح نامعتبر است.');
+    const project = body.project;
+    if (!project || typeof project !== 'object' || !Array.isArray(project.parts) || !project.parts.length) throw bad('پروژه خالی است.');
+    const json = JSON.stringify(project);
+    if (json.length > MAX_PROJECT) throw bad('حجم پروژه بیش از حد مجاز است؛ تصویر نقش برجسته را کوچک‌تر کنید.');
+    const id = randomUUID();
+    db.run('INSERT INTO designs(id,user_id,title,summary,project_json,thumb,created_at) VALUES (?,?,?,?,?,?,?)', id, user.id, title, String(body.summary ?? '').slice(0, 200), json, thumb, now());
+    audit(user.id, 'design.create', { id, title });
+    return { id };
+  });
+  on('DELETE', '/api/designs/:id', 'auth', ({ user, params }) => {
+    const d = db.get('SELECT user_id FROM designs WHERE id=?', params.id);
+    if (!d) throw notFound('طرح پیدا نشد.');
+    if (d.user_id !== user.id && !ADMIN_ROLES.has(user.role)) throw new HttpError(403, 'فقط سازنده طرح یا مدیر می‌تواند آن را حذف کند.');
+    db.run('DELETE FROM designs WHERE id=?', params.id);
+    audit(user.id, 'design.delete', { id: params.id });
+    return { ok: true };
+  });
+
   /* ---------------- team (trainer / manager / owner) ---------------- */
   on('GET', '/api/team', 'staff', () => {
     const day = tehranDay();

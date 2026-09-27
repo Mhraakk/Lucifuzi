@@ -50,13 +50,13 @@ export function createServer({ db, secret, demo, quiet = false }) {
     res.end(req.method === 'HEAD' ? undefined : useGz ? entry.gz : entry.buf);
   }
 
-  function readBody(req) {
+  function readBody(req, limit = 128 * 1024) {
     return new Promise((resolve, reject) => {
       let size = 0;
       const chunks = [];
       req.on('data', (c) => {
         size += c.length;
-        if (size > 128 * 1024) {
+        if (size > limit) {
           reject(new HttpError(413, 'درخواست بیش از حد بزرگ است.'));
           req.destroy();
         } else chunks.push(c);
@@ -92,7 +92,7 @@ export function createServer({ db, secret, demo, quiet = false }) {
       res.end(body);
     };
     try {
-      const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
+      const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, url.pathname === '/api/designs' ? 2 * 1024 * 1024 : undefined) : {};
       const out = await handle(req, url, body, ip);
       send(200, out);
     } catch (e) {

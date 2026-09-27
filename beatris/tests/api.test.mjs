@@ -105,3 +105,22 @@ test('رمز تا ۱۲ رقم؛ خاموش شدن دمو حساب‌های نم�
   assert.equal(await post({ phone: '09120000001', pin: '1234' }), 401);
   s.close();
 });
+test('گالری طرح: ذخیره، فهرست، باز کردن، حذف با مجوز', async () => {
+  const e = await login('09120000004');
+  const m = await login('09120000002');
+  const thumb = 'data:image/png;base64,iVBORw0KGgo=';
+  const project = { parts: [{ type: 'band', params: { size: 54 } }], scene: {} };
+  assert.equal((await call('POST', '/api/designs', { title: 'x', thumb, project }, e)).status, 400);
+  assert.equal((await call('POST', '/api/designs', { title: 'حلقه نمونه', thumb: 'javascript:alert(1)', project }, e)).status, 400);
+  assert.equal((await call('POST', '/api/designs', { title: 'حلقه نمونه', thumb, project: { parts: [] } }, e)).status, 400);
+  const c = await call('POST', '/api/designs', { title: 'حلقه نمونه', summary: '۵ گرم', thumb, project }, e);
+  assert.equal(c.status, 200);
+  const list = (await call('GET', '/api/designs', null, m)).body.designs;
+  assert.ok(list.some((d) => d.id === c.body.id && d.author));
+  const one = (await call('GET', `/api/designs/${c.body.id}`, null, m)).body;
+  assert.equal(one.project.parts[0].type, 'band');
+  const other = await login('09120000005');
+  assert.equal((await call('DELETE', `/api/designs/${c.body.id}`, null, other)).status, 403);
+  assert.equal((await call('DELETE', `/api/designs/${c.body.id}`, null, m)).status, 200);
+  assert.equal((await call('GET', `/api/designs/${c.body.id}`, null, m)).status, 404);
+});

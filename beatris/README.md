@@ -5,8 +5,9 @@ Node 22 · بدون وابستگی npm · `node:http` + `node:sqlite` · SPA م�
 ## اجرا
 ```bash
 npm run dev        # http://localhost:3000 با حساب‌های نمایشی (رمز 1234)
-npm test           # 17 تست محاسبه، محتوا و API
+npm test           # ۲۰ تست محاسبه، محتوا و API
 npm run check      # بررسی نحو همه ماژول‌ها + اعتبار محتوا
+npm run e2e        # تست سرتاسری مرورگر (Playwright) روی سرور موقت
 ```
 
 ## متغیرهای محیطی

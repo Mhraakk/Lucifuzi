@@ -39,11 +39,12 @@ export function toolPage(root, { id }) {
   if (!t) return navigate('/tools', { replace: true });
   const alloySel = (name, sel) => html`<label class="field">فلز<select class="input" name="${name}">${K.ALLOYS.map((a) => html`<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${a.label} (${fa(a.density)})</option>`)}</select></label>`;
   const pr = store.me.pricing;
+  const q = new URLSearchParams(location.search);
   const f0 = (n) => K.fmt(n, 0).replace(/٬/g, ',');
   const forms = {
     invoice: html`<div class="form cols">
-      ${field('weight', 'وزن (گرم)', '5')}${field('p750', 'قیمت هر گرم ۱۸ عیار (تومان)', f0(pr.p750))}
-      <label class="field">عیار<select class="input" name="fineness">${K.KARATS.map((k) => html`<option value="${k.fineness}" ${k.fineness === 750 ? 'selected' : ''}>${fa(k.karat)} عیار (${fa(k.fineness)})</option>`)}</select></label>
+      ${field('weight', 'وزن (گرم)', q.get('weight') ? fa(q.get('weight')) : '5')}${field('p750', 'قیمت هر گرم ۱۸ عیار (تومان)', f0(pr.p750))}
+      <label class="field">عیار<select class="input" name="fineness">${K.KARATS.map((k) => html`<option value="${k.fineness}" ${k.fineness === (Number(q.get('fineness')) || 750) ? 'selected' : ''}>${fa(k.karat)} عیار (${fa(k.fineness)})</option>`)}</select></label>
       <label class="field">نوع اجرت<select class="input" name="mode"><option value="percent">درصدی</option><option value="perGram">مبلغ هر گرم</option><option value="fixed">مبلغ کل</option></select></label>
       ${field('ojrat', 'اجرت', '15')}${field('profit', 'سود فروشنده (٪)', String(pr.profitPct))}${field('vat', 'مالیات بر ارزش افزوده (٪)', String(pr.vatPct))}</div>`,
     mazaneh: html`<div class="form cols">${field('m', 'مظنه (تومان)', f0(K.mazanehFromG750(pr.p750)))}${field('g', 'قیمت هر گرم ۱۸ (تومان)', f0(pr.p750))}</div>
