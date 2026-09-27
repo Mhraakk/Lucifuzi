@@ -85,7 +85,7 @@ async function coinArt(host) {
     pivot.add(g);
     stage.root.add(pivot);
     stage.setShadow(false);
-    stage.frame(stage.root, { instant: true, pitch: 0.05, yaw: 0, pad: 1.6 });
+    stage.frame(stage.root, { instant: true, pitch: 0.05, yaw: 0, pad: innerWidth < 900 ? 2.3 : 1.6 });
     const t0 = performance.now();
     const stop = stage.onTick((t) => {
       const k = (t - t0) / 1000;

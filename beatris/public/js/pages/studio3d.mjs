@@ -298,6 +298,7 @@ export async function studioPage(root) {
     const def = p && J.PIECES[p.type];
     const gemKinds = Object.entries(Mt.GEMS);
     panel.innerHTML = String(html`
+      <div class="sheet-handle" data-sheet role="button" aria-label="باز و بسته کردن تنظیمات"></div>
       <div class="grp">
         <h3><span>نمونه‌های آماده</span></h3>
         <div class="chips">${PRESETS.map((pr, i) => html`<button class="chip" data-preset="${i}">${pr.label}</button>`)}</div>
@@ -488,6 +489,31 @@ export async function studioPage(root) {
       applyScene();
       pushHistory();
     } else if (d.act) onAct(d.act, b);
+  });
+  // bottom sheet (phones): tap or drag the handle
+  let drag = null;
+  panel.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest('[data-sheet]')) return;
+    drag = { y: e.clientY, moved: false };
+    panel.classList.add('dragging');
+    e.target.setPointerCapture?.(e.pointerId);
+  });
+  panel.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dy = e.clientY - drag.y;
+    if (Math.abs(dy) > 6) drag.moved = true;
+    const base = panel.classList.contains('open') ? 0 : panel.offsetHeight - 190;
+    panel.style.transform = `translateY(${Math.max(0, base + dy)}px)`;
+  });
+  panel.addEventListener('pointerup', (e) => {
+    if (!drag) return;
+    const dy = e.clientY - drag.y;
+    panel.classList.remove('dragging');
+    panel.style.transform = '';
+    if (!drag.moved) panel.classList.toggle('open');
+    else if (dy < -40) panel.classList.add('open');
+    else if (dy > 40) panel.classList.remove('open');
+    drag = null;
   });
   vp.addEventListener('click', (e) => {
     const b = e.target.closest('button');

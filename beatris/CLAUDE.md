@@ -1,8 +1,10 @@
 # Beatris — دستور کار برای Claude Code
 
 ## پروژه
-اپ آموزش کارکنان گالری طلا. Node 22، بدون وابستگی runtime (`node:http` + `node:sqlite`)، SPA فارسی RTL، موتور WebGL2 اختصاصی.
-- تست: `npm test` (باید ۱۷/۱۷ پاس شود)
+اپ آموزش کارکنان گالری طلا. Node 22، بدون وابستگی runtime سرور (`node:http` + `node:sqlite`)، SPA فارسی RTL.
+- تست: `npm test` (باید ۱۹/۱۹ پاس شود)
+- سه‌بعدی: three.js به‌صورت یک فایل باندل در `public/vendor/three.bundle.js` (ورودی: `scripts/three-entry.js`، ساخت با esbuild: `esbuild scripts/three-entry.js --bundle --format=esm --minify --outfile=public/vendor/three.bundle.js`). کد استودیو در `public/js/three/` و `public/js/pages/studio3d.mjs`؛ موتور قدیمی `public/js/gl/` فقط برای مدل‌های درون درس.
+- فونت‌ها محلی در `public/fonts/` (بدون CDN؛ برای دسترس‌پذیری در ایران). روی متن فارسی letter-spacing نگذارید (اتصال حروف می‌شکند).
 - اجرای محلی: `npm run dev` → http://localhost:3000 (دمو: 09120000001، رمز 1234)
 
 ## استقرار (Railway — سرور دائمی، نه serverless)
