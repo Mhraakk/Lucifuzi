@@ -15,7 +15,7 @@ export async function loginPage(root) {
           <input class="input ltr" name="phone" inputmode="tel" autocomplete="username" placeholder="۰۹۱۲۰۰۰۰۰۰۰" required>
         </label>
         <label class="field">رمز عددی
-          <input class="input ltr" name="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8" required>
+          <input class="input ltr" name="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" required>
         </label>
         <p class="err" id="err" role="alert"></p>
         <button class="btn block" type="submit">ورود</button>

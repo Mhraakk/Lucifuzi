@@ -22,7 +22,7 @@ export function verifyPin(pin, stored) {
   const got = scryptSync(digits(pin), Buffer.from(s, 'base64url'), expect.length, { N: 16384, r: 8, p: 1 });
   return got.length === expect.length && timingSafeEqual(got, expect);
 }
-export const validPin = (pin) => /^[0-9]{4,8}$/.test(digits(pin));
+export const validPin = (pin) => /^[0-9]{4,12}$/.test(digits(pin));
 export function normalizePhone(p) {
   const d = String(p ?? '')
     .replace(/[۰-۹]/g, (c) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))

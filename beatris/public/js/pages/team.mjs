@@ -41,7 +41,7 @@ export async function teamPage(root) {
         <label class="field">موبایل<input class="input ltr" name="phone" inputmode="tel" required placeholder="۰۹…"></label>
         <label class="field">نقش<select class="input" name="role"><option value="employee">فروشنده</option><option value="trainer">مربی</option><option value="manager">مدیر</option>${store.me.user.role === 'owner' ? html`<option value="owner">مالک</option>` : ''}</select></label>
         <label class="field">شعبه<input class="input" name="branch" value="${store.me.user.branch}"></label>
-        <label class="field">رمز اولیه (۴ تا ۸ رقم)<input class="input ltr" name="pin" inputmode="numeric" maxlength="8" required></label>
+        <label class="field">رمز اولیه (۴ تا ۱۲ رقم)<input class="input ltr" name="pin" inputmode="numeric" maxlength="12" required></label>
         <div style="align-self:end"><button class="btn block" type="submit">افزودن</button></div>
       </form>` : ''}`);
 
@@ -101,7 +101,7 @@ export async function memberPage(root, { id }) {
       <div class="tray form cols">
         <label class="field">نقش<select class="input" id="role">${['employee', 'trainer', 'manager', ...(store.me.user.role === 'owner' ? ['owner'] : [])].map((r) => html`<option value="${r}" ${r === u.role ? 'selected' : ''}>${ROLE_FA[r]}</option>`)}</select></label>
         <label class="field">شعبه<input class="input" id="branch" value="${u.branch}"></label>
-        <label class="field">رمز جدید<input class="input ltr" id="npin" inputmode="numeric" maxlength="8" placeholder="خالی = بدون تغییر"></label>
+        <label class="field">رمز جدید<input class="input ltr" id="npin" inputmode="numeric" maxlength="12" placeholder="خالی = بدون تغییر"></label>
         <div style="align-self:end"><button class="btn block" data-act="save">ذخیره</button></div>
       </div>
       <div class="actions"><button class="btn ${u.active ? 'danger' : ''}" data-act="toggle">${u.active ? 'غیرفعال کردن حساب' : 'فعال کردن حساب'}</button></div>` : ''}`);

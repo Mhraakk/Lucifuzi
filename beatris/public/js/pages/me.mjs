@@ -23,8 +23,8 @@ export function mePage(root) {
 
     <h2>امنیت حساب</h2>
     <form class="tray form cols" id="pin">
-      <label class="field">رمز فعلی<input class="input ltr" name="current" type="password" inputmode="numeric" maxlength="8" autocomplete="current-password"></label>
-      <label class="field">رمز جدید (۴ تا ۸ رقم)<input class="input ltr" name="next" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
+      <label class="field">رمز فعلی<input class="input ltr" name="current" type="password" inputmode="numeric" maxlength="12" autocomplete="current-password"></label>
+      <label class="field">رمز جدید (۴ تا ۱۲ رقم)<input class="input ltr" name="next" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password"></label>
       <div style="align-self:end"><button class="btn block" type="submit">تغییر رمز</button></div>
     </form>
     <div class="actions"><button class="btn ghost" data-act="logout">خروج از این دستگاه</button><button class="btn danger" data-act="logoutAll">خروج از همه دستگاه‌ها</button></div>`);

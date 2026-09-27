@@ -93,3 +93,15 @@ test('سناریو و کارت و تنظیمات', async () => {
   assert.equal(p.body.pricing.p750, 9_100_000);
   assert.equal((await call('PUT', '/api/settings/pricing', { p750: 1 }, t)).status, 403);
 });
+test('رمز تا ۱۲ رقم؛ خاموش شدن دمو حساب‌های نمایشی را غیرفعال می‌کند', async () => {
+  const db = openDb(':memory:');
+  seedUsers(db, {}, true);
+  seedUsers(db, { BEATRIS_OWNER_PHONE: '+989121234567', BEATRIS_OWNER_PIN: '123456789' }, false);
+  const s = createServer({ db, secret: 'test-secret-0123456789', demo: false, quiet: true });
+  await new Promise((r) => s.listen(0, '127.0.0.1', r));
+  const b = `http://127.0.0.1:${s.address().port}`;
+  const post = (body) => fetch(b + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.status);
+  assert.equal(await post({ phone: '09121234567', pin: '123456789' }), 200);
+  assert.equal(await post({ phone: '09120000001', pin: '1234' }), 401);
+  s.close();
+});

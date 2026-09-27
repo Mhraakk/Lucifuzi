@@ -125,7 +125,7 @@ export function createApi({ db, signer, demo }) {
   on('POST', '/api/auth/pin', 'auth', ({ user, body }) => {
     const u = db.get('SELECT pin_hash FROM users WHERE id=?', user.id);
     if (!verifyPin(String(body.current ?? ''), u.pin_hash)) throw bad('رمز فعلی درست نیست.');
-    if (!validPin(body.next)) throw bad('رمز جدید باید ۴ تا ۸ رقم باشد.');
+    if (!validPin(body.next)) throw bad('رمز جدید باید ۴ تا ۱۲ رقم باشد.');
     db.run('UPDATE users SET pin_hash=?, token_version=token_version+1 WHERE id=?', hashPin(body.next), user.id);
     const fresh = db.get('SELECT * FROM users WHERE id=?', user.id);
     return { token: signer.sign({ t: 'session', uid: fresh.id, tv: fresh.token_version }, 30 * 86400) };
@@ -352,7 +352,7 @@ export function createApi({ db, signer, demo }) {
     if (!validPhone(phone)) throw bad('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');
     if (!ROLES.includes(role)) throw bad('نقش نامعتبر.');
     if (role === 'owner' && user.role !== 'owner') throw new HttpError(403, 'فقط مالک می‌تواند مالک جدید تعریف کند.');
-    if (!validPin(body.pin)) throw bad('رمز اولیه باید ۴ تا ۸ رقم باشد.');
+    if (!validPin(body.pin)) throw bad('رمز اولیه باید ۴ تا ۱۲ رقم باشد.');
     if (db.get('SELECT 1 FROM users WHERE phone=?', phone)) throw new HttpError(409, 'این شماره قبلاً ثبت شده.');
     const id = randomUUID();
     db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,created_at) VALUES (?,?,?,?,?,?,?)', id, name, phone, role, String(body.branch ?? '').trim(), hashPin(body.pin), now());
@@ -377,7 +377,7 @@ export function createApi({ db, signer, demo }) {
       db.run('UPDATE users SET active=?, token_version=token_version+1 WHERE id=?', body.active ? 1 : 0, u.id);
     }
     if (body.pin !== undefined) {
-      if (!validPin(body.pin)) throw bad('رمز باید ۴ تا ۸ رقم باشد.');
+      if (!validPin(body.pin)) throw bad('رمز باید ۴ تا ۱۲ رقم باشد.');
       db.run('UPDATE users SET pin_hash=?, token_version=token_version+1 WHERE id=?', hashPin(body.pin), u.id);
     }
     audit(user.id, 'user.update', { id: u.id, fields: Object.keys(body) });
@@ -482,6 +482,10 @@ export function seedUsers(db, env = process.env, demo = false) {
     for (const [name, phone, role, branch] of people) {
       if (!db.get('SELECT 1 FROM users WHERE phone=?', phone)) db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,demo,created_at) VALUES (?,?,?,?,?,?,1,?)', randomUUID(), name, phone, role, branch, pin, now());
     }
+  }
+  if (!demo) {
+    const off = db.run('UPDATE users SET active=0, token_version=token_version+1 WHERE demo=1 AND active=1');
+    if (off.changes) console.log(`[beatris] demo off — deactivated ${off.changes} demo account(s).`);
   }
   if (!count && !demo && !validPhone(ownerPhone)) console.warn('[beatris] No users. Set BEATRIS_OWNER_PHONE + BEATRIS_OWNER_PIN (or BEATRIS_DEMO=true) and restart.');
 }
