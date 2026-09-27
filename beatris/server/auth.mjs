@@ -28,6 +28,7 @@ export function normalizePhone(p) {
     .replace(/[۰-۹]/g, (c) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
     .replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
     .replace(/\D/g, '');
+  if (/^9809\d{9}$/.test(d)) return d.slice(2);
   if (/^989\d{9}$/.test(d)) return `0${d.slice(2)}`;
   if (/^9\d{9}$/.test(d)) return `0${d}`;
   return d;
