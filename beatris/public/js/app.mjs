@@ -16,6 +16,7 @@ route('/drill', lazy('./pages/practice.mjs', 'drillPage'), { tab: 'practice' });
 route('/tools', lazy('./pages/tools.mjs', 'toolsPage'), { tab: 'tools' });
 route('/tools/:id', lazy('./pages/tools.mjs', 'toolPage'), { tab: 'tools' });
 route('/studio', lazy('./pages/studio3d.mjs', 'studioPage'), { tab: 'studio', tone: 'full' });
+route('/coins', lazy('./pages/coinlab.mjs', 'coinLabPage'), { tab: 'tools', tone: 'full' });
 route('/history', lazy('./pages/history.mjs', 'historyPage'), { tab: 'learn', tone: 'full' });
 route('/library', lazy('./pages/library.mjs', 'libraryPage'), { tab: 'me' });
 route('/sop/:id', lazy('./pages/library.mjs', 'sopPage'), { tab: 'me' });

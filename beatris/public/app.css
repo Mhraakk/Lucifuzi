@@ -537,3 +537,21 @@ a.tile:active, .tool-card:active, a.row:active, .chip:active, .iconbtn:active, .
 .gallery figure button { position: absolute; top: 6px; inset-inline-start: 6px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(8, 7, 5, 0.75); color: var(--bone); cursor: pointer; }
 .gallery figure button:hover { background: var(--carn); }
 .modal > div { width: min(640px, 100%); }
+
+/* ---------- coin lab ---------- */
+.lab-title { align-self: center; padding: 6px 14px; border-radius: 99px; background: rgba(13, 11, 8, 0.7); border: 1px solid var(--hair-2); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 13px; color: var(--gold-hi); pointer-events: none; }
+.lab-tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.lab-tools button { min-height: 44px; border-radius: 12px; border: 1px solid var(--vault-4); background: rgba(8, 7, 5, 0.4); color: var(--bone); font-size: 13px; cursor: pointer; transition: all 0.25s var(--ease); }
+.lab-tools button:hover { border-color: var(--gold); }
+.lab-tools button.done { border-color: var(--hair-2); color: var(--gold-hi); background: rgba(227, 184, 98, 0.08); }
+.lab-tools button:active { transform: scale(0.96); }
+.kv .ref { color: var(--dust-2); font-weight: 400; }
+.dot.bad { background: var(--carn); box-shadow: 0 0 8px var(--carn); }
+.tell { margin-top: 14px; padding: 12px 14px; border-inline-start: 2px solid var(--gold); background: linear-gradient(270deg, rgba(227, 184, 98, 0.07), transparent); border-radius: 0 10px 10px 0; }
+.tell p { margin: 4px 0 0; font-size: 13.5px; color: var(--dust); }
+.verdict { padding: 14px 16px; border-radius: var(--r-md); border: 1px solid; }
+.verdict.good { border-color: var(--turq); background: rgba(92, 194, 177, 0.08); }
+.verdict.badv { border-color: var(--carn); background: rgba(208, 97, 63, 0.08); }
+.verdict b { font-family: var(--display); font-size: 24px; }
+.verdict ul { margin: 8px 0 0; padding-inline-start: 1.2em; font-size: 13.5px; }
+@media (min-width: 620px) { .tool-card.wide2 { grid-column: span 2; } }

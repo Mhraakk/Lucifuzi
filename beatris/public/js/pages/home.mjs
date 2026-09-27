@@ -71,6 +71,12 @@ export async function homePage(root) {
           <div class="foot"><span class="small">${fa(p.drills.correct)} از ${fa(p.drills.total)} درست</span><span class="chev">${ICON.chev}</span></div>
         </a>
 
+        <a class="tile engraved" href="/coins" data-link style="grid-column:1/-1;min-height:170px">
+          <span class="k">آزمایشگاه سکه · جدید</span>
+          <h3>اصل یا تقلبی؟</h3>
+          <p>سکه‌های تمام، نیم، ربع، گرمی و پارسیان را سه‌بعدی وارسی کنید: ترازو، کولیس، آب، آهنربا، صدا، XRF و ذره‌بین؛ هشت نوع تقلب، سه سطح بازی.</p>
+          <div class="foot"><span class="small">همراه دوره «تشخیص سکه اصل از تقلبی»</span><span class="chev">${ICON.chev}</span></div>
+        </a>
         <div class="tile s6">
           <span class="k">امروز</span>
           <ul class="rows" style="border:0">

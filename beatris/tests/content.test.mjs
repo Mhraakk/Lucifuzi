@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from '../content/index.mjs';
+import { COIN_TYPES, RHO, RHO_750 } from '../public/js/coins.mjs';
 import { checkNumeric, invoice, g750FromMazaneh, moltenPiecePrice, buyback, coinIntrinsic, COINS, densityFromWeighing, alloyAdjust, waxToMetal, platingMass, stoneCarat, resizeMetal, wireLength } from '../public/js/calc.mjs';
 
 test('یکپارچگی محتوا', () => assert.deepEqual(C.validateContent(), []));
 test('حجم برنامه آموزشی', () => {
-  assert.equal(C.COURSES.length, 9);
+  assert.equal(C.COURSES.length, 10);
   assert.ok(C.LESSONS.size >= 30);
   assert.ok(C.QUESTIONS.size >= 90);
   assert.ok(C.SCENARIOS.length >= 8);
@@ -28,6 +29,13 @@ test('پاسخ عددی پرسش‌ها با موتور محاسبه یکی اس
   ok('r5q1', stoneCarat({ cut: 'round', L: 6.5, D: 4 }));
   ok('r6q1', resizeMetal({ fromSize: 54, toSize: 56, width: 4, thickness: 1.8, density: 15.5 }).grams);
   ok('r6q2', wireLength({ weight: 1, diameter: 1, density: 15.5 }));
+  const full = COIN_TYPES.emami;
+  ok('k1q1', full.pure);
+  ok('k1q2', coinIntrinsic(COINS[0], 9e6));
+  ok('k2q1', full.volume * RHO.brass);
+  ok('k2q2', full.volume * RHO_750);
+  ok('k3q1', full.weight * (21.7 / 22) ** 2);
+  ok('k4q1', densityFromWeighing(8.133, 7.664));
 });
 test('نمای عمومی پاسخ‌ها را لو نمی‌دهد', () => {
   const json = JSON.stringify([C.bootstrap(), ...[...C.LESSONS.keys()].map(C.publicLesson), ...C.SCENARIOS.map(C.publicScenario)]);

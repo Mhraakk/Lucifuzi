@@ -1,6 +1,6 @@
 import { randomUUID, randomBytes } from 'node:crypto';
 import * as C from '../content/index.mjs';
-import { checkNumeric, DRILL_KINDS } from '../public/js/calc.mjs';
+import { checkNumeric, RECORD_KINDS } from '../public/js/calc.mjs';
 import { ROLES, STAFF_ROLES, ADMIN_ROLES, hashPin, verifyPin, validPin, normalizePhone, validPhone, makeLimiter } from './auth.mjs';
 
 const now = () => new Date().toISOString();
@@ -264,7 +264,7 @@ export function createApi({ db, signer, demo }) {
   });
 
   on('POST', '/api/drills', 'auth', ({ user, body }) => {
-    if (!(body.kind in DRILL_KINDS)) throw bad('نوع تمرین نامعتبر.');
+    if (!Object.hasOwn(RECORD_KINDS, body.kind)) throw bad('نوع تمرین نامعتبر.');
     db.run('INSERT INTO drills(user_id,kind,correct,created_at) VALUES (?,?,?,?)', user.id, body.kind, body.correct ? 1 : 0, now());
     return { ok: true };
   });

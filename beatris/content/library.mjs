@@ -17,6 +17,7 @@ export const REFERENCES = [
   { id: 'ir-vat', group: 'قوانین ایران', title: 'قانون مالیات بر ارزش افزوده — جزء ۲ بند ب ماده ۲۶ و قانون بودجه ۱۴۰۵', org: 'سازمان امور مالیاتی کشور', url: 'https://www.intamedia.ir/', use: 'اصل طلا، جواهر و پلاتین معاف است؛ مالیات فقط بر اجرت ساخت، سود فروشنده و حق‌العمل (نرخ ۱۴۰۵: ۱۰٪).' },
   { id: 'ir-moadian', group: 'قوانین ایران', title: 'سامانه مودیان و صورتحساب الکترونیکی', org: 'سازمان امور مالیاتی کشور', url: 'https://my.tax.gov.ir/', use: 'ثبت فاکتور فروش در سامانه مودیان و تفکیک اقلام مشمول و معاف.' },
   { id: 'ir-consumer', group: 'قوانین ایران', title: 'قانون حمایت از حقوق مصرف‌کنندگان (۱۳۸۸)', org: 'مجلس شورای اسلامی', url: 'https://rc.majlis.ir/', use: 'الزام عرضه‌کننده به ارائه اطلاعات صحیح کالا و فاکتور؛ پایه پاسخ‌گویی به شکایت.' },
+  { id: 'ir-cbi', group: 'قوانین ایران', title: 'بانک مرکزی جمهوری اسلامی ایران — سکه‌های طلا', org: 'بانک مرکزی ج.ا.ا', url: 'https://www.cbi.ir/', use: 'مرجع رسمی وزن، عیار و مشخصات سکه‌های بهار آزادی و اطلاعیه‌های مربوط به سکه‌های تقلبی.' },
   { id: 'ir-inso', group: 'قوانین ایران', title: 'سازمان ملی استاندارد ایران — عیارسنجی فلزات گران‌بها', org: 'INSO', url: 'https://inso.gov.ir/', use: 'استانداردهای ملی و آزمایشگاه‌های همکار عیارسنجی.' },
   { id: 'bk-untracht', group: 'کتاب', title: 'Jewelry Concepts and Technology — Oppi Untracht', org: 'کتاب مرجع ساخت جواهر', url: '', use: 'روش‌های ساخت، نگین‌گذاری و پرداخت؛ برای فهم «اجرت از کجا می‌آید».' },
   { id: 'bk-brepohl', group: 'کتاب', title: 'The Theory and Practice of Goldsmithing — Erhard Brepohl', org: 'کتاب مرجع زرگری', url: '', use: 'آلیاژها، چگالی، لحیم و رفتار فلز؛ پشتوانه فنی درس‌های عیار و تعمیر.' },
@@ -72,4 +73,4 @@ export const GLOSSARY = [
   { id: 'chainrec', term: 'زنجیره ردیابی', def: 'ثبت هر جابه‌جایی قطعه امانی یا تعمیری با وزن، تاریخ و امضا.' },
 ];
 
-export const PATH = ['c-metal', 'c-price', 'c-sales', 'c-security', 'c-product', 'c-gems', 'c-assay', 'c-service', 'c-rare'];
+export const PATH = ['c-metal', 'c-price', 'c-sales', 'c-security', 'c-product', 'c-gems', 'c-assay', 'c-coins', 'c-service', 'c-rare'];

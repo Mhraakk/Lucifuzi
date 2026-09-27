@@ -103,7 +103,7 @@ async function loginUI(page) {
   await step('learn', async () => {
     await go(page, '/learn');
     const n = await page.$$eval('a.row[href^="/learn/"]', (a) => a.length);
-    check('learn: 9 courses listed', n === 9, String(n));
+    check('learn: 10 courses listed', n === 10, String(n));
     await go(page, '/learn/c-rare');
     const lessons = await page.$$eval('a.course-row', (a) => a.length);
     check('course c-rare: 6 lessons', lessons === 6, String(lessons));
@@ -280,6 +280,56 @@ async function loginUI(page) {
     check('invoice prefilled from studio', noBadNumbers(out) && out.length > 20);
   });
 
+  await step('coin lab: study, tools, seal, game, course link', async () => {
+    const geoCheck = await page.evaluate(async () => {
+      const [C3, K] = await Promise.all([import('/js/three/coins3d.mjs'), import('/js/coins.mjs')]);
+      return ['emami', 'half', 'quarter', 'gerami'].map((id) => {
+        const s = K.makeSpecimen(id, 'genuine', 2);
+        const g = C3.coinGeometry(s);
+        return { id, vol: g.userData.volume, grams: (g.userData.volume / 1000) * K.COIN_TYPES[id].density, weight: s.weight };
+      });
+    });
+    for (const g of geoCheck) check(`coin mesh ${g.id}: outward closed solid, volume ≈ weight`, g.vol > 0 && Math.abs(g.grams - g.weight) / g.weight < 0.15, `${g.grams.toFixed(3)} g vs ${g.weight}`);
+    await go(page, '/coins', 8000);
+    await page.click('[data-tool="scale"]');
+    await page.waitForTimeout(500);
+    const w = await text(page, '#readout');
+    check('coin lab: genuine full coin weighs ≈8.13 g', /۸٫۱۳/.test(w), w.split('\n')[0]);
+    await page.click('[data-kind="brass"]');
+    await page.waitForTimeout(5000);
+    await page.click('[data-tool="scale"]');
+    await page.waitForTimeout(500);
+    const wb = await text(page, '#readout');
+    check('coin lab: brass fake weighs ≈4 g', /^[۳۴]٫/.test(wb.trim()), wb.split('\n')[0]);
+    for (const t of ['caliper', 'water', 'magnet', 'ring', 'xrf', 'loupe', 'edge', 'rake', 'flip']) {
+      await page.click(`[data-tool="${t}"]`);
+      await page.waitForTimeout(t === 'loupe' || t === 'edge' ? 1500 : 700);
+    }
+    const table = await text(page, '.kv');
+    check('coin lab: all measurements listed without bad numbers', /چگالی/.test(table) && /XRF/.test(table) && /دندانه/.test(table) && noBadNumbers(table));
+    check('coin lab: red flags shown for the fake in study mode', (await page.$$eval('.dot.bad', (x) => x.length)) >= 2);
+    await page.click('[data-seal="fake"]');
+    await page.waitForTimeout(5000);
+    check('coin lab: fake seal explained', /هولوگرام/.test(await text(page, '#panel')));
+    const before = await page.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).progress.drills.total);
+    await page.click('[data-mode="game"]');
+    await page.waitForTimeout(6000);
+    check('coin lab game: specimen hidden before answering', /ناشناس/.test(await text(page, '#ltitle')));
+    await page.click('[data-tool="scale"]');
+    await page.click('[data-verdict="genuine"]');
+    await page.waitForTimeout(1500);
+    check('coin lab game: verdict revealed', !!(await page.$('.verdict')));
+    const after = await page.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).progress.drills.total);
+    check('coin lab game: result recorded on the server', after === before + 1, `${before} → ${after}`);
+    await page.click('[data-act="next"]');
+    await page.waitForTimeout(5000);
+    check('coin lab game: next coin loads hidden', /ناشناس/.test(await text(page, '#ltitle')));
+    await go(page, '/learn/c-coins', 1200);
+    check('course c-coins: 8 lessons', (await page.$$eval('a.course-row', (a) => a.length)) === 8);
+    await go(page, '/lesson/k8', 1500);
+    check('lesson k8 links into the coin game', !!(await page.$('a[href="/coins?mode=game"]')));
+  });
+
   if (!live) {
     await step('PWA: service worker + offline shell', async () => {
       await go(page, '/', 2000);
@@ -304,7 +354,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/lesson/k4']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px`);

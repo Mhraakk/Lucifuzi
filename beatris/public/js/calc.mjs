@@ -212,6 +212,8 @@ export const DRILL_KINDS = {
   density: 'چگالی از وزن در آب',
   ring: 'سایز انگشتر',
 };
+/** Everything the server may record as a practice result (drills page kinds + interactive labs). */
+export const RECORD_KINDS = { ...DRILL_KINDS, coinauth: 'تشخیص سکه اصل و تقلبی' };
 
 export function makeDrill(kind, seed, basePrice = 8500000) {
   const r = rng(seed);

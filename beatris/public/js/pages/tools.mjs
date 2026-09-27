@@ -25,6 +25,7 @@ export function toolsPage(root) {
   root.innerHTML = String(html`<span class="eyebrow">پشت پیشخوان</span><h1 style="margin-top:10px">ابزار</h1><p class="lead">همه محاسبه‌ها روی همین دستگاه انجام می‌شود و قیمت مرجع از تنظیمات مدیر می‌آید.</p>
     <div class="tool-grid" style="margin-top:22px">
       <a class="tool-card feature" href="/studio" data-link><span class="ico">${ICON.cube}</span><span class="eyebrow">استودیوی سه‌بعدی</span><b>طراحی کن، وزن کن، خروجی بگیر.</b><span>۱۵ نوع قطعه، ۹ آلیاژ، ۱۲ سنگ؛ تصویر تا ۸K، فایل STL برای چاپ و ریخته‌گری و ویدیوی ۳۶۰ درجه.</span></a>
+      <a class="tool-card wide2" href="/coins" data-link><span class="ico">${ICON.cube}</span><b>آزمایشگاه سکه</b><span>سکه‌های تمام، نیم، ربع، گرمی و پارسیان را سه‌بعدی وارسی کنید؛ ۸ نوع تقلب، ۱۰ ابزار و بازی «اصل یا تقلبی؟».</span></a>
       ${entries.filter(([, t]) => !t.rare).map(card)}
     </div>
     <h2>دانش نایاب کارگاه</h2>
