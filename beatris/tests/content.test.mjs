@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from '../content/index.mjs';
-import { COIN_TYPES, RHO, RHO_750 } from '../public/js/coins.mjs';
+import { COIN_TYPES, RHO, RHO_750, SEAL_TYPES, binaryPosterior } from '../public/js/coins.mjs';
 import { checkNumeric, invoice, g750FromMazaneh, moltenPiecePrice, buyback, coinIntrinsic, COINS, densityFromWeighing, alloyAdjust, waxToMetal, platingMass, stoneCarat, resizeMetal, wireLength } from '../public/js/calc.mjs';
 
 test('یکپارچگی محتوا', () => assert.deepEqual(C.validateContent(), []));
@@ -36,6 +36,15 @@ test('پاسخ عددی پرسش‌ها با موتور محاسبه یکی اس
   ok('k2q2', full.volume * RHO_750);
   ok('k3q1', full.weight * (21.7 / 22) ** 2);
   ok('k4q1', densityFromWeighing(8.133, 7.664));
+  // seals and probability — the numbers come from the same engine the coin lab uses
+  const refPack = full.weight + SEAL_TYPES.bank.tare;
+  assert.ok(Math.abs(refPack - 10.533) < 1e-9);
+  ok('k9q2', refPack - 10.29);
+  ok('k10q2', COIN_TYPES.gerami.pure - COIN_TYPES.parsian.pure);
+  const p1 = binaryPosterior(0.05, 0.9, 0.05, true);
+  ok('k11q1', p1 * 100);
+  ok('k11q2', binaryPosterior(p1, 0.85, 0.03, true) * 100);
+  ok('k11q3', binaryPosterior(0.07, 0.97, 0.005, false) * 100);
 });
 test('نمای عمومی پاسخ‌ها را لو نمی‌دهد', () => {
   const json = JSON.stringify([C.bootstrap(), ...[...C.LESSONS.keys()].map(C.publicLesson), ...C.SCENARIOS.map(C.publicScenario)]);

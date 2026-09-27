@@ -2,8 +2,9 @@
 
 ## پروژه
 اپ آموزش کارکنان گالری طلا. Node 22، بدون وابستگی runtime سرور (`node:http` + `node:sqlite`)، SPA فارسی RTL.
-- تست واحد: `npm test` (باید ۲۵/۲۵ پاس شود)
+- تست واحد: `npm test` (باید ۳۱/۳۱ پاس شود)
 - آزمایشگاه سکه: مدل دامنه در `public/js/coins.mjs` (مشترک سرور/مرورگر، با تست در `tests/coins.test.mjs`)، موتور سه‌بعدی در `public/js/three/coins3d.mjs`، صفحه `/coins`. طرح‌ها «نمونه آموزشی» و سبک‌سازی‌شده‌اند؛ طرح رسمی ضرب را بازتولید نکنید. قطرها تقریبی‌اند؛ وزن و عیار رسمی از `calc.mjs`.
+- موتور احتمال (بیز) و مدل پلمپ هم در `coins.mjs` است: `SEAL_TYPES`، سناریوهای `S0`–`S6`، `SEAL_TESTS` (حساسیت/هشدار کاذب)، `SEAL_ANOMALY`، `SEAL_CONTEXTS`، `makePack`، `bayes`، `rankTests`. بسته‌ها با همان نرخ‌های ناهنجاری ساخته می‌شوند تا پسین دقیق باشد؛ تست مونت‌کارلو کالیبراسیون را می‌سنجد. با تغییر ضرایب، تست‌ها و پاسخ‌های عددی درس‌های k9–k11 را دوباره اجرا کنید. ضرایب آموزشی‌اند، نه آمار رسمی.
 - تست سرتاسری مرورگر: `npm run e2e` (Playwright؛ سرور موقت با دیتابیس موقت می‌سازد؛ باید همه بررسی‌ها پاس و خطای مرورگر صفر باشد)
 - PWA: `public/sw.js` — API هرگز کش نمی‌شود؛ با تغییر فهرست پیش‌کش یا راهبرد، نام `CACHE` را بالا ببرید.
 - سه‌بعدی: three.js به‌صورت یک فایل باندل در `public/vendor/three.bundle.js` (ورودی: `scripts/three-entry.js`، ساخت با esbuild: `esbuild scripts/three-entry.js --bundle --format=esm --minify --outfile=public/vendor/three.bundle.js`). کد استودیو در `public/js/three/` و `public/js/pages/studio3d.mjs`؛ موتور قدیمی `public/js/gl/` فقط برای مدل‌های درون درس.

@@ -138,7 +138,7 @@ async function loginUI(page) {
   await step('tools', async () => {
     await go(page, '/tools');
     const ids = await page.$$eval('a.tool-card[href^="/tools/"]', (a) => a.map((x) => x.getAttribute('href').split('/').pop()));
-    check('tools: 12 calculators listed', ids.length === 12, String(ids.length));
+    check('tools: 13 calculators listed', ids.length === 13, String(ids.length));
     for (const id of ids) {
       await go(page, `/tools/${id}`, 700);
       const out = await text(page, '#out');
@@ -308,11 +308,54 @@ async function loginUI(page) {
     const table = await text(page, '.kv');
     check('coin lab: all measurements listed without bad numbers', /چگالی/.test(table) && /XRF/.test(table) && /دندانه/.test(table) && noBadNumbers(table));
     check('coin lab: red flags shown for the fake in study mode', (await page.$$eval('.dot.bad', (x) => x.length)) >= 2);
-    await page.click('[data-seal="fake"]');
+    const pfBrass = Number(await page.$eval('[data-pf]', (b) => b.dataset.pf));
+    check('coin lab meter: brass fake after all tools → fraud ≥ 99 %', pfBrass >= 0.99, String(pfBrass));
+    // probability meter must equal the engine exactly (sealed pack, fixed seed)
+    for (const [sc, seed] of [['S0', 11], ['S3', 12], ['S6', 13], ['S4', 14]]) {
+      await go(page, `/coins?mode=seal&scenario=${sc}&seed=${seed}`, 6000);
+      for (const t of ['holo', 'seam', 'swell', 'print', 'match', 'weight', 'magnet', 'link', 'serial']) {
+        await page.click(`.lab-tools [data-tool="${t}"]`);
+        await page.waitForTimeout(250);
+      }
+      const shown = Number(await page.$eval('[data-pf]', (b) => b.dataset.pf));
+      const want = await page.evaluate(async ([sc, seed]) => {
+        const K = await import('/js/coins.mjs');
+        const p = K.makePack('bank', sc, seed);
+        return 1 - K.bayes(K.sealPrior('market', 'bank'), K.sealLikelihood('bank'), K.packEvidence(p)).S0;
+      }, [sc, seed]);
+      check(`seal lab ${sc}: meter equals engine (${(want * 100).toFixed(2)} %)`, Math.abs(shown - want) < 1e-5, `${shown} vs ${want}`);
+      if (sc === 'S0') check('seal lab S0: all clear → below 1 % and «قابل پذیرش»', shown < 0.01 && /قابل پذیرش/.test(await text(page, '#meter')));
+      const tbl = await text(page, '.kv');
+      check(`seal lab ${sc}: results table complete`, /استعلام/.test(tbl) && /وزن کل/.test(tbl) && noBadNumbers(tbl));
+    }
+    await page.$eval('[data-rate]', (r) => {
+      r.value = '-0.5';
+      r.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForTimeout(300);
+    check('seal lab: base-rate slider re-computes the meter', /۳۲٪|۳۱٪/.test(await text(page, '#meter .ctx')), await text(page, '#meter .ctx .lbl'));
+    await page.click('[data-stype="maker"]');
+    await page.waitForTimeout(4000);
+    check('seal lab: maker pack offers only its 5 scenarios', (await page.$$eval('[data-scen]', (x) => x.length)) === 5);
+    const sealBefore = await page.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).progress.drills.total);
+    await page.click('[data-game="1"]');
     await page.waitForTimeout(5000);
-    check('coin lab: fake seal explained', /هولوگرام/.test(await text(page, '#panel')));
+    check('seal game: pack hidden before answering', /ناشناس/.test(await text(page, '#ltitle')) && !(await page.$('#meter')));
+    await page.click('.lab-tools [data-tool="serial"]');
+    await page.waitForTimeout(300);
+    await page.click('[data-verdict="S0"]');
+    await page.waitForTimeout(1200);
+    check('seal game: verdict + probability explanation', !!(await page.$('.verdict')) && /سنجه/.test(await text(page, '.verdict')) && !!(await page.$('#meter')));
+    const sealAfter = await page.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).progress.drills.total);
+    check('seal game: result recorded (unless the trick was invisible)', sealAfter === sealBefore + 1 || /پیدا نبود/.test(await text(page, '.verdict')), `${sealBefore} → ${sealAfter}`);
+    await go(page, '/tools/bayes', 1200);
+    check('bayes tool: 7 % base, hologram flag (85/3) → 68 %', /۶۸٪/.test(await text(page, '#out')), await text(page, '#out'));
+    await page.click('[data-preset="seal"]');
+    await page.waitForTimeout(300);
+    check('bayes tool: seal preset loads 9 tests', (await page.$$eval('.brow', (x) => x.length)) === 9);
+    await go(page, '/coins', 6000);
     const before = await page.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).progress.drills.total);
-    await page.click('[data-mode="game"]');
+    await page.click('[data-game="1"]');
     await page.waitForTimeout(6000);
     check('coin lab game: specimen hidden before answering', /ناشناس/.test(await text(page, '#ltitle')));
     await page.click('[data-tool="scale"]');
@@ -325,9 +368,13 @@ async function loginUI(page) {
     await page.waitForTimeout(5000);
     check('coin lab game: next coin loads hidden', /ناشناس/.test(await text(page, '#ltitle')));
     await go(page, '/learn/c-coins', 1200);
-    check('course c-coins: 8 lessons', (await page.$$eval('a.course-row', (a) => a.length)) === 8);
+    check('course c-coins: 11 lessons', (await page.$$eval('a.course-row', (a) => a.length)) === 11);
     await go(page, '/lesson/k8', 1500);
     check('lesson k8 links into the coin game', !!(await page.$('a[href="/coins?mode=game"]')));
+    await go(page, '/lesson/k10', 1500);
+    check('lesson k10 (seal tricks) renders its table and links the seal game', /بازپلمپ/.test(await text(page, '#main')) && !!(await page.$('a[href="/coins?mode=sealgame"]')));
+    await go(page, '/lesson/k11', 1500);
+    check('lesson k11 links the probability calculator', !!(await page.$('a[href="/tools/bayes"]')));
   });
 
   if (!live) {
@@ -354,7 +401,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/lesson/k4']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px`);

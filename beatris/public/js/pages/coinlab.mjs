@@ -1,10 +1,15 @@
 import { html, fa, api, toast, $ } from '../core.mjs';
 import { ICON } from '../ui.mjs';
 import { fmt } from '../calc.mjs';
-import { COIN_TYPES, SPECIMENS, LEVELS, RHO, RHO_750, makeSpecimen, pickSpecimen, assessCoin } from '../coins.mjs';
+import {
+  COIN_TYPES, SPECIMENS, LEVELS, RHO, RHO_750, makeSpecimen, pickSpecimen, assessCoin,
+  COIN_TESTS, COIN_CONTEXTS, coinLikelihood, coinEvidence, coinTestAccuracy, levelPrior,
+  SEAL_TYPES, SEAL_SCENARIOS, SEAL_TESTS, SEAL_CONTEXTS, sealPrior, sealLikelihood, sealAccuracy,
+  makePack, pickPack, packEvidence, inquire, PACK_TOL, bayes, rankTests, decide, withFraudRate,
+} from '../coins.mjs';
 
 const BEST_KEY = 'beatris.coinlab.best';
-const TOOLS = [
+const COIN_TOOLS = [
   ['scale', 'ترازوی ۰٫۰۰۱'],
   ['caliper', 'کولیس'],
   ['water', 'وزن در آب'],
@@ -16,6 +21,7 @@ const TOOLS = [
   ['flip', 'پشت و رو'],
   ['rake', 'نور مورب'],
 ];
+const SEAL_TOOLS = Object.entries(SEAL_TESTS).map(([k, v]) => [k, v.label]);
 const COMPOSITIONS = [
   ['طلای ۹۰۰ (سکه)', null],
   ['طلای ۷۵۰', RHO_750],
@@ -26,6 +32,8 @@ const COMPOSITIONS = [
 ];
 const f3 = (n) => fmt(n, 3);
 const f2 = (n) => fmt(n, 2);
+/** Probability as a Persian percentage; never prints a false 0 % or 100 %. */
+const pct = (p) => (p < 0.001 ? 'کمتر از ۰٫۱٪' : p > 0.999 ? 'بیش از ۹۹٫۹٪' : `${fmt(p * 100, p < 0.1 || p > 0.9 ? 1 : 0)}٪`);
 
 function disposeTree(obj) {
   obj.traverse((o) => {
@@ -39,20 +47,28 @@ function disposeTree(obj) {
 
 export async function coinLabPage(root) {
   const q = new URLSearchParams(location.search);
+  const mode = q.get('mode');
   const S = {
-    mode: q.get('mode') === 'game' ? 'game' : 'study',
+    area: mode === 'seal' || mode === 'sealgame' ? 'seal' : 'coin',
+    game: mode === 'game' || mode === 'sealgame',
     coin: COIN_TYPES[q.get('coin')] ? q.get('coin') : 'emami',
     kind: SPECIMENS[q.get('kind')] ? q.get('kind') : 'genuine',
-    seal: 'none',
+    sealType: SEAL_TYPES[q.get('seal')] ? q.get('seal') : 'bank',
+    scenario: SEAL_SCENARIOS[q.get('scenario')] ? q.get('scenario') : 'S0',
+    coinCtx: 'counter',
+    sealCtx: 'market',
+    rate: null, // user override of the overall fraud rate (study only)
     level: 1,
-    seed: Math.floor(Math.random() * 1e6),
+    seed: Number(q.get('seed')) > 0 ? Math.floor(Number(q.get('seed'))) : Math.floor(Math.random() * 1e6),
     specimen: null,
+    pack: null,
     measured: {},
     answered: false,
     score: 0,
     streak: 0,
     rounds: 0,
   };
+  if (!SEAL_TYPES[S.sealType].scenarios.includes(S.scenario)) S.scenario = 'S0';
   try {
     S.best = Number(localStorage.getItem(BEST_KEY)) || 0;
   } catch {
@@ -86,15 +102,25 @@ export async function coinLabPage(root) {
   const rake = new T.DirectionalLight(0xfff1dc, 0);
   stage.scene.add(rake, rake.target);
 
-  /* ---------------- specimen ---------------- */
+  const seal = () => S.area === 'seal';
+  const urlFor = () => (seal() ? (S.game ? '/coins?mode=sealgame' : '/coins?mode=seal') : S.game ? '/coins?mode=game' : '/coins');
+
+  /* ---------------- specimen / pack ---------------- */
   let coinMesh = null;
   let sealMesh = null;
   let buildId = 0;
   async function build({ reframe = true, quality = 1 } = {}) {
     const id = ++buildId;
-    S.specimen = S.mode === 'game' ? pickSpecimen(S.level, S.seed) : makeSpecimen(S.coin, S.kind, S.seed);
+    if (seal()) {
+      S.pack = S.game ? pickPack(S.seed) : makePack(S.sealType, S.scenario, S.seed);
+      S.specimen = S.pack.coin;
+    } else {
+      S.pack = null;
+      S.specimen = S.game ? pickSpecimen(S.level, S.seed) : makeSpecimen(S.coin, S.kind, S.seed);
+    }
     S.measured = {};
     S.answered = false;
+    S.lastTool = null;
     await document.fonts.load('700 50px Markazi', 'نمونه ۱۴۰۵');
     await document.fonts.load('700 50px Vazirmatn', 'نمونه ۱۴۰۵');
     if (id !== buildId) return;
@@ -111,89 +137,207 @@ export async function coinLabPage(root) {
       disposeTree(sealMesh);
       sealMesh = null;
     }
-    if (S.mode === 'study' && S.seal !== 'none') {
-      sealMesh = C3.sealPackage(S.specimen, { fake: S.seal === 'fake' });
+    if (S.pack) {
+      sealMesh = C3.sealPackage(S.pack);
       coinGroup.add(sealMesh);
     }
     coinGroup.rotation.set(-0.32, 0, 0);
     coinGroup.position.set(0, 0, 0);
+    rakeOff();
     stage.ground();
-    if (reframe) stage.frame(stage.root, { pitch: 0.25, yaw: 0.35, pad: 1.35 });
+    if (reframe) home();
     stage.invalidate();
     renderPanel();
+  }
+  const home = () => (seal() ? stage.frame(stage.root, { pitch: 0.15, yaw: 0.2, pad: 1.2 }) : stage.frame(stage.root, { pitch: 0.25, yaw: 0.35, pad: 1.35 }));
+
+  /* ---------------- probability model for the current item ---------------- */
+  function model() {
+    if (seal()) {
+      const type = S.pack.type;
+      const ctx = S.game ? 'drill' : S.sealCtx;
+      const prior = sealPrior(ctx, type, S.game ? null : S.rate);
+      const tests = Object.keys(SEAL_TESTS).filter((t) => S.measured[t]);
+      return {
+        prior,
+        lik: sealLikelihood(type),
+        ev: packEvidence(S.pack, tests),
+        all: Object.keys(SEAL_TESTS),
+        safe: 'S0',
+        name: (h) => SEAL_SCENARIOS[h].short,
+        testName: (t) => SEAL_TESTS[t].label,
+        acc: (t) => sealAccuracy(t, type),
+        ctxLabel: SEAL_CONTEXTS[ctx].label,
+      };
+    }
+    const s = S.specimen;
+    const base = S.game ? levelPrior(S.level) : COIN_CONTEXTS[S.coinCtx].prior;
+    const prior = Object.fromEntries(Object.entries(S.game || S.rate == null ? base : withFraudRate(base, 'genuine', S.rate)).filter(([, p]) => p > 0));
+    const tests = Object.keys(COIN_TESTS).filter((t) => S.measured[t]);
+    return {
+      prior,
+      lik: coinLikelihood(s.coinId),
+      ev: coinEvidence(s, tests),
+      all: Object.keys(COIN_TESTS),
+      safe: 'genuine',
+      name: (h) => SPECIMENS[h].label,
+      testName: (t) => COIN_TESTS[t].label,
+      acc: (t) => coinTestAccuracy(t, s.coinId),
+      ctxLabel: S.game ? `آزمون سطح ${LEVELS.find((l) => l.id === S.level).label}` : COIN_CONTEXTS[S.coinCtx].label,
+    };
+  }
+
+  function meterHtml() {
+    const M = model();
+    const post = bayes(M.prior, M.lik, M.ev);
+    const pf = 1 - post[M.safe];
+    const d = decide(pf);
+    const top = Object.entries(post).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const next = rankTests(M.prior, M.lik, M.ev, M.all, M.safe)[0];
+    const baseFraud = 1 - M.prior[M.safe];
+    const used = Object.keys(M.ev);
+    const ctxs = seal() ? Object.entries(SEAL_CONTEXTS).filter(([k]) => k !== 'drill') : Object.entries(COIN_CONTEXTS);
+    const ctxNow = seal() ? S.sealCtx : S.coinCtx;
+    return html`<div class="grp meter" id="meter">
+      <h3><span>سنجه احتمال تقلب</span><span class="small">${M.ctxLabel}</span></h3>
+      <div class="pf"><b data-pf="${pf.toFixed(6)}">${pct(pf)}</b><span class="band ${d.key}">${d.label}</span></div>
+      <div class="pbar"><i style="width:${Math.max(0.5, pf * 100).toFixed(2)}%"></i><em style="inset-inline-start:${(baseFraud * 100).toFixed(2)}%" title="پیش از هر آزمون"></em></div>
+      <p class="small note">${d.note} پیش از آزمون: ${pct(baseFraud)}.</p>
+      <div class="hyp">${top.map(([h, p]) => html`<span>${M.name(h)}</span><i><b style="width:${(p * 100).toFixed(2)}%"></b></i><em>${pct(p)}</em>`)}</div>
+      ${next
+        ? html`<div class="next"><span class="small">آزمون پیشنهادی بعدی</span><button class="chip" data-tool="${next.test}">${M.testName(next.test)}</button><p class="small">اگر هشدار دهد: ${pct(next.ifFlag)} · اگر پاک باشد: ${pct(next.ifClear)}</p></div>`
+        : html`<p class="small next">همه آزمون‌ها انجام شده است.</p>`}
+      ${S.game
+        ? ''
+        : html`<div class="ctx"><div class="chips">${ctxs.map(([k, v]) => html`<button class="chip" data-ctx="${k}" aria-pressed="${k === ctxNow && S.rate == null}">${v.label}</button>`)}</div>
+          <label class="param"><span class="lbl"><span>نرخ پایه تقلب در این بازار</span><b>${pct(baseFraud)}</b></span><input type="range" min="-3" max="-0.301" step="0.01" value="${Math.log10(Math.max(0.001, Math.min(0.5, baseFraud))).toFixed(2)}" data-rate aria-label="نرخ پایه تقلب"></label></div>`}
+      <details class="coef"><summary>ضرایب و محاسبه (بیز)</summary>
+        <p class="small">P(هشدار | فرضیه) = a × حساسیت + (۱ − a) × هشدار کاذب؛ a یعنی احتمال آنکه آن فرضیه واقعاً این نشانه را داشته باشد. پسین = پیشین × حاصل‌ضرب درست‌نمایی‌ها، سپس نرمال‌سازی.</p>
+        <table class="ctab"><thead><tr><th>آزمون</th><th>حساسیت</th><th>هشدار کاذب</th><th>نتیجه</th><th>ضریب اثر</th></tr></thead><tbody>
+          ${M.all.map((t) => {
+            const a = M.acc(t);
+            const lr = t in M.ev ? (M.ev[t] ? a.sens / a.fp : (1 - a.sens) / (1 - a.fp)) : null;
+            return html`<tr class="${t in M.ev ? 'on' : ''}"><td>${M.testName(t)}</td><td>${pct(a.sens)}</td><td>${pct(a.fp)}</td><td>${t in M.ev ? (M.ev[t] ? 'هشدار' : 'پاک') : '—'}</td><td>${lr == null ? '—' : lr >= 1 ? `×${fmt(lr, lr < 10 ? 1 : 0)}` : `÷${fmt(1 / lr, 1 / lr < 10 ? 1 : 0)}`}</td></tr>`;
+          })}
+        </tbody></table>
+        <p class="small">«ضریب اثر» نسبت درست‌نمایی همان آزمون (حساسیت به هشدار کاذب) است برای شهود؛ عدد بالا با همه فرضیه‌ها جداگانه و دقیق حساب می‌شود. ضرایب آموزشی‌اند و آمار رسمی بازار نیستند. ${used.length ? `تاکنون ${fa(used.length)} آزمون در محاسبه آمده.` : 'هنوز آزمونی انجام نشده.'}</p>
+      </details>
+    </div>`;
   }
 
   /* ---------------- panel ---------------- */
   function renderPanel() {
     const keep = panel.scrollTop;
     queueMicrotask(() => (panel.scrollTop = keep));
-    const s = S.specimen;
-    const c = COIN_TYPES[s.coinId];
-    const game = S.mode === 'game';
-    const L = LEVELS.find((l) => l.id === S.level);
-    $('#ltitle', root).textContent = game && !S.answered ? 'سکه ناشناس' : `${c.short} · ${SPECIMENS[s.kind].label}`;
+    setTitle();
+    const game = S.game;
     panel.innerHTML = String(html`
       <div class="sheet-handle" data-sheet role="button" aria-label="باز و بسته کردن"></div>
       <div class="grp">
-        <div class="seg" role="group" style="width:100%"><button data-mode="study" aria-pressed="${!game}">مطالعه</button><button data-mode="game" aria-pressed="${game}">آزمون: اصل یا تقلبی؟</button></div>
+        <div class="seg" role="group" style="width:100%"><button data-area="coin" aria-pressed="${!seal()}">سکه</button><button data-area="seal" aria-pressed="${seal()}">پلمپ و بسته</button></div>
+        <div class="seg" role="group" style="width:100%;margin-top:8px"><button data-game="0" aria-pressed="${!game}">مطالعه</button><button data-game="1" aria-pressed="${game}">${seal() ? 'آزمون: سالم یا دستکاری؟' : 'آزمون: اصل یا تقلبی؟'}</button></div>
       </div>
-      ${game
-        ? html`<div class="grp">
-          <h3><span>سطح</span><span class="small">امتیاز ${fa(S.score)} از ${fa(S.rounds)} · زنجیره ${fa(S.streak)} · بهترین ${fa(S.best)}</span></h3>
-          <div class="chips">${LEVELS.map((l) => html`<button class="chip" data-level="${l.id}" aria-pressed="${l.id === S.level}">${l.label}</button>`)}</div>
-          <p class="small" style="margin-top:8px">در این سطح: سکه اصل، ${L.kinds.filter((k) => k !== 'genuine').map((k) => SPECIMENS[k].label).join('، ')}.</p>
-        </div>`
-        : html`<div class="grp">
-          <h3><span>سکه</span></h3>
-          <div class="chips">${Object.entries(COIN_TYPES).map(([k, v]) => html`<button class="chip" data-coin="${k}" aria-pressed="${k === S.coin}">${v.short}</button>`)}</div>
-          <h3 style="margin-top:14px"><span>نمونه</span></h3>
-          <div class="chips">${Object.entries(SPECIMENS).map(([k, v]) => html`<button class="chip" data-kind="${k}" aria-pressed="${k === S.kind}">${v.label}</button>`)}</div>
-          <h3 style="margin-top:14px"><span>بسته‌بندی</span></h3>
-          <div class="chips"><button class="chip" data-seal="none" aria-pressed="${S.seal === 'none'}">بدون پلمپ</button><button class="chip" data-seal="ok" aria-pressed="${S.seal === 'ok'}">پلمپ سالم</button><button class="chip" data-seal="fake" aria-pressed="${S.seal === 'fake'}">پلمپ تقلبی</button></div>
-          ${S.seal === 'fake' ? html`<p class="small" style="margin-top:8px">در پلمپ تقلبی نوار هولوگرام رنگین‌کمانی نیست، چاپ کمی جابه‌جاست، واحد «گرام» غلط نوشته شده و سریال حرف لاتین دارد. پلمپ را همیشه با نور مورب و ذره‌بین نگاه کنید.</p>` : ''}
-          <div class="tell"><b>${SPECIMENS[S.kind].label}</b><p>${SPECIMENS[S.kind].tell}</p></div>
-        </div>`}
+      ${seal() ? sealChooser() : coinChooser()}
       <div class="grp">
-        <h3><span>ابزار بازرسی</span></h3>
-        <div class="lab-tools">${TOOLS.map(([k, l]) => html`<button data-tool="${k}" class="${S.measured[k] ? 'done' : ''}">${l}</button>`)}</div>
-        <label class="param" style="margin-top:12px" ${S.measured.rake ? '' : 'hidden'}><span class="lbl"><span>زاویه نور مورب</span></span><input type="range" min="0" max="360" step="1" value="${S.rakeAngle ?? 40}" data-rake></label>
+        <h3><span>${seal() ? 'بازرسی بسته (بدون باز کردن)' : 'ابزار بازرسی'}</span>${seal() && !game ? html`<span class="small">${SEAL_TYPES[S.sealType].label}</span>` : ''}</h3>
+        <div class="lab-tools">${(seal() ? SEAL_TOOLS : COIN_TOOLS).map(([k, l]) => html`<button data-tool="${k}" class="${S.measured[k] ? 'done' : ''}">${l}</button>`)}</div>
+        <label class="param" style="margin-top:12px" ${S.measured.rake || S.measured.holo ? '' : 'hidden'}><span class="lbl"><span>زاویه نور مورب</span></span><input type="range" min="0" max="360" step="1" value="${S.rakeAngle ?? 40}" data-rake aria-label="زاویه نور"></label>
       </div>
       <div class="grp">
-        <h3><span>نتیجه اندازه‌گیری‌ها</span><span class="small">مرجع: ${c.label}</span></h3>
-        ${measuredTable()}
-        <canvas id="ringplot" width="600" height="150" style="width:100%;height:auto;margin-top:10px" ${S.measured.ring ? '' : 'hidden'}></canvas>
+        <h3><span>نتیجه‌ها</span><span class="small">${seal() ? `مرجع: بسته سالم ${SEAL_TYPES[S.pack.type].label}` : `مرجع: ${COIN_TYPES[S.specimen.coinId].label}`}</span></h3>
+        ${seal() ? sealTable() : measuredTable()}
+        <canvas id="ringplot" width="600" height="150" style="width:100%;height:auto;margin-top:10px" ${S.measured.ring && !seal() ? '' : 'hidden'}></canvas>
       </div>
-      ${game
-        ? html`<div class="grp" id="answer">${S.answered ? verdictHtml() : html`<h3><span>رأی شما</span></h3>
-            <div class="actions" style="margin-top:0"><button class="btn small" data-verdict="genuine">اصل است</button></div>
-            <div class="small" style="margin:10px 0 6px">یا نوع تقلب را انتخاب کنید:</div>
-            <div class="chips">${L.kinds.filter((k) => k !== 'genuine').map((k) => html`<button class="chip" data-verdict="${k}">${SPECIMENS[k].label}</button>`)}</div>`}
-          </div>`
-        : html`<div class="grp"><h3><span>مشخصات مرجع</span></h3>${refTable(c)}</div>`}
+      ${!game || S.answered ? meterHtml() : ''}
+      ${game ? answerHtml() : seal() ? html`<div class="grp"><h3><span>استعلام درست</span></h3><p class="small">${SEAL_TYPES[S.sealType].inquiry}</p></div>` : html`<div class="grp"><h3><span>مشخصات مرجع</span></h3>${refTable(COIN_TYPES[S.specimen.coinId])}</div>`}
     `);
-    if (S.measured.ring) drawRingPlot();
+    if (S.measured.ring && !seal()) drawRingPlot();
     updateReadout();
   }
+  function setTitle() {
+    const t = $('#ltitle', root);
+    if (seal()) {
+      const p = S.pack;
+      t.textContent = S.game && !S.answered ? `بسته ناشناس · ${SEAL_TYPES[p.type].label}` : `${SEAL_TYPES[p.type].label} · ${SEAL_SCENARIOS[p.scenario].short}`;
+    } else {
+      const s = S.specimen;
+      t.textContent = S.game && !S.answered ? 'سکه ناشناس' : `${COIN_TYPES[s.coinId].short} · ${SPECIMENS[s.kind].label}`;
+    }
+  }
 
-  const row = (label, val, ref, bad) => html`<span>${label}</span><b>${val}${ref ? html`<small class="ref"> / ${ref}</small>` : ''}${S.mode === 'study' && bad !== undefined ? html` <i class="dot ${bad ? 'bad' : 'on'}"></i>` : ''}</b>`;
+  function coinChooser() {
+    if (S.game) {
+      const L = LEVELS.find((l) => l.id === S.level);
+      return html`<div class="grp">
+        <h3><span>سطح</span><span class="small">امتیاز ${fa(S.score)} از ${fa(S.rounds)} · زنجیره ${fa(S.streak)} · بهترین ${fa(S.best)}</span></h3>
+        <div class="chips">${LEVELS.map((l) => html`<button class="chip" data-level="${l.id}" aria-pressed="${l.id === S.level}">${l.label}</button>`)}</div>
+        <p class="small" style="margin-top:8px">در این سطح: سکه اصل، ${L.kinds.filter((k) => k !== 'genuine').map((k) => SPECIMENS[k].label).join('، ')}. سنجه احتمال پس از رأی شما نشان داده می‌شود.</p>
+      </div>`;
+    }
+    return html`<div class="grp">
+      <h3><span>سکه</span></h3>
+      <div class="chips">${Object.entries(COIN_TYPES).map(([k, v]) => html`<button class="chip" data-coin="${k}" aria-pressed="${k === S.coin}">${v.short}</button>`)}</div>
+      <h3 style="margin-top:14px"><span>نمونه</span></h3>
+      <div class="chips">${Object.entries(SPECIMENS).map(([k, v]) => html`<button class="chip" data-kind="${k}" aria-pressed="${k === S.kind}">${v.label}</button>`)}</div>
+      <div class="tell"><b>${SPECIMENS[S.kind].label}</b><p>${SPECIMENS[S.kind].tell}</p></div>
+    </div>`;
+  }
+  function sealChooser() {
+    if (S.game)
+      return html`<div class="grp">
+        <h3><span>آزمون پلمپ</span><span class="small">امتیاز ${fa(S.score)} از ${fa(S.rounds)} · زنجیره ${fa(S.streak)}</span></h3>
+        <p class="small">هر بسته از یکی از سناریوهای واقعی می‌آید (در این آزمون حدود نیمی سالم‌اند). با کمترین آزمون لازم تصمیم بگیرید؛ سنجه احتمال پس از رأی نشان می‌دهد شواهد شما چقدر قطعی بود.</p>
+      </div>`;
+    const p = S.pack;
+    const present = Object.entries(p.anomalies).filter(([, v]) => v).map(([k]) => SEAL_TESTS[k].label);
+    return html`<div class="grp">
+      <h3><span>نوع بسته</span></h3>
+      <div class="chips">${Object.entries(SEAL_TYPES).map(([k, v]) => html`<button class="chip" data-stype="${k}" aria-pressed="${k === S.sealType}">${v.label}</button>`)}</div>
+      <h3 style="margin-top:14px"><span>سناریو</span></h3>
+      <div class="chips">${SEAL_TYPES[S.sealType].scenarios.map((k) => html`<button class="chip" data-scen="${k}" aria-pressed="${k === S.scenario}">${SEAL_SCENARIOS[k].short}</button>`)}</div>
+      <div class="tell"><b>${SEAL_SCENARIOS[S.scenario].label}</b><p>${SEAL_SCENARIOS[S.scenario].tell}</p>
+        <p><b>در این نمونه:</b> ${present.length ? present.join('، ') : 'هیچ نشانه بیرونی ندارد'} · سکه داخل: ${p.note}${p.coin.coinId !== p.card ? ` (${COIN_TYPES[p.coin.coinId].short})` : ''}</p>
+        <div class="actions" style="margin-top:8px"><button class="btn small ghost" data-act="another">نمونه دیگر از همین سناریو</button></div>
+      </div>
+    </div>`;
+  }
+
+  const row = (label, val, ref, bad) => html`<span>${label}</span><b>${val}${ref ? html`<small class="ref"> / ${ref}</small>` : ''}${!S.game && bad !== undefined ? html` <i class="dot ${bad ? 'bad' : 'on'}"></i>` : ''}</b>`;
   function measuredTable() {
     const s = S.specimen;
     const c = COIN_TYPES[s.coinId];
     const m = S.measured;
     const flags = new Set(assessCoin(s).map((f) => f.key));
     const rows = [];
-    if (m.scale) rows.push(row('وزن', `${fa(f3(s.weight))} گرم`, `${fa(f3(c.weight))}`, flags.has('weight')));
-    if (m.caliper) rows.push(row('قطر', `${fa(f2(s.diameter))} mm`, `≈ ${fa(f2(c.diameter))}`, flags.has('diameter')), row('ضخامت لبه', `${fa(f2(s.thickness))} mm`, `≈ ${fa(f2(c.thickness))}`));
+    if (m.scale) rows.push(row('وزن', `${f3(s.weight)} گرم`, `${f3(c.weight)}`, flags.has('weight')));
+    if (m.caliper) rows.push(row('قطر', `${f2(s.diameter)} mm`, `≈ ${f2(c.diameter)}`, flags.has('diameter')), row('ضخامت لبه', `${f2(s.thickness)} mm`, `≈ ${f2(c.thickness)}`));
     if (m.water) {
       const guess = nearestComposition(s.density, c);
-      rows.push(row('وزن در هوا / آب', `${fa(f3(s.airWeight))} / ${fa(f3(s.waterWeight))}`), row('چگالی', `${fa(f2(s.density))} g/cm³`, `${fa(f2(c.density))}`, flags.has('density')), row('نزدیک‌ترین ترکیب', guess));
+      rows.push(row('وزن در هوا / آب', `${f3(s.airWeight)} / ${f3(s.waterWeight)}`), row('چگالی', `${f2(s.density)} g/cm³`, `${f2(c.density)}`, flags.has('density')), row('نزدیک‌ترین ترکیب', guess));
     }
     if (m.magnet) rows.push(row('آهنربا', s.magnetic ? 'جذب می‌کند' : 'واکنشی ندارد', 'واکنشی ندارد', flags.has('magnet')));
-    if (m.ring) rows.push(row('طنین صدا', `${fa(f2(s.ring.decay))} ثانیه${s.ring.dull ? ' (خفه)' : ''}`, 'حدود ۱٫۶', flags.has('ring')));
+    if (m.ring) rows.push(row('طنین صدا', `${f2(s.ring.decay)} ثانیه${s.ring.dull ? ' (خفه)' : ''}`, 'حدود ۱٫۶', flags.has('ring')));
     if (m.xrf) rows.push(row('XRF سطح', `${fa(s.xrf.fineness)} · ${s.xrf.elements.join('، ')}`, `${fa(c.fineness)} · طلا، مس`, flags.has('xrf')));
     if (m.edge) rows.push(row('دندانه لبه', `${fa(s.reeds.count)} عدد · ${s.reeds.regular && s.reeds.depth >= 0.8 ? 'منظم و عمیق' : 'کم‌عمق / نامنظم'}${s.look.seam ? ' · خط درز' : ''}`, `${fa(c.reeds)} منظم`, flags.has('reeds')));
     if (m.loupe) rows.push(row('ذره‌بین', loupeText(s), 'لبه‌های تیز، بدون حفره', flags.has('detail') || flags.has('plug') || flags.has('die')));
-    return rows.length ? html`<div class="kv">${rows}</div>` : html`<p class="small">یک ابزار را بزنید. هر ابزار فقط بخشی از حقیقت را نشان می‌دهد؛ رأی درست از کنار هم گذاشتن چند نشانه به دست می‌آید.</p>`;
+    return rows.length ? html`<div class="kv">${rows}</div>` : html`<p class="small">یک ابزار را بزنید. هر ابزار فقط بخشی از حقیقت را نشان می‌دهد؛ سنجه احتمال نشان می‌دهد هر نتیجه چقدر باور شما را جابه‌جا می‌کند.</p>`;
+  }
+  function sealTable() {
+    const p = S.pack;
+    const ev = packEvidence(p);
+    const rows = [];
+    for (const [t, v] of Object.entries(SEAL_TESTS)) {
+      if (!S.measured[t]) continue;
+      let val = ev[t] ? v.flag : v.clear;
+      let ref = '';
+      if (t === 'weight') {
+        val = `${f3(p.packWeight)} گرم`;
+        ref = `بسته مرجع ${f3(p.expectedWeight)} ± ${fa(Math.round(PACK_TOL * 1000))} میلی‌گرم`;
+      } else if (t === 'serial') val = `${fa(p.serial)} — ${inquire(p).text}`;
+      else if (t === 'link' && p.link) val = `${v.flag}: ${p.link}`;
+      rows.push(row(v.label, val, ref, ev[t]));
+    }
+    return rows.length ? html`<div class="kv">${rows}</div>` : html`<p class="small">بسته را باز نکنید. از بیرون بازرسی کنید: هولوگرام را زیر نور بچرخانید، لبه پرس را با ذره‌بین ببینید، کارت را با سکه داخل تطبیق دهید، کل بسته را وزن کنید و سریال را فقط از مسیر رسمی استعلام کنید.</p>`;
   }
   function loupeText(s) {
     const bits = [];
@@ -207,40 +351,80 @@ export async function coinLabPage(root) {
   function nearestComposition(d, c) {
     const list = COMPOSITIONS.map(([l, v]) => [l, v ?? c.density]);
     list.sort((a, b) => Math.abs(a[1] - d) - Math.abs(b[1] - d));
-    return `${list[0][0]} (${fa(f2(list[0][1]))})`;
+    return `${list[0][0]} (${f2(list[0][1])})`;
   }
   function refTable(c) {
     return html`<div class="kv">
-      <span>وزن اسمی</span><b>${fa(f3(c.weight))} گرم</b>
+      <span>وزن اسمی</span><b>${f3(c.weight)} گرم</b>
       <span>عیار</span><b>${fa(c.fineness)} (${c.fineness === 900 ? '۲۱٫۶ عیار' : '۱۸ عیار'})</b>
-      <span>طلای خالص</span><b>${fa(f3(c.pure))} گرم</b>
-      <span>چگالی آلیاژ (محاسبه‌شده)</span><b>${fa(f2(c.density))}</b>
-      <span>قطر (تقریبی آموزشی)</span><b>${fa(f2(c.diameter))} mm</b>
+      <span>طلای خالص</span><b>${f3(c.pure)} گرم</b>
+      <span>چگالی آلیاژ (محاسبه‌شده)</span><b>${f2(c.density)}</b>
+      <span>قطر (تقریبی آموزشی)</span><b>${f2(c.diameter)} mm</b>
       <span>وضعیت</span><b>${c.legal ? 'سکه رسمی بانک مرکزی' : 'قطعه طلای غیررسمی؛ قیمت با وزن و اجرت'}</b>
     </div><p class="small" style="margin-top:8px">قطرها و شمار دندانه در این آزمایشگاه عددهای آموزشی‌اند؛ پیش از داوری، همیشه با یک سکه مرجع سالم کنار هم مقایسه کنید.</p>`;
   }
+
+  function answerHtml() {
+    if (S.answered) return html`<div class="grp" id="answer">${verdictHtml()}</div>`;
+    if (seal())
+      return html`<div class="grp" id="answer"><h3><span>رأی شما</span></h3>
+        <div class="actions" style="margin-top:0"><button class="btn small" data-verdict="S0">بسته سالم است</button></div>
+        <div class="small" style="margin:10px 0 6px">یا نوع دستکاری را انتخاب کنید:</div>
+        <div class="chips">${SEAL_TYPES[S.pack.type].scenarios.filter((k) => k !== 'S0').map((k) => html`<button class="chip" data-verdict="${k}">${SEAL_SCENARIOS[k].short}</button>`)}</div></div>`;
+    const L = LEVELS.find((l) => l.id === S.level);
+    return html`<div class="grp" id="answer"><h3><span>رأی شما</span></h3>
+      <div class="actions" style="margin-top:0"><button class="btn small" data-verdict="genuine">اصل است</button></div>
+      <div class="small" style="margin:10px 0 6px">یا نوع تقلب را انتخاب کنید:</div>
+      <div class="chips">${L.kinds.filter((k) => k !== 'genuine').map((k) => html`<button class="chip" data-verdict="${k}">${SPECIMENS[k].label}</button>`)}</div></div>`;
+  }
   function verdictHtml() {
+    const ok = S.lastCorrect;
+    const M = model();
+    const pf = 1 - bayes(M.prior, M.lik, M.ev)[M.safe];
+    const bayesSaysFraud = decide(pf).key !== 'accept';
+    const verdictFraud = S.lastGuess !== M.safe;
+    const bayesLine = html`<p class="small">با شواهدی که گرفتید، سنجه احتمال تقلب را ${pct(pf)} می‌داد (${decide(pf).label}). ${verdictFraud === bayesSaysFraud ? 'رأی شما با منطق شواهد هم‌خوان بود.' : bayesSaysFraud ? 'شواهد برای «سالم» گفتن کافی نبود؛ آزمون بیشتری لازم بود.' : 'شواهد شما تقلب را نشان نمی‌داد؛ رأی باید بر پایه شواهد باشد، نه حدس.'}</p>`;
+    if (seal()) {
+      const p = S.pack;
+      const hidden = p.fraud && !Object.values(packEvidence(p)).some(Boolean);
+      return html`<div class="verdict ${ok || hidden ? 'good' : 'badv'}">
+        <b>${ok ? 'درست تشخیص دادید' : hidden ? 'این دستکاری از بیرون پیدا نبود' : 'تشخیص نادرست'}</b>
+        <p>این بسته: <strong>${SEAL_SCENARIOS[p.scenario].label}</strong></p>
+        ${ok && p.fraud ? html`<p class="small">${S.typeRight ? 'نوع دستکاری را هم درست گفتید.' : `دستکاری را درست گرفتید؛ اما سناریو «${SEAL_SCENARIOS[p.scenario].short}» بود، نه «${SEAL_SCENARIOS[S.lastGuess].short}».`}</p>` : ''}
+        ${hidden && !ok ? html`<p class="small">هیچ نشانه بیرونی نداشت؛ امتیاز منفی نمی‌گیرد. در معامله واقعی، همین احتمال باقی‌مانده دلیل استعلام رسمی و خرید از منبع معتبر است.</p>` : ''}
+        <p class="small">${SEAL_SCENARIOS[p.scenario].tell} سکه داخل: ${p.note}.</p>
+        ${bayesLine}
+        <div class="actions"><button class="btn small" data-act="next">بسته بعدی</button></div></div>`;
+    }
     const s = S.specimen;
     const flags = assessCoin(s);
-    const ok = S.lastCorrect;
     return html`<div class="verdict ${ok ? 'good' : 'badv'}">
       <b>${ok ? 'درست تشخیص دادید' : 'تشخیص نادرست'}</b>
       <p>این سکه: <strong>${COIN_TYPES[s.coinId].short} · ${SPECIMENS[s.kind].label}</strong></p>
       ${ok && s.kind !== 'genuine' ? html`<p class="small">${S.typeRight ? 'نوع تقلب را هم درست گفتید.' : `تقلبی بودنش را درست گفتید؛ اما نوعش «${SPECIMENS[s.kind].label}» بود، نه «${SPECIMENS[S.lastGuess].label}».`}</p>` : ''}
       <p class="small">${SPECIMENS[s.kind].tell}</p>
       ${flags.length ? html`<ul>${flags.map((f) => html`<li>${fa(f.text)}</li>`)}</ul>` : html`<p class="small">هیچ نشانه تقلبی نداشت.</p>`}
+      ${bayesLine}
       <div class="actions"><button class="btn small" data-act="next">سکه بعدی</button></div></div>`;
   }
+
   function updateReadout() {
     const s = S.specimen;
     const last = S.lastTool;
     let big = '';
     let sub = '';
-    if (last === 'scale') (big = `${fa(f3(s.weight))}<small>گرم</small>`), (sub = 'ترازوی ۰٫۰۰۱ گرم');
-    else if (last === 'caliper') (big = `${fa(f2(s.diameter))}<small>mm</small>`), (sub = `ضخامت لبه ${fa(f2(s.thickness))} میلی‌متر`);
-    else if (last === 'water') (big = `${fa(f2(s.density))}<small>g/cm³</small>`), (sub = `هوا ${fa(f3(s.airWeight))} · آب ${fa(f3(s.waterWeight))}`);
+    if (seal()) {
+      const p = S.pack;
+      const ev = packEvidence(p);
+      if (last === 'weight') (big = `${f3(p.packWeight)}<small>گرم</small>`), (sub = `بسته مرجع هم‌نوع ${f3(p.expectedWeight)} گرم`);
+      else if (last === 'serial') (big = { valid: 'ثبت‌شده', notfound: 'یافت نشد', duplicate: 'تکراری' }[inquire(p).status]), (sub = 'استعلام از درگاه رسمی (شبیه‌سازی)');
+      else if (last === 'magnet') (big = p.coin.magnetic ? 'جذب شد' : 'بدون واکنش'), (sub = 'آهنربای قوی روی بسته');
+      else if (last && SEAL_TESTS[last]) (big = ev[last] ? 'هشدار' : 'پاک'), (sub = SEAL_TESTS[last].label);
+    } else if (last === 'scale') (big = `${f3(s.weight)}<small>گرم</small>`), (sub = 'ترازوی ۰٫۰۰۱ گرم');
+    else if (last === 'caliper') (big = `${f2(s.diameter)}<small>mm</small>`), (sub = `ضخامت لبه ${f2(s.thickness)} میلی‌متر`);
+    else if (last === 'water') (big = `${f2(s.density)}<small>g/cm³</small>`), (sub = `هوا ${f3(s.airWeight)} · آب ${f3(s.waterWeight)}`);
     else if (last === 'magnet') (big = s.magnetic ? 'جذب شد' : 'بدون واکنش'), (sub = 'طلا و مس آهنربایی نیستند');
-    else if (last === 'ring') (big = `${fa(f2(s.ring.decay))}<small>ثانیه</small>`), (sub = 'طول طنین صدای ضربه (شبیه‌سازی)');
+    else if (last === 'ring') (big = `${f2(s.ring.decay)}<small>ثانیه</small>`), (sub = 'طول طنین صدای ضربه (شبیه‌سازی)');
     else if (last === 'xrf') (big = `${fa(s.xrf.fineness)}<small>سطح</small>`), (sub = 'XRF فقط چند ده میکرون سطح را می‌بیند');
     else if (last === 'edge') (big = `${fa(s.reeds.count)}<small>دندانه</small>`), (sub = 'نمای لبه — با سکه مرجع مقایسه کنید');
     $('#readout', root).innerHTML = big ? `<b>${big}</b><div>${sub}</div>` : '';
@@ -285,7 +469,7 @@ export async function coinLabPage(root) {
   function magnetTest() {
     clearFx();
     const s = S.specimen;
-    const R = s.diameter / 2;
+    const R = seal() && sealMesh ? sealMesh.userData.size.W / 2 : s.diameter / 2;
     const mag = new T.Group();
     const body = new T.Mesh(new T.BoxGeometry(6, 5, 5), new T.MeshStandardMaterial({ color: 0xb42a1f, roughness: 0.4 }));
     const tip = new T.Mesh(new T.BoxGeometry(1.4, 5.2, 5.2), new T.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 1, roughness: 0.25 }));
@@ -386,7 +570,28 @@ export async function coinLabPage(root) {
     g.fillText('— این سکه    - - مرجع اصل', W - 8, 22);
   }
 
+  const part = (name) => sealMesh?.children.find((o) => o.userData.part === name);
+  function useSealTool(k) {
+    S.lastTool = k;
+    S.measured[k] = true;
+    if (k === 'magnet') magnetTest();
+    else clearFx();
+    if (k !== 'holo') rakeOff();
+    if (k === 'holo') {
+      // sweep the light: a real hologram changes colour with angle, flat ink does not
+      const a0 = S.rakeAngle ?? 40;
+      rakeOn(a0);
+      tween(2400, (x) => rakeOn(a0 + 300 * x));
+      stage.frame(part('holo'), { pitch: 0.12, yaw: 0.05, pad: 1.4 });
+    } else if (k === 'seam') stage.frame(sealMesh, { pitch: 0.12, yaw: 1.15, pad: 0.75 });
+    else if (k === 'swell') stage.frame(sealMesh, { pitch: 0.02, yaw: Math.PI / 2, pad: 0.95 });
+    else if (k === 'print') stage.frame(part('card'), { pitch: 0.05, yaw: 0, pad: 0.72 });
+    else if (k === 'match') stage.frame(coinMesh, { pitch: 0.1, yaw: 0, pad: 1.25 });
+    else home();
+    renderPanel();
+  }
   function useTool(k) {
+    if (seal()) return useSealTool(k);
     if (k !== 'rake' && k !== 'flip') S.lastTool = k;
     if (k === 'flip') {
       const r0 = coinGroup.rotation.y;
@@ -409,115 +614,161 @@ export async function coinLabPage(root) {
       stage.frame(coinGroup, { pitch: 0.05, yaw: Math.PI / 2, pad: 0.42 });
     } else if (k === 'rake') rakeOn(S.rakeAngle ?? 40);
     else clearFx();
-    if (k === 'scale' || k === 'water' || k === 'xrf') stage.frame(stage.root, { pitch: 0.25, yaw: 0.35, pad: 1.35 });
+    if (k === 'scale' || k === 'water' || k === 'xrf') home();
     renderPanel();
   }
   function rakeOn(deg) {
-    S.rakeAngle = deg;
-    S.measured.rake = true;
+    S.rakeAngle = Math.round(deg) % 360;
+    if (!seal()) S.measured.rake = true;
     const a = (deg * Math.PI) / 180;
     const R = S.specimen.diameter / 2;
+    if (!rake.intensity) stage.setEnv('dark');
     rake.intensity = 3.2;
     rake.position.set(Math.cos(a) * R * 6, R * 0.8, Math.sin(a) * R * 6);
     rake.target.position.set(0, 0, 0);
-    stage.setEnv('dark');
     stage.invalidate();
   }
+  // the sealed pack faces the camera square-on; a softer tent keeps the card and coin from washing out
+  const baseEnv = () => (seal() ? 'studio' : 'room');
   function rakeOff() {
     rake.intensity = 0;
-    stage.setEnv('room');
+    stage.setEnv(baseEnv());
+    stage.setExposure(seal() ? 0.75 : 0.85);
   }
+  const reset = () => {
+    tweens.clear();
+    rakeOff();
+    clearFx();
+  };
 
   /* ---------------- events ---------------- */
+  function record(correct) {
+    S.rounds++;
+    if (correct) {
+      S.score++;
+      S.streak++;
+      if (S.streak > S.best) {
+        S.best = S.streak;
+        try {
+          localStorage.setItem(BEST_KEY, String(S.best));
+        } catch {
+          /* storage unavailable */
+        }
+      }
+    } else S.streak = 0;
+    api('/api/drills', { method: 'POST', body: { kind: seal() ? 'sealauth' : 'coinauth', correct } }).catch(() => {});
+  }
   panel.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
     const d = b.dataset;
-    if (d.mode && d.mode !== S.mode) {
-      S.mode = d.mode;
+    if ((d.area && d.area !== S.area) || (d.game && (d.game === '1') !== S.game)) {
+      if (d.area) S.area = d.area;
+      if (d.game) S.game = d.game === '1';
       S.seed = Math.floor(Math.random() * 1e6);
-      history.replaceState({}, '', S.mode === 'game' ? '/coins?mode=game' : '/coins');
-      rakeOff();
-      clearFx();
+      S.score = S.rounds = S.streak = 0;
+      history.replaceState({}, '', urlFor());
+      reset();
       await build();
     } else if (d.coin) {
       S.coin = d.coin;
+      reset();
       await build();
     } else if (d.kind) {
       S.kind = d.kind;
+      reset();
       await build({ reframe: false });
-    } else if (d.seal) {
-      S.seal = d.seal;
+    } else if (d.stype) {
+      S.sealType = d.stype;
+      if (!SEAL_TYPES[S.sealType].scenarios.includes(S.scenario)) S.scenario = 'S0';
+      reset();
+      await build();
+    } else if (d.scen) {
+      S.scenario = d.scen;
+      reset();
       await build({ reframe: false });
-      if (S.seal !== 'none') stage.frame(stage.root, { pitch: 0.15, yaw: 0.2, pad: 1.2 });
+    } else if (d.ctx) {
+      if (seal()) S.sealCtx = d.ctx;
+      else S.coinCtx = d.ctx;
+      S.rate = null;
+      renderPanel();
     } else if (d.level) {
       S.level = Number(d.level);
       S.seed = Math.floor(Math.random() * 1e6);
+      reset();
       await build();
     } else if (d.tool) useTool(d.tool);
     else if (d.verdict && !S.answered) {
-      const truth = S.specimen.kind;
-      // the judgement that matters at the counter is genuine vs fake; naming the fake is a bonus
-      const correct = (d.verdict === 'genuine') === (truth === 'genuine');
+      const truth = seal() ? S.pack.scenario : S.specimen.kind;
+      const safe = seal() ? 'S0' : 'genuine';
+      // the judgement that matters at the counter is genuine vs not; naming the trick is a bonus
+      const correct = (d.verdict === safe) === (truth === safe);
+      const hidden = seal() && S.pack.fraud && !Object.values(packEvidence(S.pack)).some(Boolean);
       S.lastCorrect = correct;
       S.typeRight = d.verdict === truth;
       S.lastGuess = d.verdict;
       S.answered = true;
-      S.rounds++;
-      if (correct) {
-        S.score++;
-        S.streak++;
-        if (S.streak > S.best) {
-          S.best = S.streak;
-          try {
-            localStorage.setItem(BEST_KEY, String(S.best));
-          } catch {
-            /* storage unavailable */
-          }
-        }
-      } else S.streak = 0;
-      api('/api/drills', { method: 'POST', body: { kind: 'coinauth', correct } }).catch(() => {});
+      if (correct || !hidden) record(correct);
       renderPanel();
-      $('#ltitle', root).textContent = `${COIN_TYPES[S.specimen.coinId].short} · ${SPECIMENS[truth].label}`;
-    } else if (d.act === 'next') {
+    } else if (d.act === 'next' || d.act === 'another') {
       S.seed = Math.floor(Math.random() * 1e6);
-      rakeOff();
-      clearFx();
-      S.lastTool = null;
-      await build();
+      reset();
+      await build({ reframe: d.act === 'next' });
     }
   });
   panel.addEventListener('input', (e) => {
     if (e.target.matches('[data-rake]')) rakeOn(Number(e.target.value));
+    else if (e.target.matches('[data-rate]')) {
+      S.rate = 10 ** Number(e.target.value);
+      const m = $('#meter', panel);
+      if (!m) return;
+      // redraw the meter except the slider itself, so the drag is not interrupted
+      const tmp = document.createElement('div');
+      tmp.innerHTML = String(meterHtml());
+      const fresh = tmp.firstElementChild;
+      for (const sel of ['.pf', '.pbar', '.note', '.hyp', '.next', '.ctx .chips', '.ctx .lbl', 'details.coef']) {
+        const a = m.querySelector(sel);
+        const n = fresh.querySelector(sel);
+        if (a && n) {
+          if (a.tagName === 'DETAILS') n.open = a.open;
+          a.replaceWith(n);
+        }
+      }
+    }
   });
   vp.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.act === 'frame') {
       rakeOff();
-      stage.frame(stage.root, { pitch: 0.25, yaw: 0.35, pad: 1.35 });
+      home();
     } else if (b.dataset.act === 'spin') {
       stage.controls.autoRotate = !stage.controls.autoRotate;
       b.setAttribute('aria-pressed', String(stage.controls.autoRotate));
     } else if (b.dataset.act === 'shot') {
+      if (b.classList.contains('is-busy')) return;
       b.classList.add('is-busy');
       toast('در حال ساخت تصویر ۴K با بیشترین جزئیات…');
       const had = coinMesh;
-      coinMesh = null;
       const hi = new T.Mesh(C3.coinGeometry(S.specimen, { quality: 2 }), had.material);
+      hi.castShadow = true;
       coinGroup.remove(had);
       coinGroup.add(hi);
-      const r = await stage.snapshot({ width: 3840, height: 2160 });
-      coinGroup.remove(hi);
-      hi.geometry.dispose();
-      coinGroup.add(had);
-      coinMesh = had;
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(r.blob);
-      a.download = `beatris-coin-${S.specimen.coinId}-${S.mode === 'game' && !S.answered ? 'unknown' : S.specimen.kind}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-      b.classList.remove('is-busy');
+      try {
+        const r = await stage.snapshot({ width: 3840, height: 2160 });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(r.blob);
+        const unknown = S.game && !S.answered;
+        a.download = `beatris-${seal() ? `seal-${S.pack.type}-${unknown ? 'unknown' : S.pack.scenario}` : `coin-${S.specimen.coinId}-${unknown ? 'unknown' : S.specimen.kind}`}.png`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      } finally {
+        coinGroup.remove(hi);
+        hi.geometry.dispose();
+        if (coinMesh === had) coinGroup.add(had);
+        b.classList.remove('is-busy');
+        stage.invalidate();
+      }
     }
   });
   // bottom sheet on phones
@@ -548,6 +799,7 @@ export async function coinLabPage(root) {
   await build();
   return () => {
     stopTick();
+    tweens.clear();
     audio?.close?.();
     stage.dispose();
   };

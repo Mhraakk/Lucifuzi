@@ -1,6 +1,7 @@
 import { html, store, fa, $, navigate } from '../core.mjs';
 import { back, ICON } from '../ui.mjs';
 import * as K from '../calc.mjs';
+import { binaryPosterior, likelihoodRatios, decide, SEAL_TESTS, COIN_TESTS } from '../coins.mjs';
 
 const TOOLS = {
   invoice: { title: 'ماشین‌حساب فاکتور', desc: 'ارزش طلا، اجرت، سود و مالیات فقط بر اجرت و سود.' },
@@ -15,8 +16,9 @@ const TOOLS = {
   plating: { title: 'آبکاری', desc: 'جرم رودیوم یا طلای لایه آبکاری از مساحت و ضخامت.', rare: true },
   stone: { title: 'قیراط از ابعاد', desc: 'وزن سنگ نشانده‌شده از طول، عرض و عمق؛ برای الماس و سنگ‌های رنگی.', rare: true },
   resize: { title: 'سایز، مفتول و ورق', desc: 'فلز لازم برای تغییر سایز؛ طول مفتول و مساحت ورق از وزن.', rare: true },
+  bayes: { title: 'ماشین‌حساب احتمال تقلب', desc: 'نرخ پایه تقلب، هر تعداد آزمون با حساسیت و هشدار کاذب دلخواه؛ احتمال نهایی قدم‌به‌قدم (قضیه بیز).', rare: true },
 };
-const TOOL_ICON = { invoice: 'tools', mazaneh: 'tools', buyback: 'tools', coin: 'tools', density: 'tools', ring: 'ring', karat: 'ring', alloy: 'cube', casting: 'cube', plating: 'sun', stone: 'cube', resize: 'ring' };
+const TOOL_ICON = { invoice: 'tools', mazaneh: 'tools', buyback: 'tools', coin: 'tools', density: 'tools', ring: 'ring', karat: 'ring', alloy: 'cube', casting: 'cube', plating: 'sun', stone: 'cube', resize: 'ring', bayes: 'tools' };
 const GEM_SG = [['3.52', 'الماس ۳٫۵۲'], ['4.00', 'یاقوت / یاقوت کبود ۴٫۰۰'], ['2.72', 'زمرد ۲٫۷۲'], ['2.65', 'آمتیست / کوارتز ۲٫۶۵'], ['3.53', 'توپاز ۳٫۵۳'], ['3.60', 'اسپینل ۳٫۶۰'], ['3.35', 'تانزانیت ۳٫۳۵']];
 
 export function toolsPage(root) {
@@ -25,7 +27,7 @@ export function toolsPage(root) {
   root.innerHTML = String(html`<span class="eyebrow">پشت پیشخوان</span><h1 style="margin-top:10px">ابزار</h1><p class="lead">همه محاسبه‌ها روی همین دستگاه انجام می‌شود و قیمت مرجع از تنظیمات مدیر می‌آید.</p>
     <div class="tool-grid" style="margin-top:22px">
       <a class="tool-card feature" href="/studio" data-link><span class="ico">${ICON.cube}</span><span class="eyebrow">استودیوی سه‌بعدی</span><b>طراحی کن، وزن کن، خروجی بگیر.</b><span>۱۵ نوع قطعه، ۹ آلیاژ، ۱۲ سنگ؛ تصویر تا ۸K، فایل STL برای چاپ و ریخته‌گری و ویدیوی ۳۶۰ درجه.</span></a>
-      <a class="tool-card wide2" href="/coins" data-link><span class="ico">${ICON.cube}</span><b>آزمایشگاه سکه</b><span>سکه‌های تمام، نیم، ربع، گرمی و پارسیان را سه‌بعدی وارسی کنید؛ ۸ نوع تقلب، ۱۰ ابزار و بازی «اصل یا تقلبی؟».</span></a>
+      <a class="tool-card wide2" href="/coins" data-link><span class="ico">${ICON.cube}</span><b>آزمایشگاه سکه</b><span>سکه و پلمپ را سه‌بعدی وارسی کنید: ۸ نوع تقلب سکه، ۶ سناریوی دستکاری پلمپ، سنجه زنده احتمال تقلب و دو بازی آموزشی.</span></a>
       ${entries.filter(([, t]) => !t.rare).map(card)}
     </div>
     <h2>دانش نایاب کارگاه</h2>
@@ -70,12 +72,24 @@ export function toolPage(root, { id }) {
       <label class="field">سنگ (چگالی)<select class="input" name="sg">${GEM_SG.map(([v, l]) => html`<option value="${v}">${l}</option>`)}</select></label></div>`,
     resize: html`<div class="form cols">${field('from', 'سایز فعلی (ISO)', '54')}${field('to', 'سایز جدید (ISO)', '56')}${field('w', 'پهنای رکاب (mm)', '4')}${field('t', 'ضخامت رکاب (mm)', '1.8')}${alloySel('metal', 'au18y')}</div>
       <h3 style="margin-top:18px">مفتول و ورق</h3><div class="form cols">${field('gw', 'وزن فلز (گرم)', '1')}${field('dia', 'قطر مفتول (mm)', '1')}${field('th', 'ضخامت ورق (mm)', '0.5')}</div>`,
+    bayes: html`<div class="form cols">${field('prior', 'نرخ پایه تقلب در این موقعیت (٪)', '7')}</div>
+      <h3 style="margin-top:18px">آزمون‌ها</h3><div id="brows" class="brows"></div>
+      <div class="actions"><button type="button" class="btn small" data-add>+ آزمون</button><button type="button" class="btn small ghost" data-preset="seal">آزمون‌های پلمپ</button><button type="button" class="btn small ghost" data-preset="coin">آزمون‌های سکه</button></div>`,
   };
   root.innerHTML = String(html`${back('/tools', 'ابزار')}<h1>${t.title}</h1><p class="lead">${t.desc}</p>
     <div class="calc-out" id="out" aria-live="polite"></div><form class="tray" id="tf" style="margin-top:14px">${forms[id]}</form>`);
 
   const form = $('#tf', root);
   let ringMode = 'iso';
+  const pct = (x) => (x < 0.001 ? 'کمتر از ۰٫۱٪' : x > 0.999 ? 'بیش از ۹۹٫۹٪' : `${K.fmt(x * 100, x < 0.1 || x > 0.9 ? 1 : 0)}٪`);
+  const bRow = (tn = '', sens = 90, fp = 5, res = 'flag') => html`<div class="brow">
+    <label class="field">نام<input class="input" name="tn" value="${tn}" maxlength="40"></label>
+    <label class="field">حساسیت ٪<input class="input ltr" name="sens" inputmode="decimal" value="${fa(sens)}"></label>
+    <label class="field">هشدار کاذب ٪<input class="input ltr" name="fp" inputmode="decimal" value="${fa(fp)}"></label>
+    <label class="field">نتیجه<select class="input" name="res"><option value="flag" ${res === 'flag' ? 'selected' : ''}>هشدار</option><option value="clear" ${res === 'clear' ? 'selected' : ''}>پاک</option><option value="skip" ${res === 'skip' ? 'selected' : ''}>انجام نشده</option></select></label>
+    <button type="button" class="iconbtn" data-del title="حذف" aria-label="حذف آزمون">×</button></div>`;
+  const addRows = (list) => $('#brows', root).insertAdjacentHTML('beforeend', list.map((r) => String(bRow(...r))).join(''));
+  if (id === 'bayes') addRows([['هولوگرام', 85, 3, 'flag']]);
   const v = (n) => K.parseNum(form.elements[n]?.value);
   const out = $('#out', root);
   const T = (n) => K.fmtT(n);
@@ -137,6 +151,29 @@ export function toolPage(root, { id }) {
       const g = K.platingMass({ areaCm2: v('area'), microns: v('mic'), density: Number(form.elements.pm.value) });
       rows = [['جرم لایه', `${K.fmt(g * 1000, 3)} میلی‌گرم`], ['به گرم', `${K.fmt(g, 6)} گرم`]];
       note = 'مساحت سطح هر مدل در استودیوی سه‌بعدی نمایش داده می‌شود.';
+    } else if (id === 'bayes') {
+      let p = v('prior') / 100;
+      if (!(p > 0 && p < 1)) {
+        out.innerHTML = String(html`${ledger([['خطا', 'نرخ پایه باید بین ۰ و ۱۰۰ درصد باشد']])}`);
+        return;
+      }
+      rows = [['پیش از آزمون', pct(p)]];
+      form.querySelectorAll('.brow').forEach((r, i) => {
+        const sens = K.parseNum(r.querySelector('[name=sens]').value) / 100;
+        const fp = K.parseNum(r.querySelector('[name=fp]').value) / 100;
+        const res = r.querySelector('[name=res]').value;
+        const name = r.querySelector('[name=tn]').value.trim() || `آزمون ${fa(i + 1)}`;
+        if (res === 'skip') return;
+        if (!(sens >= 0 && sens <= 1 && fp > 0 && fp < 1)) {
+          rows.push([name, 'حساسیت ۰ تا ۱۰۰ و هشدار کاذب بیشتر از ۰ و کمتر از ۱۰۰ باشد']);
+          return;
+        }
+        const lr = likelihoodRatios(sens, fp);
+        p = binaryPosterior(p, sens, fp, res === 'flag');
+        rows.push([`${name} · ${res === 'flag' ? 'هشدار' : 'پاک'} (×${K.fmt(res === 'flag' ? lr.pos : lr.neg, 3)})`, pct(p)]);
+      });
+      rows.push(['احتمال نهایی تقلب', `${pct(p)} · ${decide(p).label}`]);
+      note = 'فرض: آزمون‌ها با دانستن «اصل یا تقلبی» مستقل‌اند. شانس پسین = شانس پیشین × نسبت درست‌نمایی هر آزمون (هشدار: حساسیت ÷ هشدار کاذب؛ پاک: (۱ − حساسیت) ÷ (۱ − هشدار کاذب)).';
     } else if (id === 'stone') {
       const cut = form.elements.cut.value;
       const sg = Number(form.elements.sg.value);
@@ -158,6 +195,19 @@ export function toolPage(root, { id }) {
     compute();
   });
   form.addEventListener('click', (e) => {
+    if (id === 'bayes') {
+      const t = e.target.closest('[data-add],[data-del],[data-preset]');
+      if (!t) return;
+      if (t.hasAttribute('data-add')) addRows([['', 90, 5, 'flag']]);
+      else if (t.hasAttribute('data-del')) t.closest('.brow').remove();
+      else {
+        $('#brows', root).innerHTML = '';
+        const src = t.dataset.preset === 'seal' ? SEAL_TESTS : COIN_TESTS;
+        addRows(Object.values(src).map((x) => [x.label, Math.round(x.sens * 1000) / 10, Math.round(x.fp * 1000) / 10, 'skip']));
+      }
+      compute();
+      return;
+    }
     const b = e.target.closest('[data-mode]');
     if (!b) return;
     ringMode = b.dataset.mode;

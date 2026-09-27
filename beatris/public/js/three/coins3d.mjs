@@ -3,7 +3,7 @@
 // they carry the features an inspector checks (rim, bead border, inscriptions, motif, reeded edge)
 // without reproducing any official die.
 import { T } from './stage.mjs';
-import { COIN_TYPES } from '../coins.mjs';
+import { COIN_TYPES, SEAL_TYPES } from '../coins.mjs';
 
 const TAU = Math.PI * 2;
 const HF = 1024;
@@ -353,65 +353,237 @@ export function coinMaterial(s) {
   return m;
 }
 
-/* ------------------------------------------------------------------ bank seal */
+/* ------------------------------------------------------------------ sealed packs */
 
-/**
- * Vacuum seal card around a coin. fake = missing hologram, misaligned print, wrong serial pattern.
- * Returns a group centred on the coin (coin face +Z).
- */
-export function sealPackage(s, { fake = false } = {}) {
-  const c = COIN_TYPES[s.coinId];
-  const R = s.diameter / 2;
-  const W = R * 3.1, H = R * 4.3, D = s.thickness + 1.6;
-  const grp = new T.Group();
-  const shape = new T.Shape();
-  const rr = R * 0.35;
-  shape.moveTo(-W / 2 + rr, -H / 2);
-  shape.lineTo(W / 2 - rr, -H / 2);
-  shape.quadraticCurveTo(W / 2, -H / 2, W / 2, -H / 2 + rr);
-  shape.lineTo(W / 2, H / 2 - rr);
-  shape.quadraticCurveTo(W / 2, H / 2, W / 2 - rr, H / 2);
-  shape.lineTo(-W / 2 + rr, H / 2);
-  shape.quadraticCurveTo(-W / 2, H / 2, -W / 2, H / 2 - rr);
-  shape.lineTo(-W / 2, -H / 2 + rr);
-  shape.quadraticCurveTo(-W / 2, -H / 2, -W / 2 + rr, -H / 2);
-  const shell = new T.ExtrudeGeometry(shape, { depth: D, bevelEnabled: true, bevelSize: 0.4, bevelThickness: 0.4, bevelSegments: 4, curveSegments: 16 });
-  shell.translate(0, -R * 0.55, -D / 2);
-  const plastic = new T.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.05, transparent: true, opacity: 0.16, depthWrite: false, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.2 });
-  const sm = new T.Mesh(shell, plastic);
-  sm.renderOrder = 2;
-  grp.add(sm);
-  // printed backing card
+const faDigits = (x) => String(x).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]).replace('.', '٫');
+
+function roundedRect(W, H, rr) {
+  const sh = new T.Shape();
+  sh.moveTo(-W / 2 + rr, -H / 2);
+  sh.lineTo(W / 2 - rr, -H / 2);
+  sh.quadraticCurveTo(W / 2, -H / 2, W / 2, -H / 2 + rr);
+  sh.lineTo(W / 2, H / 2 - rr);
+  sh.quadraticCurveTo(W / 2, H / 2, W / 2 - rr, H / 2);
+  sh.lineTo(-W / 2 + rr, H / 2);
+  sh.quadraticCurveTo(-W / 2, H / 2, -W / 2, H / 2 - rr);
+  sh.lineTo(-W / 2, -H / 2 + rr);
+  sh.quadraticCurveTo(-W / 2, -H / 2, -W / 2 + rr, -H / 2);
+  return sh;
+}
+
+/** A pressed seam: a thin closed tube following a rounded rectangle. */
+function seamTube(W, H, rr, z, radius, mat, jitter = 0, seed = 1) {
+  let s = seed;
+  const rnd = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296) * 2 - 1;
+  const pts = roundedRect(W, H, rr)
+    .getSpacedPoints(220)
+    .slice(0, -1)
+    .map((p) => new T.Vector3(p.x + rnd() * jitter, p.y + rnd() * jitter, z));
+  const curve = new T.CatmullRomCurve3(pts, true);
+  return new T.Mesh(new T.TubeGeometry(curve, 440, radius, 6, true), mat);
+}
+
+/** Printed backing card; every print trick of the pack is painted here. */
+function cardTexture(pack, W, H) {
+  const ST = SEAL_TYPES[pack.type];
+  const c = COIN_TYPES[pack.card];
+  const bad = pack.anomalies.print;
   const cv = document.createElement('canvas');
   cv.width = 1024;
   cv.height = Math.round((1024 * H) / W);
   const g = cv.getContext('2d');
+  const CH = cv.height;
   g.fillStyle = '#f4efe4';
-  g.fillRect(0, 0, cv.width, cv.height);
-  g.fillStyle = '#1b2a4a';
-  g.fillRect(0, 0, cv.width, cv.height * 0.12);
+  g.fillRect(0, 0, 1024, CH);
+  // guilloche background: fine interlaced curves (a genuine anti-copy feature; the fake is coarser)
+  g.strokeStyle = bad ? 'rgba(27,42,74,.16)' : 'rgba(27,42,74,.09)';
+  g.lineWidth = bad ? 2.4 : 1;
+  for (let k = 0; k < (bad ? 9 : 26); k++) {
+    g.beginPath();
+    for (let x = 0; x <= 1024; x += 8) {
+      const y = CH * 0.5 + Math.sin(x / 70 + k * 0.5) * CH * 0.2 * Math.cos(k * 0.37 + x / 400);
+      x ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+  }
+  g.fillStyle = ST.header;
+  g.fillRect(0, 0, 1024, CH * 0.12);
+  g.save();
   g.direction = 'rtl';
   g.textAlign = 'center';
   g.fillStyle = '#f4efe4';
-  g.font = '700 58px Vazirmatn';
-  g.fillText('پلمپ نمونه آموزشی', cv.width / 2 + (fake ? 18 : 0), cv.height * 0.085);
+  g.font = `700 54px ${bad ? 'Markazi' : 'Vazirmatn'}`;
+  if (bad) {
+    g.translate(512, CH * 0.075);
+    g.rotate(-0.012);
+    g.fillText(`${ST.label} · نمونه آموزشی`, 14, 0);
+  } else g.fillText(`${ST.label} · نمونه آموزشی`, 512, CH * 0.08);
+  g.restore();
+  // text block (right aligned, RTL)
+  g.save();
+  if (bad) g.filter = 'blur(1.1px)';
+  g.direction = 'rtl';
+  g.textAlign = 'right';
   g.fillStyle = '#1b2a4a';
-  g.font = '600 46px Vazirmatn';
-  const y0 = cv.height * 0.78;
-  const serial = fake ? '۱۴۰۵-A۲۳۷۱۵' : '۱۴۰۵-۰۲۳۷۱۵';
-  const lines = [c.short, `وزن ${c.weight.toString().replace(/\d/g, (x) => '۰۱۲۳۴۵۶۷۸۹'[x]).replace('.', '٫')} گرم · عیار ${c.fineness === 900 ? '۹۰۰' : '۷۵۰'}`, `سریال ${serial}`];
-  lines.forEach((l, i) => g.fillText(fake && i === 1 ? l.replace('گرم', 'گرام') : l, cv.width / 2 + (fake ? 14 : 0), y0 + i * 62));
+  const x0 = 1024 - 70 + (bad ? 16 : 0);
+  const fin = c.fineness === 900 ? '۹۰۰' : '۷۵۰';
+  const lines = [
+    ['700 52px Vazirmatn', c.label.replace(/ \(.*\)$/, '')],
+    ['500 42px Vazirmatn', `وزن ${faDigits(c.weight)} ${bad ? 'گرام' : 'گرم'} · عیار ${fin}`],
+    ['500 42px Vazirmatn', `سریال ${faDigits(pack.serial)}`],
+    ['500 36px Vazirmatn', `کد استعلام ${faDigits(String((pack.seed * 7919) % 90000 + 10000))}`],
+  ];
+  lines.forEach(([font, text], i) => {
+    g.font = font;
+    g.fillText(text, x0 + (bad && i === 2 ? 6 : 0), CH * (0.745 + i * 0.047));
+  });
+  g.restore();
+  if (pack.link) {
+    // a QR-like block and a lookalike address — the phishing trick
+    const q = 150, qx = 60, qy = CH * 0.79;
+    g.fillStyle = '#fff';
+    g.fillRect(qx - 8, qy - 8, q + 16, q + 16);
+    g.fillStyle = '#111';
+    let s = pack.seed >>> 0 || 1;
+    const cell = q / 21;
+    for (let y = 0; y < 21; y++)
+      for (let x = 0; x < 21; x++) {
+        const finder = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13);
+        s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+        const on = finder ? x % 6 === 0 || y % 6 === 0 || (x % 7 >= 2 && x % 7 <= 4 && y % 7 >= 2 && y % 7 <= 4) || x === 20 || y === 20 : s > 2147483648;
+        if (on) g.fillRect(qx + x * cell, qy + y * cell, cell + 0.5, cell + 0.5);
+      }
+    g.font = '500 26px Vazirmatn';
+    g.textAlign = 'left';
+    g.direction = 'ltr';
+    g.fillText(pack.link, qx - 6, qy + q + 38);
+  }
   const tex = new T.CanvasTexture(cv);
   tex.colorSpace = T.SRGBColorSpace;
   tex.anisotropy = 8;
-  const card = new T.Mesh(new T.PlaneGeometry(W - 0.8, H - 0.8), new T.MeshStandardMaterial({ map: tex, roughness: 0.6 }));
-  card.position.set(0, -R * 0.55, -s.thickness / 2 - 0.3);
+  return tex;
+}
+
+/** Box with rounded corners and dense faces, so a trapped-air bulge can deform the faces. */
+function pillowShell(W, H, D, rr, bulge) {
+  const g = new T.BoxGeometry(W, H, D, 36, 48, 2);
+  const pos = g.attributes.position;
+  const cx = W / 2 - rr, cyy = H / 2 - rr;
+  for (let i = 0; i < pos.count; i++) {
+    let x = pos.getX(i), y = pos.getY(i);
+    const z = pos.getZ(i);
+    const ox = Math.abs(x) - cx, oy = Math.abs(y) - cyy;
+    if (ox > 0 && oy > 0) {
+      const l = Math.hypot(ox, oy);
+      const k = Math.min(1, rr / l);
+      x = Math.sign(x) * (cx + ox * k);
+      y = Math.sign(y) * (cyy + oy * k);
+    }
+    let zz = z;
+    if (bulge) {
+      const nx = x / (W / 2), ny = y / (H / 2);
+      zz += Math.sign(z) * bulge * Math.max(0, 1 - nx * nx) * Math.max(0, 1 - ny * ny) * (Math.abs(z) > 1e-6 ? 1 : 0);
+    }
+    pos.setXYZ(i, x, y, zz);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Genuine security foil: fine diffraction lines, metallic, colour shifts with angle. */
+function hologramFoil() {
+  const cv = document.createElement('canvas');
+  cv.width = 512;
+  cv.height = 64;
+  const g = cv.getContext('2d');
+  for (let x = 0; x < 512; x += 2) {
+    g.fillStyle = `hsl(${(x * 2.3) % 360} 85% 62%)`;
+    g.fillRect(x, 0, 2, 64);
+  }
+  g.globalAlpha = 0.35;
+  for (let k = 0; k < 40; k++) {
+    g.strokeStyle = `hsl(${k * 29} 90% 75%)`;
+    g.beginPath();
+    g.arc(k * 14, 32, 22, 0, TAU);
+    g.stroke();
+  }
+  const tex = new T.CanvasTexture(cv);
+  tex.colorSpace = T.SRGBColorSpace;
+  return new T.MeshPhysicalMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.18, metalness: 1, roughness: 0.18, iridescence: 1, iridescenceIOR: 1.8, iridescenceThicknessRange: [200, 900] });
+}
+/** Counterfeit: the same rainbow merely printed in matte ink — it never changes with the light. */
+function printedStripe() {
+  const cv = document.createElement('canvas');
+  cv.width = 256;
+  cv.height = 32;
+  const g = cv.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 256, 0);
+  ['#c9a34a', '#b9c7a0', '#a6b8d6', '#d1a7c4', '#c9a34a'].forEach((c, i, a) => gr.addColorStop(i / (a.length - 1), c));
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 256, 32);
+  const tex = new T.CanvasTexture(cv);
+  tex.colorSpace = T.SRGBColorSpace;
+  return new T.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0 });
+}
+
+/**
+ * Sealed pack around the coin (coin face +Z, centred on the coin). Every anomaly of the pack is
+ * modelled physically: hologram (iridescent vs flat print), pressed seam (single vs doubled with glue
+ * and a cut), swelling (bulged shell), print errors, card/coin mismatch (the coin inside is pack.coin)
+ * and a phishing QR.
+ */
+export function sealPackage(pack) {
+  const s = pack.coin;
+  const an = pack.anomalies;
+  const R = COIN_TYPES[pack.card].diameter / 2;
+  const W = R * 3.1, H = R * 4.3, D = s.thickness + 1.6;
+  const cy = -R * 0.55;
+  const grp = new T.Group();
+  const rr = R * 0.35;
+  const shell = pillowShell(W, H, D + 0.8, rr, an.swell ? D * 0.55 : 0);
+  shell.translate(0, cy, 0);
+  const plastic = new T.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: an.swell ? 0.14 : 0.06, transparent: true, opacity: 0.08, depthWrite: false, clearcoat: 0.6, clearcoatRoughness: 0.06, envMapIntensity: 0.35 });
+  const sm = new T.Mesh(shell, plastic);
+  sm.renderOrder = 2;
+  sm.userData.part = 'shell';
+  grp.add(sm);
+  // pressed seams on the front face
+  const zf = D / 2 + 0.4 + (an.swell ? 0 : 0.02);
+  const seamMat = new T.MeshPhysicalMaterial({ color: 0xd9e0e6, roughness: 0.35, transparent: true, opacity: 0.85, clearcoat: 1 });
+  const seam = seamTube(W - 1.2, H - 1.2, rr * 0.8, zf, 0.16, seamMat);
+  seam.position.y = cy;
+  seam.userData.part = 'seam';
+  grp.add(seam);
+  if (an.seam) {
+    const second = seamTube(W - 2.3, H - 2.4, rr * 0.7, zf, 0.19, seamMat, 0.12, pack.seed);
+    second.position.y = cy;
+    second.rotation.z = 0.006;
+    grp.add(second);
+    const glue = new T.MeshPhysicalMaterial({ color: 0xf1d98a, roughness: 0.25, transparent: true, opacity: 0.55, clearcoat: 1 });
+    for (let k = 0; k < 5; k++) {
+      const b = new T.Mesh(new T.SphereGeometry(0.55 + (k % 3) * 0.2, 16, 10), glue);
+      b.scale.z = 0.25;
+      const t = (k + 0.3) / 5;
+      b.position.set((t - 0.5) * (W - 2), cy - H / 2 + 0.9 + (k % 2) * 0.3, zf);
+      grp.add(b);
+    }
+    // a knife cut along one side
+    const cut = new T.Mesh(new T.BoxGeometry(0.12, H * 0.28, 0.2), new T.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6, transparent: true, opacity: 0.5 }));
+    cut.position.set(W / 2 - 0.7, cy + H * 0.12, zf);
+    grp.add(cut);
+  }
+  // backing card
+  const card = new T.Mesh(new T.PlaneGeometry(W - 0.8, H - 0.8), new T.MeshStandardMaterial({ map: cardTexture(pack, W, H), roughness: 0.7, envMapIntensity: 0.75 }));
+  card.position.set(0, cy, -s.thickness / 2 - 0.3);
+  card.userData.part = 'card';
   grp.add(card);
-  // hologram strip (iridescent); the fake prints a flat gold stripe instead
-  const holoMat = fake ? new T.MeshStandardMaterial({ color: 0xc9a34a, roughness: 0.5, metalness: 0.2 }) : new T.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0.12, iridescence: 1, iridescenceIOR: 1.8, iridescenceThicknessRange: [200, 900] });
-  const holo = new T.Mesh(new T.PlaneGeometry(W * 0.7, R * 0.28), holoMat);
-  holo.position.set(0, -R * 1.55, -s.thickness / 2 - 0.25);
+  // hologram strip: a real thin-film hologram shifts colour with angle; the fake is flat gold ink
+  const holoMat = an.holo ? printedStripe() : hologramFoil();
+  const holo = new T.Mesh(new T.PlaneGeometry(W * 0.62, R * 0.26), holoMat);
+  holo.position.set(0, -R * 1.28, -s.thickness / 2 - 0.25);
+  holo.userData.part = 'holo';
   grp.add(holo);
   grp.userData.role = 'seal';
+  grp.userData.size = { W, H, D, cy };
   return grp;
 }
