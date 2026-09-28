@@ -25,12 +25,12 @@ const saveHist = (h) => {
 export async function auditPage(root) {
   await booksPrefs();
   root.innerHTML = String(html`${booksNav('audit')}
-    <div class="bk-head"><div><h1>ممیز و دستیار حسابرس</h1><span class="small">هر بار که این صفحه باز شود کل دفاتر از نو وارسی می‌شود؛ ممیز فقط نشان می‌دهد و چیزی را تغییر نمی‌دهد.</span></div><button class="btn small" data-act="rerun">وارسی دوباره</button></div>
+    <div class="bk-head"><div><h1>ممیز و تاجیار</h1><span class="small">هر بار که این صفحه باز شود کل دفاتر از نو وارسی می‌شود؛ ممیز فقط نشان می‌دهد و چیزی را تغییر نمی‌دهد.</span></div><button class="btn small" data-act="rerun">وارسی دوباره</button></div>
     <div class="au">
       <section class="au-board" id="board"><div class="au-load">در حال وارسی دفاتر…</div></section>
-      <section class="tray au-chat"><div class="bk-head"><h3 class="bk-h">دستیار حسابرس</h3><span class="small" id="eng"></span></div>
+      <section class="tray au-chat"><div class="bk-head"><h3 class="bk-h">تاجیار · دستیار حسابرس</h3><span class="small" id="eng"></span></div>
         <div class="au-msgs" id="msgs" aria-live="polite"></div>
-        <div class="chips au-quick">${['ممیز', 'بدهکاران', 'طلبکاران', 'روزنگار امروز', 'گاوصندوق', 'مظنه', 'محاسبه ۲ گرم عیار ۷۴۰'].map((q) => html`<button class="chip" data-q="${q}">${q}</button>`)}</div>
+        <div class="chips au-quick">${['ممیز', 'بدهکاران', 'طلبکاران', 'روزنگار امروز', 'گاوصندوق', 'مظنه', 'چی یادته', 'محاسبه ۲ گرم عیار ۷۴۰'].map((q) => html`<button class="chip" data-q="${q}">${q}</button>`)}</div>
         <form class="au-form" id="af"><input class="input" id="aq" placeholder="بپرسید: «مانده مهران رضایی»، «سریال ۳۳۰۷۰۲۱»، «محاسبه ۱۰ گرم عیار ۷۴۵»" autocomplete="off" maxlength="2000"><button class="btn">بپرس</button></form></section>
     </div>`);
   let hist = loadHist();

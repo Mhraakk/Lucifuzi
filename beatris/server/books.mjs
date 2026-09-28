@@ -6,6 +6,8 @@ import * as B from '../public/js/books.mjs';
 import { jalaliOf } from '../public/js/ta.mjs';
 import { COIN_TYPES } from '../public/js/coins.mjs';
 import { makeAudit } from './audit.mjs';
+import { makeTrace } from './trace.mjs';
+import { makeLearn } from './learn.mjs';
 import { makeAssistant } from './assistant.mjs';
 import * as TR from '../public/js/trade.mjs';
 
@@ -222,7 +224,13 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const acct = `party:${p.id}`;
     // in the order things happened (date, then the time the document was issued), so the running balance is true
     const rows = db.all("SELECT p.src, p.unit, SUM(p.amt) AS amt, MIN(p.date) AS date, COALESCE(d.issued_at, d.created_at, MIN(p.date)) AS ts FROM bk_postings p LEFT JOIN bk_docs d ON d.id=p.src WHERE p.acct=? GROUP BY p.src, p.unit ORDER BY date, ts, p.src", acct);
-    const docs = new Map(db.all("SELECT id, type, fy, no, date, status, issued_at, created_at, data_json, calc_json FROM bk_docs WHERE id IN (SELECT DISTINCT src FROM bk_postings WHERE acct=?)", acct).map((d) => [d.id, d]));
+    // a trade the customer settled in full leaves nothing on the account, but it is still part of their story
+    const settled = db.all("SELECT id AS src, 'IRR' AS unit, 0 AS amt, date, COALESCE(issued_at, created_at) AS ts FROM bk_docs WHERE party_id=? AND status='final' AND id NOT IN (SELECT DISTINCT src FROM bk_postings WHERE acct=?)", p.id, acct);
+    if (settled.length) {
+      rows.push(...settled);
+      rows.sort((a, b) => a.date.localeCompare(b.date) || String(a.ts).localeCompare(String(b.ts)) || a.src.localeCompare(b.src));
+    }
+    const docs = new Map(db.all("SELECT id, type, fy, no, date, status, issued_at, created_at, data_json, calc_json FROM bk_docs WHERE id IN (SELECT DISTINCT src FROM bk_postings WHERE acct=?) OR (party_id=? AND status='final')", acct, p.id).map((d) => [d.id, d]));
     const run = {};
     // what the document did to this account in this unit, for the «شرح» column
     const what = (d, unit) => {
@@ -244,7 +252,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const statement = rows.map((r) => {
       run[r.unit] = (run[r.unit] ?? 0) + r.amt;
       const d = docs.get(r.src);
-      return { src: r.src, date: r.date, at: d ? d.issued_at ?? d.created_at : null, unit: r.unit, amt: roundUnit(r.unit, r.amt), balance: roundUnit(r.unit, run[r.unit]), doc: d ? { id: d.id, type: d.type, no: d.no, fy: d.fy } : null, what: what(d, r.unit) };
+      return { src: r.src, date: r.date, at: d ? d.issued_at ?? d.created_at : null, unit: r.unit, amt: roundUnit(r.unit, r.amt), balance: roundUnit(r.unit, run[r.unit]), doc: d ? { id: d.id, type: d.type, no: d.no, fy: d.fy, track: B.trackCode(d.type, d.fy, d.no) } : null, what: what(d, r.unit) };
     });
     return { party: partyOut(p), balance: balOf(acct), statement, docs: db.all('SELECT id, type, fy, no, date, status FROM bk_docs WHERE party_id=? ORDER BY date DESC, created_at DESC LIMIT 300', p.id) };
   });
@@ -670,11 +678,11 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   const docOut = (r, extra = {}) => {
     const data = JSON.parse(r.data_json);
     const calc = JSON.parse(r.calc_json);
-    return { id: r.id, type: r.type, fy: r.fy, no: r.no, serial: r.serial, status: r.status, version: r.version, date: r.date, partyId: r.party_id, ...data, calc, tax: JSON.parse(r.tax_json), hash: r.hash, verify: verifyCode(r.hash), createdBy: r.created_by, createdAt: r.created_at, updatedBy: r.updated_by, updatedAt: r.updated_at, issuedAt: r.issued_at, ...extra };
+    return { id: r.id, type: r.type, fy: r.fy, no: r.no, track: B.trackCode(r.type, r.fy, r.no), serial: r.serial, status: r.status, version: r.version, date: r.date, partyId: r.party_id, ...data, calc, tax: JSON.parse(r.tax_json), hash: r.hash, verify: verifyCode(r.hash), createdBy: r.created_by, createdAt: r.created_at, updatedBy: r.updated_by, updatedAt: r.updated_at, issuedAt: r.issued_at, ...extra };
   };
   const summary = (r) => {
     const c = JSON.parse(r.calc_json);
-    return { id: r.id, type: r.type, fy: r.fy, no: r.no, status: r.status, version: r.version, date: r.date, partyId: r.party_id, partyName: r.party_name ?? null, sales: c.sales, tradeIn: c.tradeIn, net: c.net, vat: c.vat, credit: c.credit, paidIn: c.paidIn, paidOut: c.paidOut, tax: JSON.parse(r.tax_json).status ?? null, updatedAt: r.updated_at, createdBy: r.created_by_name ?? null };
+    return { id: r.id, type: r.type, fy: r.fy, no: r.no, track: B.trackCode(r.type, r.fy, r.no), status: r.status, version: r.version, date: r.date, partyId: r.party_id, partyName: r.party_name ?? null, sales: c.sales, tradeIn: c.tradeIn, net: c.net, vat: c.vat, credit: c.credit, paidIn: c.paidIn, paidOut: c.paidOut, tax: JSON.parse(r.tax_json).status ?? null, updatedAt: r.updated_at, createdBy: r.created_by_name ?? null };
   };
 
   function save(user, body, prevRow = null, reason = '') {
@@ -1126,7 +1134,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       }
       const who = d.type === 'hawala' ? [data.hawala.from, data.hawala.to] : d.party_id ? [d.party_id] : [];
       return {
-        id: d.id, type: d.type, no: d.no, fy: d.fy, status: d.status, version: d.version, at: d.issued_at ?? d.created_at, by: names[d.created_by] ?? null, note: data.note ?? '',
+        id: d.id, type: d.type, no: d.no, fy: d.fy, track: B.trackCode(d.type, d.fy, d.no), status: d.status, version: d.version, at: d.issued_at ?? d.created_at, by: names[d.created_by] ?? null, note: data.note ?? '',
         party: party ? { id: party.id, code: party.code, name: party.name, label: TR.partyLabel(party), group: party.grp } : null,
         lines: (c.lines ?? []).map((l, i) => ({ ...l, src: data.lines?.[i] ?? {} })),
         payments: (c.payments ?? []).map((p, i) => ({ ...p, ref: data.payments?.[i]?.ref ?? '', card: data.payments?.[i]?.card ? String(data.payments[i].card).slice(-4) : '', account: accounts[data.payments?.[i]?.account] ?? '', chequeNo: data.payments?.[i]?.chequeNo ?? '', due: data.payments?.[i]?.due ?? '' })),
@@ -1197,8 +1205,8 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     return { ...out, custody, prices: livePrices() };
   });
   function barInfo(serial) {
-    const hist = db.all("SELECT d.id, d.type, d.no, d.date, d.status, d.party_id, d.data_json FROM bk_docs d WHERE d.status='final' AND d.data_json LIKE ? ORDER BY d.date, COALESCE(d.issued_at, d.created_at)", `%"serial":"${serial}"%`)
-      .flatMap((d) => JSON.parse(d.data_json).lines.filter((l) => l.kind === 'bar' && l.serial === serial).map((l) => ({ doc: d.id, no: d.no, date: d.date, dir: l.dir, priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null, brand: l.brand ?? '', gallery: l.gallery ?? '', weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness ?? 750), sealDate: l.sealDate ?? '' })));
+    const hist = db.all("SELECT d.id, d.type, d.no, d.fy, d.date, d.status, d.party_id, d.data_json FROM bk_docs d WHERE d.status='final' AND d.data_json LIKE ? ORDER BY d.date, COALESCE(d.issued_at, d.created_at)", `%"serial":"${serial}"%`)
+      .flatMap((d) => JSON.parse(d.data_json).lines.map((l, i) => ({ l, i })).filter(({ l }) => l.kind === 'bar' && l.serial === serial).map(({ l, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: l.dir, priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null, brand: l.brand ?? '', gallery: l.gallery ?? '', weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness ?? 750), sealDate: l.sealDate ?? '' })));
     const last = hist.at(-1) ?? {};
     const inVault = db.get("SELECT COALESCE(SUM(amt),0) AS s FROM bk_postings WHERE acct=?", `bar:${serial}`).s > 0;
     const holder = db.get("SELECT acct FROM bk_postings WHERE unit=? GROUP BY acct HAVING SUM(amt)<0", `BAR:${serial}`)?.acct;
@@ -1218,7 +1226,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const out = [];
     for (const d of db.all("SELECT * FROM bk_docs WHERE status='final' AND type='trade' AND data_json LIKE '%\"conditional\":true%' ORDER BY date")) {
       const data = JSON.parse(d.data_json);
-      data.lines.forEach((l, i) => l.conditional && out.push({ doc: d.id, no: d.no, date: d.date, line: i, weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness), dir: l.dir ?? 'in', priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null }));
+      data.lines.forEach((l, i) => l.conditional && out.push({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, line: i, weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness), dir: l.dir ?? 'in', priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null }));
     }
     return { items: out };
   });
@@ -1241,14 +1249,15 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const recon = new Map(db.all('SELECT * FROM bk_recon WHERE acct=?', acct).map((r) => [r.src, r]));
     const out = [];
     let run = 0;
-    for (const r of db.all("SELECT p.src, SUM(p.amt) AS amt, p.date, COALESCE(d.issued_at, d.created_at, p.date) AS ts, d.type, d.no, d.party_id, d.data_json, d.calc_json FROM bk_postings p LEFT JOIN bk_docs d ON d.id=p.src WHERE p.acct=? GROUP BY p.src ORDER BY p.date, ts", acct)) {
+    for (const r of db.all("SELECT p.src, SUM(p.amt) AS amt, p.date, COALESCE(d.issued_at, d.created_at, p.date) AS ts, d.type, d.no, d.fy, d.party_id, d.data_json, d.calc_json FROM bk_postings p LEFT JOIN bk_docs d ON d.id=p.src WHERE p.acct=? GROUP BY p.src ORDER BY p.date, ts", acct)) {
       const data = r.data_json ? JSON.parse(r.data_json) : null, calc = r.calc_json ? JSON.parse(r.calc_json) : null;
-      const base = { date: r.date, doc: r.type ? { type: r.type, no: r.no } : null, party: r.party_id ? TR.partyLabel(partyRow(r.party_id)) : null };
+      const tr = r.type ? B.trackCode(r.type, r.fy, r.no) : '';
+      const base = { date: r.date, doc: r.type ? { type: r.type, no: r.no, track: tr } : null, party: r.party_id ? TR.partyLabel(partyRow(r.party_id)) : null };
       let left = Math.round(r.amt);
       const part = (id, amt, ref, refs) => {
         run += amt;
         const rc = recon.get(id) ?? recon.get(r.src);
-        out.push({ id, src: r.src, ...base, amt, ref, refs, balance: Math.round(run), reconciled: !!rc, reconRef: rc?.ref ?? '' });
+        out.push({ id, src: r.src, ...base, track: tr && (id.includes('#') ? `${tr}/P${Number(id.split('#')[1]) + 1}` : tr), amt, ref, refs, balance: Math.round(run), reconciled: !!rc, reconRef: rc?.ref ?? '' });
       };
       (data?.payments ?? []).forEach((p, i) => {
         const v = calc?.payments?.[i]?.value;
@@ -1322,12 +1331,43 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     return { shop: s.legalName || getSetting('brand', {}).shopName || '', type: B.DOC_TYPES[r.type].label, fy: r.fy, no: r.no, date: JSON.parse(v.data_json).date, status: r.status, total: r.type === 'return' ? c.sales : c.sales || Math.abs(c.net), vat: c.vat, version: v.version, currentVersion: r.version, latest, verify: verifyCode(v.hash) };
   });
 
+  /* ---------------- رهگیری: any code → the document's whole life ---------------- */
+  const trace = makeTrace({ db, docOut, verifyCode });
+  on('GET', '/api/books/trace', 'auth', ({ url }) => trace.search(url.searchParams.get('q') ?? ''));
+  // printing, sharing and exporting a document are part of its history too
+  on('POST', '/api/books/docs/:id/event', 'auth', ({ user, params, body }) => {
+    const r = db.get('SELECT id FROM bk_docs WHERE id=?', params.id);
+    if (!r) throw notFound('سند پیدا نشد.');
+    const kind = ['print', 'share', 'pdf', 'view'].includes(body.kind) ? body.kind : null;
+    if (!kind) throw bad('نوع رویداد نامعتبر است.');
+    log(user, `doc.${kind}`, r.id, { format: txt(body.format, 20) || undefined });
+    return { ok: true };
+  });
+
+  /* ---------------- حافظه: the harness, learned habits and memories ---------------- */
+  const learn = makeLearn({ db, now, log, isAdmin });
+  const wrap = (fn) => {
+    try {
+      return fn();
+    } catch (e) {
+      throw bad(e.message);
+    }
+  };
+  on('POST', '/api/books/events', 'auth', ({ user, body }) => learn.record(user, body.events));
+  on('GET', '/api/books/learn/party/:id', 'auth', ({ params }) => {
+    if (!db.get('SELECT 1 FROM bk_parties WHERE id=?', params.id)) throw notFound('مشتری پیدا نشد.');
+    return learn.partyProfile(params.id);
+  });
+  on('GET', '/api/books/learn', 'auth', ({ user }) => ({ replay: learn.replay(), operators: learn.operators(user), rhythm: learn.shopRhythm(), memory: learn.allMemories(), shop: learn.memories('shop', '') }));
+  on('POST', '/api/books/memory', 'auth', ({ user, body }) => wrap(() => learn.remember(user, body)));
+  on('DELETE', '/api/books/memory/:id', 'auth', ({ user, params }) => wrap(() => learn.forget(user, params.id)));
+
   /* ---------------- ممیز (automatic audit) and the assistant ---------------- */
   const audit = makeAudit({ db, call, settings, verifyLog, tehranDay, livePrices, isAdmin });
   on('GET', '/api/books/audit', 'auth', ({ user, url }) => (url.searchParams.get('doc') ? audit.doc(url.searchParams.get('doc')) : audit.run(user)));
-  const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin });
+  const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin, learn });
   on('GET', '/api/books/assistant', 'auth', () => assistant.info());
   on('POST', '/api/books/assistant', 'auth', async ({ user, body }) => assistant.ask(user, body));
 
-  return { verifyLog, settings, audit, assistant };
+  return { verifyLog, settings, audit, assistant, learn };
 }

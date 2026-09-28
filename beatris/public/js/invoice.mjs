@@ -122,11 +122,13 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
   const sellerLines = [s.address, [s.phone && `تلفن ${fa(s.phone)}`, s.postal && `کد پستی ${fa(s.postal)}`].filter(Boolean).join(' · '), [s.economicCode && `شماره اقتصادی ${fa(s.economicCode)}`, s.nationalId && `شناسه/کد ملی ${fa(s.nationalId)}`, s.regNo && `ثبت ${fa(s.regNo)}`].filter(Boolean).join(' · ')].filter(Boolean);
   const verify = html`<div class="bk-p-verify">${raw(qrSvg(verifyUrl, { size: format === 'r80' ? 92 : 86, dark: theme === 'noir' ? '#f3dca0' : '#1a140a', light: theme === 'noir' ? '#15110b' : '#ffffff' }))}<span>کد اصالت<br><b class="ltr-num">${d.verify}</b><br><small class="ltr-num">${verifyUrl.replace(/^https?:\/\//, '')}</small></span></div>`;
 
+  if (format === 'std') return stdPaper({ d, s, shop, verifyUrl, official, flag });
+
   /* ---- 80 mm roll: the same identity, compact ---- */
   if (format === 'r80')
     return html`<article class="bk-paper r80 inv ${theme} printable" dir="rtl">
       <header class="r-head">${crown({ size: 64 })}<b class="shop">${shop}</b><span class="r-title">${title}</span>${typeNote ? html`<small>${typeNote}</small>` : ''}${flag ? html`<em class="bk-p-flag">${flag}</em>` : ''}
-        <div class="r-meta"><span>شماره <b>${fa(d.fy)}-${fa(String(d.no).padStart(5, '0'))}</b></span><span>${jd(d.date)} ${d.issuedAt ? timeFa(d.issuedAt) : ''}</span>${d.tax?.taxId ? html`<span class="ltr-num">${d.tax.taxId}</span>` : ''}</div></header>
+        <div class="r-meta"><span>رهگیری <b class="ltr-num">${d.track}</b></span><span>${jd(d.date)} ${d.issuedAt ? timeFa(d.issuedAt) : ''}</span>${d.tax?.taxId ? html`<span class="ltr-num">${d.tax.taxId}</span>` : ''}</div></header>
       ${guilloche(300, 12, 5)}
       ${party || official ? html`<p class="r-party"><b>${d.type === 'buy' ? 'فروشنده' : 'خریدار'}:</b> ${party ? html`${party.name}${party.nid ? ` · ${fa(party.nid)}` : ''}` : 'مصرف‌کننده نهایی'}</p>` : ''}
       ${out.length ? html`<table class="bk-p-table roll"><tbody>${out.map(({ l, src }) => html`<tr><td>${src.title || B.KIND_LABEL[l.kind]}<small>${l.weight ? ` · ${G(l.weight)} گرم` : ''}${l.fineness ? ` · عیار ${fa(l.fineness)}` : ''}${l.kind === 'coin' ? ` · ${fa(l.count)} عدد` : ''}${l.kind === 'jewel' ? ` · طلا ${T(l.principal)} · اجرت ${T(l.consfee)} · سود ${T(l.spro)}${l.stones ? ` · سنگ ${T(l.stones)}` : ''} · مالیات ${T(l.vat)}` : l.vat ? ` · مالیات ${T(l.vat)}` : ''}</small>${miniBar(l)}</td><td class="num"><b>${T(l.total)}</b></td></tr>`)}</tbody><tfoot><tr><td>جمع (${unitName()}) · مالیات ${T(c.vat)}</td><td class="num"><b>${T(c.sales)}</b></td></tr></tfoot></table>` : ''}
@@ -164,7 +166,7 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
     <header class="i-band">
       <div class="i-brand">${crown({ size: format === 'a5' ? 70 : 92 })}<div><b class="shop">${shop}</b><span class="tag">${B.DOC_TYPES[d.type]?.base ? 'سکه · طلای آبشده · شمش · ارز' : 'طلا و جواهر'}</span></div></div>
       <div class="i-title"><span class="latin">${d.type === 'return' ? 'CREDIT NOTE' : d.type === 'proforma' ? 'PRO-FORMA' : official ? 'TAX INVOICE · GOLD' : 'VOUCHER'}</span><h2>${title}</h2>${typeNote ? html`<small>${typeNote}</small>` : ''}</div>
-      <div class="i-meta"><div><span>شماره</span><b>${fa(d.fy)}-${fa(String(d.no).padStart(5, '0'))}</b></div><div><span>تاریخ</span><b>${jd(d.date)}</b>${d.issuedAt ? html`<em>${timeFa(d.issuedAt)}</em>` : ''}</div>${d.serial ? html`<div><span>سریال</span><b>${fa(d.serial)}</b></div>` : ''}${d.version > 1 ? html`<div><span>نسخه</span><b>${fa(d.version)}</b></div>` : ''}</div>
+      <div class="i-meta"><div><span>کد رهگیری</span><b class="ltr-num">${d.track}</b></div><div><span>تاریخ</span><b>${jd(d.date)}</b>${d.issuedAt ? html`<em>${timeFa(d.issuedAt)}</em>` : ''}</div>${d.serial ? html`<div><span>سریال</span><b>${fa(d.serial)}</b></div>` : ''}${d.version > 1 ? html`<div><span>نسخه</span><b>${fa(d.version)}</b></div>` : ''}</div>
       ${guilloche(1000, 18, 7)}
     </header>
     ${d.tax?.taxId ? html`<div class="i-taxid"><span>شماره منحصربه‌فرد مالیاتی</span><b class="ltr-num">${d.tax.taxId}</b></div>` : ''}
@@ -227,5 +229,49 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
       <p class="legal">${s.footer ?? ''}${d.seller ? ` · فروشنده: ${d.seller}` : ''}</p>
       <div class="made">${guilloche(1000, 10, 4)}<span>${brandName ? `${brandName} · ` : ''}صادرشده با بئاتریس — هر نسخه با اثر انگشت دیجیتال ثبت و با کد اصالت قابل استعلام است</span></div>
     </footer>
+  </article>`;
+}
+
+/* ---------------- the standard form (قالب رسمی صورتحساب) ----------------
+   The layout of the standard Iranian sales invoice: seller and buyer blocks with every official field, the goods table
+   with quantity, unit, unit price, amount, discount, amount after discount, VAT and total (plus the gold pattern's
+   making charge, seller's profit and commission), the terms of sale and both signatures. Black on white, ruled cells,
+   A4 landscape, so it reads the same on any printer and in any archive. Trade vouchers use the same frame. */
+function stdPaper({ d, s, shop, verifyUrl, official, flag }) {
+  const c = d.calc;
+  const party = d.party;
+  const trade = d.type === 'trade';
+  const cell = (k, v) => html`<td><span>${k}</span><b>${v || '—'}</b></td>`;
+  const title = official && d.type !== 'proforma' ? (d.type === 'return' ? 'صورتحساب برگشت از فروش' : 'صورتحساب فروش کالا و خدمات') : trade ? 'برگ معامله (سکه، طلای آبشده، شمش، ارز)' : B.DOC_TYPES[d.type]?.label;
+  const cash = !c.credit;
+  const seller = html`<table class="sf-block"><caption>مشخصات ${trade ? 'مغازه' : 'فروشنده'}</caption><tbody>
+    <tr>${cell('نام شخص حقیقی / حقوقی', shop)}${cell('شماره اقتصادی', fa(s.economicCode ?? ''))}${cell('شماره ثبت / شناسه ملی', fa(s.nationalId || s.regNo || ''))}</tr>
+    <tr>${cell('نشانی کامل', s.address)}${cell('کد پستی ۱۰ رقمی', fa(s.postal ?? ''))}${cell('تلفن / نمابر', fa(s.phone ?? ''))}</tr></tbody></table>`;
+  const buyer = html`<table class="sf-block"><caption>مشخصات ${d.type === 'buy' ? 'فروشنده کالا (مشتری)' : trade ? 'طرف معامله' : 'خریدار'}</caption><tbody>
+    <tr>${cell('نام شخص حقیقی / حقوقی', party?.name ?? (d.hawala ? '' : 'مصرف‌کننده نهایی'))}${cell('شماره اقتصادی', fa(party?.eco ?? ''))}${cell(party?.kind === 'company' ? 'شناسه ملی' : 'کد ملی', fa(party?.nid ?? ''))}</tr>
+    <tr>${cell('نشانی کامل', party?.address)}${cell('کد پستی ۱۰ رقمی', fa(party?.postal ?? ''))}${cell('تلفن همراه', fa(party?.mobile ?? ''))}</tr></tbody></table>`;
+  let items;
+  if (trade) {
+    items = html`<table class="sf-items"><caption>مشخصات کالا یا خدمات مورد معامله</caption><thead><tr><th>ردیف</th><th>کد ردیف</th><th>شرح کالا</th><th>مقدار / تعداد</th><th>واحد</th><th>عیار</th><th>معادل ۷۵۰ (گرم)</th><th>مظنه / فی (${unitName()})</th><th>مبلغ خرید از مشتری (${unitName()})</th><th>مبلغ فروش به مشتری (${unitName()})</th></tr></thead>
+      <tbody>${c.lines.map((l, i) => html`<tr><td>${fa(i + 1)}</td><td class="ltr-num">${d.track}/L${i + 1}</td><td class="d">${lineVerb(l)} · ${l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : l.kind === 'fx' ? FX_CODES[l.code] : TRADE_KINDS[l.kind]}${l.kind === 'bar' ? ` · سریال ${fa(l.serial)}` : ''}${l.priced ? '' : ' (روی حساب جنسی)'}</td><td>${l.kind === 'coin' || l.kind === 'bar' ? fa(l.count) : l.kind === 'fx' ? unitVal(l.unit, l.amt) : G(l.weight)}</td><td>${l.kind === 'coin' || l.kind === 'bar' ? 'عدد' : l.kind === 'fx' ? FX_CODES[l.code] : 'گرم'}</td><td>${l.fineness ? fa(l.fineness) : '—'}</td><td>${l.eq750 ? G(l.eq750) : '—'}</td><td>${l.mazaneh ? T(l.mazaneh) : l.priced && l.kind === 'coin' ? T(Math.round(l.value / l.count)) : l.priced && l.kind === 'fx' ? T(Math.round(l.value / l.amt)) : '—'}</td><td>${l.priced && l.dir === 'in' ? T(l.value) : ''}</td><td>${l.priced && l.dir === 'out' ? T(l.value) : ''}</td></tr>`)}</tbody>
+      <tfoot><tr><td colspan="8">جمع</td><td>${T(c.buys)}</td><td>${T(c.sells)}</td></tr><tr><td colspan="8">خالص (${c.net >= 0 ? 'قابل دریافت از مشتری' : 'قابل پرداخت به مشتری'})</td><td colspan="2">${T(Math.abs(c.net))}</td></tr></tfoot></table>`;
+  } else {
+    const rows = c.lines.map((l, i) => ({ l, src: d.lines[i] ?? {} })).filter(({ l }) => l.side !== 'in');
+    const gross = (l) => (l.principal ?? 0) + (l.stones ?? 0) + (l.consfee ?? 0) + (l.spro ?? 0) + (l.bros ?? 0);
+    items = html`<table class="sf-items"><caption>مشخصات کالا یا خدمات مورد معامله</caption><thead><tr><th>ردیف</th><th>کد کالا</th><th>شرح کالا یا خدمات</th><th>مقدار / تعداد</th><th>واحد اندازه‌گیری</th><th>عیار</th><th>مبلغ واحد</th><th>ارزش طلا و سنگ</th><th>اجرت ساخت</th><th>سود فروشنده</th><th>حق‌العمل</th><th>مبلغ کل</th><th>مبلغ تخفیف</th><th>مبلغ کل پس از تخفیف</th><th>جمع مالیات و عوارض</th><th>جمع کل</th></tr></thead>
+      <tbody>${rows.map(({ l, src }, i) => html`<tr><td>${fa(i + 1)}</td><td class="ltr-num">${fa(src.sstid || B.stuffIdFor?.(l.kind, src.tpl, l.coin) || '')}</td><td class="d">${src.title || B.KIND_LABEL[l.kind]}${src.code ? ` · بارکد ${fa(src.code)}` : ''}</td><td>${l.kind === 'coin' ? fa(l.count) : l.weight ? G(l.weight) : fa(l.count ?? 1)}</td><td>${l.kind === 'coin' || !l.weight ? 'عدد' : 'گرم'}</td><td>${l.fineness ? fa(l.fineness) : '—'}</td><td>${l.fee ? T(l.fee) : '—'}</td><td>${T((l.principal ?? 0) + (l.stones ?? 0))}</td><td>${T(l.consfee ?? 0)}</td><td>${T(l.spro ?? 0)}</td><td>${l.bros ? T(l.bros) : '—'}</td><td>${T(gross(l))}</td><td>${l.discount ? T(l.discount) : '—'}</td><td>${T(gross(l) - (l.discount ?? 0))}</td><td>${T(l.vat ?? 0)}</td><td class="t">${T(l.total)}</td></tr>`)}</tbody>
+      <tfoot><tr><td colspan="7">جمع کل (${unitName()})</td><td>${T((c.principal ?? 0) + (c.stones ?? 0))}</td><td>${T(c.consfee ?? 0)}</td><td>${T(c.spro ?? 0)}</td><td>${T(c.bros ?? 0)}</td><td>${T(rows.reduce((a, { l }) => a + gross(l), 0))}</td><td>${T(rows.reduce((a, { l }) => a + (l.discount ?? 0), 0))}</td><td>${T(rows.reduce((a, { l }) => a + gross(l) - (l.discount ?? 0), 0))}</td><td>${T(c.vat ?? 0)}</td><td class="t">${T(c.sales ?? 0)}</td></tr>
+      ${c.tradeIn ? html`<tr><td colspan="15">کسر: طلای دریافتی از خریدار (تعویض)</td><td>− ${T(c.tradeIn)}</td></tr><tr><td colspan="15">قابل پرداخت</td><td class="t">${T(Math.abs(c.net))}</td></tr>` : ''}</tfoot></table>`;
+  }
+  return html`<article class="bk-paper std sf printable" dir="rtl">
+    ${flag ? html`<div class="sf-flag">${flag}</div>` : ''}
+    <header class="sf-head"><div class="sf-mark">${crown({ size: 58, ring: false })}<b>${shop}</b></div><div class="sf-title"><h2>${title}</h2>${official ? html`<small>الگوی طلا، جواهر و پلاتین${d.tax?.taxId ? html` · شماره منحصربه‌فرد مالیاتی <b class="ltr-num">${d.tax.taxId}</b>` : ''}</small>` : html`<small>سند داخلی قابل رهگیری · کد اصالت ${d.verify}</small>`}</div>
+      <table class="sf-meta"><tbody><tr><td>شماره سریال</td><td class="ltr-num">${d.serial ? fa(d.serial) : d.track}</td></tr><tr><td>کد رهگیری</td><td class="ltr-num">${d.track}</td></tr><tr><td>تاریخ</td><td>${jd(d.date)} ${d.issuedAt ? timeFa(d.issuedAt) : ''}</td></tr>${d.version > 1 ? html`<tr><td>نسخه</td><td>${fa(d.version)}</td></tr>` : ''}</tbody></table></header>
+    ${seller}${buyer}${items}
+    <table class="sf-terms"><tbody><tr><td>شرایط و نحوه ${d.type === 'buy' || trade ? 'تسویه' : 'فروش'}: <span class="box">${cash ? '☒' : '☐'}</span> نقدی <span class="box">${cash ? '☐' : '☒'}</span> غیرنقدی (نسیه${c.credit ? `: ${T(Math.abs(c.credit))} ${unitName()} ${c.credit > 0 ? 'بدهی خریدار' : 'طلب مشتری'}` : ''})</td>
+      <td>${c.payments.length ? c.payments.map((p, i) => `${B.payMethod(p.method)?.label} ${T(p.value)}${d.payments[i]?.ref ? ` (پیگیری ${fa(d.payments[i].ref)})` : ''}`).join(' · ') : '—'}</td></tr>
+      <tr><td colspan="2">مبلغ به حروف: ${moneyWords(Math.abs(trade ? c.net : c.net || c.sales))}${d.note ? ` · توضیحات: ${d.note}` : ''}</td></tr></tbody></table>
+    <footer class="sf-foot"><div><span>مهر و امضای ${trade ? 'مغازه' : 'فروشنده'}</span></div><div><span>مهر و امضای ${d.type === 'buy' ? 'فروشنده (مشتری)' : trade ? 'طرف معامله' : 'خریدار'}</span></div>
+      <div class="sf-qr">${raw(qrSvg(verifyUrl, { size: 84 }))}<small>استعلام اصالت<br><b class="ltr-num">${d.verify}</b></small></div></footer>
   </article>`;
 }

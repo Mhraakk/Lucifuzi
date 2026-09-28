@@ -76,7 +76,7 @@ export function createStage(host, o = {}) {
     host.innerHTML = '<p class="gl-msg">مرورگر شما WebGL را پشتیبانی نمی‌کند؛ نمای سه‌بعدی در دسترس نیست.</p>';
     return null;
   }
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 3)); // full density on 4K displays
   renderer.outputColorSpace = T.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = T.PCFShadowMap;

@@ -1,6 +1,34 @@
-import { html, $, route, render, setShell, store, ROLE_FA } from './core.mjs';
+import { html, raw, $, route, render, setShell, store, ROLE_FA } from './core.mjs';
 import { ICON, brandMark } from './ui.mjs';
 import { SHOP_NAME } from './crown.mjs';
+import { startHarness } from './harness.mjs';
+
+/* ---------- پوسته: آرام (default), روز, کلاسیک — remembered per device ---------- */
+const THEMES = ['calm', 'day', 'classic'];
+const THEME_FA = { calm: 'شب آرام', day: 'روز', classic: 'کلاسیک طلایی' };
+const THEME_ICON = {
+  calm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>',
+  day: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  classic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 17h16l-1.5-9-4 4L12 6l-2.5 6-4-4Z"/><path d="M4 20h16"/></svg>',
+};
+const theme = () => {
+  try {
+    const t = localStorage.getItem('beatris.theme');
+    return THEMES.includes(t) ? t : 'calm';
+  } catch {
+    return 'calm';
+  }
+};
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'day' ? '#f4f1ea' : t === 'classic' ? '#0d0b08' : '#13171c');
+  try {
+    localStorage.setItem('beatris.theme', t);
+  } catch {
+    /* storage unavailable */
+  }
+}
+setTheme(theme());
 
 const lazy = (mod, fn) => async (root, params) => (await import(mod))[fn](root, params);
 
@@ -24,6 +52,9 @@ route('/market', lazy('./pages/market.mjs', 'marketPage'), { tab: 'market', tone
 route('/market/data', lazy('./pages/marketdata.mjs', 'marketDataPage'), { tab: 'market', staff: true, tone: 'wide' });
 route('/books', lazy('./pages/books.mjs', 'booksHome'), { tab: 'books', tone: 'wide' });
 route('/books/desk', lazy('./pages/desk.mjs', 'deskPage'), { tab: 'books', tone: 'wide' });
+route('/books/memory', lazy('./pages/memory.mjs', 'memoryPage'), { tab: 'books', tone: 'wide' });
+route('/books/pulse', lazy('./pages/pulse.mjs', 'pulsePage'), { tab: 'books', tone: 'wide' });
+route('/books/trace', lazy('./pages/trace.mjs', 'tracePage'), { tab: 'books', tone: 'wide' });
 route('/books/audit', lazy('./pages/auditor.mjs', 'auditPage'), { tab: 'books', tone: 'wide' });
 route('/books/day', lazy('./pages/deskmore.mjs', 'dayPage'), { tab: 'books', tone: 'wide' });
 route('/books/vault', lazy('./pages/deskmore.mjs', 'vaultPage'), { tab: 'books', tone: 'wide' });
@@ -64,9 +95,18 @@ setShell((opts) => {
     return;
   }
   const u = store.me?.user;
+  if (u) startHarness();
   top.hidden = false;
   const shop = store.me?.brand?.shopName || SHOP_NAME;
-  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a>`);
+  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
+  $('#themeBtn', top)?.addEventListener('click', (e) => {
+    const next = THEMES[(THEMES.indexOf(theme()) + 1) % THEMES.length];
+    setTheme(next);
+    const b = e.currentTarget;
+    b.innerHTML = THEME_ICON[next];
+    b.title = `پوسته: ${THEME_FA[next]}`;
+    b.setAttribute('aria-label', `تغییر پوسته (${THEME_FA[next]})`);
+  });
   const tabs = [
     ['home', '/', 'خانه', ICON.home],
     ['learn', '/learn', 'آموزش', ICON.learn],

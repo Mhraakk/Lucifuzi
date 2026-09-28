@@ -112,3 +112,64 @@ test('موتور مدل محلی (سازگار با OpenAI): ابزار فقط�
   assert.equal(f.engine, 'books');
   assert.ok(f.fallback);
 });
+
+test('رهگیری: کد سند، کد ردیف و پرداخت، کد اصالت، شماره پیگیری و کد مشتری همه به همان سند می‌رسند', async () => {
+  const d = await ok('POST', '/api/books/docs', { type: 'trade', partyId: mehran.id, lines: [{ kind: 'melt', dir: 'in', weight: 2, fineness: 740, mazaneh: MAZ }], payments: [{ method: 'slip', dir: 'out', amount: 182190000, account: bank.id, ref: '5566778' }] }, E);
+  assert.match(d.track, /^M\d{4}-\d{5}$/);
+  const byTrack = await ok('GET', `/api/books/trace?q=${encodeURIComponent(d.track + '/P1')}`, null, E);
+  const t = byTrack.items[0];
+  assert.equal(t.id, d.id);
+  assert.deepEqual(t.part, { kind: 'P', n: 1 });
+  assert.equal(t.lines[0].trace, `${d.track}/L1`);
+  assert.equal(t.payments[0].trace, `${d.track}/P1`);
+  assert.equal(t.payments[0].ref, '5566778');
+  assert.ok(t.events.some((e) => e.action === 'doc.create'));
+  assert.ok(t.postings.some((x) => x.acct === 'gold' && x.amt === 1.973));
+  // Persian digits and the authenticity code
+  const fa = d.track.replace(/\d/g, (x) => '۰۱۲۳۴۵۶۷۸۹'[x]);
+  assert.equal((await ok('GET', `/api/books/trace?q=${encodeURIComponent(fa)}`, null, E)).items[0].id, d.id);
+  assert.equal((await ok('GET', `/api/books/trace?q=${d.verify}`, null, E)).items[0].id, d.id);
+  assert.equal((await ok('GET', '/api/books/trace?q=5566778', null, E)).items[0].id, d.id);
+  assert.ok((await ok('GET', `/api/books/trace?q=${mehran.code}`, null, E)).parties.some((p) => p.id === mehran.id));
+  // printing is part of the history
+  await ok('POST', `/api/books/docs/${d.id}/event`, { kind: 'print', format: 'std' }, E);
+  assert.ok((await ok('GET', `/api/books/trace?q=${d.track}`, null, E)).items[0].events.some((e) => e.action === 'doc.print'));
+  assert.equal((await call('POST', `/api/books/docs/${d.id}/event`, { kind: 'hack' }, E)).status, 400);
+  // the daybook and the statement carry the same code
+  const day = await ok('GET', '/api/books/daybook', null, M);
+  assert.ok(day.entries.some((e) => e.track === d.track));
+  assert.ok((await ok('GET', `/api/books/parties/${mehran.id}`, null, M)).statement.some((x) => x.doc?.track === d.track));
+});
+
+test('حافظه: رفتار مشتری از اسناد یاد گرفته می‌شود، یادداشت به خاطر می‌ماند و دقت با بازپخش سنجیده می‌شود', async () => {
+  const p = await ok('POST', '/api/books/parties', { name: 'بهرام کاظمی', mobile: '09125556677' }, E);
+  // six visits: always 745 melt of 8–12 g, left on the rial account
+  for (const w of [8, 10, 12, 9, 11, 10]) await ok('POST', '/api/books/docs', { type: 'trade', partyId: p.id, lines: [{ kind: 'melt', dir: 'in', weight: w, fineness: 745, mazaneh: MAZ }] }, E);
+  const prof = await ok('GET', `/api/books/learn/party/${p.id}`, null, E);
+  assert.equal(prof.trades, 6);
+  assert.deepEqual([prof.fineness.value, prof.fineness.n, prof.fineness.of], [745, 6, 6]);
+  assert.ok(prof.weight.p10 >= 8 && prof.weight.p90 <= 12);
+  // the harness: only known kinds are stored, values are not required
+  const rec = await ok('POST', '/api/books/events', { events: [{ kind: 'desk.open' }, { kind: 'ui', data: { act: 'add' } }, { kind: 'hack' }, { kind: 'desk.save', data: { lines: 1 } }] }, E);
+  assert.equal(rec.stored, 3);
+  // memory through the assistant, recalled on the customer and in the desk profile
+  assert.match(await ask('یادت باشه بهرام کاظمی فقط با کارت ملت پرداخت می‌کند', E), /به خاطر سپردم/);
+  const again = await ok('GET', `/api/books/learn/party/${p.id}`, null, E);
+  assert.equal(again.memory[0].text, 'بهرام کاظمی فقط با کارت ملت پرداخت می‌کند');
+  const recall = await ask('چی یادته درباره بهرام کاظمی', E);
+  assert.match(recall, /عیار رایج ۷۴۵/);
+  assert.match(recall, /کارت ملت/);
+  // same-name customers: the machine asks which one
+  await ok('POST', '/api/books/parties', { name: 'بهرام کاظمی', alias: 'بهرام سکه', city: 'اصفهان' }, E);
+  assert.match(await ask('یادت باشه بهرام کاظمی سکه پلمپ می‌خواهد', E), /کد …/);
+  // the replay: after two trades, the habit predicts the fineness of the next four exactly
+  const L = await ok('GET', '/api/books/learn', null, M);
+  assert.ok(L.replay.fineness.n >= 4 && L.replay.fineness.pct === 100, JSON.stringify(L.replay));
+  assert.ok(L.operators.some((o) => o.saves >= 1));
+  // forgetting is logged and limited to the author or a manager
+  const id = again.memory[0].id;
+  await ok('DELETE', `/api/books/memory/${id}`, null, M);
+  assert.equal((await ok('GET', `/api/books/learn/party/${p.id}`, null, E)).memory.length, 0);
+  const log = await ok('GET', '/api/books/log', null, M);
+  assert.ok(log.items.some((x) => x.action === 'memory.forget') && log.chain.ok);
+});

@@ -772,6 +772,10 @@ async function loginUI(page) {
       await page.click('[data-act=save]');
       await page.waitForURL(/\/books\/doc\//, { timeout: 15000 });
       await page.waitForSelector('.bk-paper');
+      const std = await text(page, '.bk-paper');
+      check('books: default print is the standard official form (seller, buyer, goods table, terms, signatures)', !!(await page.$('.bk-paper.std .sf-items')) && std.includes('صورتحساب فروش کالا و خدمات') && std.includes('مشخصات خریدار') && std.includes('جمع مالیات و عوارض') && std.includes('نقدی') && noBadNumbers(std));
+      await page.click('[data-fmt=a4]');
+      await page.waitForSelector('.bk-paper.a4');
       const inv = await text(page, '.bk-paper');
       const exp = await page.evaluate(async () => {
         const B = await import('/js/books.mjs');
@@ -945,6 +949,16 @@ async function loginUI(page) {
       await page.press('#aq', 'Enter');
       await page.waitForFunction(() => document.querySelectorAll('.au-m.assistant:not(.typing)').length >= 2);
       check('assistant: melt calculation matches the desk', (await text(page, '#msgs')).includes('۱۸۲٬۱۹۰٬۰۰۰'));
+      // نبض, رهگیری and حافظه
+      await go(page, '/books/pulse', 2000);
+      const pl = await text(page, '#main');
+      check('pulse: dashboard shows today, gold position, health and activity', !!(await page.$('.pl-meter')) && (await page.$$('.pl-feed li')).length >= 1 && pl.includes('نبض امروز') && noBadNumbers(pl));
+      const tr = await page.$eval('.pl-feed .rz-track', (a) => a.textContent.trim());
+      await page.click('.pl-feed .rz-track');
+      await page.waitForSelector('.tc-doc');
+      check('trace: a tracking code opens the document life (lines, payments, postings, history)', (await text(page, '.tc-doc')).includes(tr) && (await page.$$('.tc-tl li')).length >= 1 && (await page.$$('.tc-post tr')).length >= 1);
+      await go(page, '/books/memory', 1500);
+      check('memory: replay accuracy, rhythm and notes render', (await page.$$('.mm-acc')).length === 3 && noBadNumbers(await text(page, '#main')));
       await go(page, '/books/reports?tab=pnl', 1500);
       check('reports: trading P&L renders', noBadNumbers(await text(page, '#rep')) && (await text(page, '#rep')).includes('میانگین'));
       // bank reconciliation from a pasted statement
@@ -988,7 +1002,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/memory']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px`);

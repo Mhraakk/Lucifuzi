@@ -56,7 +56,7 @@ function ticks(lo, hi, target, log) {
 }
 
 function setupCanvas(cv, w, h) {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const dpr = Math.min(window.devicePixelRatio || 1, 3); // sharp on 4K and Retina screens
   cv.width = Math.round(w * dpr);
   cv.height = Math.round(h * dpr);
   cv.style.width = `${w}px`;

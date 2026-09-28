@@ -86,7 +86,7 @@ export async function dayPage(root) {
     return html`<li class="dy-e ${e.status}" style="--i:${Math.min(i, 12)}">
       <div class="dy-time"><b>${timeFa(e.at)}</b><span>${e.by ?? ''}</span></div>
       <div class="dy-card">
-        <div class="dy-top"><a class="dy-no" href="/books/doc/${e.id}" data-link>${label} ${fa(e.no)}</a>${e.version > 1 ? html`<span class="bk-st">نسخه ${fa(e.version)}</span>` : ''}${e.status !== 'final' ? statusChip(e.status) : ''}${e.type !== 'hawala' ? html`<span class="dy-who">${partyLink(e.party)}${e.party?.group ? html`<em>${e.party.group}</em>` : ''}</span>` : ''}</div>
+        <div class="dy-top"><a class="dy-no" href="/books/doc/${e.id}" data-link>${label}</a><a class="dy-track ltr-num" href="/books/trace?q=${e.track}" data-link title="رهگیری">${e.track}</a>${e.version > 1 ? html`<span class="bk-st">نسخه ${fa(e.version)}</span>` : ''}${e.status !== 'final' ? statusChip(e.status) : ''}${e.type !== 'hawala' ? html`<span class="dy-who">${partyLink(e.party)}${e.party?.group ? html`<em>${e.party.group}</em>` : ''}</span>` : ''}</div>
         ${e.type === 'hawala' && e.hawala ? html`<p class="dy-l"><span class="dk-tag">حواله</span> ${unitAmt(e.hawala.unit, e.hawala.amount)} از حساب <b>${e.hawala.fromName}</b> به حساب <b>${e.hawala.toName}</b></p>` : ''}
         ${e.type === 'convert' && e.convert ? html`<p class="dy-l"><span class="dk-tag">تبدیل</span> ${e.convert.amount > 0 ? 'بدهی' : 'طلب'} ${unitAmt(e.convert.unit, Math.abs(e.convert.amount))} به ریال${e.convert.mazaneh ? html` روی مظنه ${money(e.convert.mazaneh)}` : e.convert.price ? html` با نرخ ${money(e.convert.price)}` : ''} = <b>${money(Math.abs(e.convert.value))}</b></p>` : ''}
         ${e.type === 'trade'
@@ -118,7 +118,7 @@ export async function dayPage(root) {
   const map = { prev: () => go(addDays(day, -1)), next: () => go(addDays(day, 1)), today: () => go(today()) };
   const exportRows = () =>
     r.entries.flatMap((e) => {
-      const base = { time: timeFa(e.at), doc: `${B.DOC_TYPES[e.type]?.short ?? ''} ${e.no}`, status: e.status === 'final' ? 'قطعی' : 'باطل', party: e.type === 'hawala' ? `${e.hawala?.fromName} ← ${e.hawala?.toName}` : e.party?.label ?? 'گذری', by: e.by ?? '' };
+      const base = { time: timeFa(e.at), doc: e.track, status: e.status === 'final' ? 'قطعی' : 'باطل', party: e.type === 'hawala' ? `${e.hawala?.fromName} ← ${e.hawala?.toName}` : e.party?.label ?? 'گذری', by: e.by ?? '' };
       const out = e.lines.map((l) => ({ ...base, what: e.type === 'trade' ? `${lineVerb(l)} ${TR.TRADE_KINDS[l.kind]}` : B.DOC_TYPES[e.type]?.label, weight: l.weight || '', fineness: l.fineness || '', eq750: l.eq750 || '', mesghal: l.mesghal || '', count: l.count || '', mazaneh: l.mazaneh || l.impliedMazaneh || '', serial: l.serial ?? '', amount: l.priced ? l.value : '', method: '', ref: '' }));
       if (e.hawala) out.push({ ...base, what: `حواله ${unitLabel(e.hawala.unit)}`, count: e.hawala.amount });
       if (e.convert) out.push({ ...base, what: `تبدیل ${unitLabel(e.convert.unit)}`, count: e.convert.amount, amount: e.convert.value });
@@ -230,7 +230,7 @@ export async function barsPage(root) {
     <div class="br-list printable pr-sheet">${r.items.length
       ? r.items.map((b, i) => html`<details class="tray br-card" style="--i:${Math.min(i, 12)}" ${r.items.length === 1 ? raw('open') : ''}><summary><b class="ltr-num">${fa(b.serial)}</b><span>${b.brand || '—'}${b.gallery ? ` · ${b.gallery}` : ''}</span><span>${b.weight != null ? `${G(b.weight)} گرم · ${fa(b.fineness)}` : ''}</span>${status(b)}</summary>
           <p class="small">تاریخ پلمپ: ${b.sealDate ? jd(b.sealDate) : '—'}</p>
-          <ol class="br-hist">${b.history.map((h) => html`<li class="${h.dir}"><b>${jd(h.date)}</b> ${h.dir === 'in' ? (h.priced ? 'خرید از' : 'دریافت امانی از') : h.priced ? 'فروش به' : 'تحویل به'} ${h.party ?? 'مشتری گذری'} · <a href="/books/doc/${h.doc}" data-link>سند ${fa(h.no)}</a></li>`)}</ol></details>`)
+          <ol class="br-hist">${b.history.map((h) => html`<li class="${h.dir}"><b>${jd(h.date)}</b> ${h.dir === 'in' ? (h.priced ? 'خرید از' : 'دریافت امانی از') : h.priced ? 'فروش به' : 'تحویل به'} ${h.party ?? 'مشتری گذری'} · <a class="ltr-num" href="/books/trace?q=${encodeURIComponent(h.track)}" data-link>${h.track}</a></li>`)}</ol></details>`)
       : html`<p class="notice">${q ? 'شمشی با این سریال ثبت نشده است.' : 'هنوز شمشی ثبت نشده است؛ در میز معامله گزینه «شمش پلمپ» را بزنید.'}</p>`}</div>`);
   $('#bq', root).addEventListener('submit', (e) => {
     e.preventDefault();
@@ -260,7 +260,7 @@ export async function bankPage(root, { id }) {
     <section class="tray bk-sec"><h3 class="bk-h">چسباندن صورتحساب بانک</h3><p class="small">هر سطر: تاریخ، مبلغ (ریال؛ برداشت با منفی)، شماره پیگیری — با کاما، تب یا | جدا. مثال: <span class="ltr-num">۱۴۰۵/۰۷/۰۶, 500000000, 1234</span></p>
       <textarea class="input ltr" id="stmt" rows="4"></textarea><div class="actions"><button class="btn small" data-act="match">تطبیق خودکار</button></div><div id="mres"></div></section>
     <section class="tray bk-sec printable pr-sheet"><div class="bk-head"><h3 class="bk-h">گردش حساب در دفتر ${a.title}</h3><button class="btn small" data-act="save" disabled id="rsave">ذخیره تطبیق</button></div>
-      <div class="scrollx"><table class="table-plain bk-table"><thead><tr><th>تطبیق</th><th>تاریخ</th><th>سند</th><th>طرف حساب</th><th>روش / پیگیری</th><th>واریز</th><th>برداشت</th><th>مانده</th></tr></thead><tbody>${r.rows.map((x) => html`<tr data-src="${x.id}" class="${x.reconciled ? 'ok' : ''}"><td><input type="checkbox" data-rc="${x.id}" ${x.reconciled ? 'checked' : ''} aria-label="تطبیق"></td><td>${jd(x.date)}</td><td>${x.doc ? html`<a href="/books/doc/${x.src}" data-link>${B.DOC_TYPES[x.doc.type]?.short ?? ''} ${fa(x.doc.no)}</a>` : ''}</td><td>${x.party ?? '—'}</td><td class="small">${x.refs.join('، ')}${x.reconRef ? html` · صورتحساب ${fa(x.reconRef)}` : ''}</td><td class="num">${x.amt > 0 ? money(x.amt) : ''}</td><td class="num">${x.amt < 0 ? money(-x.amt) : ''}</td><td class="num">${money(x.balance)}</td></tr>`)}</tbody></table></div></section>`);
+      <div class="scrollx"><table class="table-plain bk-table"><thead><tr><th>تطبیق</th><th>تاریخ</th><th>سند</th><th>طرف حساب</th><th>روش / پیگیری</th><th>واریز</th><th>برداشت</th><th>مانده</th></tr></thead><tbody>${r.rows.map((x) => html`<tr data-src="${x.id}" class="${x.reconciled ? 'ok' : ''}"><td><input type="checkbox" data-rc="${x.id}" ${x.reconciled ? 'checked' : ''} aria-label="تطبیق"></td><td>${jd(x.date)}</td><td>${x.doc ? html`<a class="ltr-num" href="/books/trace?q=${encodeURIComponent(x.track)}" data-link>${x.track}</a>` : ''}</td><td>${x.party ?? '—'}</td><td class="small">${x.refs.join('، ')}${x.reconRef ? html` · صورتحساب ${fa(x.reconRef)}` : ''}</td><td class="num">${x.amt > 0 ? money(x.amt) : ''}</td><td class="num">${x.amt < 0 ? money(-x.amt) : ''}</td><td class="num">${money(x.balance)}</td></tr>`)}</tbody></table></div></section>`);
   const refresh = () => ($('#rsave', root).disabled = !pend.size);
   root.addEventListener('change', (e) => {
     const c = e.target.closest('[data-rc]');
@@ -304,6 +304,6 @@ export async function bankPage(root, { id }) {
       }
     },
   };
-  wireExport(map, 'bn', `bank-${a.title}`, () => r.rows.map((x) => ({ date: jd(x.date), doc: x.doc ? `${B.DOC_TYPES[x.doc.type]?.short ?? ''} ${x.doc.no}` : '', party: x.party ?? '', refs: x.refs.join(' '), amt: x.amt, balance: x.balance, rec: x.reconciled ? 'بله' : '' })), [['date', 'تاریخ'], ['doc', 'سند'], ['party', 'طرف حساب'], ['refs', 'روش/پیگیری'], ['amt', 'مبلغ (ریال)'], ['balance', 'مانده'], ['rec', 'تطبیق']], 'بانک');
+  wireExport(map, 'bn', `bank-${a.title}`, () => r.rows.map((x) => ({ date: jd(x.date), doc: x.track ?? '', party: x.party ?? '', refs: x.refs.join(' '), amt: x.amt, balance: x.balance, rec: x.reconciled ? 'بله' : '' })), [['date', 'تاریخ'], ['doc', 'سند'], ['party', 'طرف حساب'], ['refs', 'روش/پیگیری'], ['amt', 'مبلغ (ریال)'], ['balance', 'مانده'], ['rec', 'تطبیق']], 'بانک');
   actions(root, map);
 }

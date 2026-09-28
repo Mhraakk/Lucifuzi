@@ -119,7 +119,7 @@ export async function partyPage(root, { id }) {
     if (w.lines) return [...w.lines.map((l) => `${lineVerb(l)} ${TR_KINDS[l.kind]}${l.kind === 'coin' ? '' : ''} (${describeLine(l)})${l.priced ? ` = ${R(l.value)}` : ''}`), ...w.pays.map((y) => `${y.dir === 'in' ? 'دریافت' : 'پرداخت'} ${B.payMethod(y.method)?.label ?? y.method} ${R(y.value)}${y.ref ? ` · پیگیری ${fa(y.ref)}` : ''}`)].join(' | ') || B.DOC_TYPES[x.doc?.type]?.label;
     return `${B.DOC_TYPES[x.doc?.type]?.label ?? ''}${w.note ? ` · ${w.note}` : ''}`;
   };
-  const docCell = (x) => (x.doc ? html`<a href="/books/doc/${x.doc.id}" data-link>${B.DOC_TYPES[x.doc.type].short} ${fa(x.doc.no)}</a>` : x.src.startsWith('chq:') ? 'چک' : '—');
+  const docCell = (x) => (x.doc ? html`<a href="/books/doc/${x.doc.id}" data-link>${B.DOC_TYPES[x.doc.type].short}</a> <a class="ltr-num rz-track" href="/books/trace?q=${x.doc.track}" data-link>${x.doc.track}</a>` : x.src.startsWith('chq:') ? 'چک' : '—');
   const dirCell = (u, v) => (v ? html`<span class="rz-dir ${v > 0 ? 'debt' : 'cred'}">${v > 0 ? 'بد' : 'بس'}</span>` : html`<span class="rz-dir">—</span>`);
   function draw() {
     const box = $('#rz', root);
@@ -138,7 +138,7 @@ export async function partyPage(root, { id }) {
         const x0 = g.rows.find((x) => x.unit === 'IRR') ?? g.rows[0];
         return html`<li class="rz-e" style="--i:${Math.min(i, 14)}"><div class="rz-h"><b>${jd(x0.date)}</b>${x0.at ? html`<span>${timeFa(x0.at)}</span>` : ''}${docCell(x0)}</div>
           <p class="rz-d">${g.rows.map((x) => desc(x)).filter((v, j, a) => a.indexOf(v) === j).join(' | ')}</p>
-          <div class="rz-fx">${g.rows.map((x) => html`<span class="rz-chip ${x.amt > 0 ? 'debt' : 'cred'}">${unitLabel(x.unit)}: ${x.amt > 0 ? 'بدهکار شد' : 'بستانکار شد'} ${x.unit.startsWith('BAR:') ? '' : unitVal(x.unit, Math.abs(x.amt))}</span>`)}</div>
+          <div class="rz-fx">${g.rows.map((x) => x.amt === 0 ? html`<span class="rz-chip">تسویه کامل در همان سند؛ مانده تغییر نکرد</span>` : html`<span class="rz-chip ${x.amt > 0 ? 'debt' : 'cred'}">${unitLabel(x.unit)}: ${x.amt > 0 ? 'بدهکار شد' : 'بستانکار شد'} ${x.unit.startsWith('BAR:') ? '' : unitVal(x.unit, Math.abs(x.amt))}</span>`)}</div>
           <div class="rz-after"><span>مانده پس از این سند</span>${balChips(snap)}</div></li>`;
       })}</ol>`);
       return;
@@ -183,7 +183,7 @@ export async function partyPage(root, { id }) {
       }
     },
   };
-  wireExport(map, 'st', `hesab-${p.code}`, () => r.statement.map((x) => ({ date: jd(x.date), doc: x.doc ? `${B.DOC_TYPES[x.doc.type].short} ${x.doc.no}` : 'چک', unit: unitLabel(x.unit), desc: desc(x), debit: x.amt > 0 ? x.amt : '', credit: x.amt < 0 ? -x.amt : '', balance: Math.abs(x.balance), side: x.balance ? sideWord(x.unit, x.balance) : 'تسویه' })), [['date', 'تاریخ'], ['doc', 'سند'], ['unit', 'واحد (مبالغ ریال)'], ['desc', 'شرح'], ['debit', 'بدهکار'], ['credit', 'بستانکار'], ['balance', 'مانده'], ['side', 'تشخیص']], p.name);
+  wireExport(map, 'st', `hesab-${p.code}`, () => r.statement.map((x) => ({ date: jd(x.date), doc: x.doc ? x.doc.track : 'چک', unit: unitLabel(x.unit), desc: desc(x), debit: x.amt > 0 ? x.amt : '', credit: x.amt < 0 ? -x.amt : '', balance: Math.abs(x.balance), side: x.balance ? sideWord(x.unit, x.balance) : 'تسویه' })), [['date', 'تاریخ'], ['doc', 'سند'], ['unit', 'واحد (مبالغ ریال)'], ['desc', 'شرح'], ['debit', 'بدهکار'], ['credit', 'بستانکار'], ['balance', 'مانده'], ['side', 'تشخیص']], p.name);
   actions(root, map);
 }
 

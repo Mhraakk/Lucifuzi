@@ -723,6 +723,15 @@ export function balances(list) {
 export const faNum = (s) => String(s).replace(/\d/g, (d) => FA[Number(d)]);
 /** Money in the chosen display unit: rial (whole numbers) or toman. */
 export { SHOP_NAME } from './crown.mjs';
+/** کد رهگیری: one letter for the kind of document, the fiscal year and the number — M1405-00012 — with /L2 for its
+ * second line and /P1 for its first payment, so every gram and every rial of a document can be named and found. */
+export const trackCode = (type, fy, no) => `${DOC_TYPES[type]?.prefix ?? 'X'}${fy}-${String(no).padStart(5, '0')}`;
+export function parseTrack(q) {
+  const m = /^([A-Z])\s*(\d{4})\s*-?\s*(\d{1,7})(?:\s*\/\s*([LP])\s*(\d{1,3}))?$/.exec(String(q ?? '').trim().toUpperCase());
+  if (!m) return null;
+  const type = Object.keys(DOC_TYPES).find((k) => DOC_TYPES[k].prefix === m[1]);
+  return type ? { type, fy: Number(m[2]), no: Number(m[3]), part: m[4] ? { kind: m[4], n: Number(m[5]) } : null } : null;
+}
 export function fmtMoney(rial, money = 'rial', { unit = true } = {}) {
   if (money !== 'rial') return fmtRial(rial, { unit });
   if (!Number.isFinite(rial)) return '—';

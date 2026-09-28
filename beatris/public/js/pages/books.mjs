@@ -10,9 +10,12 @@ export function booksNav(cur) {
   const admin = store.isAdmin();
   const base = prefs.edition === 'base';
   const tabs = [
+    ['pulse', '/books/pulse', 'نبض'],
     ['desk', '/books/desk', 'میز معامله'],
     ['day', '/books/day', 'روزنگار'],
-    ['audit', '/books/audit', 'ممیز و دستیار'],
+    ['trace', '/books/trace', 'رهگیری'],
+    ['audit', '/books/audit', 'ممیز و تاجیار'],
+    ['memory', '/books/memory', 'حافظه'],
     ...(base ? [] : [['home', '/books', 'پیشخوان'], ['new', '/books/new/sale', 'فاکتور جدید']]),
     ['docs', '/books/docs', 'اسناد'],
     ['parties', '/books/parties', 'مشتریان'],
@@ -38,7 +41,7 @@ const QUICK = [
 /* ---------------- dashboard ---------------- */
 export async function booksHome(root) {
   await booksPrefs();
-  if (prefs.edition === 'base') return navigate('/books/desk', { replace: true });
+  if (prefs.edition === 'base') return navigate('/books/pulse', { replace: true });
   const s = await api('/api/books/summary');
   const T0 = s.totals;
   const methodIn = B.PAY_METHODS.map((m) => [m, T0.byMethod[`${m.id}:in`] ?? 0, T0.byMethod[`${m.id}:out`] ?? 0]).filter(([, a, b]) => a || b);
@@ -98,7 +101,7 @@ export async function docsPage(root) {
   }
   function draw() {
     $('#tbl', root).innerHTML = String(html`<thead><tr>${admin ? html`<th><input type="checkbox" id="all" aria-label="انتخاب همه" ${rows.length && rows.every((r) => sel.has(r.id)) ? 'checked' : ''}></th>` : ''}<th>سند</th><th>تاریخ</th><th>طرف حساب</th><th>جمع</th><th>خالص</th><th>نسیه</th><th>وضعیت</th><th></th></tr></thead>
-      <tbody>${rows.map((r) => html`<tr class="${r.status}">${admin ? html`<td><input type="checkbox" data-row="${r.id}" ${sel.has(r.id) ? 'checked' : ''} aria-label="انتخاب"></td>` : ''}<td><a href="/books/doc/${r.id}" data-link>${B.DOC_TYPES[r.type].short} ${fa(r.no)}</a>${r.version > 1 ? html`<span class="small"> نسخه ${fa(r.version)}</span>` : ''}</td><td>${jd(r.date)}</td><td>${r.partyName ?? html`<span class="small">گذری</span>`}</td><td class="num">${r.sales ? T(r.sales) : '—'}</td><td class="num">${T(r.net)}</td><td class="num ${r.credit > 0 ? 'debt' : ''}">${r.credit ? T(r.credit) : '—'}</td><td>${statusChip(r.status)}${r.tax ? html` <span class="bk-st tax">${{ sent: 'ارسال‌شده', accepted: 'تأیید مودیان', rejected: 'رد مودیان' }[r.tax] ?? ''}</span>` : ''}</td><td class="small">${r.createdBy ?? ''}</td></tr>`)}</tbody>`);
+      <tbody>${rows.map((r) => html`<tr class="${r.status}">${admin ? html`<td><input type="checkbox" data-row="${r.id}" ${sel.has(r.id) ? 'checked' : ''} aria-label="انتخاب"></td>` : ''}<td><a href="/books/doc/${r.id}" data-link>${B.DOC_TYPES[r.type].short}</a> <a class="ltr-num rz-track" href="/books/trace?q=${r.track}" data-link>${r.track}</a>${r.version > 1 ? html`<span class="small"> نسخه ${fa(r.version)}</span>` : ''}</td><td>${jd(r.date)}</td><td>${r.partyName ?? html`<span class="small">گذری</span>`}</td><td class="num">${r.sales ? T(r.sales) : '—'}</td><td class="num">${T(r.net)}</td><td class="num ${r.credit > 0 ? 'debt' : ''}">${r.credit ? T(r.credit) : '—'}</td><td>${statusChip(r.status)}${r.tax ? html` <span class="bk-st tax">${{ sent: 'ارسال‌شده', accepted: 'تأیید مودیان', rejected: 'رد مودیان' }[r.tax] ?? ''}</span>` : ''}</td><td class="small">${r.createdBy ?? ''}</td></tr>`)}</tbody>`);
     const tot = rows.filter((r) => r.status === 'final' && r.type === 'sale').reduce((s, r) => ({ n: s.n + 1, sales: s.sales + r.sales, vat: s.vat + r.vat }), { n: 0, sales: 0, vat: 0 });
     $('#sum', root).textContent = fa(`${rows.length} سند · فروش قطعی: ${tot.n} فاکتور، ${T(tot.sales)} ${unitName()}، مالیات ${T(tot.vat)} ${unitName()}`);
     drawBulk();
@@ -181,9 +184,9 @@ export async function docPage(root, { id }) {
   const shop = s.legalName || store.me.brand?.shopName || 'فروشگاه طلا و جواهر';
   let format = (() => {
     try {
-      return localStorage.getItem(FORMAT_KEY) || 'a4';
+      return localStorage.getItem(FORMAT_KEY) || 'std';
     } catch {
-      return 'a4';
+      return 'std';
     }
   })();
   const t = B.DOC_TYPES[d.type];
@@ -202,9 +205,9 @@ export async function docPage(root, { id }) {
   const paper = () => invoicePaper({ d, s, shop, format, theme, verifyUrl, brandName: store.me.brand?.shopName && store.me.brand.shopName !== shop ? store.me.brand.shopName : '' });
   const draw = () => {
     root.innerHTML = String(html`${booksNav('docs')}
-      <div class="bk-head noprint"><h1>${t.label} ${fa(d.no)} ${statusChip(d.status)}</h1>
+      <div class="bk-head noprint"><h1>${t.label} ${statusChip(d.status)}</h1><a class="chip ltr-num" href="/books/trace?q=${d.track}" data-link title="رهگیری کامل">رهگیری ${d.track}</a>
         <div class="actions">
-          <div class="seg" role="group" aria-label="قالب چاپ">${[['a4', 'A4'], ['a5', 'A5'], ['r80', 'رول ۸۰ میلی‌متری']].map(([k, l]) => html`<button data-fmt="${k}" aria-pressed="${format === k}">${l}</button>`)}</div>
+          <div class="seg" role="group" aria-label="قالب چاپ">${[['std', 'قالب استاندارد رسمی'], ['a4', 'A4 نفیس'], ['a5', 'A5'], ['r80', 'رول ۸۰ میلی‌متری']].map(([k, l]) => html`<button data-fmt="${k}" aria-pressed="${format === k}">${l}</button>`)}</div>
           <div class="seg" role="group" aria-label="طرح فاکتور">${THEMES.map(([k, l]) => html`<button data-theme="${k}" aria-pressed="${theme === k}">${l}</button>`)}</div>
           <button class="btn small" data-act="print">چاپ / PDF</button>
           ${d.status !== 'void' && (admin || d.status === 'draft') ? html`<a class="btn small ghost" href="/books/doc/${d.id}/edit" data-link>ویرایش</a>` : ''}
@@ -252,8 +255,10 @@ export async function docPage(root, { id }) {
       return;
     }
     const act = b.dataset.act;
-    if (act === 'print') window.print();
-    else if (act === 'json') download(`${d.type}-${d.fy}-${d.no}.json`, 'application/json', JSON.stringify(d, null, 2));
+    if (act === 'print') {
+      api(`/api/books/docs/${d.id}/event`, { method: 'POST', body: { kind: 'print', format } }).catch(() => {});
+      window.print();
+    } else if (act === 'json') download(`${d.type}-${d.fy}-${d.no}.json`, 'application/json', JSON.stringify(d, null, 2));
     else if (act === 'moadian') {
       try {
         const m = await api(`/api/books/docs/${d.id}/moadian`);

@@ -7,9 +7,12 @@ import { html, raw, fa, api, store, toast, navigate, $, $$, busy } from '../core
 import * as B from '../books.mjs';
 import * as TR from '../trade.mjs';
 import { COIN_TYPES } from '../coins.mjs';
-import { booksPrefs, prefs, R, G, jd, jdInput, parseDay, today, modal, balChips, unitLabel, unitVal, unitAmt, balUnits, timeFa, describeLine } from '../bk.mjs';
+import { booksPrefs, prefs, R, G, jd, jdInput, parseDay, today, modal, balChips, unitLabel, unitVal, unitAmt, balUnits, timeFa, describeLine, lineVerb, balSentence } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 import { crown } from '../invoice.mjs';
+import { track } from '../harness.mjs';
+import { barcodeSvg } from '../barcode.mjs';
+import { qrSvg } from '../qr.mjs';
 
 const MODES = [
   ['buy', 'خرید از مشتری', 'مشتری می‌فروشد · ما پول می‌دهیم', 'in', true],
@@ -136,7 +139,17 @@ export async function deskPage(root) {
       return;
     }
     const p = S.party;
-    box.innerHTML = String(html`<div class="dk-who"><div><b>${p.label}</b><span class="small">کد ${fa(p.code)}${p.mobile ? html` · ${fa(p.mobile)}` : ''}${p.group ? html` · گروه ${p.group}` : ''}</span></div><div class="dk-who-a"><a class="chip" href="/books/party/${p.id}" data-link>ریز حساب</a><button class="chip" data-act="pclear">تغییر مشتری</button></div></div><div class="dk-bal">${balChips(p.balance ?? {})}</div>`);
+    const h = S.habits;
+    const habit = h && (h.pay || h.fineness || h.coin || h.weight || h.memory?.length)
+      ? html`<div class="dk-mem"><span class="dk-mem-t">حافظه${h.trades ? ` · از ${fa(h.trades)} معامله` : ''}</span>
+          ${h.pay ? html`<button class="chip" data-act="habitpay" title="افزودن همین روش پرداخت">${B.payMethod(h.pay.method)?.label}${h.pay.accountTitle ? ` · ${h.pay.accountTitle}` : ''} <small>${fa(h.pay.n)}/${fa(h.pay.of)}</small></button>` : ''}
+          ${h.fineness ? html`<span class="chip">عیار ${fa(h.fineness.value)} <small>${fa(h.fineness.n)}/${fa(h.fineness.of)}</small></span>` : ''}
+          ${h.coin ? html`<span class="chip">${COIN_TYPES[h.coin.value]?.short}</span>` : ''}
+          ${h.weight ? html`<span class="chip">معمولاً ${G(h.weight.p10)}–${G(h.weight.p90)} گرم</span>` : ''}
+          ${(h.memory ?? []).map((m) => html`<p class="dk-note">📌 ${m.text} <small>${m.by}</small></p>`)}
+          <button class="chip ghost" data-act="note">+ یادداشت برای این مشتری</button></div>`
+      : html`<div class="dk-mem"><button class="chip ghost" data-act="note">+ یادداشت برای این مشتری</button></div>`;
+    box.innerHTML = String(html`<div class="dk-who"><div><b>${p.label}</b><span class="small">کد ${fa(p.code)}${p.mobile ? html` · ${fa(p.mobile)}` : ''}${p.group ? html` · گروه ${p.group}` : ''}</span></div><div class="dk-who-a"><a class="chip" href="/books/party/${p.id}" data-link>ریز حساب</a><button class="chip" data-act="pclear">تغییر مشتری</button></div></div><div class="dk-bal">${balChips(p.balance ?? {})}</div>${habit}`);
   }
   let pqT;
   async function findParty(q) {
@@ -148,8 +161,10 @@ export async function deskPage(root) {
     drop.innerHTML = r.items.length ? r.items.slice(0, 15).map((p) => String(html`<button data-pick="${p.id}"><b>${p.label}</b><span>کد ${fa(p.code)}${p.group ? ` · ${p.group}` : ''}</span><em>${balChips(p.balance)}</em></button>`)).join('') : '<p class="small">پیدا نشد؛ «مشتری جدید» را بزنید.</p>';
   }
   async function pickParty(p) {
-    const full = await api(`/api/books/parties/${p.id}`);
+    const [full, habits] = await Promise.all([api(`/api/books/parties/${p.id}`), api(`/api/books/learn/party/${p.id}`).catch(() => null)]);
     S.party = { ...full.party, balance: full.balance };
+    S.habits = habits;
+    track('desk.party', { trades: habits?.trades ?? 0 });
     resetForm();
     drawParty();
     drawForm();
@@ -247,7 +262,15 @@ export async function deskPage(root) {
       return toast(e.message, 'error');
     }
     if (!priced() && !S.party) return toast('ورود و خروج جنس روی حساب مشتری است؛ اول مشتری را انتخاب کنید.', 'error');
+    // what the machine learned about this customer: flag the unusual before it is saved
+    const h = S.habits;
+    if (h && l.kind === 'melt') {
+      const w = B.num(l.weight), f = B.num(l.fineness);
+      if (h.weight?.n >= 3 && w > Math.max(h.weight.p90 * 3, h.weight.p90 + 20)) toast(`وزن ${G(w)} گرم بیش از سه برابر معمول این مشتری است (معمولاً تا ${G(h.weight.p90)} گرم). دوباره بخوانید.`, 'error');
+      if (h.fineness?.n >= 3 && Math.abs(f - h.fineness.value) >= 15) toast(`عیار ${fa(f)} با عیار همیشگی این مشتری (${fa(h.fineness.value)}) فرق دارد.`, 'info');
+    }
     S.lines.push(l);
+    track('desk.add', { kind: l.kind, dir: l.dir, priced: l.priced !== false });
     const keep = S.f[S.kind];
     resetForm();
     if (S.kind === 'melt') S.f.melt.fineness = keep.fineness;
@@ -353,6 +376,7 @@ export async function deskPage(root) {
     busy(btn, true);
     try {
       const doc = await api('/api/books/docs', { method: 'POST', body: body() });
+      track('desk.save', { lines: S.lines.length, pays: S.payments.length, party: !!S.party }, doc.track);
       ls.set(null);
       const [party, check] = await Promise.all([S.party ? api(`/api/books/parties/${S.party.id}`) : null, api(`/api/books/audit?doc=${doc.id}`).catch(() => ({ findings: [] }))]);
       receipt(doc, party, check.findings);
@@ -369,37 +393,57 @@ export async function deskPage(root) {
       recalc();
     } catch (e) {
       toast(e.message, 'error');
+      track('desk.error', { msg: e.message.slice(0, 120) });
     } finally {
       busy(btn, false);
     }
   }
-  function receipt(doc, party, warn = []) {
+  // one receipt for every kind of base-edition document: tracking code with barcode, authenticity QR, each line and
+  // payment with its own code, the balance after; printing and sharing are written to the document's history
+  function receipt(doc, party, warn = [], extra = []) {
     const c = doc.calc;
     const shop = s.legalName || store.me.brand?.shopName || '';
+    const kindTitle = doc.type === 'hawala' ? 'رسید حواله' : doc.type === 'convert' ? 'رسید تبدیل مانده' : 'رسید معامله';
+    const verifyUrl = `${location.origin}/verify/${doc.verify}`;
+    const lineTxt = (l) => `${lineVerb(l)} ${TR.TRADE_KINDS[l.kind]}: ${describe(l)}${l.priced ? ` = ${R(l.value)}` : ''}`;
+    const body = [
+      ...(c.lines ?? []).map((l, i) => [`${doc.track}/L${i + 1}`, `${lineVerb(l)} ${l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : TR.TRADE_KINDS[l.kind]}`, describe(l), l.priced ? R(l.value) : unitAmt(l.unit, l.amt)]),
+      ...(c.payments ?? []).map((p, i) => [`${doc.track}/P${i + 1}`, `${p.dir === 'in' ? 'دریافت' : 'پرداخت'} · ${B.payMethod(p.method).label}`, doc.payments[i]?.ref ? `پیگیری ${fa(doc.payments[i].ref)}` : '', R(p.value)]),
+      ...(c.hawala ? [[doc.track, 'حواله', `از ${extra[0]?.label ?? ''} به ${extra[1]?.label ?? ''}`, unitAmt(c.hawala.unit, c.hawala.amount)]] : []),
+      ...(c.convert ? [[doc.track, 'تبدیل مانده جنسی', `${unitAmt(c.convert.unit, Math.abs(c.convert.amount))}${c.convert.mazaneh ? ` روی مظنه ${R(c.convert.mazaneh)}` : c.convert.price ? ` با نرخ ${R(c.convert.price)}` : ''}`, R(Math.abs(c.convert.value))]] : []),
+    ];
+    const who = [party, ...extra.filter((x) => x?.balance)].filter(Boolean);
     const text = [
-      `${shop} — رسید معامله ${fa(doc.no)} · ${jd(doc.date)} ${timeFa(doc.issuedAt)}`,
+      `${shop} — ${kindTitle}`,
+      `کد رهگیری: ${doc.track} · ${jd(doc.date)} ${timeFa(doc.issuedAt)}`,
       party ? `مشتری: ${party.party.label}` : '',
-      ...c.lines.map((l) => `${l.priced ? (l.dir === 'in' ? 'خرید' : 'فروش') : l.dir === 'in' ? 'دریافت جنس' : 'تحویل جنس'} ${TR.TRADE_KINDS[l.kind]}: ${describe(l)}${l.priced ? ` = ${R(l.value)}` : ''}`),
-      ...c.payments.map((p, i) => `${p.dir === 'in' ? 'دریافت' : 'پرداخت'} ${B.payMethod(p.method).label}: ${R(p.value)}${doc.payments[i]?.ref ? ` (پیگیری ${fa(doc.payments[i].ref)})` : ''}`),
-      party ? `مانده حساب: ${balUnits(party.balance).map((u) => `${party.balance[u] > 0 ? 'بدهکار' : 'بستانکار'} ${unitAmt(u, Math.abs(party.balance[u]))}`).join(' · ') || 'بی‌حساب'}` : '',
-      `کد اصالت: ${doc.verify}`,
+      ...(c.lines ?? []).map(lineTxt),
+      ...body.filter((r) => r[0].includes('/P') || !c.lines?.length).map((r) => `${r[1]} ${r[2]} ${r[3]}`.trim()),
+      party ? `مانده حساب: ${balSentence(party.party.name, party.balance)}` : '',
+      `کد اصالت: ${doc.verify} — ${verifyUrl}`,
     ].filter(Boolean).join('\n');
+    const note = (kind) => api(`/api/books/docs/${doc.id}/event`, { method: 'POST', body: { kind, format: 'receipt' } }).catch(() => {});
     modal(
-      String(html`<div class="printable dk-receipt"><div class="dk-r-head">${crown({ size: 56 })}<b>${shop}</b><span>رسید معامله ${fa(doc.no)} · ${jd(doc.date)} ${timeFa(doc.issuedAt)}</span></div>
+      String(html`<div class="printable dk-receipt"><div class="dk-r-head">${crown({ size: 56 })}<b>${shop}</b><span>${kindTitle} · ${jd(doc.date)} ${timeFa(doc.issuedAt)}</span></div>
+        <div class="dk-r-track"><div><span>کد رهگیری</span><b class="ltr-num">${doc.track}</b>${raw(barcodeSvg(doc.track, { module: 1.5, height: 30, label: false }))}</div>${raw(qrSvg(verifyUrl, { size: 74 }))}</div>
         ${party ? html`<p><b>مشتری:</b> ${party.party.label} · کد ${fa(party.party.code)}</p>` : ''}
-        <table class="table-plain">${c.lines.map((l) => html`<tr><td>${l.priced ? (l.dir === 'in' ? 'خرید' : 'فروش') : l.dir === 'in' ? 'دریافت جنس' : 'تحویل جنس'} ${TR.TRADE_KINDS[l.kind]}<small>${describe(l)}</small></td><td class="num">${l.priced ? R(l.value) : unitAmt(l.unit, l.amt)}</td></tr>`)}
-        ${c.payments.map((p, i) => html`<tr><td>${p.dir === 'in' ? 'دریافت' : 'پرداخت'} · ${B.payMethod(p.method).label}${doc.payments[i]?.ref ? html`<small>پیگیری ${fa(doc.payments[i].ref)}</small>` : ''}</td><td class="num">${R(p.value)}</td></tr>`)}</table>
-        ${party ? html`<div class="dk-after"><span>مانده حساب پس از این سند</span>${balChips(party.balance)}</div>` : ''}
+        <table class="table-plain dk-r-t">${body.map((r) => html`<tr><td><em class="ltr-num">${r[0].replace(doc.track, '') || '—'}</em>${r[1]}<small>${r[2]}</small></td><td class="num">${r[3]}</td></tr>`)}</table>
+        ${who.map((x) => html`<div class="dk-after"><span>مانده ${x.party?.name ?? x.label} پس از این سند</span>${balChips(x.balance)}</div>`)}
         <p class="small ltr-num">کد اصالت ${doc.verify}</p></div>
         ${warn.length ? html`<div class="dk-warn" role="alert"><b>ممیز:</b>${warn.map((f) => html`<p class="${f.sev}">${f.sev === 'high' ? '⛔' : '⚠'} ${f.title} — ${f.detail}</p>`)}</div>` : ''}
-        <div class="actions"><button class="btn" data-r="print">چاپ رسید</button><button class="btn ghost" data-r="share">ارسال / کپی متن</button><a class="btn ghost" href="/books/doc/${doc.id}" data-link data-close>سند کامل</a><button class="btn ghost" data-close>معامله بعدی</button></div>`),
+        <div class="actions"><button class="btn" data-r="print">چاپ رسید</button><button class="btn ghost" data-r="share">ارسال / کپی متن</button><a class="btn ghost" href="/books/trace?q=${doc.track}" data-link data-close>رهگیری</a><a class="btn ghost" href="/books/doc/${doc.id}" data-link data-close>سند کامل</a><button class="btn ghost" data-close>معامله بعدی</button></div>`),
       (m) =>
         m.addEventListener('click', async (e) => {
           const b = e.target.closest('[data-r]');
           if (!b) return;
-          if (b.dataset.r === 'print') window.print();
-          else if (navigator.share) navigator.share({ text }).catch(() => {});
-          else {
+          if (b.dataset.r === 'print') {
+            note('print');
+            window.print();
+          } else if (navigator.share) {
+            note('share');
+            navigator.share({ text }).catch(() => {});
+          } else {
+            note('share');
             await navigator.clipboard?.writeText(text).catch(() => {});
             toast('متن رسید کپی شد.', 'ok');
           }
@@ -426,7 +470,8 @@ export async function deskPage(root) {
           try {
             const d = await api('/api/books/docs', { method: 'POST', body: { type: 'hawala', hawala: { from: f.from, to: f.to, unit: f.unit, amount: f.amount }, note: f.note } });
             close();
-            toast(`حواله ${fa(d.no)} ثبت شد.`, 'ok');
+            const [pa, pb] = await Promise.all([api(`/api/books/parties/${f.from}`), api(`/api/books/parties/${f.to}`)]);
+            receipt(d, null, [], [{ label: pa.party.label, party: pa.party, balance: pa.balance }, { label: pb.party.label, party: pb.party, balance: pb.balance }]);
             if (S.party && [f.from, f.to].includes(S.party.id)) pickParty(S.party);
           } catch (err) {
             $('#hwerr', m).textContent = err.message;
@@ -470,7 +515,7 @@ export async function deskPage(root) {
           try {
             const d = await api('/api/books/docs', { method: 'POST', body: { type: 'convert', partyId: S.party.id, convert: u === 'G750' ? { unit: u, amount: f.elements.amount.value, mazaneh: f.elements.price.value } : { unit: u, amount: f.elements.amount.value, price: f.elements.price.value } } });
             close();
-            toast(`تبدیل ${fa(d.no)} ثبت شد.`, 'ok');
+            receipt(d, await api(`/api/books/parties/${S.party.id}`));
             pickParty(S.party);
           } catch (err) {
             $('#cverr', m).textContent = err.message;
@@ -631,6 +676,25 @@ export async function deskPage(root) {
       drawForm();
       recalc();
       $('#pq', root)?.focus();
+    } else if (act === 'habitpay' && S.habits?.pay) {
+      S.payments.push({ method: S.habits.pay.method, dir: 'in', amount: '', account: S.habits.pay.account ?? undefined });
+      drawPays();
+      fill(S.payments.length - 1);
+      recalc();
+    } else if (act === 'note' && S.party) {
+      modal(String(html`<h3 class="bk-h">یادداشت برای ${S.party.label}</h3><p class="small">هر بار این مشتری انتخاب شود نشان داده می‌شود (مثلاً «فقط با کارت ملت می‌پردازد»، «سکه را پلمپ می‌خواهد»).</p><form class="form" id="nf"><textarea class="input" name="text" rows="3" maxlength="400" required></textarea><p class="err" id="nferr"></p><div class="actions"><button class="btn">به خاطر بسپار</button><button class="btn ghost" type="button" data-close>انصراف</button></div></form>`), (m, close) =>
+        $('#nf', m).addEventListener('submit', async (e) => {
+          e.preventDefault();
+          try {
+            await api('/api/books/memory', { method: 'POST', body: { scope: 'party', ref: S.party.id, text: new FormData(e.target).get('text') } });
+            close();
+            pickParty(S.party);
+            toast('به خاطر سپرده شد.', 'ok');
+          } catch (err) {
+            $('#nferr', m).textContent = err.message;
+          }
+        }),
+      );
     } else if (act === 'hawala') hawala();
     else if (act === 'convert') convert();
     else if (act === 'cond') conditional();
@@ -660,6 +724,7 @@ export async function deskPage(root) {
   recalc();
   $('#pq', root)?.focus();
   // «معامله در میز» from a customer's page arrives with ?party=
+  track('desk.open');
   const pre = new URLSearchParams(location.search).get('party');
   if (pre) await pickParty({ id: pre }).catch(() => toast('این مشتری پیدا نشد.', 'error'));
   return () => {

@@ -109,6 +109,7 @@ export function toast(msg, kind = 'info') {
   t.className = `toast ${kind}`;
   t.textContent = fa(msg);
   box.append(t);
+  dispatchEvent(new CustomEvent('beatris:toast', { detail: { msg, kind } })); // the harness learns which errors people meet
   setTimeout(() => t.classList.add('out'), 3200);
   setTimeout(() => t.remove(), 3700);
 }
