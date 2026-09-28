@@ -1,5 +1,6 @@
 import { html, $, route, render, setShell, store, ROLE_FA } from './core.mjs';
 import { ICON, brandMark } from './ui.mjs';
+import { SHOP_NAME } from './crown.mjs';
 
 const lazy = (mod, fn) => async (root, params) => (await import(mod))[fn](root, params);
 
@@ -23,6 +24,7 @@ route('/market', lazy('./pages/market.mjs', 'marketPage'), { tab: 'market', tone
 route('/market/data', lazy('./pages/marketdata.mjs', 'marketDataPage'), { tab: 'market', staff: true, tone: 'wide' });
 route('/books', lazy('./pages/books.mjs', 'booksHome'), { tab: 'books', tone: 'wide' });
 route('/books/desk', lazy('./pages/desk.mjs', 'deskPage'), { tab: 'books', tone: 'wide' });
+route('/books/audit', lazy('./pages/auditor.mjs', 'auditPage'), { tab: 'books', tone: 'wide' });
 route('/books/day', lazy('./pages/deskmore.mjs', 'dayPage'), { tab: 'books', tone: 'wide' });
 route('/books/vault', lazy('./pages/deskmore.mjs', 'vaultPage'), { tab: 'books', tone: 'wide' });
 route('/books/bars', lazy('./pages/deskmore.mjs', 'barsPage'), { tab: 'books', tone: 'wide' });
@@ -63,8 +65,8 @@ setShell((opts) => {
   }
   const u = store.me?.user;
   top.hidden = false;
-  const shop = store.me?.brand?.shopName;
-  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span>بئاتریس${shop ? html`<small class="shop-name">${shop}</small>` : ''}</span></a><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a>`);
+  const shop = store.me?.brand?.shopName || SHOP_NAME;
+  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a>`);
   const tabs = [
     ['home', '/', 'خانه', ICON.home],
     ['learn', '/learn', 'آموزش', ICON.learn],

@@ -722,6 +722,7 @@ export function balances(list) {
 /* ---------------- formatting ---------------- */
 export const faNum = (s) => String(s).replace(/\d/g, (d) => FA[Number(d)]);
 /** Money in the chosen display unit: rial (whole numbers) or toman. */
+export { SHOP_NAME } from './crown.mjs';
 export function fmtMoney(rial, money = 'rial', { unit = true } = {}) {
   if (money !== 'rial') return fmtRial(rial, { unit });
   if (!Number.isFinite(rial)) return '—';

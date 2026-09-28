@@ -1,3 +1,4 @@
+import { crownSvg } from './crown.mjs';
 import { html, raw, fa, store } from './core.mjs';
 
 const P = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`);
@@ -31,8 +32,8 @@ export const ICON = {
   book: P('<path d="M4 5h6a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4ZM20 5h-6a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6Z"/>'),
 };
 
-/** Brand: a twelve-petal rosette, the motif carved along the stairways of Persepolis. */
-export const brandMark = raw('<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="bm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3cf"/><stop offset=".45" stop-color="#e3b862"/><stop offset="1" stop-color="#8f6420"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="none" stroke="url(#bm)" stroke-width="1.6"/><circle cx="32" cy="32" r="25" fill="none" stroke="url(#bm)" stroke-width=".6" opacity=".6"/><g fill="url(#bm)" opacity=".95"><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(0 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(30 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(60 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(90 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(120 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(150 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(180 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(210 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(240 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(270 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(300 32 32)"/><path d="M32 32 C29 24 29 16 32 9 C35 16 35 24 32 32Z" transform="rotate(330 32 32)"/></g><circle cx="32" cy="32" r="4.2" fill="#0d0b08" stroke="url(#bm)" stroke-width="1.4"/></svg>');
+/** Brand: the crown of «خانه سکه و شمش تاج» (coin for the jewel, gold bar for the base). */
+export const brandMark = raw(crownSvg({ size: 34, ring: false, id: 'bm', cls: 'crown brand-crown' }));
 
 export const ringEl = (pct, cls = '') => html`<div class="ring ${cls}" style="--p:${Math.max(0, Math.min(100, pct ?? 0))}" data-v="${fa(Math.round(pct ?? 0))}" role="img" aria-label="${fa(Math.round(pct ?? 0))} درصد"></div>`;
 export const barEl = (pct) => html`<div class="bar" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>`;

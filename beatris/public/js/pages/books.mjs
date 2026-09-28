@@ -12,6 +12,7 @@ export function booksNav(cur) {
   const tabs = [
     ['desk', '/books/desk', 'میز معامله'],
     ['day', '/books/day', 'روزنگار'],
+    ['audit', '/books/audit', 'ممیز و دستیار'],
     ...(base ? [] : [['home', '/books', 'پیشخوان'], ['new', '/books/new/sale', 'فاکتور جدید']]),
     ['docs', '/books/docs', 'اسناد'],
     ['parties', '/books/parties', 'مشتریان'],

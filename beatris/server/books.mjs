@@ -5,6 +5,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as B from '../public/js/books.mjs';
 import { jalaliOf } from '../public/js/ta.mjs';
 import { COIN_TYPES } from '../public/js/coins.mjs';
+import { makeAudit } from './audit.mjs';
+import { makeAssistant } from './assistant.mjs';
 import * as TR from '../public/js/trade.mjs';
 
 export const BOOKS_SCHEMA = `
@@ -70,7 +72,20 @@ export const DEFAULT_BOOKS = {
   edition: 'full', money: 'rial', tradeRound: 10000, spreadBuy: 0, spreadSell: 0, coinSpreadBuy: 0, coinSpreadSell: 0, groups: {},
 };
 
-export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market }) {
+export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market }) {
+  // every handler is also kept by name, so the auditor and the assistant reuse exactly the logic (and the checks) of the API
+  const handlers = new Map();
+  const on = (method, path, guard, fn) => {
+    handlers.set(`${method} ${path}`, fn);
+    onRoute(method, path, guard, fn);
+  };
+  const call = (method, path, user, { params = {}, query = {}, body = {} } = {}) => {
+    const fn = handlers.get(`${method} ${path}`);
+    if (!fn) throw new Error(`no handler ${method} ${path}`);
+    const url = new URL(`http://local${path}`);
+    for (const [k, v] of Object.entries(query)) if (v != null) url.searchParams.set(k, v);
+    return fn({ user, params, query, url, body });
+  };
   db.raw.exec(BOOKS_SCHEMA);
   for (const col of ['alias', 'father', 'city', 'grp']) {
     try {
@@ -83,7 +98,11 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     db.run("INSERT INTO bk_accounts(id,kind,title,created_at) VALUES ('main','cash','صندوق اصلی',?)", now());
     db.run("INSERT INTO bk_accounts(id,kind,title,created_at) VALUES ('bank-main','bank','حساب بانکی اصلی',?)", now());
   }
-  const settings = () => ({ ...DEFAULT_BOOKS, ...getSetting('books', {}), vatPct: pricing().vatPct ?? 10 });
+  const settings = () => {
+    const s = { ...DEFAULT_BOOKS, ...getSetting('books', {}), vatPct: pricing().vatPct ?? 10 };
+    if (!s.legalName) s.legalName = getSetting('brand', {}).shopName || B.SHOP_NAME; // the house name until the owner types the registered one
+    return s;
+  };
   const forbid = (m) => new HttpError(403, m);
   const guardAdmin = (user) => {
     if (!isAdmin(user)) throw forbid('این کار مخصوص مدیر است.');
@@ -201,13 +220,31 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     const p = db.get('SELECT * FROM bk_parties WHERE id=?', params.id);
     if (!p) throw notFound('این مشتری پیدا نشد.');
     const acct = `party:${p.id}`;
-    const rows = db.all('SELECT src, unit, SUM(amt) AS amt, MIN(date) AS date FROM bk_postings WHERE acct=? GROUP BY src, unit ORDER BY date, src', acct);
-    const docs = new Map(db.all("SELECT id, type, fy, no, date, status FROM bk_docs WHERE id IN (SELECT DISTINCT src FROM bk_postings WHERE acct=?)", acct).map((d) => [d.id, d]));
+    // in the order things happened (date, then the time the document was issued), so the running balance is true
+    const rows = db.all("SELECT p.src, p.unit, SUM(p.amt) AS amt, MIN(p.date) AS date, COALESCE(d.issued_at, d.created_at, MIN(p.date)) AS ts FROM bk_postings p LEFT JOIN bk_docs d ON d.id=p.src WHERE p.acct=? GROUP BY p.src, p.unit ORDER BY date, ts, p.src", acct);
+    const docs = new Map(db.all("SELECT id, type, fy, no, date, status, issued_at, created_at, data_json, calc_json FROM bk_docs WHERE id IN (SELECT DISTINCT src FROM bk_postings WHERE acct=?)", acct).map((d) => [d.id, d]));
     const run = {};
+    // what the document did to this account in this unit, for the «شرح» column
+    const what = (d, unit) => {
+      if (!d) return null;
+      const c = JSON.parse(d.calc_json), data = JSON.parse(d.data_json);
+      if (d.type === 'trade') {
+        const lines = (c.lines ?? []).filter((l) => (unit === 'IRR' ? l.priced : !l.priced && l.unit === unit));
+        const pays = unit === 'IRR' ? (c.payments ?? []).map((x, i) => ({ method: x.method, dir: x.dir, value: x.value, ref: data.payments?.[i]?.ref ?? '' })) : [];
+        return { lines, pays };
+      }
+      if (d.type === 'hawala') {
+        const h = c.hawala;
+        const other = partyRow(h.from === p.id ? h.to : h.from);
+        return { hawala: { ...h, out: h.from === p.id, other: other ? TR.partyLabel(other) : '' } };
+      }
+      if (d.type === 'convert') return { convert: c.convert };
+      return { note: data.note ?? '' };
+    };
     const statement = rows.map((r) => {
       run[r.unit] = (run[r.unit] ?? 0) + r.amt;
       const d = docs.get(r.src);
-      return { src: r.src, date: r.date, unit: r.unit, amt: r.unit === 'G750' ? B.r3(r.amt) : Math.round(r.amt), balance: r.unit === 'G750' ? B.r3(run[r.unit]) : Math.round(run[r.unit]), doc: d ? { id: d.id, type: d.type, no: d.no, fy: d.fy } : null };
+      return { src: r.src, date: r.date, at: d ? d.issued_at ?? d.created_at : null, unit: r.unit, amt: roundUnit(r.unit, r.amt), balance: roundUnit(r.unit, run[r.unit]), doc: d ? { id: d.id, type: d.type, no: d.no, fy: d.fy } : null, what: what(d, r.unit) };
     });
     return { party: partyOut(p), balance: balOf(acct), statement, docs: db.all('SELECT id, type, fy, no, date, status FROM bk_docs WHERE party_id=? ORDER BY date DESC, created_at DESC LIMIT 300', p.id) };
   });
@@ -1119,7 +1156,13 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     const price = { G750: p750 };
     for (const k of Object.keys(COIN_TYPES)) price[`COIN:${k}`] = board[COIN_MAP[k]] ?? B.rnd((COIN_TYPES[k].weight * COIN_TYPES[k].fineness * p750) / 750);
     if (board.usd) price['FX:USD'] = board.usd;
-    return { price, mazaneh: board.mesghal ?? null, mazanehFwd: board.mesghal_fwd ?? null };
+    let sample = true;
+    try {
+      sample = !!market?.board().sample;
+    } catch {
+      /* no market */
+    }
+    return { price, mazaneh: board.mesghal ?? null, mazanehFwd: board.mesghal_fwd ?? null, sample };
   };
   on('GET', '/api/books/report/pnl', 'auth', ({ user, url }) => {
     guardAdmin(user);
@@ -1279,5 +1322,12 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     return { shop: s.legalName || getSetting('brand', {}).shopName || '', type: B.DOC_TYPES[r.type].label, fy: r.fy, no: r.no, date: JSON.parse(v.data_json).date, status: r.status, total: r.type === 'return' ? c.sales : c.sales || Math.abs(c.net), vat: c.vat, version: v.version, currentVersion: r.version, latest, verify: verifyCode(v.hash) };
   });
 
-  return { verifyLog, settings };
+  /* ---------------- ممیز (automatic audit) and the assistant ---------------- */
+  const audit = makeAudit({ db, call, settings, verifyLog, tehranDay, livePrices, isAdmin });
+  on('GET', '/api/books/audit', 'auth', ({ user, url }) => (url.searchParams.get('doc') ? audit.doc(url.searchParams.get('doc')) : audit.run(user)));
+  const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin });
+  on('GET', '/api/books/assistant', 'auth', () => assistant.info());
+  on('POST', '/api/books/assistant', 'auth', async ({ user, body }) => assistant.ask(user, body));
+
+  return { verifyLog, settings, audit, assistant };
 }

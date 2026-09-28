@@ -927,6 +927,24 @@ async function loginUI(page) {
       await go(page, '/books/vault', 1500);
       const vt = await text(page, '.vt-tiles');
       check('vault: gold, coins and bars counted', vt.includes('طلای آبشده') && vt.includes('شمش') && noBadNumbers(vt), vt.replace(/\s+/g, ' ').slice(0, 160));
+      // customer page: ته حساب in market words, ریز حساب by document and by unit
+      const parties = await auth('/api/books/parties?q=%D9%85%D9%87%D8%B1%D8%A7%D9%86');
+      await go(page, `/books/party/${parties.items[0].id}`, 1500);
+      const tb = await text(page, '.tb');
+      check('customer: ته حساب says بدهکار مالی and بستانکار جنسی separately', tb.includes('بدهکار مالی') && tb.includes('بستانکار جنسی') && tb.includes('مطالبه ما') && noBadNumbers(tb), tb.replace(/\s+/g, ' ').slice(0, 160));
+      check('customer: ریز حساب lists each document with what happened', (await page.$$('.rz-e')).length >= 2 && (await text(page, '#rz')).includes('کارتخوان'));
+      await page.click('#rzt [data-u="G750"]');
+      check('customer: gold ledger has a running balance and a بد/بس column', !!(await page.$('.rz-table tfoot')) && (await text(page, '.rz-table')).includes('بس'));
+      // ممیز and the assistant (books engine: no model needed)
+      await go(page, '/books/audit', 2000);
+      check('audit: score and findings render', !!(await page.$('.au-ring')) && (await page.$$('.au-f')).length >= 1 && noBadNumbers(await text(page, '#board')));
+      await page.click('[data-q="بدهکاران"]');
+      await page.waitForSelector('.au-m.assistant:not(.typing)');
+      check('assistant: answers «بدهکاران» from the books', (await text(page, '#msgs')).includes('مهران'));
+      await page.fill('#aq', 'محاسبه ۲ گرم عیار ۷۴۰ مظنه ۴۰۰۰۰۰۰۰۰');
+      await page.press('#aq', 'Enter');
+      await page.waitForFunction(() => document.querySelectorAll('.au-m.assistant:not(.typing)').length >= 2);
+      check('assistant: melt calculation matches the desk', (await text(page, '#msgs')).includes('۱۸۲٬۱۹۰٬۰۰۰'));
       await go(page, '/books/reports?tab=pnl', 1500);
       check('reports: trading P&L renders', noBadNumbers(await text(page, '#rep')) && (await text(page, '#rep')).includes('میانگین'));
       // bank reconciliation from a pasted statement
@@ -970,7 +988,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px`);

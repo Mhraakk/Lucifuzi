@@ -354,8 +354,8 @@ export async function deskPage(root) {
     try {
       const doc = await api('/api/books/docs', { method: 'POST', body: body() });
       ls.set(null);
-      const party = S.party ? await api(`/api/books/parties/${S.party.id}`) : null;
-      receipt(doc, party);
+      const [party, check] = await Promise.all([S.party ? api(`/api/books/parties/${S.party.id}`) : null, api(`/api/books/audit?doc=${doc.id}`).catch(() => ({ findings: [] }))]);
+      receipt(doc, party, check.findings);
       S.lines = [];
       S.payments = [];
       S.note = '';
@@ -373,7 +373,7 @@ export async function deskPage(root) {
       busy(btn, false);
     }
   }
-  function receipt(doc, party) {
+  function receipt(doc, party, warn = []) {
     const c = doc.calc;
     const shop = s.legalName || store.me.brand?.shopName || '';
     const text = [
@@ -391,6 +391,7 @@ export async function deskPage(root) {
         ${c.payments.map((p, i) => html`<tr><td>${p.dir === 'in' ? 'دریافت' : 'پرداخت'} · ${B.payMethod(p.method).label}${doc.payments[i]?.ref ? html`<small>پیگیری ${fa(doc.payments[i].ref)}</small>` : ''}</td><td class="num">${R(p.value)}</td></tr>`)}</table>
         ${party ? html`<div class="dk-after"><span>مانده حساب پس از این سند</span>${balChips(party.balance)}</div>` : ''}
         <p class="small ltr-num">کد اصالت ${doc.verify}</p></div>
+        ${warn.length ? html`<div class="dk-warn" role="alert"><b>ممیز:</b>${warn.map((f) => html`<p class="${f.sev}">${f.sev === 'high' ? '⛔' : '⚠'} ${f.title} — ${f.detail}</p>`)}</div>` : ''}
         <div class="actions"><button class="btn" data-r="print">چاپ رسید</button><button class="btn ghost" data-r="share">ارسال / کپی متن</button><a class="btn ghost" href="/books/doc/${doc.id}" data-link data-close>سند کامل</a><button class="btn ghost" data-close>معامله بعدی</button></div>`),
       (m) =>
         m.addEventListener('click', async (e) => {
@@ -658,6 +659,9 @@ export async function deskPage(root) {
   drawPays();
   recalc();
   $('#pq', root)?.focus();
+  // «معامله در میز» from a customer's page arrives with ?party=
+  const pre = new URLSearchParams(location.search).get('party');
+  if (pre) await pickParty({ id: pre }).catch(() => toast('این مشتری پیدا نشد.', 'error'));
   return () => {
     clearInterval(timer);
     document.removeEventListener('keydown', onKey);

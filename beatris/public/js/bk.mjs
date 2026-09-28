@@ -161,3 +161,31 @@ export function describeLine(l) {
 }
 export const lineVerb = (l) => (l.priced ? (l.dir === 'in' ? 'خرید از مشتری' : 'فروش به مشتری') : l.dir === 'in' ? 'دریافت جنس' : 'تحویل جنس');
 export const balClass = (b) => (balUnits(b).some((u) => b[u] > 0) ? 'debt' : balUnits(b).some((u) => b[u] < 0) ? 'cred' : '');
+
+/* ---------------- ته حساب in the market's words ---------------- */
+/** مالی = the rial side, جنسی = gold, coins, bars and currency. + means the customer owes (بدهکار), − the shop owes (بستانکار / طلبکار). */
+export const sideWord = (u, v) => `${v > 0 ? 'بدهکار' : 'بستانکار'} ${u === 'IRR' ? 'مالی' : 'جنسی'}`;
+export function balState(b) {
+  const units = balUnits(b);
+  const money = b?.IRR ? { dir: b.IRR > 0 ? 'debt' : 'cred', amt: Math.abs(b.IRR) } : null;
+  const goods = units.filter((u) => u !== 'IRR').map((u) => ({ u, dir: b[u] > 0 ? 'debt' : 'cred', amt: Math.abs(b[u]) }));
+  return { money, goods, demand: units.filter((u) => b[u] > 0), owe: units.filter((u) => b[u] < 0), settled: !units.length };
+}
+/** «مهران رضایی ۵ عدد تمام امامی بستانکار جنسی (طلبکار) و ۵۰۰٬۰۰۰٬۰۰۰ ریال بدهکار مالی است.» */
+export function balSentence(name, b) {
+  const st = balState(b);
+  if (st.settled) return `حساب ${name} تسویه است؛ نه طلب مالی دارد نه جنسی.`;
+  const part = (u) => (u.startsWith('BAR:') ? `${unitLabel(u)} ${b[u] > 0 ? 'نزد اوست (بدهکار جنسی)' : 'امانت نزد ماست (بستانکار جنسی)'}` : `${unitAmt(u, Math.abs(b[u]))} ${sideWord(u, b[u])}${b[u] < 0 ? ' (طلبکار)' : ''}`);
+  return `${name} ${balUnits(b).map(part).join(' و ')} است.`;
+}
+/** The whole «ته حساب» block: money card, goods cards, what we claim (مطالبه) and what we owe (تعهد). */
+export function balBoard(name, b, prices = {}) {
+  const st = balState(b);
+  const card = (u, v) => html`<div class="tb-card ${v > 0 ? 'debt' : 'cred'} ${u === 'IRR' ? 'money' : 'goods'}"><span class="tb-k">${u === 'IRR' ? 'حساب مالی (ریالی)' : `حساب جنسی · ${unitLabel(u)}`}</span><b class="tb-v">${u.startsWith('BAR:') ? '۱ شمش' : u === 'IRR' ? R(Math.abs(v)) : unitAmt(u, Math.abs(v))}</b><span class="tb-dir">${sideWord(u, v)}${v < 0 ? ' · طلبکار است' : ' · باید بپردازد'}</span>${u === 'IRR' ? html`<small>${faNum(Math.round(Math.abs(v) / 10).toLocaleString('en-US')).replace(/,/g, '٬')} تومان</small>` : prices[u] ? html`<small>≈ ${R(Math.round(Math.abs(v) * prices[u]))} به نرخ روز</small>` : ''}</div>`;
+  const worth = balUnits(b).every((u) => u === 'IRR' || prices[u]) && balUnits(b).some((u) => u !== 'IRR') ? balUnits(b).reduce((s, u) => s + b[u] * (u === 'IRR' ? 1 : prices[u]), 0) : null;
+  return html`<section class="tb">
+    <p class="tb-say">${balSentence(name, b)}</p>
+    <div class="tb-grid">${st.settled ? html`<div class="tb-card zero"><b class="tb-v">تسویه</b><span class="tb-dir">بی‌حساب</span></div>` : balUnits(b).map((u) => card(u, b[u]))}</div>
+    ${st.settled ? '' : html`<div class="tb-sum"><div><span>مطالبه ما از او</span><b>${st.demand.length ? st.demand.map((u) => (u.startsWith('BAR:') ? unitLabel(u) : unitAmt(u, b[u]))).join(' + ') : '—'}</b></div><div><span>تعهد ما به او</span><b>${st.owe.length ? st.owe.map((u) => (u.startsWith('BAR:') ? unitLabel(u) : unitAmt(u, -b[u]))).join(' + ') : '—'}</b></div>${worth != null ? html`<div><span>خالص به نرخ روز (فقط برای اطلاع؛ حساب جنسی جنسی می‌ماند)</span><b class="${worth > 0 ? 'debt' : 'cred'}">${worth > 0 ? 'بدهکار' : 'بستانکار'} ${R(Math.abs(Math.round(worth)))}</b></div>` : ''}</div>`}
+  </section>`;
+}

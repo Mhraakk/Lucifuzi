@@ -4,6 +4,7 @@ import * as C from '../content/index.mjs';
 import { checkNumeric, RECORD_KINDS } from '../public/js/calc.mjs';
 import { ROLES, STAFF_ROLES, ADMIN_ROLES, hashPin, verifyPin, validPin, normalizePhone, validPhone, makeLimiter } from './auth.mjs';
 import { COIN_TYPES } from '../public/js/coins.mjs';
+import { SHOP_NAME } from '../public/js/crown.mjs';
 import { PHOTO_KINDS, PHOTO_SIDES, checkTexture, storeFiles, removeFiles, builtinPhotos } from './media.mjs';
 import { createMarket, parseTable, checkFeedUrl, FEED_MODES, FEED_LABEL } from './market.mjs';
 import { SYMBOLS, isSymbol, DAY_RE } from '../public/js/market.mjs';
@@ -113,7 +114,16 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     const pick = ['mesghal', 'geram18', 'sekee', 'sekeb', 'nim', 'rob', 'usd', 'ons'];
     return { courses: C.COURSES.length, lessons: C.LESSONS.size, questions: C.QUESTIONS.size, sample: b.sample, source: b.source.label, prices: b.items.filter((x) => pick.includes(x.id) && !x.empty).map((x) => ({ id: x.id, c: x.c, pct: x.pct, d: x.d })) };
   });
-  const brand = () => getSetting('brand', { shopName: '' });
+  // one-time rename requested by the owner: the house is «خانه سکه و شمش تاج» (later edits in team settings stay)
+  if (!getSetting('brand.taj', null)) {
+    const put = (k, v) => db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,NULL) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at', k, JSON.stringify(v), now());
+    put('brand', { ...getSetting('brand', {}), shopName: SHOP_NAME });
+    put('brand.taj', { at: now() });
+  }
+  const brand = () => {
+    const b = getSetting('brand', { shopName: '' });
+    return { ...b, shopName: b.shopName || SHOP_NAME };
+  };
   on('GET', '/api/config', 'public', () => ({
     demo,
     shopName: brand().shopName,

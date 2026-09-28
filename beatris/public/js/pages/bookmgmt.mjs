@@ -3,7 +3,8 @@ import { html, raw, fa, api, store, toast, navigate, actions, $, $$, busy } from
 import * as B from '../books.mjs';
 import { COIN_TYPES } from '../coins.mjs';
 import { barcodeSvg } from '../barcode.mjs';
-import { T, TU, G, jd, jdInput, parseDay, today, addDays, modal, confirmBox, exportButtons, wireExport, download, balText, balClass, unitAmt, EX, unitName, moneyWords, K, booksPrefs, prefs, unitLabel, unitVal, balChips, balUnits, R } from '../bk.mjs';
+import { T, TU, G, jd, jdInput, parseDay, today, addDays, modal, confirmBox, exportButtons, wireExport, download, balText, balClass, unitAmt, EX, unitName, moneyWords, K, booksPrefs, prefs, unitLabel, unitVal, balChips, balUnits, R, balBoard, balSentence, sideWord, lineVerb, describeLine, timeFa } from '../bk.mjs';
+import { TRADE_KINDS as TR_KINDS } from '../trade.mjs';
 import { booksNav } from './books.mjs';
 
 /* ---------------- customers ---------------- */
@@ -95,18 +96,70 @@ function birthdaySoon(iso) {
 }
 export async function partyPage(root, { id }) {
   await booksPrefs();
-  const r = await api(`/api/books/parties/${id}`);
+  const [r, vault] = await Promise.all([api(`/api/books/parties/${id}`), api('/api/books/vault').catch(() => null)]);
   const p = r.party;
+  const prices = vault?.prices?.price ?? {};
+  const units = [...new Set(r.statement.map((x) => x.unit))].sort((a, c) => balUnits({ [a]: 1, [c]: 1 }).indexOf(a) - balUnits({ [a]: 1, [c]: 1 }).indexOf(c));
+  let tab = new URLSearchParams(location.search).get('u') ?? 'all';
+  if (tab !== 'all' && !units.includes(tab)) tab = 'all';
   root.innerHTML = String(html`${booksNav('parties')}
-    <div class="bk-head"><h1>${p.label} <span class="small">کد ${fa(p.code)}</span></h1>
-      <div class="actions"><a class="btn small" href="/books/new/sale?party=${p.id}" data-link>فروش</a><a class="btn small ghost" href="/books/new/receipt?party=${p.id}" data-link>دریافت</a><a class="btn small ghost" href="/books/new/payment?party=${p.id}" data-link>پرداخت</a><a class="btn small ghost" href="/books/new/buy?party=${p.id}" data-link>خرید از او</a><button class="btn small ghost" data-act="edit">ویرایش</button>${store.isAdmin() ? html`<button class="btn small danger" data-act="del">حذف</button>` : ''}</div></div>
-    <div class="bk-bigbal">${balChips(r.balance)}<span class="small">${fa(r.docs.filter((d) => d.status === 'final').length)} سند قطعی${p.creditLimit ? ` · سقف اعتبار ${TU(p.creditLimit)}` : ''}${p.group ? ` · گروه ${p.group}` : ''}</span><button class="chip" data-act="confirm">نامه تأیید مانده</button></div>
+    <div class="bk-head"><div><h1>${p.label}</h1><span class="small">کد ${fa(p.code)}${p.group ? ` · گروه ${p.group}` : ''} · ${fa(r.docs.filter((d) => d.status === 'final').length)} سند قطعی${p.creditLimit ? ` · سقف اعتبار ${TU(p.creditLimit)}` : ''}</span></div>
+      <div class="actions"><a class="btn small" href="/books/desk?party=${p.id}" data-link>معامله در میز</a>${prefs.edition === 'base' ? '' : html`<a class="btn small ghost" href="/books/new/sale?party=${p.id}" data-link>فروش</a><a class="btn small ghost" href="/books/new/receipt?party=${p.id}" data-link>دریافت</a><a class="btn small ghost" href="/books/new/payment?party=${p.id}" data-link>پرداخت</a>`}<button class="btn small ghost" data-act="edit">ویرایش</button><button class="btn small ghost" data-act="confirm">نامه تأیید مانده</button>${store.isAdmin() ? html`<button class="btn small danger" data-act="del">حذف</button>` : ''}</div></div>
     <p class="small">${[p.mobile && `موبایل ${fa(p.mobile)}`, p.nid && `${p.kind === 'company' ? 'شناسه ملی' : 'کد ملی'} ${fa(p.nid)}`, p.eco && `شماره اقتصادی ${fa(p.eco)}`, p.postal && `کد پستی ${fa(p.postal)}`, p.birth && `تولد ${jd(p.birth)}`, p.address, p.tags && `برچسب: ${p.tags}`].filter(Boolean).join(' · ')}</p>
-    <section class="tray bk-sec printable"><div class="bk-head"><h3 class="bk-h">صورت‌حساب (ریز حساب) ${p.name}</h3>${exportButtons('st')}</div>
-      <div class="scrollx"><table class="table-plain bk-table"><thead><tr><th>تاریخ</th><th>سند</th><th>واحد</th><th>بدهکار</th><th>بستانکار</th><th>مانده</th></tr></thead><tbody>${r.statement.map((x) => html`<tr><td>${jd(x.date)}</td><td>${x.doc ? html`<a href="/books/doc/${x.doc.id}" data-link>${B.DOC_TYPES[x.doc.type].short} ${fa(x.doc.no)}</a>` : x.src.startsWith('chq:') ? 'تغییر وضعیت چک' : '—'}</td><td>${unitLabel(x.unit)}</td><td class="num">${x.amt > 0 ? unitVal(x.unit, x.amt) : ''}</td><td class="num">${x.amt < 0 ? unitVal(x.unit, -x.amt) : ''}</td><td class="num ${x.balance > 0 ? 'debt' : x.balance < 0 ? 'cred' : ''}">${unitVal(x.unit, x.balance)}</td></tr>`)}</tbody></table></div></section>`);
+    <div class="printable pr-sheet"><h2 class="pr-only">ته حساب و ریز حساب ${p.label} · ${jd(today())}</h2>
+    <h3 class="bk-h">ته حساب (مانده)</h3>${balBoard(p.name, r.balance, prices)}
+    <section class="tray bk-sec"><div class="bk-head"><h3 class="bk-h">ریز حساب</h3>${exportButtons('st')}</div>
+      <nav class="dk-seg rz-tabs" id="rzt">${[['all', 'همه به ترتیب سند'], ...units.map((u) => [u, unitLabel(u)])].map(([k, l]) => html`<button type="button" data-u="${k}" aria-pressed="${tab === k}">${l}</button>`)}</nav>
+      <div id="rz"></div></section></div>`);
+  const desc = (x) => {
+    const w = x.what;
+    if (!w) return x.src.startsWith('chq:') ? 'تغییر وضعیت چک' : B.DOC_TYPES[x.doc?.type]?.label ?? '';
+    if (w.hawala) return `حواله ${unitAmt(w.hawala.unit, w.hawala.amount)} ${w.hawala.out ? 'به حساب' : 'از حساب'} ${w.hawala.other}`;
+    if (w.convert) return `تبدیل ${unitAmt(w.convert.unit, Math.abs(w.convert.amount))} به ریال${w.convert.mazaneh ? ` روی مظنه ${R(w.convert.mazaneh)}` : w.convert.price ? ` با نرخ ${R(w.convert.price)}` : ''}`;
+    if (w.lines) return [...w.lines.map((l) => `${lineVerb(l)} ${TR_KINDS[l.kind]}${l.kind === 'coin' ? '' : ''} (${describeLine(l)})${l.priced ? ` = ${R(l.value)}` : ''}`), ...w.pays.map((y) => `${y.dir === 'in' ? 'دریافت' : 'پرداخت'} ${B.payMethod(y.method)?.label ?? y.method} ${R(y.value)}${y.ref ? ` · پیگیری ${fa(y.ref)}` : ''}`)].join(' | ') || B.DOC_TYPES[x.doc?.type]?.label;
+    return `${B.DOC_TYPES[x.doc?.type]?.label ?? ''}${w.note ? ` · ${w.note}` : ''}`;
+  };
+  const docCell = (x) => (x.doc ? html`<a href="/books/doc/${x.doc.id}" data-link>${B.DOC_TYPES[x.doc.type].short} ${fa(x.doc.no)}</a>` : x.src.startsWith('chq:') ? 'چک' : '—');
+  const dirCell = (u, v) => (v ? html`<span class="rz-dir ${v > 0 ? 'debt' : 'cred'}">${v > 0 ? 'بد' : 'بس'}</span>` : html`<span class="rz-dir">—</span>`);
+  function draw() {
+    const box = $('#rz', root);
+    if (!r.statement.length) return (box.innerHTML = '<p class="small">هنوز گردشی ثبت نشده است.</p>');
+    if (tab === 'all') {
+      const groups = [];
+      for (const x of r.statement) {
+        const g = groups.at(-1);
+        if (g && g.src === x.src) g.rows.push(x);
+        else groups.push({ src: x.src, rows: [x] });
+      }
+      const run = {};
+      box.innerHTML = String(html`<ol class="rz-list">${groups.map((g, i) => {
+        for (const x of g.rows) run[x.unit] = x.balance;
+        const snap = Object.fromEntries(Object.entries(run).filter(([, v]) => v));
+        const x0 = g.rows.find((x) => x.unit === 'IRR') ?? g.rows[0];
+        return html`<li class="rz-e" style="--i:${Math.min(i, 14)}"><div class="rz-h"><b>${jd(x0.date)}</b>${x0.at ? html`<span>${timeFa(x0.at)}</span>` : ''}${docCell(x0)}</div>
+          <p class="rz-d">${g.rows.map((x) => desc(x)).filter((v, j, a) => a.indexOf(v) === j).join(' | ')}</p>
+          <div class="rz-fx">${g.rows.map((x) => html`<span class="rz-chip ${x.amt > 0 ? 'debt' : 'cred'}">${unitLabel(x.unit)}: ${x.amt > 0 ? 'بدهکار شد' : 'بستانکار شد'} ${x.unit.startsWith('BAR:') ? '' : unitVal(x.unit, Math.abs(x.amt))}</span>`)}</div>
+          <div class="rz-after"><span>مانده پس از این سند</span>${balChips(snap)}</div></li>`;
+      })}</ol>`);
+      return;
+    }
+    const rows = r.statement.filter((x) => x.unit === tab);
+    const last = rows.at(-1)?.balance ?? 0;
+    box.innerHTML = String(html`<div class="scrollx"><table class="table-plain bk-table rz-table"><thead><tr><th>تاریخ</th><th>سند</th><th>شرح</th><th>بدهکار</th><th>بستانکار</th><th>مانده</th><th>تشخیص</th></tr></thead><tbody>${rows.map((x) => html`<tr><td>${jd(x.date)}</td><td>${docCell(x)}</td><td class="rz-desc">${desc(x)}</td><td class="num">${x.amt > 0 ? unitVal(x.unit, x.amt) : ''}</td><td class="num">${x.amt < 0 ? unitVal(x.unit, -x.amt) : ''}</td><td class="num ${x.balance > 0 ? 'debt' : x.balance < 0 ? 'cred' : ''}"><b>${unitVal(x.unit, Math.abs(x.balance))}</b></td><td>${dirCell(x.unit, x.balance)}</td></tr>`)}</tbody>
+      <tfoot><tr><td colspan="3">جمع و مانده ${unitLabel(tab)}</td><td class="num">${unitVal(tab, rows.reduce((s2, x) => s2 + Math.max(0, x.amt), 0))}</td><td class="num">${unitVal(tab, rows.reduce((s2, x) => s2 + Math.max(0, -x.amt), 0))}</td><td class="num"><b>${unitVal(tab, Math.abs(last))}</b></td><td>${last ? sideWord(tab, last) : 'تسویه'}</td></tr></tfoot></table></div>`);
+  }
+  draw();
+  $('#rzt', root).addEventListener('click', (e) => {
+    const b = e.target.closest('[data-u]');
+    if (!b) return;
+    tab = b.dataset.u;
+    $$('#rzt [data-u]', root).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    history.replaceState(null, '', `${location.pathname}${tab === 'all' ? '' : `?u=${encodeURIComponent(tab)}`}`);
+    draw();
+  });
   const map = {
     confirm: () =>
-      modal(String(html`<div class="printable bk-letter"><h3>تأییدیه مانده حساب</h3><p>${prefs.settings?.legalName || store.me.brand?.shopName || ''}</p><p>جناب / سرکار ${p.label} (کد ${fa(p.code)})</p><p>مانده حساب شما در دفاتر ما تا تاریخ ${jd(today())} به شرح زیر است:</p><ul>${balUnits(r.balance).map((u) => html`<li>${r.balance[u] > 0 ? 'بدهکار' : 'بستانکار'}: ${unitAmt(u, Math.abs(r.balance[u]))}</li>`)}</ul>${balUnits(r.balance).length ? '' : html`<p>حساب شما تسویه است.</p>`}<p>لطفاً در صورت تأیید، این برگه را امضا و مهر کنید؛ در غیر این صورت مغایرت را اعلام فرمایید.</p><div class="bk-p-sign"><span>امضای مشتری</span><span>مهر و امضای فروشگاه</span></div></div><div class="actions"><button class="btn" data-pr>چاپ</button><button class="btn ghost" data-close>بستن</button></div>`), (m) => m.querySelector('[data-pr]').addEventListener('click', () => window.print())),
+      modal(String(html`<div class="printable bk-letter"><h3>تأییدیه مانده حساب</h3><p>${prefs.settings?.legalName || store.me.brand?.shopName || ''}</p><p>جناب / سرکار ${p.label} (کد ${fa(p.code)})</p><p>مانده حساب شما در دفاتر ما تا تاریخ ${jd(today())} به شرح زیر است:</p><ul>${balUnits(r.balance).map((u) => html`<li>${sideWord(u, r.balance[u])}: ${u.startsWith('BAR:') ? unitLabel(u) : unitAmt(u, Math.abs(r.balance[u]))}</li>`)}</ul><p>${balSentence(p.name, r.balance)}</p>${balUnits(r.balance).length ? '' : html`<p>حساب شما تسویه است.</p>`}<p>لطفاً در صورت تأیید، این برگه را امضا و مهر کنید؛ در غیر این صورت مغایرت را اعلام فرمایید.</p><div class="bk-p-sign"><span>امضای مشتری</span><span>مهر و امضای فروشگاه</span></div></div><div class="actions"><button class="btn" data-pr>چاپ</button><button class="btn ghost" data-close>بستن</button></div>`), (m) => m.querySelector('[data-pr]').addEventListener('click', () => window.print())),
     edit: () =>
       modal(String(html`<h3 class="bk-h">ویرایش ${p.name}</h3>${partyForm(p)}`), (m, close) =>
         $('#pf', m).addEventListener('submit', async (e) => {
@@ -130,7 +183,7 @@ export async function partyPage(root, { id }) {
       }
     },
   };
-  wireExport(map, 'st', `hesab-${p.code}`, () => r.statement.map((x) => ({ date: jd(x.date), doc: x.doc ? `${B.DOC_TYPES[x.doc.type].short} ${x.doc.no}` : 'چک', unit: unitLabel(x.unit), debit: x.amt > 0 ? (x.unit === 'IRR' ? EX(x.amt) : x.amt) : '', credit: x.amt < 0 ? (x.unit === 'IRR' ? EX(-x.amt) : -x.amt) : '', balance: x.unit === 'IRR' ? EX(x.balance) : x.balance })), [['date', 'تاریخ'], ['doc', 'سند'], ['unit', 'واحد'], ['debit', 'بدهکار'], ['credit', 'بستانکار'], ['balance', 'مانده']], p.name);
+  wireExport(map, 'st', `hesab-${p.code}`, () => r.statement.map((x) => ({ date: jd(x.date), doc: x.doc ? `${B.DOC_TYPES[x.doc.type].short} ${x.doc.no}` : 'چک', unit: unitLabel(x.unit), desc: desc(x), debit: x.amt > 0 ? x.amt : '', credit: x.amt < 0 ? -x.amt : '', balance: Math.abs(x.balance), side: x.balance ? sideWord(x.unit, x.balance) : 'تسویه' })), [['date', 'تاریخ'], ['doc', 'سند'], ['unit', 'واحد (مبالغ ریال)'], ['desc', 'شرح'], ['debit', 'بدهکار'], ['credit', 'بستانکار'], ['balance', 'مانده'], ['side', 'تشخیص']], p.name);
   actions(root, map);
 }
 
