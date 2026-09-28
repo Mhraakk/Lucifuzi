@@ -1,10 +1,33 @@
 // Shared helpers of the shop-books screens: Jalali dates, money display, exports (CSV, Excel, JSON), a modal.
 import { html, raw, esc, fa, $ } from './core.mjs';
-import { fmtRial, fmtG, faNum } from './books.mjs';
+import { fmtMoney, fmtG, faNum, words } from './books.mjs';
 import { jalaliOf, isoDay, JALALI_MONTHS } from './ta.mjs';
+import { COIN_TYPES } from './coins.mjs';
+import { FX_CODES } from './trade.mjs';
+import { api } from './core.mjs';
 
-export const T = (rial) => fmtRial(rial, { unit: false });
-export const TU = (rial) => fmtRial(rial);
+/* ---------------- shop preferences: edition and money unit (rial by default, as the trade keeps its books) ---------------- */
+export const prefs = { money: 'rial', edition: 'full', loaded: false, settings: null };
+export async function booksPrefs(force = false) {
+  if (prefs.loaded && !force) return prefs;
+  try {
+    const s = await api('/api/books/settings');
+    Object.assign(prefs, { money: s.money === 'toman' ? 'toman' : 'rial', edition: s.edition === 'base' ? 'base' : 'full', settings: s, loaded: true });
+  } catch {
+    /* keep defaults */
+  }
+  return prefs;
+}
+/** Money as the shop reads it (rial by default); T without the unit word, TU with it. */
+export const T = (rial) => fmtMoney(rial, prefs.money, { unit: false });
+export const TU = (rial) => fmtMoney(rial, prefs.money);
+export const R = (rial) => fmtMoney(rial, 'rial');
+export const unitName = () => (prefs.money === 'rial' ? 'ریال' : 'تومان');
+/** Stored toman inputs of the full edition ↔ what the operator types (×10 in rial mode). */
+export const K = () => (prefs.money === 'rial' ? 10 : 1);
+/** An export cell in the display unit. */
+export const EX = (rial) => (prefs.money === 'rial' ? rial : rial / 10);
+export const moneyWords = (rial) => `${words(prefs.money === 'rial' ? rial : rial / 10)} ${unitName()}`;
 export const G = fmtG;
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(new Date());
 export const addDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
@@ -109,11 +132,32 @@ export const confirmBox = (title, body, { danger = false, reason = false, ok = '
   });
 
 export const statusChip = (s) => raw(`<span class="bk-st ${s}">${{ draft: 'پیش‌نویس', final: 'قطعی', void: 'باطل' }[s] ?? s}</span>`);
-export const unitAmt = (unit, v) => (unit === 'IRR' ? TU(v) : unit === 'G750' ? `${G(v)} گرم ۷۵۰` : `${fa(v)} ${unit.startsWith('COIN:') ? 'عدد' : ''}`);
+/** A customer-account unit in words, and an amount of it. */
+export const unitLabel = (u) => (u === 'IRR' ? unitName() : u === 'G750' ? 'گرم طلای ۷۵۰' : u.startsWith('COIN:') ? (COIN_TYPES[u.slice(5)]?.short ?? u) : u.startsWith('FX:') ? (FX_CODES[u.slice(3)] ?? u) : u.startsWith('BAR:') ? `شمش ${fa(u.slice(4))}` : u);
+export const unitVal = (u, v) => (u === 'IRR' ? T(v) : u === 'G750' ? G(v) : u.startsWith('FX:') ? faNum(v.toLocaleString('en-US', { maximumFractionDigits: 2 })).replace(/,/g, '٬').replace('.', '٫') : fa(v));
+export const unitAmt = (u, v) => (u === 'IRR' ? TU(v) : u === 'G750' ? `${G(v)} گرم ۷۵۰` : u.startsWith('COIN:') ? `${fa(v)} ${unitLabel(u)}` : u.startsWith('FX:') ? `${unitVal(u, v)} ${unitLabel(u)}` : unitLabel(u));
+const UNIT_ORDER = (u) => (u === 'IRR' ? 0 : u === 'G750' ? 1 : u.startsWith('COIN:') ? 2 : u.startsWith('FX:') ? 3 : 4);
+export const balUnits = (b) => Object.keys(b ?? {}).filter((u) => b[u]).sort((a, c) => UNIT_ORDER(a) - UNIT_ORDER(c));
+/** Every balance of a customer as words: «بدهکار ۲٬۰۰۰٬۰۰۰ ریال · بستانکار ۱٫۹۷۳ گرم ۷۵۰ · …». */
 export const balText = (b) => {
-  const parts = [];
-  if (b?.IRR) parts.push(`${b.IRR > 0 ? 'بدهکار' : 'بستانکار'} ${TU(Math.abs(b.IRR))}`);
-  if (b?.G750) parts.push(`${b.G750 > 0 ? 'بدهکار' : 'بستانکار'} ${G(Math.abs(b.G750))} گرم`);
+  const parts = balUnits(b).map((u) => (u.startsWith('BAR:') ? `${b[u] < 0 ? 'امانت نزد ما' : 'بدهکار'}: ${unitLabel(u)}` : `${b[u] > 0 ? 'بدهکار' : 'بستانکار'} ${unitAmt(u, Math.abs(b[u]))}`));
   return parts.length ? parts.join(' · ') : 'بی‌حساب';
 };
-export const balClass = (b) => (b?.IRR > 0 || b?.G750 > 0 ? 'debt' : b?.IRR < 0 || b?.G750 < 0 ? 'cred' : '');
+/** Balance chips (one per unit), coloured by who owes whom. */
+export const balChips = (b) => html`<span class="bk-chips">${balUnits(b).map((u) => html`<span class="bk-bchip ${b[u] > 0 ? 'debt' : 'cred'}" data-unit="${u}"><small>${unitLabel(u)} · ${u.startsWith('BAR:') ? (b[u] > 0 ? 'نزد مشتری' : 'امانت نزد ما') : b[u] > 0 ? 'بدهکار' : 'بستانکار'}</small><b>${u.startsWith('BAR:') ? '۱ عدد' : unitVal(u, Math.abs(b[u]))}</b></span>`)}${balUnits(b).length ? '' : html`<span class="bk-bchip zero"><b>بی‌حساب</b></span>`}</span>`;
+/** A trade line in words: «۲٫۰۰۰ گرم · عیار ۷۴۰ · معادل ۷۵۰: ۱٫۹۷۳ · مثقال: ۰٫۴۵۶ · مظنه …». */
+export function describeLine(l) {
+  const bits = [];
+  if (l.kind === 'melt' || l.kind === 'bar') {
+    if (l.kind === 'bar') bits.push(`سریال ${fa(l.serial)}`);
+    bits.push(`${G(l.weight)} گرم`, `عیار ${fa(l.fineness)}`, `معادل ۷۵۰: ${G(l.eq750)}`, `مثقال: ${G(l.mesghal)}`);
+    if (l.priced && l.mazaneh) bits.push(`مظنه ${R(l.mazaneh).replace(' ریال', '')}`);
+    else if (l.priced && l.g750Price) bits.push(`گرم ۷۵۰ ${R(l.g750Price).replace(' ریال', '')}`);
+    else if (l.priced && l.impliedMazaneh) bits.push(`مظنه معادل ${R(l.impliedMazaneh).replace(' ریال', '')}`);
+    if (l.fee) bits.push(`اجرت پلمپ ${R(l.fee)}`);
+  } else if (l.kind === 'coin') bits.push(`${fa(l.count)} عدد ${COIN_TYPES[l.coin]?.short ?? l.coin}`);
+  else if (l.kind === 'fx') bits.push(`${unitVal(l.unit, l.amt)} ${FX_CODES[l.code] ?? l.code}`);
+  return bits.join(' · ');
+}
+export const lineVerb = (l) => (l.priced ? (l.dir === 'in' ? 'خرید از مشتری' : 'فروش به مشتری') : l.dir === 'in' ? 'دریافت جنس' : 'تحویل جنس');
+export const balClass = (b) => (balUnits(b).some((u) => b[u] > 0) ? 'debt' : balUnits(b).some((u) => b[u] < 0) ? 'cred' : '');

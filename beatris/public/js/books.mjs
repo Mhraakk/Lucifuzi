@@ -14,6 +14,7 @@
 //  · buying used gold from a customer is a purchase, not a sale: no VAT, and it is not sent as a sale invoice.
 import { MAZANEH_FINENESS, MESGHAL_G } from './calc.mjs';
 import { COIN_TYPES } from './coins.mjs';
+import { calcTrade, tradePostings, TRADE_DOCS } from './trade.mjs';
 
 /* ---------------- numbers ---------------- */
 const FA = '۰۱۲۳۴۵۶۷۸۹';
@@ -236,6 +237,9 @@ export const DOC_TYPES = {
   expense: { label: 'سند هزینه', short: 'هزینه', sign: 1, prefix: 'E' },
   transfer: { label: 'انتقال بین صندوق و بانک', short: 'انتقال', sign: 0, prefix: 'T' },
   opening: { label: 'سند افتتاحیه (مانده اول دوره)', short: 'افتتاحیه', sign: 0, prefix: 'O' },
+  trade: { label: 'سند معامله (سکه، آبشده، شمش، ارز)', short: 'معامله', sign: 0, prefix: 'M', base: true },
+  hawala: { label: 'حواله بین طرف حساب‌ها', short: 'حواله', sign: 0, prefix: 'H', base: true },
+  convert: { label: 'تبدیل مانده جنسی به ریال', short: 'تبدیل', sign: 0, prefix: 'C', base: true },
 };
 // pmt = روش پرداخت in the tax system: 1 چک، 2 تهاتر، 3 وجه نقد، 4 POS، 5 درگاه اینترنتی، 6 کارت به کارت، 7 انتقال به حساب، 8 سایر
 export const PAY_METHODS = [
@@ -246,6 +250,8 @@ export const PAY_METHODS = [
   { id: 'paya', label: 'پایا', pmt: 7, acct: 'bank', ref: true, sheba: true },
   { id: 'pol', label: 'پل', pmt: 7, acct: 'bank', ref: true, sheba: true },
   { id: 'havale', label: 'حواله / انتقال درون‌بانکی', pmt: 7, acct: 'bank', ref: true },
+  { id: 'slip', label: 'فیش بانکی (واریز)', pmt: 7, acct: 'bank', ref: true },
+  { id: 'a2a', label: 'حساب به حساب', pmt: 7, acct: 'bank', ref: true },
   { id: 'gateway', label: 'درگاه اینترنتی', pmt: 5, acct: 'bank', ref: true },
   { id: 'cheque', label: 'چک', pmt: 1, acct: 'cheque' },
   { id: 'gold', label: 'طلا (تسویه طلایی)', pmt: 2, acct: 'gold' },
@@ -426,9 +432,10 @@ const BUY_KINDS = new Set(['used', 'melt', 'coin']);
  * payments: [{ method, dir: 'in'|'out', amount (toman) | grams+fineness+p750 (gold) | coin+count+price (coin) }].
  * The part neither paid nor refunded is credit (نسیه) on the party's account, in rial or in grams of 750.
  */
-export function calcDoc(doc, { vatPct = 10 } = {}) {
+export function calcDoc(doc, { vatPct = 10, round = 10000 } = {}) {
   const t = DOC_TYPES[doc.type];
   need(t, 'نوع سند نامعتبر است.');
+  if (TRADE_DOCS.has(doc.type)) return calcTrade(doc, { round });
   const lines = (doc.lines ?? []).map((l, i) => {
     try {
       const side = doc.type === 'buy' ? 'in' : doc.type === 'return' ? 'out' : l.side === 'in' ? 'in' : 'out';
@@ -541,6 +548,7 @@ export function calcPayment(p, docType) {
  * Signs: + on an asset account = the shop has more; + on party = the party owes the shop more; + on vat = owed.
  */
 export function postings(doc, calc) {
+  if (TRADE_DOCS.has(doc.type)) return tradePostings(doc, calc);
   const out = [];
   const add = (acct, unit, amt) => amt && out.push({ acct, unit, amt });
   const party = doc.partyId ? `party:${doc.partyId}` : 'walkin';
@@ -713,6 +721,12 @@ export function balances(list) {
 
 /* ---------------- formatting ---------------- */
 export const faNum = (s) => String(s).replace(/\d/g, (d) => FA[Number(d)]);
+/** Money in the chosen display unit: rial (whole numbers) or toman. */
+export function fmtMoney(rial, money = 'rial', { unit = true } = {}) {
+  if (money !== 'rial') return fmtRial(rial, { unit });
+  if (!Number.isFinite(rial)) return '—';
+  return faNum(`${rial < 0 ? '−' : ''}${Math.abs(Math.round(rial)).toLocaleString('en-US')}`).replace(/,/g, '٬') + (unit ? ' ریال' : '');
+}
 export function fmtRial(rial, { unit = true } = {}) {
   if (!Number.isFinite(rial)) return '—';
   const t = rial / 10;

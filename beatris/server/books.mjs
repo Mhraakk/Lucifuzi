@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as B from '../public/js/books.mjs';
 import { jalaliOf } from '../public/js/ta.mjs';
 import { COIN_TYPES } from '../public/js/coins.mjs';
+import * as TR from '../public/js/trade.mjs';
 
 export const BOOKS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS bk_parties (
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS bk_cheques (
   history_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_bkc_due ON bk_cheques(due);
+CREATE TABLE IF NOT EXISTS bk_recon (src TEXT NOT NULL, acct TEXT NOT NULL, ref TEXT NOT NULL DEFAULT '', at TEXT NOT NULL, by TEXT, PRIMARY KEY (src, acct));
 CREATE TABLE IF NOT EXISTS bk_log (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, user_id TEXT, action TEXT NOT NULL, ref TEXT NOT NULL DEFAULT '', detail_json TEXT NOT NULL, prev TEXT NOT NULL, hash TEXT NOT NULL
 );
@@ -64,10 +66,19 @@ export const DEFAULT_BOOKS = {
   legalName: '', economicCode: '', nationalId: '', regNo: '', address: '', postal: '', phone: '', memoryId: '', branchCode: '',
   sstid: {}, mu: {}, templates: {}, footer: 'کالای فروخته‌شده با ارائه همین فاکتور و در صورت سالم بودن، طبق مقررات صنف پس گرفته می‌شود.',
   staffCanDiscount: true, staffCanEditPrice: true, staffCanEditFinal: false, staffBackdate: false, roundTo: 0, lowStockDays: 0,
+  // base edition (coin and molten gold desk)
+  edition: 'full', money: 'rial', tradeRound: 10000, spreadBuy: 0, spreadSell: 0, coinSpreadBuy: 0, coinSpreadSell: 0, groups: {},
 };
 
 export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market }) {
   db.raw.exec(BOOKS_SCHEMA);
+  for (const col of ['alias', 'father', 'city', 'grp']) {
+    try {
+      db.raw.exec(`ALTER TABLE bk_parties ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`);
+    } catch {
+      /* column exists */
+    }
+  }
   if (!db.get('SELECT 1 FROM bk_accounts LIMIT 1')) {
     db.run("INSERT INTO bk_accounts(id,kind,title,created_at) VALUES ('main','cash','صندوق اصلی',?)", now());
     db.run("INSERT INTO bk_accounts(id,kind,title,created_at) VALUES ('bank-main','bank','حساب بانکی اصلی',?)", now());
@@ -98,7 +109,7 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
   }
 
   /* ---------------- parties ---------------- */
-  const partyOut = (p) => p && { id: p.id, code: p.code, kind: p.kind, name: p.name, nid: p.nid, eco: p.eco, mobile: p.mobile, phone: p.phone, postal: p.postal, address: p.address, birth: p.birth, tags: p.tags, note: p.note, creditLimit: p.credit_limit, sms: !!p.sms, createdAt: p.created_at, updatedAt: p.updated_at, deleted: !!p.deleted_at };
+  const partyOut = (p) => p && { id: p.id, code: p.code, kind: p.kind, name: p.name, nid: p.nid, eco: p.eco, mobile: p.mobile, phone: p.phone, postal: p.postal, address: p.address, birth: p.birth, tags: p.tags, note: p.note, creditLimit: p.credit_limit, sms: !!p.sms, createdAt: p.created_at, updatedAt: p.updated_at, deleted: !!p.deleted_at, alias: p.alias ?? '', father: p.father ?? '', city: p.city ?? '', group: p.grp ?? '', label: TR.partyLabel({ name: p.name, alias: p.alias, father: p.father, city: p.city, mobile: p.mobile }) };
   function cleanParty(body, id = null) {
     const kind = body.kind === 'company' ? 'company' : 'person';
     const name = txt(body.name, 120);
@@ -113,17 +124,26 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     if (postal && !B.validPostal(postal)) throw bad('کد پستی ۱۰ رقم است.');
     const birth = body.birth ? String(body.birth) : '';
     if (birth && !DAY_RE.test(birth)) throw bad('تاریخ تولد نامعتبر است.');
-    const creditLimit = Math.max(0, B.rnd(B.num(body.creditLimit || 0) * 10) || 0);
+    const creditLimit = Math.max(0, B.rnd(B.num(body.creditLimit || 0) * (body.money === 'rial' ? 1 : 10)) || 0);
     for (const [col, v, label] of [['mobile', mobile, 'این موبایل'], ['nid', nid, 'این کد ملی']]) {
       if (!v) continue;
       const dup = db.get(`SELECT code, name FROM bk_parties WHERE ${col}=? AND deleted_at IS NULL AND id<>?`, v, id ?? '');
       if (dup) throw new HttpError(409, `${label} قبلاً برای «${dup.name}» (کد ${dup.code}) ثبت شده است.`);
     }
-    return { kind, name, mobile, nid, eco, postal, birth, phone: txt(body.phone, 30), address: txt(body.address, 300), tags: txt(body.tags, 120), note: txt(body.note, 600), creditLimit, sms: body.sms === false ? 0 : 1 };
+    const alias = txt(body.alias, 60), father = txt(body.father, 60), city = txt(body.city, 40), grp = txt(body.group, 40);
+    // same-name customers must be told apart by an alias, father's name, city or mobile
+    const twins = db.all('SELECT * FROM bk_parties WHERE deleted_at IS NULL AND id<>?', id ?? '').filter((x) => TR.normName(x.name) === TR.normName(name));
+    for (const t of twins) {
+      const same = (a, b) => TR.normName(a) === TR.normName(b);
+      const differs = (alias && !same(alias, t.alias)) || (father && !same(father, t.father)) || (city && !same(city, t.city)) || (mobile && mobile !== t.mobile);
+      if (!differs) throw new HttpError(409, `«${t.name}» با کد ${t.code}${t.mobile ? ` و موبایل …${t.mobile.slice(-4)}` : ''}${t.alias ? ` («${t.alias}»)` : ''} ثبت است. برای مشتری هم‌نام، لقب، نام پدر، شهر یا موبایل متفاوت وارد کنید.`);
+    }
+    return { kind, name, mobile, nid, eco, postal, birth, phone: txt(body.phone, 30), address: txt(body.address, 300), tags: txt(body.tags, 120), note: txt(body.note, 600), creditLimit, sms: body.sms === false ? 0 : 1, alias, father, city, grp };
   }
+  const roundUnit = (u, v) => (u === 'G750' ? B.r3(v) : u === 'FX' || u.startsWith('FX:') ? Math.round(v * 100) / 100 : Math.round(v));
   const balOf = (acct) => {
     const o = {};
-    for (const r of db.all('SELECT unit, SUM(amt) AS s FROM bk_postings WHERE acct=? GROUP BY unit', acct)) if (Math.abs(r.s) > 1e-9) o[r.unit] = r.unit === 'G750' ? B.r3(r.s) : Math.round(r.s);
+    for (const r of db.all('SELECT unit, SUM(amt) AS s FROM bk_postings WHERE acct=? GROUP BY unit', acct)) if (Math.abs(r.s) > 1e-9) o[r.unit] = roundUnit(r.unit, r.s);
     return o;
   };
   on('GET', '/api/books/parties', 'auth', ({ url }) => {
@@ -131,15 +151,16 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     const d = B.digitsOnly(q);
     let rows;
     if (q) {
-      const or = ['name LIKE ?', 'tags LIKE ?'], args = [`%${q}%`, `%${q}%`];
+      const or = ['name LIKE ?', 'tags LIKE ?', 'alias LIKE ?', 'father LIKE ?', 'city LIKE ?', 'grp LIKE ?'], args = [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`];
       if (d) or.push('mobile LIKE ?', 'nid LIKE ?', 'CAST(code AS TEXT)=?'), args.push(`%${d}%`, `%${d}%`, d);
       rows = db.all(`SELECT * FROM bk_parties WHERE deleted_at IS NULL AND (${or.join(' OR ')}) ORDER BY name LIMIT 200`, ...args);
-    } else rows = db.all('SELECT * FROM bk_parties WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT 500');
+    } else if (url.searchParams.get('group')) rows = db.all('SELECT * FROM bk_parties WHERE deleted_at IS NULL AND grp=? ORDER BY name LIMIT 2000', txt(url.searchParams.get('group'), 40));
+    else rows = db.all('SELECT * FROM bk_parties WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT 2000');
     const bal = new Map();
     for (const r of db.all("SELECT acct, unit, SUM(amt) AS s FROM bk_postings WHERE acct LIKE 'party:%' GROUP BY acct, unit")) {
       if (Math.abs(r.s) < 1e-9) continue;
       const id = r.acct.slice(6);
-      bal.set(id, { ...(bal.get(id) ?? {}), [r.unit]: r.unit === 'G750' ? B.r3(r.s) : Math.round(r.s) });
+      bal.set(id, { ...(bal.get(id) ?? {}), [r.unit]: roundUnit(r.unit, r.s) });
     }
     return { items: rows.map((p) => ({ ...partyOut(p), balance: bal.get(p.id) ?? {} })) };
   });
@@ -149,7 +170,7 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     const t = now();
     db.tx(() => {
       const code = (db.get('SELECT MAX(code) AS m FROM bk_parties').m ?? 1000) + 1;
-      db.run('INSERT INTO bk_parties(id,code,kind,name,nid,eco,mobile,phone,postal,address,birth,tags,note,credit_limit,sms,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, code, p.kind, p.name, p.nid, p.eco, p.mobile, p.phone, p.postal, p.address, p.birth, p.tags, p.note, p.creditLimit, p.sms, t, t);
+      db.run('INSERT INTO bk_parties(id,code,kind,name,nid,eco,mobile,phone,postal,address,birth,tags,note,credit_limit,sms,alias,father,city,grp,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, code, p.kind, p.name, p.nid, p.eco, p.mobile, p.phone, p.postal, p.address, p.birth, p.tags, p.note, p.creditLimit, p.sms, p.alias, p.father, p.city, p.grp, t, t);
       log(user, 'party.create', id, p);
     });
     return partyOut(db.get('SELECT * FROM bk_parties WHERE id=?', id));
@@ -160,7 +181,7 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     const p = cleanParty(body, cur.id);
     if (p.creditLimit !== cur.credit_limit) guardAdmin(user);
     db.tx(() => {
-      db.run('UPDATE bk_parties SET kind=?,name=?,nid=?,eco=?,mobile=?,phone=?,postal=?,address=?,birth=?,tags=?,note=?,credit_limit=?,sms=?,updated_at=? WHERE id=?', p.kind, p.name, p.nid, p.eco, p.mobile, p.phone, p.postal, p.address, p.birth, p.tags, p.note, p.creditLimit, p.sms, now(), cur.id);
+      db.run('UPDATE bk_parties SET kind=?,name=?,nid=?,eco=?,mobile=?,phone=?,postal=?,address=?,birth=?,tags=?,note=?,credit_limit=?,sms=?,alias=?,father=?,city=?,grp=?,updated_at=? WHERE id=?', p.kind, p.name, p.nid, p.eco, p.mobile, p.phone, p.postal, p.address, p.birth, p.tags, p.note, p.creditLimit, p.sms, p.alias, p.father, p.city, p.grp, now(), cur.id);
       log(user, 'party.update', cur.id, { before: partyOut(cur), after: p });
     });
     return partyOut(db.get('SELECT * FROM bk_parties WHERE id=?', cur.id));
@@ -181,7 +202,7 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     if (!p) throw notFound('این مشتری پیدا نشد.');
     const acct = `party:${p.id}`;
     const rows = db.all('SELECT src, unit, SUM(amt) AS amt, MIN(date) AS date FROM bk_postings WHERE acct=? GROUP BY src, unit ORDER BY date, src', acct);
-    const docs = new Map(db.all("SELECT id, type, fy, no, date, status, calc_json FROM bk_docs WHERE party_id=? AND status<>'void'", p.id).map((d) => [d.id, d]));
+    const docs = new Map(db.all("SELECT id, type, fy, no, date, status FROM bk_docs WHERE id IN (SELECT DISTINCT src FROM bk_postings WHERE acct=?)", acct).map((d) => [d.id, d]));
     const run = {};
     const statement = rows.map((r) => {
       run[r.unit] = (run[r.unit] ?? 0) + r.amt;
@@ -384,6 +405,26 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
       next.templates = t;
     }
     for (const k of ['staffCanDiscount', 'staffCanEditPrice', 'staffCanEditFinal', 'staffBackdate']) if (body[k] !== undefined) next[k] = !!body[k];
+    if (body.edition !== undefined) next.edition = body.edition === 'base' ? 'base' : 'full';
+    if (body.money !== undefined) next.money = body.money === 'toman' ? 'toman' : 'rial';
+    if (body.tradeRound !== undefined) {
+      if (!TR.ROUND_STEPS.includes(Number(body.tradeRound))) throw bad('گام گرد کردن نامعتبر است.');
+      next.tradeRound = Number(body.tradeRound);
+    }
+    for (const k of ['spreadBuy', 'spreadSell', 'coinSpreadBuy', 'coinSpreadSell']) if (body[k] !== undefined) {
+      const v = B.num(body[k] || 0);
+      if (!Number.isFinite(v) || v < 0 || v > 1e12) throw bad('اختلاف نرخ خرید و فروش نامعتبر است.');
+      next[k] = Math.round(v);
+    }
+    if (body.groups && typeof body.groups === 'object') {
+      const g = {};
+      for (const [name, o] of Object.entries(body.groups).slice(0, 100)) {
+        const n = txt(name, 40);
+        if (!n) continue;
+        g[n] = { spreadBuy: Math.max(0, Math.round(B.num(o?.spreadBuy || 0)) || 0), spreadSell: Math.max(0, Math.round(B.num(o?.spreadSell || 0)) || 0), note: txt(o?.note, 120) };
+      }
+      next.groups = g;
+    }
     if (body.roundTo !== undefined) next.roundTo = [0, 1000, 10000, 100000].includes(Number(body.roundTo)) ? Number(body.roundTo) : 0;
     const { vatPct, ...store } = next;
     saveSetting('books', store, user.id);
@@ -411,7 +452,8 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     if (partyId && (!party || (party.deleted_at && partyId !== prev?.partyId))) throw bad('مشتری انتخاب‌شده پیدا نشد.');
     const lines = (Array.isArray(body.lines) ? body.lines : []).slice(0, 300).map((l) => {
       const o = {};
-      for (const k of ['kind', 'side', 'tpl', 'itemId', 'title', 'weight', 'fineness', 'p750', 'ojratMode', 'ojrat', 'profitPct', 'bros', 'stones', 'discount', 'coin', 'count', 'price', 'mazaneh', 'stoneWeight', 'deductPct', 'amount', 'qty', 'vatPct', 'code']) if (l[k] !== undefined && l[k] !== '') o[k] = typeof l[k] === 'string' ? txt(l[k], 120) : l[k];
+      for (const k of ['kind', 'side', 'tpl', 'itemId', 'title', 'weight', 'fineness', 'p750', 'ojratMode', 'ojrat', 'profitPct', 'bros', 'stones', 'discount', 'coin', 'count', 'price', 'mazaneh', 'stoneWeight', 'deductPct', 'amount', 'qty', 'vatPct', 'code', 'dir', 'priced', 'basis', 'g750', 'gramPrice', 'serial', 'brand', 'gallery', 'sealDate', 'fee', 'fxAmount', 'rate', 'conditional', 'assay', 'note']) if (l[k] !== undefined && l[k] !== '') o[k] = typeof l[k] === 'string' ? txt(l[k], 120) : typeof l[k] === 'object' ? l[k] : l[k];
+      if (o.kind === 'bar' && o.serial) o.serial = TR.normSerial(o.serial);
       return o;
     });
     const payments = (Array.isArray(body.payments) ? body.payments : []).slice(0, 50).map((p) => {
@@ -427,11 +469,15 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
       note: txt(body.note ?? prev?.note, 600),
       seller: txt(body.seller ?? prev?.seller ?? user.name, 60),
       ref: body.ref ?? prev?.ref ?? null, // the document this one returns or came from
-      balances: type === 'opening' ? cleanBalances(body.balances) : undefined,
+      balances: type === 'opening' ? cleanBalances(body.balances, body.money ?? prev?.money ?? 'toman') : undefined,
+      money: type === 'opening' ? (body.money ?? prev?.money ?? 'toman') : undefined,
+      round: B.DOC_TYPES[type].base ? prev?.round ?? s.tradeRound : undefined,
+      hawala: type === 'hawala' ? { from: String(body.hawala?.from ?? ''), to: String(body.hawala?.to ?? ''), unit: String(body.hawala?.unit ?? ''), amount: body.hawala?.amount } : undefined,
+      convert: type === 'convert' ? { unit: String(body.convert?.unit ?? ''), amount: body.convert?.amount, basis: body.convert?.basis === 'gram750' ? 'gram750' : 'mazaneh', mazaneh: body.convert?.mazaneh, g750: body.convert?.g750, price: body.convert?.price } : undefined,
     };
     let calc;
     try {
-      calc = B.calcDoc(doc, { vatPct: s.vatPct });
+      calc = B.calcDoc(doc, { vatPct: s.vatPct, round: s.tradeRound });
     } catch (e) {
       if (e instanceof B.BookError) throw bad(e.message);
       throw e;
@@ -446,6 +492,22 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
       if (!o || o.type !== 'sale' || o.status !== 'final') throw bad('فاکتور فروش مرجع برگشت پیدا نشد یا قطعی نیست.');
     }
     if (doc.creditUnit === 'G750' && !partyId) throw bad('نسیه طلایی فقط برای مشتری ثبت‌شده ممکن است.');
+    // base edition rules
+    if (type === 'trade' && calc.lines.some((l) => !l.priced) && !partyId) throw bad('ورود یا خروج جنس بدون قیمت روی حساب مشتری می‌نشیند؛ مشتری را انتخاب کنید.');
+    if (type === 'convert' && !partyId) throw bad('تبدیل مانده برای یک طرف حساب است؛ مشتری را انتخاب کنید.');
+    if (type === 'hawala') {
+      for (const id of [doc.hawala.from, doc.hawala.to]) if (!db.get('SELECT 1 FROM bk_parties WHERE id=? AND deleted_at IS NULL', id)) throw bad('طرف حساب حواله پیدا نشد.');
+      doc.partyId = null;
+    }
+    if (type === 'trade')
+      for (const [i, l] of calc.lines.entries()) {
+        if (l.kind !== 'bar') continue;
+        // a sealed bar is one physical object: it can be in the shop's vault once, and leave only if it is there
+        const held = db.get("SELECT COALESCE(SUM(amt),0) AS s FROM bk_postings WHERE acct=? AND src<>?", `bar:${l.serial}`, prev?.id ?? '').s;
+        const sameDoc = calc.lines.slice(0, i).filter((x) => x.kind === 'bar' && x.serial === l.serial).reduce((a, x) => a + (x.dir === 'in' ? 1 : -1), 0);
+        if (l.dir === 'in' && held + sameDoc >= 1) throw new HttpError(409, `شمش با سریال ${l.serial} هم‌اکنون در صندوق ثبت است؛ یک سریال دو بار وارد نمی‌شود (احتمال شمش تکراری یا جعلی).`);
+        if (l.dir === 'out' && held + sameDoc < 1) throw new HttpError(409, `شمش با سریال ${l.serial} در صندوق نیست که تحویل یا فروخته شود.`);
+      }
     if (!isAdmin(user)) {
       if (!s.staffCanDiscount && lines.some((l) => B.num(l.discount) > 0)) throw forbid('تخفیف دادن برای فروشنده بسته است.');
       if (!s.staffCanEditPrice)
@@ -483,19 +545,35 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     return { doc, calc, warn };
   }
   const prevPartyIrr = (src, partyId) => db.get("SELECT COALESCE(SUM(amt),0) AS s FROM bk_postings WHERE src=? AND acct=? AND unit='IRR'", src, `party:${partyId}`).s;
-  function cleanBalances(list) {
+  function cleanBalances(list, money = 'toman') {
     if (!Array.isArray(list)) return [];
+    const k = money === 'rial' ? 1 : 10;
     return list.slice(0, 500).map((b) => {
       const acct = String(b.acct ?? '');
-      if (!/^(party:[\w-]{8,40}|cash:[\w-]{1,40}|bank:[\w-]{1,40}|gold|coin:\w+)$/.test(acct)) throw bad(`حساب ${acct} نامعتبر است.`);
+      if (!/^(party:[\w-]{8,40}|cash:[\w-]{1,40}|bank:[\w-]{1,40}|gold|coin:\w+|fx:[A-Z]+|bar:[A-Z0-9-]{3,30})$/.test(acct)) throw bad(`حساب ${acct} نامعتبر است.`);
+      if (acct.startsWith('fx:') && !TR.FX_CODES[acct.slice(3)]) throw bad('نوع ارز نامعتبر است.');
+      if (acct.startsWith('party:') && b.unit && b.unit !== 'IRR') {
+        if (!TR.validUnit(b.unit)) throw bad('واحد مانده نامعتبر است.');
+        if (!db.get('SELECT 1 FROM bk_parties WHERE id=?', acct.slice(6))) throw bad('مشتری مانده افتتاحیه پیدا نشد.');
+        const v = B.num(b.amount);
+        if (!Number.isFinite(v) || v === 0) throw bad('مقدار مانده نامعتبر است.');
+        return { acct, unit: b.unit, amt: b.unit === 'G750' ? B.r3(v) : b.unit.startsWith('FX:') ? Math.round(v * 100) / 100 : Math.round(v) };
+      }
+      if (acct.startsWith('fx:') || acct.startsWith('bar:')) {
+        const v = B.num(b.amount);
+        if (!Number.isFinite(v) || v === 0) throw bad('مقدار مانده نامعتبر است.');
+        const cost = b.cost ? B.rnd(B.num(b.cost) * k) : undefined;
+        return { acct, unit: acct.startsWith('fx:') ? 'FX' : 'COUNT', amt: acct.startsWith('fx:') ? Math.round(v * 100) / 100 : Math.round(v), cost };
+      }
       if (acct.startsWith('party:') && !db.get('SELECT 1 FROM bk_parties WHERE id=?', acct.slice(6))) throw bad('مشتری مانده افتتاحیه پیدا نشد.');
       if (/^(cash|bank):/.test(acct) && !db.get('SELECT 1 FROM bk_accounts WHERE id=? AND kind=?', acct.split(':')[1], acct.split(':')[0])) throw bad(`حساب ${acct} پیدا نشد.`);
       if (acct.startsWith('coin:') && !COIN_TYPES[acct.slice(5)]) throw bad('نوع سکه نامعتبر است.');
       const unit = acct === 'gold' ? 'G750' : acct.startsWith('coin:') ? 'COUNT' : b.unit === 'G750' && acct.startsWith('party:') ? 'G750' : 'IRR';
       const v = B.num(b.amount);
       if (!Number.isFinite(v) || v === 0) throw bad('مبلغ یا مقدار مانده نامعتبر است.');
-      const amt = unit === 'IRR' ? B.rnd(v * 10) : unit === 'G750' ? B.r3(v) : Math.round(v);
-      return { acct, unit, amt };
+      const amt = unit === 'IRR' ? B.rnd(v * k) : unit === 'G750' ? B.r3(v) : Math.round(v);
+      const cost = b.cost && (acct === 'gold' || acct.startsWith('coin:')) ? B.rnd(B.num(b.cost) * k) : undefined;
+      return { acct, unit, amt, cost };
     });
   }
 
@@ -952,6 +1030,227 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     }
     const rows = [...g.values()].map((x) => ({ ...x, weight: B.r3(x.weight) })).sort((a, b) => b.total - a.total);
     return { by, rows };
+  });
+
+  /* ---------------- base edition: day book, trading result, vault, bars, bank, conditional assay ---------------- */
+  const docLabel = (d) => `${B.DOC_TYPES[d.type].short} ${d.no}`;
+  const userNames = () => Object.fromEntries(db.all('SELECT id, name FROM users').map((u) => [u.id, u.name]));
+  const partyRow = (id) => (id ? db.get('SELECT * FROM bk_parties WHERE id=?', id) : null);
+  // balance of every customer account after each document, in the order documents happened
+  function balancesAfter(partyIds, uptoDay) {
+    const snap = new Map(); // `${docId}|${partyId}` -> balance object
+    for (const pid of partyIds) {
+      const rows = db.all("SELECT p.src, p.unit, p.amt, p.date, COALESCE(d.issued_at, d.created_at, p.date || 'T23:59:59Z') AS ts FROM bk_postings p LEFT JOIN bk_docs d ON d.id=p.src WHERE p.acct=? AND p.date<=? ORDER BY p.date, ts, p.src", `party:${pid}`, uptoDay);
+      const run = {};
+      let last = null;
+      const flush = (src) => snap.set(`${src}|${pid}`, Object.fromEntries(Object.entries(run).filter(([, v]) => Math.abs(v) > 1e-9).map(([u, v]) => [u, roundUnit(u, v)])));
+      for (const r of rows) {
+        if (last && r.src !== last) flush(last);
+        run[r.unit] = (run[r.unit] ?? 0) + r.amt;
+        last = r.src;
+      }
+      if (last) flush(last);
+    }
+    return snap;
+  }
+  on('GET', '/api/books/daybook', 'auth', ({ user, url }) => {
+    const day = DAY_RE.test(url.searchParams.get('day') ?? '') ? url.searchParams.get('day') : tehranDay();
+    if (!isAdmin(user) && day !== tehranDay() && !settings().staffBackdate) throw forbid('روزهای گذشته را مدیر می‌بیند.');
+    const docs = db.all("SELECT * FROM bk_docs WHERE date=? AND status<>'draft' ORDER BY COALESCE(issued_at, created_at)", day);
+    const names = userNames();
+    const pids = new Set();
+    for (const d of docs) {
+      if (d.party_id) pids.add(d.party_id);
+      if (d.type === 'hawala') {
+        const h = JSON.parse(d.data_json).hawala;
+        pids.add(h.from);
+        pids.add(h.to);
+      }
+    }
+    const snap = balancesAfter([...pids], day);
+    const accounts = Object.fromEntries(db.all('SELECT id, title FROM bk_accounts').map((a) => [a.id, a.title]));
+    const T = { goldIn: 0, goldOut: 0, coins: {}, bars: { in: 0, out: 0 }, fx: {}, money: {}, buys: 0, sells: 0, docs: 0 };
+    const entries = docs.map((d) => {
+      const data = JSON.parse(d.data_json), c = JSON.parse(d.calc_json);
+      const party = partyRow(d.party_id);
+      const live = d.status === 'final';
+      if (live) {
+        T.docs++;
+        for (const l of c.lines ?? []) {
+          if (d.type === 'trade') {
+            if (l.kind === 'melt') l.dir === 'in' ? (T.goldIn += l.eq750) : (T.goldOut += l.eq750);
+            if (l.kind === 'coin') T.coins[l.coin] = (T.coins[l.coin] ?? 0) + (l.dir === 'in' ? l.count : -l.count);
+            if (l.kind === 'bar') l.dir === 'in' ? T.bars.in++ : T.bars.out++;
+            if (l.kind === 'fx') T.fx[l.code] = (T.fx[l.code] ?? 0) + (l.dir === 'in' ? l.amt : -l.amt);
+            if (l.priced) l.dir === 'in' ? (T.buys += l.value) : (T.sells += l.value);
+          }
+        }
+        for (const p of c.payments ?? []) T.money[`${p.method}:${p.dir}`] = (T.money[`${p.method}:${p.dir}`] ?? 0) + p.value;
+      }
+      const who = d.type === 'hawala' ? [data.hawala.from, data.hawala.to] : d.party_id ? [d.party_id] : [];
+      return {
+        id: d.id, type: d.type, no: d.no, fy: d.fy, status: d.status, version: d.version, at: d.issued_at ?? d.created_at, by: names[d.created_by] ?? null, note: data.note ?? '',
+        party: party ? { id: party.id, code: party.code, name: party.name, label: TR.partyLabel(party), group: party.grp } : null,
+        lines: (c.lines ?? []).map((l, i) => ({ ...l, src: data.lines?.[i] ?? {} })),
+        payments: (c.payments ?? []).map((p, i) => ({ ...p, ref: data.payments?.[i]?.ref ?? '', card: data.payments?.[i]?.card ? String(data.payments[i].card).slice(-4) : '', account: accounts[data.payments?.[i]?.account] ?? '', chequeNo: data.payments?.[i]?.chequeNo ?? '', due: data.payments?.[i]?.due ?? '' })),
+        hawala: c.hawala ? { ...c.hawala, fromName: TR.partyLabel(partyRow(c.hawala.from) ?? { name: '؟' }), toName: TR.partyLabel(partyRow(c.hawala.to) ?? { name: '؟' }) } : null,
+        convert: c.convert ?? null,
+        net: c.net, credit: c.credit, paidIn: c.paidIn, paidOut: c.paidOut,
+        after: live ? Object.fromEntries(who.map((pid) => [pid, snap.get(`${d.id}|${pid}`) ?? {}])) : {},
+      };
+    });
+    T.goldIn = B.r3(T.goldIn);
+    T.goldOut = B.r3(T.goldOut);
+    const pnl = TR.positionReport(finalEvents(day)).byDay[day] ?? 0;
+    return { day, entries, totals: { ...T, realized: pnl } };
+  });
+  function finalEvents(upto = '9999-12-31') {
+    return db.all("SELECT type, date, data_json, calc_json FROM bk_docs WHERE status='final' AND date<=? ORDER BY date, COALESCE(issued_at, created_at)", upto).map((r) => ({ type: r.type, date: r.date, data: JSON.parse(r.data_json), calc: JSON.parse(r.calc_json) }));
+  }
+  const livePrices = () => {
+    const p750 = pricing().p750 * 10; // rial per gram of 750
+    const board = {};
+    try {
+      for (const x of market?.board().items ?? []) if (!x.empty) board[x.id] = x.c * 10;
+    } catch {
+      /* no market */
+    }
+    const COIN_MAP = { bahar: 'sekeb', emami: 'sekee', halfOld: 'nim', half: 'nim', quarterOld: 'rob', quarter: 'rob', gerami: 'gerami' };
+    const price = { G750: p750 };
+    for (const k of Object.keys(COIN_TYPES)) price[`COIN:${k}`] = board[COIN_MAP[k]] ?? B.rnd((COIN_TYPES[k].weight * COIN_TYPES[k].fineness * p750) / 750);
+    if (board.usd) price['FX:USD'] = board.usd;
+    return { price, mazaneh: board.mesghal ?? null, mazanehFwd: board.mesghal_fwd ?? null };
+  };
+  on('GET', '/api/books/report/pnl', 'auth', ({ user, url }) => {
+    guardAdmin(user);
+    const from = DAY_RE.test(url.searchParams.get('from') ?? '') ? url.searchParams.get('from') : '0000-01-01';
+    const to = DAY_RE.test(url.searchParams.get('to') ?? '') ? url.searchParams.get('to') : tehranDay();
+    const r = TR.positionReport(finalEvents(to));
+    const { price } = livePrices();
+    const positions = Object.entries(r.positions).map(([key, p]) => {
+      const mark = price[key];
+      return { key, ...p, avg: p.qty ? B.rnd(p.cost / p.qty) : 0, price: mark ?? null, value: mark != null ? B.rnd(p.qty * mark) : null, unrealized: mark != null ? B.rnd(p.qty * mark - p.cost) : null };
+    });
+    const days = Object.entries(r.byDay).filter(([d]) => d >= from && d <= to).sort().map(([day, realized]) => ({ day, realized }));
+    const missingCost = finalEvents(to).some((e) => e.type === 'opening' && (e.data.balances ?? []).some((b) => (b.acct === 'gold' || b.acct.startsWith('coin:')) && b.amt > 0 && !b.cost));
+    return { from, to, positions, days, realizedTotal: days.reduce((s2, d) => s2 + d.realized, 0), missingCost };
+  });
+  on('GET', '/api/books/vault', 'auth', () => {
+    const rows = db.all("SELECT acct, unit, SUM(amt) AS s FROM bk_postings WHERE acct='gold' OR acct LIKE 'coin:%' OR acct LIKE 'fx:%' OR acct LIKE 'bar:%' OR acct LIKE 'cash:%' OR acct LIKE 'bank:%' GROUP BY acct, unit");
+    const out = { gold: 0, coins: {}, fx: {}, bars: [], cash: {}, bank: {} };
+    for (const r of rows) {
+      if (Math.abs(r.s) < 1e-9) continue;
+      if (r.acct === 'gold') out.gold = B.r3(r.s);
+      else if (r.acct.startsWith('coin:')) out.coins[r.acct.slice(5)] = Math.round(r.s);
+      else if (r.acct.startsWith('fx:')) out.fx[r.acct.slice(3)] = Math.round(r.s * 100) / 100;
+      else if (r.acct.startsWith('bar:') && r.s > 0) out.bars.push(r.acct.slice(4));
+      else if (r.acct.startsWith('cash:')) out.cash[r.acct.slice(5)] = Math.round(r.s);
+      else if (r.acct.startsWith('bank:')) out.bank[r.acct.slice(5)] = Math.round(r.s);
+    }
+    out.bars = out.bars.map((serial) => barInfo(serial));
+    // what customers hold with the shop (custody) and owe, per unit
+    const custody = {};
+    for (const r of db.all("SELECT unit, SUM(CASE WHEN amt<0 THEN amt ELSE 0 END) AS neg, SUM(CASE WHEN amt>0 THEN amt ELSE 0 END) AS pos FROM (SELECT acct, unit, SUM(amt) AS amt FROM bk_postings WHERE acct LIKE 'party:%' GROUP BY acct, unit) GROUP BY unit")) custody[r.unit] = { owedByShop: roundUnit(r.unit, -r.neg), owedToShop: roundUnit(r.unit, r.pos) };
+    return { ...out, custody, prices: livePrices() };
+  });
+  function barInfo(serial) {
+    const hist = db.all("SELECT d.id, d.type, d.no, d.date, d.status, d.party_id, d.data_json FROM bk_docs d WHERE d.status='final' AND d.data_json LIKE ? ORDER BY d.date, COALESCE(d.issued_at, d.created_at)", `%"serial":"${serial}"%`)
+      .flatMap((d) => JSON.parse(d.data_json).lines.filter((l) => l.kind === 'bar' && l.serial === serial).map((l) => ({ doc: d.id, no: d.no, date: d.date, dir: l.dir, priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null, brand: l.brand ?? '', gallery: l.gallery ?? '', weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness ?? 750), sealDate: l.sealDate ?? '' })));
+    const last = hist.at(-1) ?? {};
+    const inVault = db.get("SELECT COALESCE(SUM(amt),0) AS s FROM bk_postings WHERE acct=?", `bar:${serial}`).s > 0;
+    const holder = db.get("SELECT acct FROM bk_postings WHERE unit=? GROUP BY acct HAVING SUM(amt)<0", `BAR:${serial}`)?.acct;
+    return { serial, brand: last.brand ?? '', gallery: last.gallery ?? '', weight: last.weight ?? null, fineness: last.fineness ?? null, sealDate: last.sealDate ?? '', inVault, custodyOf: holder ? TR.partyLabel(partyRow(holder.slice(6)) ?? { name: '؟' }) : null, history: hist };
+  }
+  on('GET', '/api/books/bars', 'auth', ({ url }) => {
+    const q = TR.normSerial(url.searchParams.get('q') ?? '');
+    if (q) {
+      const serials = [...new Set(db.all("SELECT DISTINCT acct FROM bk_postings WHERE acct LIKE ?", `bar:%${q}%`).map((r) => r.acct.slice(4)))].slice(0, 50);
+      return { items: serials.map(barInfo) };
+    }
+    const serials = db.all("SELECT acct FROM bk_postings WHERE acct LIKE 'bar:%' GROUP BY acct ORDER BY MAX(date) DESC LIMIT 300").map((r) => r.acct.slice(4));
+    return { items: serials.map(barInfo) };
+  });
+  // molten gold bought on a provisional assay (آبشده شرطی): listed until the lab's fineness is recorded
+  on('GET', '/api/books/conditional', 'auth', () => {
+    const out = [];
+    for (const d of db.all("SELECT * FROM bk_docs WHERE status='final' AND type='trade' AND data_json LIKE '%\"conditional\":true%' ORDER BY date")) {
+      const data = JSON.parse(d.data_json);
+      data.lines.forEach((l, i) => l.conditional && out.push({ doc: d.id, no: d.no, date: d.date, line: i, weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness), dir: l.dir ?? 'in', priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null }));
+    }
+    return { items: out };
+  });
+  on('POST', '/api/books/docs/:id/assay', 'auth', ({ user, params, body }) => {
+    const cur = db.get('SELECT * FROM bk_docs WHERE id=?', params.id);
+    if (!cur || cur.type !== 'trade' || cur.status !== 'final') throw notFound('سند معامله پیدا نشد.');
+    const d = docOut(cur);
+    const i = Number(body.line);
+    const l = d.lines[i];
+    if (!l || l.kind !== 'melt' || !l.conditional) throw bad('این ردیف آبشده شرطی نیست.');
+    const f = B.num(body.fineness);
+    if (!(f >= 1 && f <= 1000)) throw bad('عیار نامعتبر است.');
+    const lines = d.lines.map((x, j) => (j === i ? { ...x, fineness: f, conditional: false, assay: { from: x.fineness, to: f, at: now(), by: user.name } } : x));
+    return save(user, { ...d, lines }, cur, `تعیین عیار آبشده شرطی: ${l.fineness} ← ${f}`);
+  });
+  // bank account ledger, one row per payment (a statement lists a card swipe and a slip of the same trade separately),
+  // plus a row for any other movement of the document (transfer, cheque, opening); reconciliation marks per row
+  function bankRows(a) {
+    const acct = `${a.kind}:${a.id}`;
+    const recon = new Map(db.all('SELECT * FROM bk_recon WHERE acct=?', acct).map((r) => [r.src, r]));
+    const out = [];
+    let run = 0;
+    for (const r of db.all("SELECT p.src, SUM(p.amt) AS amt, p.date, COALESCE(d.issued_at, d.created_at, p.date) AS ts, d.type, d.no, d.party_id, d.data_json, d.calc_json FROM bk_postings p LEFT JOIN bk_docs d ON d.id=p.src WHERE p.acct=? GROUP BY p.src ORDER BY p.date, ts", acct)) {
+      const data = r.data_json ? JSON.parse(r.data_json) : null, calc = r.calc_json ? JSON.parse(r.calc_json) : null;
+      const base = { date: r.date, doc: r.type ? { type: r.type, no: r.no } : null, party: r.party_id ? TR.partyLabel(partyRow(r.party_id)) : null };
+      let left = Math.round(r.amt);
+      const part = (id, amt, ref, refs) => {
+        run += amt;
+        const rc = recon.get(id) ?? recon.get(r.src);
+        out.push({ id, src: r.src, ...base, amt, ref, refs, balance: Math.round(run), reconciled: !!rc, reconRef: rc?.ref ?? '' });
+      };
+      (data?.payments ?? []).forEach((p, i) => {
+        const v = calc?.payments?.[i]?.value;
+        if (p.account !== a.id || !v || B.payMethod(p.method)?.acct !== a.kind) return;
+        const amt = Math.round(p.dir === 'out' ? -v : v);
+        left -= amt;
+        part(`${r.src}#${i}`, amt, p.ref ?? '', [[B.payMethod(p.method)?.label, p.ref, p.card && `کارت …${String(p.card).slice(-4)}`].filter(Boolean).join(' ')]);
+      });
+      if (left) part(r.src, left, '', [r.type ? B.DOC_TYPES[r.type]?.label ?? '' : 'گردش']);
+    }
+    return { rows: out, book: Math.round(run), recon };
+  }
+  on('GET', '/api/books/bank/:id', 'auth', ({ user, params }) => {
+    guardAdmin(user);
+    const a = db.get('SELECT * FROM bk_accounts WHERE id=?', params.id);
+    if (!a) throw notFound('حساب پیدا نشد.');
+    const { rows, book } = bankRows(a);
+    const reconciledBalance = rows.filter((r) => r.reconciled).reduce((s2, r) => s2 + r.amt, 0);
+    return { account: acctOut(a), rows, book, reconciledBalance, open: rows.filter((r) => !r.reconciled).length };
+  });
+  on('POST', '/api/books/bank/:id/recon', 'auth', ({ user, params, body }) => {
+    guardAdmin(user);
+    const a = db.get('SELECT * FROM bk_accounts WHERE id=?', params.id);
+    if (!a) throw notFound('حساب پیدا نشد.');
+    const acct = `${a.kind}:${a.id}`;
+    const items = Array.isArray(body.items) ? body.items.slice(0, 2000) : [];
+    const ids = new Set(bankRows(a).rows.map((r) => r.id));
+    db.tx(() => {
+      for (const it of items) {
+        const id = String(it.src ?? it.id ?? '');
+        if (!ids.has(id)) throw bad('ردیف بانکی پیدا نشد.');
+        if (it.on) db.run('INSERT INTO bk_recon(src,acct,ref,at,by) VALUES (?,?,?,?,?) ON CONFLICT(src,acct) DO UPDATE SET ref=excluded.ref, at=excluded.at, by=excluded.by', id, acct, txt(it.ref, 60), now(), user.id);
+        else db.run('DELETE FROM bk_recon WHERE (src=? OR src=?) AND acct=?', id, id.split('#')[0], acct);
+      }
+      log(user, 'bank.recon', a.id, { n: items.length });
+    });
+    return { ok: true };
+  });
+  on('POST', '/api/books/bank/:id/match', 'auth', ({ user, params, body }) => {
+    guardAdmin(user);
+    const a = db.get('SELECT * FROM bk_accounts WHERE id=?', params.id);
+    if (!a) throw notFound('حساب پیدا نشد.');
+    const book = bankRows(a).rows.filter((r) => !r.reconciled).map((r) => ({ id: r.id, date: r.date, amt: r.amt, ref: r.ref }));
+    const rows = (Array.isArray(body.rows) ? body.rows : []).slice(0, 5000).map((r) => ({ date: String(r.date), amt: Math.round(B.num(r.amt)), ref: txt(r.ref, 40) })).filter((r) => DAY_RE.test(r.date) && r.amt);
+    return { ...TR.matchStatement(book, rows), book, rows };
   });
 
   /* ---------------- log, backup, public verification ---------------- */

@@ -5,7 +5,7 @@ import { html, raw, fa } from './core.mjs';
 import * as B from './books.mjs';
 import { COIN_TYPES } from './coins.mjs';
 import { qrSvg } from './qr.mjs';
-import { T, TU, G, jd, timeFa } from './bk.mjs';
+import { T, TU, G, jd, timeFa, EX, unitName, moneyWords, K, booksPrefs, prefs } from './bk.mjs';
 
 export const THEMES = [
   ['royal', 'سلطنتی'],
@@ -140,7 +140,7 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
         <div class="r-meta"><span>شماره <b>${fa(d.fy)}-${fa(String(d.no).padStart(5, '0'))}</b></span><span>${jd(d.date)} ${d.issuedAt ? timeFa(d.issuedAt) : ''}</span>${d.tax?.taxId ? html`<span class="ltr-num">${d.tax.taxId}</span>` : ''}</div></header>
       ${guilloche(300, 12, 5)}
       ${party || official ? html`<p class="r-party"><b>${d.type === 'buy' ? 'فروشنده' : 'خریدار'}:</b> ${party ? html`${party.name}${party.nid ? ` · ${fa(party.nid)}` : ''}` : 'مصرف‌کننده نهایی'}</p>` : ''}
-      ${out.length ? html`<table class="bk-p-table roll"><tbody>${out.map(({ l, src }) => html`<tr><td>${src.title || B.KIND_LABEL[l.kind]}<small>${l.weight ? ` · ${G(l.weight)} گرم` : ''}${l.fineness ? ` · عیار ${fa(l.fineness)}` : ''}${l.kind === 'coin' ? ` · ${fa(l.count)} عدد` : ''}${l.kind === 'jewel' ? ` · طلا ${T(l.principal)} · اجرت ${T(l.consfee)} · سود ${T(l.spro)}${l.stones ? ` · سنگ ${T(l.stones)}` : ''} · مالیات ${T(l.vat)}` : l.vat ? ` · مالیات ${T(l.vat)}` : ''}</small>${miniBar(l)}</td><td class="num"><b>${T(l.total)}</b></td></tr>`)}</tbody><tfoot><tr><td>جمع (تومان) · مالیات ${T(c.vat)}</td><td class="num"><b>${T(c.sales)}</b></td></tr></tfoot></table>` : ''}
+      ${out.length ? html`<table class="bk-p-table roll"><tbody>${out.map(({ l, src }) => html`<tr><td>${src.title || B.KIND_LABEL[l.kind]}<small>${l.weight ? ` · ${G(l.weight)} گرم` : ''}${l.fineness ? ` · عیار ${fa(l.fineness)}` : ''}${l.kind === 'coin' ? ` · ${fa(l.count)} عدد` : ''}${l.kind === 'jewel' ? ` · طلا ${T(l.principal)} · اجرت ${T(l.consfee)} · سود ${T(l.spro)}${l.stones ? ` · سنگ ${T(l.stones)}` : ''} · مالیات ${T(l.vat)}` : l.vat ? ` · مالیات ${T(l.vat)}` : ''}</small>${miniBar(l)}</td><td class="num"><b>${T(l.total)}</b></td></tr>`)}</tbody><tfoot><tr><td>جمع (${unitName()}) · مالیات ${T(c.vat)}</td><td class="num"><b>${T(c.sales)}</b></td></tr></tfoot></table>` : ''}
       ${inn.length ? html`<table class="bk-p-table roll in"><tbody>${inn.map(({ l, src }) => html`<tr><td>↺ ${src.title || B.KIND_LABEL[l.kind]}<small>${l.weight ? ` · ${G(l.weight)} گرم` : ''}${l.fineness ? ` · عیار ${fa(l.fineness)}` : ''}</small></td><td class="num">${T(l.total)}</td></tr>`)}</tbody></table>` : ''}
       <div class="r-total"><span>${c.net >= 0 ? 'قابل پرداخت' : 'پرداختی به مشتری'}</span><b>${TU(amount)}</b></div>
       ${c.payments.length ? html`<ul class="r-pay">${c.payments.map((p, i) => html`<li>${B.payMethod(p.method).label} <b>${T(p.value)}</b></li>`)}</ul>` : ''}
@@ -179,15 +179,15 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
     ${out.length
       ? html`<table class="bk-p-table i-items"><thead><tr><th>ردیف</th><th>شرح کالا / خدمت</th><th>وزن (گرم)</th><th>عیار</th><th>مبلغ واحد</th><th>ارزش اصل</th><th>اجرت ساخت</th><th>سود فروشنده</th><th>حق‌العمل</th><th>مالیات</th><th>مبلغ کل</th></tr></thead>
           <tbody>${out.map(({ l, src }, i) => html`<tr><td class="n">${fa(i + 1)}</td><td class="desc"><span class="ic">${iconFor(l.kind, src.tpl)}</span><span class="dt"><b>${src.title || B.KIND_LABEL[l.kind]}</b><small>${[src.code && `بارکد ${fa(src.code)}`, l.kind === 'coin' && `${fa(l.count)} عدد`, l.kind === 'jewel' && src.ojratMode && `اجرت ${src.ojratMode === 'pct' ? `${fa(src.ojrat)}٪` : src.ojratMode === 'gram' ? `${fa(src.ojrat)} ت/گرم` : 'ثابت'}`, l.discount && l.kind === 'jewel' && `تخفیف ${T(l.discount)}`].filter(Boolean).join(' · ')}</small>${miniBar(l)}</span></td><td class="num">${l.weight ? G(l.weight) : '—'}</td><td class="num">${l.fineness ? fa(l.fineness) : '—'}</td><td class="num">${l.fee ? T(l.fee) : '—'}</td><td class="num">${T(l.principal + l.stones - (l.kind === 'goods' ? l.discount : 0))}</td><td class="num">${T(l.consfee)}</td><td class="num">${T(l.spro)}</td><td class="num">${l.bros ? T(l.bros) : '—'}</td><td class="num">${T(l.vat)}</td><td class="num tot">${T(l.total)}</td></tr>`)}</tbody>
-          <tfoot><tr><td colspan="5">جمع (تومان)</td><td class="num">${T(c.principal + c.stones)}</td><td class="num">${T(c.consfee)}</td><td class="num">${T(c.spro)}</td><td class="num">${T(c.bros)}</td><td class="num">${T(c.vat)}</td><td class="num tot">${T(c.sales)}</td></tr></tfoot></table>`
+          <tfoot><tr><td colspan="5">جمع (${unitName()})</td><td class="num">${T(c.principal + c.stones)}</td><td class="num">${T(c.consfee)}</td><td class="num">${T(c.spro)}</td><td class="num">${T(c.bros)}</td><td class="num">${T(c.vat)}</td><td class="num tot">${T(c.sales)}</td></tr></tfoot></table>`
       : ''}
     ${inn.length
       ? html`<table class="bk-p-table in"><caption>${d.type === 'buy' ? 'اقلام خریداری‌شده' : 'طلای دریافتی از مشتری (تعویض)'}</caption><thead><tr><th>ردیف</th><th>شرح</th><th>وزن خالص</th><th>عیار</th><th>معادل ۷۵۰</th><th>فی هر گرم</th><th>کسر</th><th>مبلغ</th></tr></thead><tbody>${inn.map(({ l, src }, i) => html`<tr><td>${fa(i + 1)}</td><td class="desc"><span class="ic">${iconFor(l.kind, src.tpl)}</span><b>${src.title || B.KIND_LABEL[l.kind]}</b>${l.kind === 'coin' ? html`<small> · ${fa(l.count)} عدد</small>` : ''}</td><td class="num">${l.weight ? G(l.weight) : '—'}</td><td class="num">${l.fineness ? fa(l.fineness) : '—'}</td><td class="num">${l.g750 ? G(l.g750) : '—'}</td><td class="num">${l.fee ? T(l.fee) : '—'}</td><td class="num">${l.discount ? T(l.discount) : '—'}</td><td class="num tot">${T(l.total)}</td></tr>`)}</tbody></table>`
       : ''}
-    ${d.type === 'opening' ? html`<table class="bk-p-table"><thead><tr><th>حساب</th><th>مقدار</th></tr></thead><tbody>${(d.balances ?? []).map((b) => html`<tr><td>${b.acct}</td><td class="num">${b.unit === 'IRR' ? T(b.amt) : fa(b.amt)} ${b.unit === 'IRR' ? 'تومان' : b.unit === 'G750' ? 'گرم' : 'عدد'}</td></tr>`)}</tbody></table>` : ''}
+    ${d.type === 'opening' ? html`<table class="bk-p-table"><thead><tr><th>حساب</th><th>مقدار</th></tr></thead><tbody>${(d.balances ?? []).map((b) => html`<tr><td>${b.acct}</td><td class="num">${b.unit === 'IRR' ? T(b.amt) : fa(b.amt)} ${b.unit === 'IRR' ? `${unitName()}` : b.unit === 'G750' ? 'گرم' : 'عدد'}</td></tr>`)}</tbody></table>` : ''}
     <section class="i-analysis">
       ${partsTotal && out.length
-        ? html`<div class="icard i-chart"><h4>ترکیب مبلغ فاکتور</h4><div class="i-donut">${donut(parts, partsTotal, format === 'a5' ? 120 : 140)}<div class="center"><small>جمع</small><b>${T(c.sales)}</b><small>تومان</small></div></div>
+        ? html`<div class="icard i-chart"><h4>ترکیب مبلغ فاکتور</h4><div class="i-donut">${donut(parts, partsTotal, format === 'a5' ? 120 : 140)}<div class="center"><small>جمع</small><b>${T(c.sales)}</b><small>${unitName()}</small></div></div>
             <ul class="legend">${parts.filter((p) => p.v > 0).map((p) => html`<li><i style="background:${p.color}"></i><span>${p.label}</span><b>${T(p.v)}</b><em>${pctFa(p.v, partsTotal)}</em></li>`)}</ul></div>
           <div class="icard i-tax"><h4>محاسبه مالیات</h4>
             <div class="eq"><span>پایه مشمول (اجرت + سود + حق‌العمل)</span><b>${T(c.tcpbs)}</b></div>
@@ -200,7 +200,7 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
         ${c.tradeIn && d.type !== 'buy' ? html`<div class="row"><span>کسر: طلای دریافتی</span><b>− ${TU(c.tradeIn)}</b></div>` : ''}
         ${d.type === 'buy' ? html`<div class="row"><span>جمع خرید</span><b>${TU(c.tradeIn)}</b></div>` : ''}
         <div class="grand"><span>${c.net >= 0 ? 'قابل پرداخت خریدار' : 'قابل پرداخت به مشتری'}</span><b>${TU(amount)}</b></div>
-        <small class="words">${B.words(amount / 10)} تومان</small>
+        <small class="words">${moneyWords(amount)}</small>
       </div>
     </section>
     ${c.payments.length || c.credit

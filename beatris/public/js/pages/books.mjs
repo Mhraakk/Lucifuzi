@@ -4,16 +4,20 @@ import { html, raw, fa, api, store, toast, navigate, actions, $, $$, busy } from
 import * as B from '../books.mjs';
 import { COIN_TYPES } from '../coins.mjs';
 import { invoicePaper, THEMES } from '../invoice.mjs';
-import { T, TU, G, jd, jdLong, jdInput, parseDay, today, addDays, timeFa, modal, confirmBox, statusChip, exportButtons, wireExport, download, balText, balClass } from '../bk.mjs';
+import { T, TU, G, jd, jdLong, jdInput, parseDay, today, addDays, timeFa, modal, confirmBox, statusChip, exportButtons, wireExport, download, balText, balClass, EX, unitName, moneyWords, K, booksPrefs, prefs } from '../bk.mjs';
 
 export function booksNav(cur) {
   const admin = store.isAdmin();
+  const base = prefs.edition === 'base';
   const tabs = [
-    ['home', '/books', 'پیشخوان'],
-    ['new', '/books/new/sale', 'فاکتور جدید'],
+    ['desk', '/books/desk', 'میز معامله'],
+    ['day', '/books/day', 'روزنگار'],
+    ...(base ? [] : [['home', '/books', 'پیشخوان'], ['new', '/books/new/sale', 'فاکتور جدید']]),
     ['docs', '/books/docs', 'اسناد'],
     ['parties', '/books/parties', 'مشتریان'],
-    ['stock', '/books/stock', 'انبار و ویترین'],
+    ['vault', '/books/vault', 'گاوصندوق'],
+    ['bars', '/books/bars', 'شمش‌ها'],
+    ...(base ? [] : [['stock', '/books/stock', 'انبار و ویترین']]),
     ['cash', '/books/cash', 'صندوق، بانک، چک'],
     ...(admin ? [['reports', '/books/reports', 'گزارش‌ها'], ['settings', '/books/settings', 'تنظیمات'], ['log', '/books/log', 'رویدادها']] : []),
   ];
@@ -32,14 +36,16 @@ const QUICK = [
 
 /* ---------------- dashboard ---------------- */
 export async function booksHome(root) {
+  await booksPrefs();
+  if (prefs.edition === 'base') return navigate('/books/desk', { replace: true });
   const s = await api('/api/books/summary');
   const T0 = s.totals;
   const methodIn = B.PAY_METHODS.map((m) => [m, T0.byMethod[`${m.id}:in`] ?? 0, T0.byMethod[`${m.id}:out`] ?? 0]).filter(([, a, b]) => a || b);
   root.innerHTML = String(html`${booksNav('home')}
-    <div class="bk-head"><h1>پیشخوان حسابداری</h1><span class="small">${jdLong(s.from)} · قیمت گرم ۱۸: ${B.fmtRial(store.me.pricing.p750 * 10)}</span></div>
+    <div class="bk-head"><h1>پیشخوان حسابداری</h1><span class="small">${jdLong(s.from)} · قیمت گرم ۱۸: ${TU(store.me.pricing.p750 * 10)}</span></div>
     <div class="bk-quick">${QUICK.filter(([k]) => k !== 'return').map(([k, label, hint]) => html`<a class="bk-q" href="/books/new/${k}" data-link><b>${label}</b><span>${hint}</span></a>`)}</div>
     <div class="stats bk-stats">
-      <div><b>${T(T0.sales)}</b><span>فروش امروز (تومان) · ${fa(T0.count.sale ?? 0)} فاکتور</span></div>
+      <div><b>${T(T0.sales)}</b><span>فروش امروز (${unitName()}) · ${fa(T0.count.sale ?? 0)} فاکتور</span></div>
       <div><b>${T(T0.consfee + T0.spro)}</b><span>اجرت + سود</span></div>
       <div><b>${T(T0.vat)}</b><span>مالیات بر ارزش افزوده</span></div>
       <div><b>${G(T0.soldWeight)}</b><span>گرم کارساخته فروخته</span></div>
@@ -60,6 +66,7 @@ export async function booksHome(root) {
 
 /* ---------------- journal ---------------- */
 export async function docsPage(root) {
+  await booksPrefs();
   const qs = new URLSearchParams(location.search);
   const F = { type: qs.get('type') ?? '', status: qs.get('status') ?? '', from: qs.get('from') ?? addDays(today(), -30), to: qs.get('to') ?? today(), q: qs.get('q') ?? '' };
   const admin = store.isAdmin();
@@ -76,7 +83,7 @@ export async function docsPage(root) {
     ${admin ? html`<div class="bk-bulk" id="bulk" hidden></div>` : ''}
     <div class="scrollx"><table class="table-plain bk-table" id="tbl"></table></div>
     <p class="small" id="sum"></p>`);
-  const cols = [['type', 'نوع'], ['no', 'شماره'], [(r) => jd(r.date), 'تاریخ'], ['partyName', 'طرف حساب'], [(r) => r.sales / 10, 'جمع فاکتور (تومان)'], [(r) => r.net / 10, 'خالص (تومان)'], [(r) => r.vat / 10, 'مالیات (تومان)'], [(r) => r.credit / 10, 'نسیه (تومان)'], ['status', 'وضعیت'], ['createdBy', 'ثبت‌کننده']];
+  const cols = [['type', 'نوع'], ['no', 'شماره'], [(r) => jd(r.date), 'تاریخ'], ['partyName', 'طرف حساب'], [EX((r) => r.sales), `جمع فاکتور (${unitName()})`], [EX((r) => r.net), `خالص (${unitName()})`], [EX((r) => r.vat), `مالیات (${unitName()})`], [EX((r) => r.credit), `نسیه (${unitName()})`], ['status', 'وضعیت'], ['createdBy', 'ثبت‌کننده']];
   const map = {};
   wireExport(map, 'ex', `asnad-${F.from}-${F.to}`, () => (sel.size ? rows.filter((r) => sel.has(r.id)) : rows).map((r) => ({ ...r, type: B.DOC_TYPES[r.type].label })), cols, 'اسناد');
   actions(root, map);
@@ -92,7 +99,7 @@ export async function docsPage(root) {
     $('#tbl', root).innerHTML = String(html`<thead><tr>${admin ? html`<th><input type="checkbox" id="all" aria-label="انتخاب همه" ${rows.length && rows.every((r) => sel.has(r.id)) ? 'checked' : ''}></th>` : ''}<th>سند</th><th>تاریخ</th><th>طرف حساب</th><th>جمع</th><th>خالص</th><th>نسیه</th><th>وضعیت</th><th></th></tr></thead>
       <tbody>${rows.map((r) => html`<tr class="${r.status}">${admin ? html`<td><input type="checkbox" data-row="${r.id}" ${sel.has(r.id) ? 'checked' : ''} aria-label="انتخاب"></td>` : ''}<td><a href="/books/doc/${r.id}" data-link>${B.DOC_TYPES[r.type].short} ${fa(r.no)}</a>${r.version > 1 ? html`<span class="small"> نسخه ${fa(r.version)}</span>` : ''}</td><td>${jd(r.date)}</td><td>${r.partyName ?? html`<span class="small">گذری</span>`}</td><td class="num">${r.sales ? T(r.sales) : '—'}</td><td class="num">${T(r.net)}</td><td class="num ${r.credit > 0 ? 'debt' : ''}">${r.credit ? T(r.credit) : '—'}</td><td>${statusChip(r.status)}${r.tax ? html` <span class="bk-st tax">${{ sent: 'ارسال‌شده', accepted: 'تأیید مودیان', rejected: 'رد مودیان' }[r.tax] ?? ''}</span>` : ''}</td><td class="small">${r.createdBy ?? ''}</td></tr>`)}</tbody>`);
     const tot = rows.filter((r) => r.status === 'final' && r.type === 'sale').reduce((s, r) => ({ n: s.n + 1, sales: s.sales + r.sales, vat: s.vat + r.vat }), { n: 0, sales: 0, vat: 0 });
-    $('#sum', root).textContent = fa(`${rows.length} سند · فروش قطعی: ${tot.n} فاکتور، ${T(tot.sales)} تومان، مالیات ${T(tot.vat)} تومان`);
+    $('#sum', root).textContent = fa(`${rows.length} سند · فروش قطعی: ${tot.n} فاکتور، ${T(tot.sales)} ${unitName()}، مالیات ${T(tot.vat)} ${unitName()}`);
     drawBulk();
   }
   function drawBulk() {
@@ -167,6 +174,7 @@ export async function docsPage(root) {
 /* ---------------- one document: the official invoice ---------------- */
 const FORMAT_KEY = 'beatris.books.format';
 export async function docPage(root, { id }) {
+  await booksPrefs();
   const [d, s] = await Promise.all([api(`/api/books/docs/${id}`), api('/api/books/settings')]);
   const admin = store.isAdmin();
   const shop = s.legalName || store.me.brand?.shopName || 'فروشگاه طلا و جواهر';
@@ -284,6 +292,7 @@ export async function docPage(root, { id }) {
 /* ---------------- event log ---------------- */
 const ACTION_FA = { 'doc.create': 'ثبت سند', 'doc.update': 'ویرایش سند', 'doc.void': 'ابطال سند', 'doc.tax': 'وضعیت مودیان', 'party.create': 'مشتری جدید', 'party.update': 'ویرایش مشتری', 'party.delete': 'حذف مشتری', 'item.create': 'کالای جدید', 'item.update': 'ویرایش کالا', 'item.bulk': 'ویرایش گروهی کالا', 'item.delete': 'حذف کالا', stocktake: 'انبارگردانی', 'cheque.status': 'وضعیت چک', 'account.create': 'حساب جدید', 'account.update': 'ویرایش حساب', settings: 'تنظیمات', export: 'پشتیبان‌گیری' };
 export async function logPage(root) {
+  await booksPrefs();
   const r = await api('/api/books/log');
   root.innerHTML = String(html`${booksNav('log')}
     <div class="bk-head"><h1>دفتر رویدادها</h1>${exportButtons('lg')}</div>

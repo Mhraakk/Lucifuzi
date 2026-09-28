@@ -778,7 +778,7 @@ async function loginUI(page) {
         const id = location.pathname.split('/').pop();
         const d = await (await fetch(`/api/books/docs/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json();
         const c = B.calcDoc(d);
-        return { sales: B.fmtRial(c.sales, { unit: false }), vat: B.fmtRial(c.vat, { unit: false }), net: B.fmtRial(c.net, { unit: false }), same: c.sales === d.calc.sales && c.net === d.calc.net };
+        return { sales: B.fmtMoney(c.sales, 'rial', { unit: false }), vat: B.fmtMoney(c.vat, 'rial', { unit: false }), net: B.fmtMoney(c.net, 'rial', { unit: false }), same: c.sales === d.calc.sales && c.net === d.calc.net };
       });
       check('books: printed totals equal the engine (sales, VAT, net) and the stored calc', exp.same && inv.includes(exp.sales) && inv.includes(exp.vat) && inv.includes(exp.net), JSON.stringify(exp));
       check('books: official invoice carries buyer code, QR and authenticity code', /۰۴۹۹۳۷۰۸۹۹/.test(inv) && !!(await page.$('.bk-p-verify svg')) && /کد اصالت/.test(inv) && noBadNumbers(inv));
@@ -828,7 +828,7 @@ async function loginUI(page) {
       await page.waitForSelector('text=واگذار به بانک');
       check('books: cheque moves to the bank', true);
       await go(page, '/books/parties', 1200);
-      check('books: customer shows a debit balance', /بدهکار/.test(await text(page, '#tbl')));
+      check('books: customer shows a debit balance', !!(await page.$('#tbl .bk-bchip.debt')));
       // journal: select all, bulk bar; reports render real numbers
       await go(page, '/books/docs', 1200);
       await page.check('#all');
@@ -840,6 +840,110 @@ async function loginUI(page) {
       }
       await go(page, '/books/log', 1200);
       check('books: event chain is intact', !!(await page.$('.notice.ok')));
+    });
+
+  if (!live)
+    await step('base edition: trade desk, receipt, day book, bars, vault, P&L, bank reconciliation', async () => {
+      const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);
+      await go(page, '/books/desk', 1500);
+      // a new customer from the desk
+      await page.click('[data-act=pnew]');
+      await page.fill('#np [name=name]', 'مهران رضایی');
+      await page.fill('#np [name=mobile]', '09121112233');
+      await page.fill('#np [name=group]', 'خرده');
+      await page.click('#np button:not([type])');
+      await page.waitForSelector('.dk-who');
+      // buy 2 g of 740 melt on a مظنه of 400,000,000 rial
+      await page.fill('[data-f=weight]', '2');
+      await page.fill('[data-f=fineness]', '740');
+      await page.fill('[data-f=mazaneh]', '400000000');
+      await page.waitForTimeout(150);
+      const live750 = await text(page, '#live');
+      check('desk: live panel shows the 750 equivalent, mesghal and amount', live750.includes('۱٫۹۷۳') && live750.includes('۰٫۴۵۶') && live750.includes('۱۸۲٬۱۹۰٬۰۰۰'), live750.replace(/\s+/g, ' '));
+      await page.click('[data-act=add]');
+      // sell one emami coin
+      await page.click('[data-mode=sell]');
+      await page.click('[data-kind=coin]');
+      await page.click('[data-coin=emami]');
+      await page.fill('[data-f=count]', '1');
+      await page.fill('[data-f=price]', '985000000');
+      await page.click('[data-act=add]');
+      check('desk: two lines on the document', (await page.$$('.dk-line')).length === 2);
+      // card reader + bank slip
+      await page.click('[data-pm=pos]');
+      await page.fill('[data-p="0"][data-k=amount]', '500000000');
+      await page.fill('[data-p="0"][data-k=ref]', '1234');
+      await page.click('[data-pm=slip]');
+      await page.fill('[data-p="1"][data-k=amount]', '200000000');
+      await page.fill('[data-p="1"][data-k=ref]', '77');
+      await page.waitForTimeout(150);
+      const sum = await text(page, '#sum');
+      check('desk: net 802,810,000 and 102,810,000 left on the customer (rial)', sum.includes('۸۰۲٬۸۱۰٬۰۰۰') && sum.includes('۱۰۲٬۸۱۰٬۰۰۰') && noBadNumbers(sum), sum.replace(/\s+/g, ' ').slice(0, 200));
+      await page.click('.dk-save [data-act=save]');
+      await page.waitForSelector('.dk-receipt');
+      const rc = await text(page, '.dk-receipt');
+      check('desk: receipt with lines, payments, balance after and authenticity code', rc.includes('۱۸۲٬۱۹۰٬۰۰۰') && rc.includes('۹۸۵٬۰۰۰٬۰۰۰') && rc.includes('کارتخوان') && rc.includes('۱۰۲٬۸۱۰٬۰۰۰') && /کد اصالت/.test(rc));
+      await page.keyboard.press('Escape');
+      // goods in on account (no price): 50 g of 745 and a sealed bar with its serial
+      await page.click('[data-mode=in]');
+      await page.click('[data-kind=melt]');
+      await page.fill('[data-f=weight]', '50');
+      await page.fill('[data-f=fineness]', '745');
+      await page.click('[data-act=add]');
+      await page.click('[data-kind=bar]');
+      await page.fill('[data-f=serial]', '3307021');
+      await page.fill('[data-f=weight]', '10');
+      await page.fill('[data-f=gallery]', 'رزا');
+      await page.click('[data-act=add]');
+      await page.click('.dk-save [data-act=save]');
+      await page.waitForSelector('.dk-receipt');
+      await page.keyboard.press('Escape');
+      const bal = await text(page, '.dk-bal');
+      check('desk: balances kept apart by material (rial, gold, bar)', bal.includes('۱۰۲٬۸۱۰٬۰۰۰') && bal.includes('۴۹٫۶۶۷') && bal.includes('شمش'), bal.replace(/\s+/g, ' '));
+      // the same serial cannot come in twice
+      expectedError = /409/;
+      await page.fill('[data-f=serial]', '3307021');
+      await page.fill('[data-f=weight]', '10');
+      await page.click('[data-act=add]');
+      await page.click('.dk-save [data-act=save]');
+      await page.waitForTimeout(800);
+      const dupMsg = await text(page, '#toasts');
+      check('desk: a duplicate bar serial is refused', !(await page.$('.dk-receipt')) && /3307021|۳۳۰۷۰۲۱/.test(dupMsg), dupMsg);
+      expectedError = null;
+      // روزنگار
+      await go(page, '/books/day', 1500);
+      const day = await text(page, '#dyl');
+      check('day book: who, what, weight, fineness, 750, mesghal, مظنه, method, ref and balance after', day.includes('مهران رضایی') && day.includes('۱٫۹۷۳') && day.includes('۰٫۴۵۶') && day.includes('۴۰۰٬۰۰۰٬۰۰۰') && day.includes('کارتخوان') && day.includes('فیش بانکی') && day.includes('پیگیری ۱۲۳۴') && day.includes('۱۰۲٬۸۱۰٬۰۰۰') && noBadNumbers(day), day.slice(0, 160).replace(/\s+/g, ' '));
+      await page.click('[data-f=goods]');
+      check('day book: filter shows only goods-on-account documents', (await page.$$('.dy-e')).length === 1);
+      const dx = await (async () => {
+        const [d] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.click('[data-act=dy-csv]')]);
+        return (await import('node:fs')).promises.readFile(await d.path(), 'utf8');
+      })();
+      check('day book: CSV export has the lines', dx.includes('مظنه (ریال)') && dx.includes('3307021'));
+      // bars, vault, P&L
+      await go(page, '/books/bars?q=3307', 1200);
+      check('bars: serial registry shows the bar in the vault with its history', (await text(page, '.br-list')).includes('در گاوصندوق') && (await text(page, '.br-list')).includes('مهران'));
+      await go(page, '/books/vault', 1500);
+      const vt = await text(page, '.vt-tiles');
+      check('vault: gold, coins and bars counted', vt.includes('طلای آبشده') && vt.includes('شمش') && noBadNumbers(vt), vt.replace(/\s+/g, ' ').slice(0, 160));
+      await go(page, '/books/reports?tab=pnl', 1500);
+      check('reports: trading P&L renders', noBadNumbers(await text(page, '#rep')) && (await text(page, '#rep')).includes('میانگین'));
+      // bank reconciliation from a pasted statement
+      const accs = await auth('/api/books/accounts');
+      const bank = accs.items.find((a) => a.kind === 'bank');
+      await go(page, `/books/bank/${bank.id}`, 1500);
+      const jToday = await page.evaluate(async () => {
+        const K = await import('/js/bk.mjs');
+        return K.jd(K.today());
+      });
+      await page.fill('#stmt', `${jToday}, 500000000, 1234\n${jToday}, 200000000, 77`);
+      await page.click('[data-act=match]');
+      await page.waitForSelector('#mres p');
+      check('bank: statement rows matched by amount and reference', (await text(page, '#mres')).includes('۲ ردیف جفت شد'), await text(page, '#mres'));
+      await page.click('[data-act=save]');
+      await page.waitForTimeout(1200);
+      check('bank: reconciliation saved', (await page.$$eval('[data-rc]:checked', (x) => x.length)) >= 2);
     });
 
   if (!live) {
@@ -866,7 +970,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px`);

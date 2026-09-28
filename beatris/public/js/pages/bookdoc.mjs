@@ -4,7 +4,7 @@ import { html, raw, fa, api, store, toast, navigate, $, $$, busy } from '../core
 import * as B from '../books.mjs';
 import { MAZANEH_TO_G750 } from '../calc.mjs';
 import { COIN_TYPES } from '../coins.mjs';
-import { T, TU, G, jd, jdInput, parseDay, today, modal, balText, balClass } from '../bk.mjs';
+import { T, TU, G, jd, jdInput, parseDay, today, modal, balText, balClass, EX, unitName, moneyWords, K, booksPrefs, prefs } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 
 const EXPENSES = ['اجاره', 'حقوق و دستمزد', 'قبوض و شارژ', 'تعمیر و نگهداری', 'حمل و پیک', 'تبلیغات', 'کارمزد بانکی', 'مالیات و عوارض', 'بیمه', 'پذیرایی', 'سایر'];
@@ -36,18 +36,30 @@ export async function docEditorPage(root, params) {
   if (!B.DOC_TYPES[type]) return navigate('/books', { replace: true });
   const [settings, accounts, board, tpls] = await Promise.all([api('/api/books/settings'), api('/api/books/accounts'), api('/api/market').catch(() => null), api('/api/books/templates')]);
   const admin = store.isAdmin();
-  const p750Live = store.me.pricing.p750;
+  await booksPrefs();
+  // the operator types money in the shop's unit (rial by default); documents keep the engine's toman inputs
+  const k = K();
+  const LINE_MONEY = ['p750', 'price', 'mazaneh', 'stones', 'bros', 'discount', 'amount'];
+  const PAY_MONEY = ['amount', 'p750', 'price', 'fxRate'];
+  const scale = (o, keys, f) => {
+    const x = { ...o };
+    for (const key of [...keys, ...(o.kind === 'jewel' && ['gram', 'fixed'].includes(o.ojratMode) ? ['ojrat'] : [])]) if (x[key] !== undefined && x[key] !== '' && Number.isFinite(B.num(x[key]))) x[key] = f(B.num(x[key]));
+    return x;
+  };
+  const toDisp = (o, keys) => scale(o, keys, (v) => v * k);
+  const toEngine = (o, keys) => scale(o, keys, (v) => v / k);
+  const p750Live = store.me.pricing.p750 * k;
   const coinPrice = (id) => {
     const x = board?.items?.find((i) => i.id === COIN_BOARD[id]);
-    return x && !x.empty ? x.c : Math.round((COIN_TYPES[id].weight * COIN_TYPES[id].fineness * p750Live) / 750 / 1000) * 1000;
+    return (x && !x.empty ? x.c : Math.round((COIN_TYPES[id].weight * COIN_TYPES[id].fineness * store.me.pricing.p750) / 750 / 1000) * 1000) * k;
   };
-  const maz = Math.round((p750Live * MAZANEH_TO_G750) / 1000) * 1000;
+  const maz = Math.round((store.me.pricing.p750 * MAZANEH_TO_G750) / 1000) * 1000 * k;
   const cash = accounts.items.filter((a) => a.kind === 'cash' && a.active), banks = accounts.items.filter((a) => a.kind === 'bank' && a.active);
   const lockPrice = !admin && !settings.staffCanEditPrice;
 
   /* ---------------- state ---------------- */
   const S = editing
-    ? { type, date: editing.date, partyId: editing.partyId, party: editing.party, lines: editing.lines, payments: editing.payments.map((p) => ({ ...p })), creditUnit: editing.creditUnit ?? 'IRR', creditP750: editing.creditP750 ?? p750Live, note: editing.note ?? '', category: editing.category ?? '', ref: editing.ref ?? null, balances: editing.balances ?? [], seller: editing.seller }
+    ? { type, date: editing.date, partyId: editing.partyId, party: editing.party, lines: editing.lines.map((l) => toDisp(l, LINE_MONEY)), payments: editing.payments.map((p) => toDisp(p, PAY_MONEY)), creditUnit: editing.creditUnit ?? 'IRR', creditP750: editing.creditP750 != null ? editing.creditP750 * k : p750Live, note: editing.note ?? '', category: editing.category ?? '', ref: editing.ref ?? null, balances: editing.balances ?? [], seller: editing.seller }
     : { type, date: today(), partyId: null, party: null, lines: [], payments: [], creditUnit: 'IRR', creditP750: p750Live, note: '', category: '', ref: null, balances: [] };
   const selected = new Set();
   // start a return from its sale invoice, or a receipt/sale for a customer
@@ -163,15 +175,15 @@ export async function docEditorPage(root, params) {
     const ro = lockPrice && !!l.itemId;
     let f;
     if (l.kind === 'jewel')
-      f = html`${lab('وزن (گرم)', inp(i, 'weight', l.weight, { ro: !!l.itemId }))}${lab('عیار', inp(i, 'fineness', l.fineness, { ro: !!l.itemId }))}${lab('قیمت گرم ۱۸ (تومان)', inp(i, 'p750', l.p750))}
-        <label class="field xs">نوع اجرت<select class="input" data-l="${i}" data-k="ojratMode" ${ro ? 'disabled' : ''}>${[['pct', 'درصد'], ['gram', 'تومان هر گرم'], ['fixed', 'مبلغ ثابت (تومان)']].map(([v, t2]) => html`<option value="${v}" ${l.ojratMode === v ? 'selected' : ''}>${t2}</option>`)}</select></label>
-        ${lab('اجرت', inp(i, 'ojrat', l.ojrat, { ro }))}${lab('سود فروشنده ٪', inp(i, 'profitPct', l.profitPct, { ro }))}${lab('سنگ (تومان)', inp(i, 'stones', l.stones, { ro: !!l.itemId }))}${lab('حق‌العمل (تومان)', inp(i, 'bros', l.bros))}${lab('تخفیف (تومان)', inp(i, 'discount', l.discount, { ro: !admin && !settings.staffCanDiscount }))}`;
+      f = html`${lab('وزن (گرم)', inp(i, 'weight', l.weight, { ro: !!l.itemId }))}${lab('عیار', inp(i, 'fineness', l.fineness, { ro: !!l.itemId }))}${lab(`قیمت گرم ۱۸ (${unitName()})`, inp(i, 'p750', l.p750))}
+        <label class="field xs">نوع اجرت<select class="input" data-l="${i}" data-k="ojratMode" ${ro ? 'disabled' : ''}>${[['pct', 'درصد'], ['gram', `${unitName()} هر گرم`], ['fixed', `مبلغ ثابت (${unitName()})`]].map(([v, t2]) => html`<option value="${v}" ${l.ojratMode === v ? 'selected' : ''}>${t2}</option>`)}</select></label>
+        ${lab('اجرت', inp(i, 'ojrat', l.ojrat, { ro }))}${lab('سود فروشنده ٪', inp(i, 'profitPct', l.profitPct, { ro }))}${lab(`سنگ (${unitName()})`, inp(i, 'stones', l.stones, { ro: !!l.itemId }))}${lab(`حق‌العمل (${unitName()})`, inp(i, 'bros', l.bros))}${lab(`تخفیف (${unitName()})`, inp(i, 'discount', l.discount, { ro: !admin && !settings.staffCanDiscount }))}`;
     else if (l.kind === 'coin')
-      f = html`<label class="field xs">سکه<select class="input" data-l="${i}" data-k="coin">${Object.entries(COIN_TYPES).map(([id, c]) => html`<option value="${id}" ${l.coin === id ? 'selected' : ''}>${c.label}</option>`)}</select></label>${lab('تعداد', inp(i, 'count', l.count))}${lab('قیمت هر سکه (تومان)', inp(i, 'price', l.price))}`;
-    else if (l.kind === 'melt') f = html`${lab('وزن (گرم)', inp(i, 'weight', l.weight))}${lab('عیار ری‌گیری', inp(i, 'fineness', l.fineness))}${lab('مظنه (تومان)', inp(i, 'mazaneh', l.mazaneh))}`;
+      f = html`<label class="field xs">سکه<select class="input" data-l="${i}" data-k="coin">${Object.entries(COIN_TYPES).map(([id, c]) => html`<option value="${id}" ${l.coin === id ? 'selected' : ''}>${c.label}</option>`)}</select></label>${lab('تعداد', inp(i, 'count', l.count))}${lab(`قیمت هر سکه (${unitName()})`, inp(i, 'price', l.price))}`;
+    else if (l.kind === 'melt') f = html`${lab('وزن (گرم)', inp(i, 'weight', l.weight))}${lab('عیار ری‌گیری', inp(i, 'fineness', l.fineness))}${lab(`مظنه (${unitName()})`, inp(i, 'mazaneh', l.mazaneh))}`;
     else if (l.kind === 'used') f = html`${lab('وزن کل (گرم)', inp(i, 'weight', l.weight))}${lab('وزن سنگ و ناخالصی', inp(i, 'stoneWeight', l.stoneWeight))}${lab('عیار ری‌گیری', inp(i, 'fineness', l.fineness))}${lab('قیمت خرید گرم ۱۸', inp(i, 'p750', l.p750))}${lab('کسر / افت ٪', inp(i, 'deductPct', l.deductPct))}`;
-    else if (l.kind === 'service') f = html`${lab('مبلغ خدمت (تومان، بدون مالیات)', inp(i, 'amount', l.amount))}`;
-    else f = html`${lab('تعداد', inp(i, 'qty', l.qty))}${lab('قیمت واحد (تومان)', inp(i, 'price', l.price))}${lab('تخفیف (تومان)', inp(i, 'discount', l.discount))}${lab('مالیات ٪', inp(i, 'vatPct', l.vatPct))}`;
+    else if (l.kind === 'service') f = html`${lab(`مبلغ خدمت (${unitName()}، بدون مالیات)`, inp(i, 'amount', l.amount))}`;
+    else f = html`${lab('تعداد', inp(i, 'qty', l.qty))}${lab(`قیمت واحد (${unitName()})`, inp(i, 'price', l.price))}${lab(`تخفیف (${unitName()})`, inp(i, 'discount', l.discount))}${lab('مالیات ٪', inp(i, 'vatPct', l.vatPct))}`;
     return html`<div class="bk-line ${l.side === 'in' ? 'in' : ''}" data-line="${i}">
       <div class="bk-line-h"><label class="bk-ck"><input type="checkbox" data-sel="${i}" ${selected.has(i) ? 'checked' : ''} aria-label="انتخاب ردیف"></label><b>${fa(i + 1)}</b>
         <input class="input bk-title" data-l="${i}" data-k="title" value="${l.title ?? ''}" maxlength="120" aria-label="شرح">
@@ -243,9 +255,9 @@ export async function docEditorPage(root, params) {
     let f = '';
     if (m.id === 'gold') f = html`${pin(i, 'weight', p.weight, 'وزن')}${pin(i, 'fineness', p.fineness, 'عیار')}${pin(i, 'p750', p.p750, 'قیمت گرم ۱۸ تسویه')}`;
     else if (m.id === 'coin') f = html`<label class="field xs">سکه<select class="input" data-p="${i}" data-k="coin">${Object.entries(COIN_TYPES).map(([id, c]) => html`<option value="${id}" ${p.coin === id ? 'selected' : ''}>${c.short}</option>`)}</select></label>${pin(i, 'count', p.count, 'تعداد')}${pin(i, 'price', p.price, 'قیمت هر سکه')}`;
-    else if (m.id === 'fx') f = html`${pin(i, 'fxCode', p.fxCode, 'ارز', { ltr: false, ph: 'دلار' })}${pin(i, 'fxAmount', p.fxAmount, 'مقدار ارز')}${pin(i, 'fxRate', p.fxRate, 'نرخ (تومان)')}${pin(i, 'amount', p.amount, 'معادل (تومان)')}${acctSel(i, p, 'cash')}`;
+    else if (m.id === 'fx') f = html`${pin(i, 'fxCode', p.fxCode, 'ارز', { ltr: false, ph: 'دلار' })}${pin(i, 'fxAmount', p.fxAmount, 'مقدار ارز')}${pin(i, 'fxRate', p.fxRate, `نرخ (${unitName()})`)}${pin(i, 'amount', p.amount, `معادل (${unitName()})`)}${acctSel(i, p, 'cash')}`;
     else {
-      f = html`${pin(i, 'amount', p.amount, 'مبلغ (تومان)')}`;
+      f = html`${pin(i, 'amount', p.amount, `مبلغ (${unitName()})`)}`;
       if (m.acct === 'cash' || m.acct === 'bank') f = html`${f}${acctSel(i, p, m.acct)}`;
       if (m.ref) f = html`${f}${pin(i, 'ref', p.ref, m.id === 'pos' ? 'شماره پیگیری / مرجع' : 'شماره پیگیری')}`;
       if (m.card) f = html`${f}${pin(i, 'card', p.card, 'کارت پرداخت‌کننده (۱۶ یا ۴ رقم آخر)')}`;
@@ -284,7 +296,7 @@ export async function docEditorPage(root, params) {
     const p = S.payments[i];
     if (rem === 0) return;
     p.dir = rem > 0 ? 'in' : 'out';
-    p.amount = String(Math.abs(rem) / 10);
+    p.amount = String((Math.abs(rem) / 10) * k);
     if (redraw) {
       drawPays();
       recalc();
@@ -299,14 +311,14 @@ export async function docEditorPage(root, params) {
     partyList ??= (await api('/api/books/parties')).items;
     const opts = [...partyList.map((p) => [`party:${p.id}`, `مشتری: ${p.name}`]), ...cash.map((a) => [`cash:${a.id}`, `صندوق: ${a.title}`]), ...banks.map((a) => [`bank:${a.id}`, `بانک: ${a.title}`]), ['gold', 'صندوق طلا (گرم ۷۵۰)'], ...Object.entries(COIN_TYPES).map(([id, c]) => [`coin:${id}`, `سکه: ${c.short}`])];
     box.innerHTML = S.balances.map((b, i) => String(html`<div class="bk-line-f bk-balrow"><label class="field xs">حساب<select class="input" data-b="${i}" data-k="acct">${opts.map(([v, l]) => html`<option value="${v}" ${b.acct === v ? 'selected' : ''}>${l}</option>`)}</select></label>
-      ${String(b.acct ?? '').startsWith('party:') ? html`<label class="field xs">واحد<select class="input" data-b="${i}" data-k="unit"><option value="IRR" ${b.unit !== 'G750' ? 'selected' : ''}>تومان</option><option value="G750" ${b.unit === 'G750' ? 'selected' : ''}>گرم ۷۵۰</option></select></label>` : ''}
-      <label class="field xs">مقدار (تومان / گرم / عدد)<input class="input ltr" data-b="${i}" data-k="amount" value="${b.amount ?? ''}" inputmode="decimal"></label><button class="iconbtn" data-del-bal="${i}" aria-label="حذف">✕</button></div>`)).join('');
+      ${String(b.acct ?? '').startsWith('party:') ? html`<label class="field xs">واحد<select class="input" data-b="${i}" data-k="unit"><option value="IRR" ${b.unit !== 'G750' ? 'selected' : ''}>${unitName()}</option><option value="G750" ${b.unit === 'G750' ? 'selected' : ''}>گرم ۷۵۰</option></select></label>` : ''}
+      <label class="field xs">مقدار (${unitName()} / گرم / عدد)<input class="input ltr" data-b="${i}" data-k="amount" value="${b.amount ?? ''}" inputmode="decimal"></label><button class="iconbtn" data-del-bal="${i}" aria-label="حذف">✕</button></div>`)).join('');
   }
 
   /* ---------------- totals ---------------- */
   function docBody() {
     const pays = S.payments.map((p) => ({ ...p, due: p.dueJ !== undefined ? parseDay(p.dueJ) ?? p.dueJ : p.due }));
-    return { type, date: S.date, partyId: S.partyId, lines: S.lines, payments: pays, creditUnit: S.creditUnit, creditP750: S.creditP750, note: S.note, category: S.category || undefined, ref: S.ref, balances: S.balances, seller: S.seller };
+    return { type, date: S.date, partyId: S.partyId, lines: S.lines.map((l) => toEngine(l, LINE_MONEY)), payments: pays.map((p) => toEngine(p, PAY_MONEY)), creditUnit: S.creditUnit, creditP750: B.num(S.creditP750) / k, note: S.note, category: S.category || undefined, ref: S.ref, balances: S.balances, money: prefs.money, seller: S.seller };
   }
   function safeCalc(body) {
     try {
@@ -323,7 +335,7 @@ export async function docEditorPage(root, params) {
       if (!el) return;
       try {
         const side = type === 'buy' ? 'in' : type === 'return' ? 'out' : l.side === 'in' ? 'in' : 'out';
-        const c = B.calcLine({ ...l, side }, { vatPct: settings.vatPct });
+        const c = B.calcLine({ ...toEngine(l, LINE_MONEY), side }, { vatPct: settings.vatPct });
         el.className = 'bk-line-c';
         el.innerHTML = String(
           c.kind === 'jewel'
@@ -353,8 +365,8 @@ export async function docEditorPage(root, params) {
       ${['sale', 'buy', 'return', 'receipt'].includes(type) && S.partyId
         ? html`<div class="bk-cu"><span>مانده به حساب</span><div class="seg"><button data-cu="IRR" aria-pressed="${S.creditUnit === 'IRR'}">ریالی</button><button data-cu="G750" aria-pressed="${S.creditUnit === 'G750'}">طلایی (گرم ۷۵۰)</button></div>${S.creditUnit === 'G750' ? html`<label class="field xs">قیمت گرم ۱۸ تبدیل<input class="input ltr" data-cp value="${S.creditP750}" inputmode="decimal"></label><b>${G(calc.creditG)} گرم</b>` : ''}</div>`
         : ''}
-      ${type === 'sale' && calc.sales % 10000 && S.lines.some((l) => l.kind === 'jewel') ? html`<button class="chip" data-act="round">گرد کردن به هزار تومان (تخفیف از سود)</button>` : ''}
-      ${type === 'sale' && calc.sales ? html`<p class="small">مبلغ به حروف: ${B.words(calc.sales / 10)} تومان</p>` : ''}`);
+      ${type === 'sale' && calc.sales % 10000 && S.lines.some((l) => l.kind === 'jewel') ? html`<button class="chip" data-act="round">گرد کردن به هزار ${unitName()} (تخفیف از سود)</button>` : ''}
+      ${type === 'sale' && calc.sales ? html`<p class="small">مبلغ به حروف: ${moneyWords(calc.sales)}</p>` : ''}`);
     store_.set(DRAFT_KEY(type), editing ? null : S.lines.length || S.payments.length ? { at: Date.now(), S } : null);
     return calc;
   }
@@ -550,12 +562,13 @@ export async function docEditorPage(root, params) {
       const src = S.lines[best];
       const others = c.sales - c.lines[best].total;
       const cur = B.num(src.discount) || 0;
-      const d = B.discountForTarget({ ...src, discount: 0 }, others + B.calcLine({ ...src, discount: 0, side: 'out' }, { vatPct: settings.vatPct }).total, target, { vatPct: settings.vatPct });
+      const eng = toEngine({ ...src, discount: 0 }, LINE_MONEY);
+      const d = B.discountForTarget(eng, others + B.calcLine({ ...eng, side: 'out' }, { vatPct: settings.vatPct }).total, target, { vatPct: settings.vatPct });
       if (d == null || (!admin && !settings.staffCanDiscount)) return toast('این ردیف اجرت و سود کافی برای گرد کردن ندارد یا تخفیف مجاز نیست.', 'error');
-      src.discount = String(Math.max(cur, d));
+      src.discount = String(Math.max(cur, d * k));
       drawLines();
       recalc();
-      toast(`تخفیف ${B.fmtRial(B.rnd(d * 10))} روی «${src.title}» نشست؛ جمع گرد شد.`, 'ok');
+      toast(`تخفیف ${TU(B.rnd(d * 10))} روی «${src.title}» نشست؛ جمع گرد شد.`, 'ok');
     } else if (act === 'save') save('final', b);
     else if (act === 'draft') save('draft', b);
     else if (act === 'restore') {
