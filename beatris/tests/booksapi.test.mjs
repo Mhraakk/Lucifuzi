@@ -213,7 +213,7 @@ test('سامانه مودیان: شماره منحصربه‌فرد پس از ت
   assert.ok(pre.missing.includes('شناسه حافظه مالیاتی'));
   assert.equal((await call('PUT', '/api/books/settings', { memoryId: 'abc' }, M)).status, 400);
   assert.equal((await call('PUT', '/api/books/settings', { memoryId: 'A11216' }, E)).status, 403);
-  const st = await ok('PUT', '/api/books/settings', { memoryId: 'a11216', economicCode: '14000000000000', legalName: 'گالری نمونه', sstid: { jewel: '2330000000001', stone: '2330000000002' }, mu: { gram: '164', count: '1627' } }, M);
+  const st = await ok('PUT', '/api/books/settings', { memoryId: 'a11216', economicCode: '14000000000000', legalName: 'گالری نمونه', sstid: { jewel: '2330000000001', stone: '2330000000002' } }, M);
   assert.equal(st.taxReady, true);
   const m = await ok('GET', `/api/books/docs/${sale2.id}/moadian`, null, M);
   const inv = m.invoices[0];

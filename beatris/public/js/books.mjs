@@ -585,6 +585,51 @@ export function postings(doc, calc) {
 
 /* ---------------- tax-system (سامانه مودیان) invoice ---------------- */
 /**
+ * Official codes of the tax system, as published (checked against two independent copies of the tables).
+ * Units: گرم 1622, عدد 1627 (note: 164 is کیلوگرم), قیراط 1678, مثقال 16127.
+ * General product IDs (شناسه عمومی) of gold goods from stuffid.tax.gov.ir; a shop's own (اختصاصی) code set
+ * in settings is used only where no product-specific general ID exists.
+ */
+export const TAX_UNITS = { gram: '1622', count: '1627', carat: '1678', mesghal: '16127' };
+export const GOLD_STUFF_IDS = {
+  ring: ['2720000044672', 'انگشتر طلا'],
+  cufflink: ['2710000188314', 'دکمه سردست طلا'],
+  crown: ['2710000188307', 'تاج طلا'],
+  set: ['2720000044733', 'سرویس طلا'],
+  anklet: ['2710000188291', 'پابند طلا'],
+  bangle: ['2710000044665', 'النگو طلا'],
+  earring: ['2710000044726', 'گوشواره طلا'],
+  bracelet: ['2720000044689', 'دستبند طلا'],
+  chain: ['2720000044702', 'زنجیر طلا'],
+  pendant: ['2720000044696', 'آویز گردنبند طلا'],
+  plaque: ['2720000044740', 'پلاک طلا'],
+  necklace: ['2720000044719', 'گردنبند طلا'],
+  melt: ['2720000260362', 'طلای آب شده'],
+  broken: ['2720000260324', 'طلای شکسته'],
+  used: ['2720000260317', 'طلای مستعمل'],
+  coinEmami: ['2720000170500', 'سکه طلا، تمام بهار آزادی طرح جدید'],
+  coinBahar: ['2720000170494', 'سکه طلا، تمام بهار آزادی طرح قدیم'],
+  coinHalf: ['2720000170487', 'سکه طلا، نیم بهار آزادی'],
+  coinQuarter: ['2720000170470', 'سکه طلا، ربع بهار آزادی'],
+  coinParsian: ['2720000019366', 'سکه طلا مسکوکات داخلی (پارسیان)'],
+};
+const TPL_STUFF = {
+  'ring-w': 'ring', 'ring-m': 'ring', 'ring-sol': 'ring', 'ring-band': 'ring', 'ring-rink': 'ring', 'ring-chev': 'ring', 'ring-sig': 'ring',
+  nk: 'necklace', 'nk-name': 'necklace', 'nk-choker': 'necklace', 'nk-rivi': 'necklace', 'nk-pend': 'pendant', 'nk-plak': 'plaque', 'nk-medal': 'plaque', 'kid-plak': 'plaque',
+  br: 'bracelet', 'br-cuff': 'bracelet', 'br-leather': 'bracelet', 'br-arm': 'bracelet', 'kid-br': 'bracelet', 'br-bangle': 'bangle', 'br-bangle-cnc': 'bangle', 'kid-bangle': 'bangle',
+  'er-drop': 'earring', 'er-stud': 'earring', 'er-hoop': 'earring', 'er-cuff': 'earring', 'set-full': 'set', 'set-half': 'set', 'set-bride': 'set',
+  'mi-anklet': 'anklet', 'mi-cuff': 'cufflink', 'mi-tiara': 'crown', 'inv-melt': 'melt', 'inv-used': 'used',
+};
+const COIN_STUFF = { emami: 'coinEmami', bahar: 'coinBahar', half: 'coinHalf', halfOld: 'coinHalf', quarter: 'coinQuarter', quarterOld: 'coinQuarter', parsian: 'coinParsian' };
+/** General product ID for a line, or null when the tax system has none for it (then the shop's code is used). */
+export function stuffIdFor(kind, tpl, coin) {
+  if (kind === 'coin') return GOLD_STUFF_IDS[COIN_STUFF[coin]]?.[0] ?? null;
+  if (kind === 'melt') return GOLD_STUFF_IDS.melt[0];
+  if (kind === 'jewel' && tpl?.startsWith('ch-')) return GOLD_STUFF_IDS.chain[0];
+  return GOLD_STUFF_IDS[TPL_STUFF[tpl]]?.[0] ?? null;
+}
+
+/**
  * The electronic invoice of a final sale or return in the tax system's JSON shape (header / body / payments).
  * Gold lines use pattern 3 (طلا، جواهر و پلاتین); ordinary goods go on a separate pattern-1 invoice, because an
  * invoice has one pattern. Amounts are rials. Stones are their own row (exempt principal, no making charge).
@@ -609,7 +654,9 @@ export function moadianInvoices(doc, calc, shop, party = null) {
     sbc: shop.branchCode || null,
   };
   const sst = shop.sstid ?? {};
-  const mu = shop.mu ?? {};
+  const mu = { ...TAX_UNITS, ...(shop.mu ?? {}) };
+  // a product's own general ID first, then the shop's code for that kind
+  const sidOf = (l, src) => stuffIdFor(l.kind, src.tpl, l.coin) ?? sst[l.kind] ?? null;
   const goldRows = [], goodsRows = [];
   calc.lines.forEach((l, i) => {
     if (l.side !== 'out') return;
@@ -619,7 +666,7 @@ export function moadianInvoices(doc, calc, shop, party = null) {
       goodsRows.push({ sstid: sst.goods ?? null, sstt: title, mu: mu.count ?? null, am: l.am, fee: l.fee, prdis: l.principal, dis: l.discount, adis: l.principal - l.discount, vra: l.vra, vam: l.vat, tsstam: l.total });
       return;
     }
-    const row = { sstid: sst[l.kind] ?? null, sstt: title, mu: (l.kind === 'coin' || l.kind === 'service' ? mu.count : mu.gram) ?? null, am: l.am, nw: l.weight || null, fee: l.kind === 'service' ? 0 : l.fee, prdis: l.principal, dis: 0, adis: l.principal, consfee: l.consfee, spro: l.spro, bros: l.bros, tcpbs: l.tcpbs, vra: l.tcpbs ? l.vra : 0, vam: l.vat, tsstam: l.principal + l.tcpbs + l.vat };
+    const row = { sstid: sidOf(l, src), sstt: title, mu: (l.kind === 'coin' || l.kind === 'service' ? mu.count : mu.gram) ?? null, am: l.am, nw: l.weight || null, fee: l.kind === 'service' ? 0 : l.fee, prdis: l.principal, dis: 0, adis: l.principal, consfee: l.consfee, spro: l.spro, bros: l.bros, tcpbs: l.tcpbs, vra: l.tcpbs ? l.vra : 0, vam: l.vat, tsstam: l.principal + l.tcpbs + l.vat };
     goldRows.push(row);
     if (l.stones) goldRows.push({ sstid: sst.stone ?? null, sstt: `سنگ ${title}`, mu: mu.count ?? null, am: 1, fee: l.stones, prdis: l.stones, dis: 0, adis: l.stones, consfee: 0, spro: 0, bros: 0, tcpbs: 0, vra: 0, vam: 0, tsstam: l.stones });
   });

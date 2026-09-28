@@ -736,8 +736,8 @@ export function registerBooks({ on, db, bad, notFound, HttpError, pricing, getSe
     const missing = [];
     if (!B.validMemoryId(s.memoryId)) missing.push('شناسه حافظه مالیاتی');
     if (!s.economicCode) missing.push('شماره اقتصادی فروشگاه');
-    if (!Object.keys(s.sstid ?? {}).length) missing.push('شناسه کالا/خدمت (۱۳ رقمی)');
-    if (!Object.keys(s.mu ?? {}).length) missing.push('کد واحد اندازه‌گیری');
+    const noId = invoices.flatMap((inv) => inv.body).filter((r) => !r.sstid).map((r) => r.sstt);
+    if (noId.length) missing.push(`شناسه کالا/خدمت برای: ${[...new Set(noId)].join('، ')}`);
     return { invoices, missing, pending: d.tax.pending ?? null };
   });
 

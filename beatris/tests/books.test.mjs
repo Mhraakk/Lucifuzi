@@ -155,7 +155,12 @@ test('فاکتور الکترونیکی الگوی طلا: جمع‌ها، سن�
     payments: [{ method: 'pos', dir: 'in', amount: 200000000, ref: '777' }],
   };
   const c = B.calcDoc(doc);
-  const inv = B.moadianInvoices(doc, c, { economicCode: '14000000000000', sstid: { jewel: '2330000000001' }, mu: { gram: '164', count: '1627' } }, { kind: 'person', nid: '0499370899', postal: '1234567890' });
+  const inv = B.moadianInvoices(doc, c, { economicCode: '14000000000000', sstid: { jewel: '2330000000001' } }, { kind: 'person', nid: '0499370899', postal: '1234567890' });
+  // official unit codes are built in: gram 1622 (not 164, which is kilogram), count 1627
+  assert.equal(inv[0].body[0].mu, '1622');
+  // a coin gets its general product ID from the tax system's list, even when the shop set none for coins
+  const coinRow = inv[0].body.find((r) => r.sstt.includes('سکه'));
+  assert.deepEqual([coinRow.sstid, coinRow.mu], ['2720000170500', '1627']);
   assert.equal(inv.length, 2);
   const [gold, goods] = inv;
   assert.equal(gold.header.inp, 3);

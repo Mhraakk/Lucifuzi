@@ -3,7 +3,7 @@
 import { html, raw, fa, api, store, toast, navigate, actions, $, $$, busy } from '../core.mjs';
 import * as B from '../books.mjs';
 import { COIN_TYPES } from '../coins.mjs';
-import { qrSvg } from '../qr.mjs';
+import { invoicePaper, THEMES } from '../invoice.mjs';
 import { T, TU, G, jd, jdLong, jdInput, parseDay, today, addDays, timeFa, modal, confirmBox, statusChip, exportButtons, wireExport, download, balText, balClass } from '../bk.mjs';
 
 export function booksNav(cur) {
@@ -182,54 +182,21 @@ export async function docPage(root, { id }) {
   const verifyUrl = `${location.origin}/verify/${d.verify}`;
   const party = d.party;
   const official = ['sale', 'return', 'proforma'].includes(d.type);
-  const lineRows = c.lines.map((l, i) => ({ l, src: d.lines[i] }));
-  const outRows = lineRows.filter(({ l }) => l.side === 'out'), inRows = lineRows.filter(({ l }) => l.side === 'in');
-  const payLabel = (p, i) => {
-    const src = d.payments[i];
-    const m = B.payMethod(p.method);
-    const bits = [m.label];
-    if (src.ref) bits.push(`پیگیری ${fa(src.ref)}`);
-    if (src.card) bits.push(`کارت ${fa(String(src.card).slice(-4))}`);
-    if (p.method === 'cheque') bits.push(`چک ${fa(src.chequeNo || src.sayad || '')} سررسید ${jd(src.due)}`);
-    if (p.method === 'gold') bits.push(`${G(p.g750)} گرم ۷۵۰`);
-    if (p.method === 'coin') bits.push(`${fa(p.count)} ${COIN_TYPES[p.coin].short}`);
-    return bits.join(' · ');
-  };
-  const paper = () => html`<article class="bk-paper ${format} printable" dir="rtl">
-    <header class="bk-p-head">
-      <div class="bk-p-shop"><b>${shop}</b>${s.address ? html`<span>${s.address}</span>` : ''}<span>${[s.phone && `تلفن ${fa(s.phone)}`, s.postal && `کد پستی ${fa(s.postal)}`].filter(Boolean).join(' · ')}</span>${s.economicCode || s.nationalId ? html`<span>${s.economicCode ? `شماره اقتصادی ${fa(s.economicCode)}` : ''}${s.nationalId ? ` · شناسه/کد ملی ${fa(s.nationalId)}` : ''}${s.regNo ? ` · ثبت ${fa(s.regNo)}` : ''}</span>` : ''}</div>
-      <div class="bk-p-title"><h2>${official && d.type !== 'proforma' ? (d.type === 'return' ? 'صورتحساب برگشت از فروش' : 'صورتحساب فروش کالا و خدمات') : t.label}</h2>${official && d.type !== 'proforma' ? html`<span>الگوی طلا، جواهر و پلاتین${party?.nid || party?.eco ? ' · نوع اول' : ' · نوع دوم'}</span>` : ''}${d.status !== 'final' ? html`<em class="bk-p-flag">${d.status === 'void' ? 'باطل شده' : 'پیش‌نویس — معتبر نیست'}</em>` : ''}</div>
-      <div class="bk-p-meta"><span>شماره: <b>${fa(d.fy)}-${fa(String(d.no).padStart(5, '0'))}</b></span><span>تاریخ: <b>${jd(d.date)}</b>${d.issuedAt ? ` ساعت ${timeFa(d.issuedAt)}` : ''}</span>${d.serial ? html`<span>سریال: ${fa(d.serial)}</span>` : ''}${d.tax?.taxId ? html`<span class="ltr-num">شماره منحصربه‌فرد مالیاتی: ${d.tax.taxId}</span>` : ''}${d.version > 1 ? html`<span>نسخه ${fa(d.version)}</span>` : ''}</div>
-    </header>
-    ${d.type !== 'transfer' && d.type !== 'expense' && d.type !== 'opening'
-      ? html`<section class="bk-p-party"><b>${d.type === 'buy' ? 'فروشنده (مشتری)' : 'خریدار'}:</b> ${party ? html`${party.name}${party.nid ? ` · ${party.kind === 'company' ? 'شناسه ملی' : 'کد ملی'} ${fa(party.nid)}` : ''}${party.eco ? ` · شماره اقتصادی ${fa(party.eco)}` : ''}${party.mobile ? ` · ${fa(party.mobile)}` : ''}${party.postal ? ` · کد پستی ${fa(party.postal)}` : ''}${party.address ? ` · ${party.address}` : ''}` : 'مصرف‌کننده نهایی (گذری)'}</section>`
-      : ''}
-    ${outRows.length && format === 'r80'
-      ? html`<table class="bk-p-table roll"><tbody>${outRows.map(({ l, src }) => html`<tr><td>${src.title || B.KIND_LABEL[l.kind]}<small>${l.weight ? ` · ${G(l.weight)} گرم` : ''}${l.fineness ? ` · عیار ${fa(l.fineness)}` : ''}${l.kind === 'coin' ? ` · ${fa(l.count)} عدد` : ''}${l.kind === 'jewel' ? ` · طلا ${T(l.principal)} · اجرت ${T(l.consfee)} · سود ${T(l.spro)}${l.stones ? ` · سنگ ${T(l.stones)}` : ''} · مالیات ${T(l.vat)}` : l.vat ? ` · مالیات ${T(l.vat)}` : ''}</small></td><td class="num"><b>${T(l.total)}</b></td></tr>`)}</tbody><tfoot><tr><td>جمع (تومان) · مالیات ${T(c.vat)}</td><td class="num"><b>${T(c.sales)}</b></td></tr></tfoot></table>`
-      : outRows.length
-      ? html`<table class="bk-p-table"><thead><tr><th>ردیف</th><th>شرح کالا / خدمت</th><th>وزن (گرم)</th><th>عیار</th><th>مبلغ واحد</th><th>ارزش اصل</th><th>اجرت ساخت</th><th>سود فروشنده</th><th>حق‌العمل</th><th>مالیات</th><th>مبلغ کل</th></tr></thead>
-          <tbody>${outRows.map(({ l, src }, i) => html`<tr><td>${fa(i + 1)}</td><td>${src.title || B.KIND_LABEL[l.kind]}${src.code ? html`<small> · ${fa(src.code)}</small>` : ''}${l.kind === 'coin' ? html`<small> · ${fa(l.count)} عدد</small>` : ''}${l.discount && l.kind === 'jewel' ? html`<small> · تخفیف ${T(l.discount)}</small>` : ''}</td><td class="num">${l.weight ? G(l.weight) : '—'}</td><td class="num">${l.fineness ? fa(l.fineness) : '—'}</td><td class="num">${l.fee ? T(l.fee) : '—'}</td><td class="num">${T(l.principal + l.stones - (l.kind === 'goods' ? l.discount : 0))}</td><td class="num">${T(l.consfee)}</td><td class="num">${T(l.spro)}</td><td class="num">${l.bros ? T(l.bros) : '—'}</td><td class="num">${T(l.vat)}</td><td class="num"><b>${T(l.total)}</b></td></tr>`)}</tbody>
-          <tfoot><tr><td colspan="5">جمع (تومان)</td><td class="num">${T(c.principal + c.stones)}</td><td class="num">${T(c.consfee)}</td><td class="num">${T(c.spro)}</td><td class="num">${T(c.bros)}</td><td class="num">${T(c.vat)}</td><td class="num"><b>${T(c.sales)}</b></td></tr></tfoot></table>`
-      : ''}
-    ${inRows.length
-      ? html`<table class="bk-p-table in"><caption>${d.type === 'buy' ? 'اقلام خریداری‌شده' : 'طلای دریافتی از مشتری (تعویض)'}</caption><thead><tr><th>ردیف</th><th>شرح</th><th>وزن خالص</th><th>عیار</th><th>معادل ۷۵۰</th><th>فی هر گرم</th><th>کسر</th><th>مبلغ</th></tr></thead><tbody>${inRows.map(({ l, src }, i) => html`<tr><td>${fa(i + 1)}</td><td>${src.title || B.KIND_LABEL[l.kind]}${l.kind === 'coin' ? html`<small> · ${fa(l.count)} عدد</small>` : ''}</td><td class="num">${l.weight ? G(l.weight) : '—'}</td><td class="num">${l.fineness ? fa(l.fineness) : '—'}</td><td class="num">${l.g750 ? G(l.g750) : '—'}</td><td class="num">${l.fee ? T(l.fee) : '—'}</td><td class="num">${l.discount ? T(l.discount) : '—'}</td><td class="num"><b>${T(l.total)}</b></td></tr>`)}</tbody></table>`
-      : ''}
-    ${d.type === 'opening' ? html`<table class="bk-p-table"><thead><tr><th>حساب</th><th>مقدار</th></tr></thead><tbody>${(d.balances ?? []).map((b) => html`<tr><td>${b.acct}</td><td class="num">${b.unit === 'IRR' ? T(b.amt) : fa(b.amt)} ${b.unit === 'IRR' ? 'تومان' : b.unit === 'G750' ? 'گرم' : 'عدد'}</td></tr>`)}</tbody></table>` : ''}
-    <section class="bk-p-sum">
-      <div class="bk-p-pay">${c.payments.length ? html`<b>تسویه:</b><ul>${c.payments.map((p, i) => html`<li>${p.dir === 'in' ? 'دریافت' : 'پرداخت'} · ${payLabel(p, i)} · <b>${T(p.value)}</b></li>`)}</ul>` : ''}${c.credit ? html`<p><b>${c.credit > 0 ? 'مانده بدهی (نسیه)' : 'مانده بستانکاری'}:</b> ${c.creditUnit === 'G750' ? `${G(Math.abs(c.creditG))} گرم طلای ۷۵۰` : TU(Math.abs(c.credit))}</p>` : ''}${d.note ? html`<p class="small">یادداشت: ${d.note}</p>` : ''}</div>
-      <div class="bk-p-tot">${c.sales ? html`<div><span>جمع فاکتور</span><b>${TU(c.sales)}</b></div>` : ''}${c.tradeIn && d.type !== 'buy' ? html`<div><span>کسر: طلای دریافتی</span><b>${TU(c.tradeIn)}</b></div>` : ''}${d.type === 'buy' ? html`<div><span>جمع خرید</span><b>${TU(c.tradeIn)}</b></div>` : ''}<div class="net"><span>${c.net >= 0 ? 'قابل پرداخت خریدار' : 'قابل پرداخت به مشتری'}</span><b>${TU(Math.abs(c.net || c.paidIn || c.paidOut))}</b></div><small>${B.words(Math.abs(c.net || c.paidIn || c.paidOut) / 10)} تومان</small></div>
-    </section>
-    <footer class="bk-p-foot">
-      <div class="bk-p-sign"><span>مهر و امضای فروشنده</span><span>امضای ${d.type === 'buy' ? 'فروشنده (مشتری)' : 'خریدار'}</span></div>
-      <div class="bk-p-verify">${raw(qrSvg(verifyUrl, { size: format === 'r80' ? 96 : 84 }))}<span>کد اصالت<br><b class="ltr-num">${d.verify}</b><br><small class="ltr-num">${verifyUrl.replace(/^https?:\/\//, '')}</small></span></div>
-      <p class="small">${official ? 'مالیات بر ارزش افزوده فقط بر اجرت ساخت، سود فروشنده و حق‌العمل محاسبه شده و اصل طلا، سنگ و سکه معاف است. ' : ''}${s.footer ?? ''} · فروشنده: ${d.seller ?? ''}</p>
-    </footer>
-  </article>`;
+  const THEME_KEY = 'beatris.books.theme';
+  let theme = (() => {
+    try {
+      return localStorage.getItem(THEME_KEY) || 'royal';
+    } catch {
+      return 'royal';
+    }
+  })();
+  const paper = () => invoicePaper({ d, s, shop, format, theme, verifyUrl, brandName: store.me.brand?.shopName && store.me.brand.shopName !== shop ? store.me.brand.shopName : '' });
   const draw = () => {
     root.innerHTML = String(html`${booksNav('docs')}
       <div class="bk-head noprint"><h1>${t.label} ${fa(d.no)} ${statusChip(d.status)}</h1>
         <div class="actions">
           <div class="seg" role="group" aria-label="قالب چاپ">${[['a4', 'A4'], ['a5', 'A5'], ['r80', 'رول ۸۰ میلی‌متری']].map(([k, l]) => html`<button data-fmt="${k}" aria-pressed="${format === k}">${l}</button>`)}</div>
+          <div class="seg" role="group" aria-label="طرح فاکتور">${THEMES.map(([k, l]) => html`<button data-theme="${k}" aria-pressed="${theme === k}">${l}</button>`)}</div>
           <button class="btn small" data-act="print">چاپ / PDF</button>
           ${d.status !== 'void' && (admin || d.status === 'draft') ? html`<a class="btn small ghost" href="/books/doc/${d.id}/edit" data-link>ویرایش</a>` : ''}
           ${d.status === 'draft' ? html`<button class="btn small ghost" data-act="finalize">قطعی کن</button>` : ''}
@@ -251,6 +218,15 @@ export async function docPage(root, { id }) {
   root.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.theme) {
+      theme = b.dataset.theme;
+      try {
+        localStorage.setItem(THEME_KEY, theme);
+      } catch {
+        /* storage unavailable */
+      }
+      return draw();
+    }
     if (b.dataset.fmt) {
       format = b.dataset.fmt;
       try {
