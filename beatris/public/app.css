@@ -2315,3 +2315,18 @@ html[data-theme='day'] .tb-card { background: #fff; border-color: var(--hair-2);
   .pr-spec, .pr-price { display: none; }
   .pr-act { grid-column: 1 / -1; justify-content: flex-start; }
 }
+/* ---------- AI keys ---------- */
+.ak-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.ak-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; }
+.ak-row.off { opacity: 0.55; }
+.ak-n { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(var(--gold-rgb), 0.14); color: var(--gold-hi); font-weight: 700; }
+.ak-main b { display: block; font-size: 16px; }
+.ak-main small { display: block; font-size: 12px; color: var(--dust); }
+.ak-test.good { color: var(--turq); } .ak-test.bad { color: var(--carn); }
+.ak-act { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.ak-act .iconbtn { width: 32px; height: 32px; }
+.ak-act .chip { min-height: 32px; font-size: 12px; }
+.ak-form { display: grid; gap: 10px; }
+.ak-help { margin: -4px 0 0; }
+.ak-note { margin-top: 12px; }
+@media (max-width: 760px) { .ak-row { grid-template-columns: auto minmax(0, 1fr); } .ak-act { grid-column: 1 / -1; justify-content: flex-start; } }

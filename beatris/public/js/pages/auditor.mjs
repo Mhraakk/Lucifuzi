@@ -28,7 +28,7 @@ export async function auditPage(root) {
     <div class="bk-head"><div><h1>ممیز و تاجیار</h1><span class="small">هر بار که این صفحه باز شود کل دفاتر از نو وارسی می‌شود؛ ممیز فقط نشان می‌دهد و چیزی را تغییر نمی‌دهد.</span></div><button class="btn small" data-act="rerun">وارسی دوباره</button></div>
     <div class="au">
       <section class="au-board" id="board"><div class="au-load">در حال وارسی دفاتر…</div></section>
-      <section class="tray au-chat"><div class="bk-head"><h3 class="bk-h">تاجیار · دستیار حسابرس</h3><span class="small" id="eng"></span></div>
+      <section class="tray au-chat"><div class="bk-head"><h3 class="bk-h">تاجیار · دستیار حسابرس</h3><span class="small"><span id="eng"></span>${store.isAdmin() ? html` · <a href="/books/ai" data-link>کلیدهای هوش مصنوعی</a>` : ''}</span></div>
         <div class="au-msgs" id="msgs" aria-live="polite"></div>
         <div class="chips au-quick">${['ممیز', 'بدهکاران', 'طلبکاران', 'روزنگار امروز', 'گاوصندوق', 'مظنه', 'چی یادته', 'محاسبه ۲ گرم عیار ۷۴۰'].map((q) => html`<button class="chip" data-q="${q}">${q}</button>`)}</div>
         <form class="au-form" id="af"><input class="input" id="aq" placeholder="بپرسید: «مانده مهران رضایی»، «سریال ۳۳۰۷۰۲۱»، «محاسبه ۱۰ گرم عیار ۷۴۵»" autocomplete="off" maxlength="2000"><button class="btn">بپرس</button></form></section>
@@ -48,7 +48,7 @@ export async function auditPage(root) {
   }
   const drawMsgs = () => {
     const box = $('#msgs', root);
-    box.innerHTML = hist.length ? hist.map((m) => String(html`<div class="au-m ${m.role}"><pre>${m.text}</pre>${m.engine ? html`<small>${ENGINE[m.engine] ?? m.engine}${m.fallback ? ' (مدل در دسترس نبود)' : ''}</small>` : ''}</div>`)).join('') : String(html`<p class="small">سلام؛ از دفاتر بپرسید. من فقط می‌خوانم و حساب می‌کنم، هیچ سندی را ثبت یا تغییر نمی‌دهم.</p>`);
+    box.innerHTML = hist.length ? hist.map((m) => String(html`<div class="au-m ${m.role}"><pre>${m.text}</pre>${m.engine ? html`<small>${m.provider ? `${m.provider} · ${m.model}` : ENGINE[m.engine] ?? m.engine}${m.fallback ? ' (سرویس‌های هوش مصنوعی در دسترس نبودند؛ پاسخ از دفاتر)' : ''}</small>` : ''}</div>`)).join('') : String(html`<p class="small">سلام؛ از دفاتر بپرسید. من فقط می‌خوانم و حساب می‌کنم، هیچ سندی را ثبت یا تغییر نمی‌دهم.</p>`);
     box.scrollTop = box.scrollHeight;
   };
   async function send(q) {
@@ -59,7 +59,7 @@ export async function auditPage(root) {
     $('#msgs', root).insertAdjacentHTML('beforeend', '<div class="au-m assistant typing"><i></i><i></i><i></i></div>');
     try {
       const r = await api('/api/books/assistant', { method: 'POST', body: { question: q, history: hist.slice(-9, -1).map(({ role, text }) => ({ role, text })) } });
-      hist.push({ role: 'assistant', text: r.answer, engine: r.engine, fallback: !!r.fallback });
+      hist.push({ role: 'assistant', text: r.answer, engine: r.engine, provider: r.provider, model: r.model, fallback: !!r.fallback });
     } catch (e) {
       hist.push({ role: 'assistant', text: e.message });
     }
@@ -83,7 +83,7 @@ export async function auditPage(root) {
     }
     if (e.target.closest('[data-act=rerun]')) board().then(() => toast('دفاتر دوباره وارسی شد.', 'ok'));
   });
-  api('/api/books/assistant').then((i) => ($('#eng', root).textContent = ENGINE[i.engine] ?? i.engine)).catch(() => {});
+  api('/api/books/assistant').then((i) => ($('#eng', root).textContent = i.chain?.length ? `موتور: ${i.chain.map((c) => c.label).join(' ← ')} ← دفاتر` : ENGINE[i.engine] ?? i.engine)).catch(() => {});
   drawMsgs();
   await board();
 }

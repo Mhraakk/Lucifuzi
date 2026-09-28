@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { openDb } from './db.mjs';
-import { makeSigner, resolveSecret } from './auth.mjs';
+import { makeSigner, makeSealer, resolveSecret } from './auth.mjs';
 import { createApi, seedUsers, HttpError } from './api.mjs';
 import { validateContent } from '../content/index.mjs';
 import { MEDIA_NAME } from './media.mjs';
@@ -26,13 +26,14 @@ const COMPRESSED = new Set(['.webp', '.jpg', '.png', '.woff2']);
 
 export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts, tenantsDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'tenants') : ':memory:' }) {
   const signer = makeSigner(secret);
-  const handle = createApi({ db, signer, demo, mediaDir, marketOpts });
+  const sealer = makeSealer(secret);
+  const handle = createApi({ db, signer, demo, mediaDir, marketOpts, sealer });
   // every other shop: its own database file under tenants/, the shared price feed of the main shop
   const platform = createPlatform({
     mainDb: db,
     signer,
     mainHandle: handle,
-    openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market }),
+    openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market, sealer }),
   });
 
   /** Uploaded coin photos: immutable, server-named files on the data volume. */

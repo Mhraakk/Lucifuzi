@@ -11,6 +11,7 @@ import { makeLearn } from './learn.mjs';
 import { makeDashboard } from './dashboard.mjs';
 import { makeAssistant } from './assistant.mjs';
 import { makeSetup } from './setup.mjs';
+import { PROVIDERS, checkBaseUrl, keyHint } from './providers.mjs';
 import * as TR from '../public/js/trade.mjs';
 
 export const BOOKS_SCHEMA = `
@@ -76,7 +77,7 @@ export const DEFAULT_BOOKS = {
   edition: 'full', money: 'rial', tradeRound: 10000, spreadBuy: 0, spreadSell: 0, coinSpreadBuy: 0, coinSpreadSell: 0, groups: {},
 };
 
-export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market }) {
+export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market, sealer = null, shopId = 'main' }) {
   // every handler is also kept by name, so the auditor and the assistant reuse exactly the logic (and the checks) of the API
   const handlers = new Map();
   const on = (method, path, guard, fn) => {
@@ -1486,7 +1487,97 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   /* ---------------- ممیز (automatic audit) and the assistant ---------------- */
   const audit = makeAudit({ db, call, settings, verifyLog, tehranDay, livePrices, isAdmin });
   on('GET', '/api/books/audit', 'auth', ({ user, url }) => (url.searchParams.get('doc') ? audit.doc(url.searchParams.get('doc')) : audit.run(user)));
-  const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin, learn });
+  /* ---------------- the shop's AI keys: sealed at rest, never sent back ---------------- */
+  const aiStore = () => ({ providers: [], ...getSetting('ai', {}) });
+  const aiOpen = (p) => ({ ...p, label: p.label || PROVIDERS[p.kind]?.label || p.kind, dialect: PROVIDERS[p.kind]?.dialect ?? 'openai', base: p.base || PROVIDERS[p.kind]?.base || '', key: sealer && p.keySealed ? sealer.open(p.keySealed, `ai:${shopId}:${p.id}`) ?? '' : '' });
+  const aiProviders = () => aiStore().providers.filter((p) => p.enabled !== false && p.keySealed).sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map(aiOpen).filter((p) => p.key && p.base && p.model);
+  const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin, learn, providers: aiProviders, useEnv: shopId === 'main' });
+  const aiOut = (p) => ({ id: p.id, kind: p.kind, label: p.label || PROVIDERS[p.kind]?.label, base: p.base || PROVIDERS[p.kind]?.base, model: p.model, enabled: p.enabled !== false, priority: p.priority ?? 0, hasKey: !!p.keySealed, keyHint: p.keyHint ?? '', lastTest: p.lastTest ?? null });
+  function aiClean(body, cur = {}) {
+    const kind = body.kind ?? cur.kind;
+    if (!PROVIDERS[kind]) throw bad('سرویس هوش مصنوعی نامعتبر است.');
+    const model = txt(body.model ?? cur.model, 120);
+    if (!model) throw bad('نام مدل را از پنل همان سرویس بنویسید.');
+    let base = body.base !== undefined ? txt(body.base, 300) : cur.base ?? '';
+    if (kind === 'custom' || base) {
+      const err = checkBaseUrl(base || PROVIDERS[kind].base);
+      if (err) throw bad(err);
+    }
+    if (kind !== 'custom' && base === PROVIDERS[kind].base) base = '';
+    return { kind, label: txt(body.label ?? cur.label, 60), model, base, enabled: body.enabled === undefined ? cur.enabled !== false : !!body.enabled, priority: Number.isFinite(Number(body.priority)) ? Number(body.priority) : cur.priority ?? 0 };
+  }
+  const aiSave = (list, user) => {
+    saveSetting('ai', { providers: list }, user.id);
+    log(user, 'settings', 'ai', { providers: list.map((p) => ({ id: p.id, kind: p.kind, model: p.model, enabled: p.enabled })) });
+  };
+  on('GET', '/api/books/ai', 'auth', ({ user }) => {
+    guardAdmin(user);
+    return { providers: aiStore().providers.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map(aiOut), catalog: Object.entries(PROVIDERS).map(([id, p]) => ({ id, label: p.label, base: p.base, keyHelp: p.keyHelp, dialect: p.dialect })), chain: assistant.info().chain, sealed: !!sealer };
+  });
+  on('POST', '/api/books/ai', 'auth', ({ user, body }) => {
+    guardAdmin(user);
+    if (!sealer) throw bad('نگهداری امن کلید روی این سرور فعال نیست.');
+    const store = aiStore();
+    if (store.providers.length >= 12) throw bad('حداکثر ۱۲ سرویس.');
+    const key = String(body.key ?? '').trim();
+    if (key.length < 8 || key.length > 400 || /\s/.test(key)) throw bad('کلید API را کامل و بدون فاصله بچسبانید.');
+    const id = randomUUID().slice(0, 8);
+    const p = { id, ...aiClean(body), priority: body.priority ?? store.providers.length, keySealed: sealer.seal(key, `ai:${shopId}:${id}`), keyHint: keyHint(key), createdAt: now() };
+    aiSave([...store.providers, p], user);
+    return aiOut(p);
+  });
+  on('PUT', '/api/books/ai/:id', 'auth', ({ user, params, body }) => {
+    guardAdmin(user);
+    const store = aiStore();
+    const i = store.providers.findIndex((p) => p.id === params.id);
+    if (i < 0) throw notFound('این سرویس پیدا نشد.');
+    const cur = store.providers[i];
+    const next = { ...cur, ...aiClean(body, cur) };
+    if (body.key) {
+      const key = String(body.key).trim();
+      if (key.length < 8 || key.length > 400 || /\s/.test(key)) throw bad('کلید API را کامل و بدون فاصله بچسبانید.');
+      next.keySealed = sealer.seal(key, `ai:${shopId}:${cur.id}`);
+      next.keyHint = keyHint(key);
+    }
+    store.providers[i] = next;
+    aiSave(store.providers, user);
+    return aiOut(next);
+  });
+  on('PUT', '/api/books/ai', 'auth', ({ user, body }) => {
+    guardAdmin(user);
+    const store = aiStore();
+    if (Array.isArray(body.order)) for (const p of store.providers) p.priority = Math.max(0, body.order.indexOf(p.id)) + (body.order.includes(p.id) ? 0 : 100);
+    aiSave(store.providers, user);
+    return { providers: store.providers.sort((a, b) => a.priority - b.priority).map(aiOut) };
+  });
+  on('DELETE', '/api/books/ai/:id', 'auth', ({ user, params }) => {
+    guardAdmin(user);
+    const store = aiStore();
+    if (!store.providers.some((p) => p.id === params.id)) throw notFound('این سرویس پیدا نشد.');
+    aiSave(store.providers.filter((p) => p.id !== params.id), user);
+    return { ok: true };
+  });
+  on('POST', '/api/books/ai/:id/test', 'auth', async ({ user, params }) => {
+    guardAdmin(user);
+    const store = aiStore();
+    const p = store.providers.find((x) => x.id === params.id);
+    if (!p) throw notFound('این سرویس پیدا نشد.');
+    const cfg = aiOpen(p);
+    let result;
+    try {
+      if (!cfg.key) throw new Error('کلید قابل بازخوانی نیست؛ دوباره وارد کنید.');
+      result = await assistant.test(cfg);
+    } catch (e) {
+      result = { ok: false, error: e.name === 'AbortError' ? 'سرویس در زمان مقرر پاسخ نداد.' : e.message };
+    }
+    const fresh = aiStore();
+    const cur = fresh.providers.find((x) => x.id === p.id);
+    if (cur) {
+      cur.lastTest = { at: now(), ok: result.ok, ms: result.ms ?? null, error: result.error ?? null };
+      saveSetting('ai', fresh, user.id);
+    }
+    return result;
+  });
   on('GET', '/api/books/assistant', 'auth', () => assistant.info());
   on('POST', '/api/books/assistant', 'auth', async ({ user, body }) => assistant.ask(user, body));
 
