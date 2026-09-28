@@ -589,3 +589,66 @@ a.tile:active, .tool-card:active, a.row:active, .chip:active, .iconbtn:active, .
 .brow { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)) minmax(0, 1.1fr) auto; gap: 8px; align-items: end; padding: 10px; border: 1px solid var(--hair); border-radius: var(--r-md); }
 .brow .field { margin: 0; }
 @media (max-width: 620px) { .brow { grid-template-columns: 1fr 1fr; } .brow .field:first-child { grid-column: 1 / -1; } }
+
+/* ---------- real coin photos ---------- */
+.photo-view { display: block; max-width: 100%; height: auto; margin: 12px 0 8px; border-radius: var(--r-md); border: 1px solid var(--hair); background: #0a0907; touch-action: none; cursor: grab; }
+.face-pre { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 14px; }
+.face-pre figure { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.face-pre canvas { width: 100%; height: auto; border-radius: 50%; background: #0a0907; }
+.face-pre figcaption { grid-column: 1 / -1; font-size: 12.5px; color: var(--dust); }
+.photo-list { display: grid; gap: 12px; }
+.photo-item { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; padding: 12px; border: 1px solid var(--hair); border-radius: var(--r-md); background: rgba(20, 17, 12, 0.5); }
+.photo-item .pair { display: flex; gap: 6px; }
+.photo-item .pair img { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; background: #0a0907; }
+.photo-item b { font-size: 15px; }
+.photo-item .actions { margin-top: 8px; }
+@media (max-width: 520px) { .photo-item { grid-template-columns: 1fr; } }
+.studio3d .readout .spin { display: inline-block; width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--hair-2); border-top-color: var(--gold); animation: spin 0.9s linear infinite; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .studio3d .readout .spin { animation-duration: 3s; } }
+
+/* ---------- lesson diagrams (viz) — on the paper theme ---------- */
+.blk-viz { border: 1px solid #d9ccb2; border-radius: var(--r-md); padding: 14px; background: #fffdf8; }
+.blk-viz .cap { font-size: 12.5px; color: var(--ink-2, #6b5d45); margin: 10px 0 0; }
+.vz-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.vz-in { display: grid; gap: 4px; font-size: 12.5px; color: #5b4d38; flex: 1 1 140px; }
+.vz-in .input { background: #fff; color: #231c12; border-color: #d9ccb2; }
+.vz-bars { display: grid; gap: 8px; margin-top: 12px; }
+.vz-bar { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr) auto; gap: 10px; align-items: center; font-size: 13px; color: #231c12; }
+.vz-bar i { height: 12px; border-radius: 99px; background: #efe4cc; overflow: hidden; }
+.vz-bar i b { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #b8862e, #e8c46f); transition: width 0.4s var(--ease); }
+.vz-bar i b.low { background: linear-gradient(90deg, #b5543a, #d98a6a); }
+.vz-bar em { font-style: normal; font-variant-numeric: tabular-nums; }
+.vz-total { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed #d9ccb2; font-size: 13px; color: #5b4d38; }
+.vz-total b { color: #231c12; font-variant-numeric: tabular-nums; }
+.vz-total b.neg { color: #b5543a; }
+.vz-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-top: 12px; }
+.vz-card { border: 1px solid #e4d8bf; border-radius: 12px; padding: 10px 12px; background: #fff; color: #231c12; font-size: 13px; }
+.vz-card code { display: block; margin: 6px 0; padding: 6px 8px; border-radius: 8px; background: #f6efe0; font-family: var(--body); white-space: pre-wrap; }
+.vz-card p { margin: 4px 0 0; color: #5b4d38; }
+.vz-card .vz-ex { color: #7a5a14; }
+.vz-card .vz-check { font-size: 12px; }
+.vz-steps { display: grid; gap: 6px; }
+.vz-step { display: grid; grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1.6fr); gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: #f8f2e4; color: #8a7a5e; font-size: 13px; }
+.vz-step i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: #e8dcc2; font-style: normal; }
+.vz-step.on { background: #fff6e0; color: #231c12; }
+.vz-step.now { outline: 2px solid #c8962f; }
+.vz-t { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.vz-t > div { border: 1px solid #d9ccb2; border-radius: 10px; padding: 8px 12px; min-height: 64px; background: #fff; color: #231c12; }
+.vz-t h4 { margin: 0 0 6px; font-size: 13px; color: #7a5a14; }
+.vz-act { display: flex; gap: 8px; margin-top: 10px; }
+@media (max-width: 520px) { .vz-step { grid-template-columns: 26px 1fr; } .vz-step span { grid-column: 2; } }
+
+/* ---------- ledger trainer ---------- */
+.ledger-stats { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--dust); margin-bottom: 12px; }
+.ledger-stats b { color: var(--gold-hi); font-variant-numeric: tabular-nums; }
+.ledger-prompt { font-size: 17px; line-height: 2; margin: 10px 0 14px; }
+.ledger-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.ledger-fields .field small { color: var(--dust-2); }
+.ledger-fields .field.ok .input { border-color: var(--turq); }
+.ledger-fields .field.bad .input { border-color: var(--carn); }
+.ledger-fb { font-size: 12.5px; line-height: 1.8; }
+.ledger-fields .field.ok .ledger-fb { color: var(--turq); }
+.ledger-fields .field.bad .ledger-fb { color: #f0a58c; }
+.ledger-hint { display: grid; gap: 8px; margin-top: 12px; padding: 10px 12px; border-radius: var(--r-md); border: 1px dashed var(--hair-2); font-size: 13px; }
+.ledger-hint code { display: block; margin-top: 4px; font-family: var(--body); color: var(--gold-hi); }

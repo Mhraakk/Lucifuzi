@@ -43,6 +43,7 @@ function num(v) {
     .replace(/[۰-۹]/g, (d) => String(FA.indexOf(d)))
     .replace(/[٠-٩]/g, (d) => String(AR.indexOf(d)))
     .replace(/٫/g, '.')
+    .replace(/[−–]/g, '-')
     .replace(/[,٬\s]/g, '');
   return s === '' ? NaN : Number(s);
 }
@@ -211,9 +212,13 @@ export const DRILL_KINDS = {
   coin: 'ارزش ذاتی سکه',
   density: 'چگالی از وزن در آب',
   ring: 'سایز انگشتر',
+  eq750: 'آب‌شده: معادل ۷۵۰',
+  melt: 'آب‌شده: مبلغ با مظنه',
+  assay: 'آب‌شده: اختلاف ری‌گیری',
+  mesghal: 'گرم به مثقال',
 };
 /** Everything the server may record as a practice result (drills page kinds + interactive labs). */
-export const RECORD_KINDS = { ...DRILL_KINDS, coinauth: 'تشخیص سکه اصل و تقلبی', sealauth: 'بازرسی پلمپ سکه' };
+export const RECORD_KINDS = { ...DRILL_KINDS, coinauth: 'تشخیص سکه اصل و تقلبی', sealauth: 'بازرسی پلمپ سکه', ledger: 'تمرین‌گر دفتر آب‌شده' };
 
 export function makeDrill(kind, seed, basePrice = 8500000) {
   const r = rng(seed);
@@ -275,6 +280,31 @@ export function makeDrill(kind, seed, basePrice = 8500000) {
       const water = roundTo(air - (air * 0.9982) / rho, 0.01);
       const d = densityFromWeighing(air, water);
       return { kind, prompt: `وزن قطعه در هوا ${fmt(air, 2)} گرم و در آب ${fmt(water, 2)} گرم است. چگالی تقریبی چند گرم بر سانتی‌متر مکعب است؟`, answer: d, tol: 0.02, unit: 'g/cm³', steps: [['وزن هوا × ۰٫۹۹۸ ÷ (هوا − آب)', d], ['هزارم تخمینی', finenessFromDensity(d)]] };
+    }
+    case 'eq750': {
+      const w = roundTo(3 + r() * 80, 0.01);
+      const a = pick(r, [705, 720, 735, 740, 742, 745, 748, 900]);
+      const eq = Math.round(((w * a) / 750) * 1000) / 1000;
+      return { kind, prompt: `قطعه آب‌شده ${fmt(w, 2)} گرم با عیار ${fmt(a)}. معادل ۷۵۰ آن چند گرم است؟ (تا سه رقم اعشار)`, answer: eq, tol: 0.0003, unit: 'گرم', steps: [['وزن × عیار ÷ ۷۵۰', eq]] };
+    }
+    case 'melt': {
+      const w = roundTo(3 + r() * 60, 0.01);
+      const a = pick(r, [720, 735, 740, 742, 745, 750]);
+      const m = roundTo(p750 * MAZANEH_TO_G750, 10000);
+      const eq = Math.round(((w * a) / 750) * 1000) / 1000;
+      const value = Math.round((eq * (m / MAZANEH_TO_G750)) / 1000) * 1000;
+      return { kind, prompt: `قطعه آب‌شده ${fmt(w, 2)} گرم عیار ${fmt(a)} با مظنه ${fmt(m)} تومان. مبلغ طبق قاعده دفتر (معادل ۷۵۰ تا سه رقم، سپس گرد به هزار تومان)؟`, answer: value, tol: 0.0005, unit: 'تومان', steps: [['معادل ۷۵۰', eq], ['گرم ۱۸ = مظنه ÷ ۴٫۳۳۱۸', m / MAZANEH_TO_G750], ['مبلغ', value]] };
+    }
+    case 'assay': {
+      const w = roundTo(10 + r() * 190, 0.01);
+      const d = pick(r, [740, 745, 750]);
+      const mm = d - pick(r, [2, 3, 4, 5, 6, 8, 10]);
+      const diff = Math.round(((w * (d - mm)) / 750) * 1000) / 1000;
+      return { kind, prompt: `قطعه ${fmt(w, 2)} گرمی «عیار ${fmt(d)}» معرفی شده و ری‌گیری ${fmt(mm)} داده است. چند گرم ۷۵۰ کمتر از ادعاست؟`, answer: diff, tol: 0.004, unit: 'گرم', steps: [['وزن × اختلاف عیار ÷ ۷۵۰', diff]] };
+    }
+    case 'mesghal': {
+      const w = roundTo(2 + r() * 120, 0.01);
+      return { kind, prompt: `${fmt(w, 2)} گرم چند مثقال است؟`, answer: w / MESGHAL_G, tol: 0.001, unit: 'مثقال', steps: [['گرم ÷ ۴٫۶۰۸۳', w / MESGHAL_G]] };
     }
     case 'ring': {
       const d = roundTo(15 + r() * 6, 0.1);

@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
@@ -7,6 +8,7 @@ import { openDb } from './db.mjs';
 import { makeSigner, resolveSecret } from './auth.mjs';
 import { createApi, seedUsers, HttpError } from './api.mjs';
 import { validateContent } from '../content/index.mjs';
+import { MEDIA_NAME } from './media.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
@@ -18,8 +20,29 @@ const SECURITY = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
 
-export function createServer({ db, secret, demo, quiet = false }) {
-  const handle = createApi({ db, signer: makeSigner(secret), demo });
+const PHOTO_BODY = 48 * 1024 * 1024; // two faces × (4096 + 2048 + relief) as base64
+const COMPRESSED = new Set(['.webp', '.jpg', '.png', '.woff2']);
+
+export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media') }) {
+  const handle = createApi({ db, signer: makeSigner(secret), demo, mediaDir });
+
+  /** Uploaded coin photos: immutable, server-named files on the data volume. */
+  async function serveMedia(req, res, name) {
+    const file = MEDIA_NAME.test(name) ? path.join(mediaDir, 'coins', name) : null;
+    const st = file && (await stat(file).catch(() => null));
+    if (!st || !st.isFile()) {
+      res.writeHead(404, SECURITY);
+      return res.end();
+    }
+    const etag = `"${st.size.toString(36)}-${st.mtimeMs.toString(36)}"`;
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { ETag: etag, ...SECURITY });
+      return res.end();
+    }
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] ?? 'application/octet-stream', 'Content-Length': st.size, ETag: etag, 'Cache-Control': 'public, max-age=31536000, immutable', ...SECURITY });
+    if (req.method === 'HEAD') return res.end();
+    createReadStream(file).on('error', () => res.destroy()).pipe(res);
+  }
   const fileCache = new Map();
 
   async function serveStatic(req, res, pathname) {
@@ -40,7 +63,7 @@ export function createServer({ db, secret, demo, quiet = false }) {
     let entry = fileCache.get(file);
     if (!entry || entry.etag !== etag) {
       const buf = await readFile(file);
-      entry = { etag, buf, gz: buf.length > 1024 ? gzipSync(buf) : null };
+      entry = { etag, buf, gz: buf.length > 1024 && !COMPRESSED.has(path.extname(file)) ? gzipSync(buf) : null };
       fileCache.set(file, entry);
     }
     const headers = { 'Content-Type': MIME[path.extname(file)] ?? 'application/octet-stream', ETag: etag, 'Cache-Control': 'no-cache', ...SECURITY };
@@ -81,6 +104,11 @@ export function createServer({ db, secret, demo, quiet = false }) {
         res.writeHead(405);
         return res.end();
       }
+      if (url.pathname.startsWith('/media/coins/'))
+        return serveMedia(req, res, url.pathname.slice('/media/coins/'.length)).catch(() => {
+          res.writeHead(500);
+          res.end();
+        });
       return serveStatic(req, res, url.pathname).catch(() => {
         res.writeHead(500);
         res.end();
@@ -92,7 +120,8 @@ export function createServer({ db, secret, demo, quiet = false }) {
       res.end(body);
     };
     try {
-      const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, url.pathname === '/api/designs' ? 2 * 1024 * 1024 : undefined) : {};
+      const limit = url.pathname === '/api/designs' ? 2 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : undefined;
+      const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, limit) : {};
       const out = await handle(req, url, body, ip);
       send(200, out);
     } catch (e) {

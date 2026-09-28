@@ -4,8 +4,12 @@ import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
 import { QUESTIONS } from '../content/index.mjs';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { imageInfo } from '../server/media.mjs';
 
-let server, base;
+let server, base, mediaDir;
 const call = async (method, path, body, token) => {
   const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
   return { status: r.status, body: await r.json() };
@@ -15,11 +19,15 @@ const login = async (phone) => (await call('POST', '/api/auth/login', { phone, p
 before(async () => {
   const db = openDb(':memory:');
   seedUsers(db, {}, true);
-  server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true });
+  mediaDir = mkdtempSync(path.join(tmpdir(), 'beatris-media-'));
+  server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true, mediaDir });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
-after(() => server.close());
+after(() => {
+  server.close();
+  rmSync(mediaDir, { recursive: true, force: true });
+});
 
 test('ورود: رمز غلط ۴۰۱، ارقام فارسی پذیرفته', async () => {
   assert.equal((await call('POST', '/api/auth/login', { phone: '09120000004', pin: '0000' })).status, 401);
@@ -123,4 +131,61 @@ test('گالری طرح: ذخیره، فهرست، باز کردن، حذف با
   assert.equal((await call('DELETE', `/api/designs/${c.body.id}`, null, other)).status, 403);
   assert.equal((await call('DELETE', `/api/designs/${c.body.id}`, null, m)).status, 200);
   assert.equal((await call('GET', `/api/designs/${c.body.id}`, null, m)).status, 404);
+});
+
+/* ---------------- coin reference photos ---------------- */
+const webpHeader = (w, h) => {
+  const b = Buffer.alloc(48);
+  b.write('RIFF', 0);
+  b.writeUInt32LE(40, 4);
+  b.write('WEBPVP8X', 8);
+  b.writeUInt32LE(10, 16);
+  b.writeUIntLE(w - 1, 24, 3);
+  b.writeUIntLE(h - 1, 27, 3);
+  return b;
+};
+const jpegHeader = (w, h) => Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xff, 0xc0, 0x00, 0x11, 0x08, h >> 8, h & 255, w >> 8, w & 255, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1, 0xff, 0xd9]);
+const url = (mime, buf) => `data:${mime};base64,${buf.toString('base64')}`;
+const side = (over = {}) => ({ px: 900, c4: url('image/webp', webpHeader(4096, 4096)), c2: url('image/webp', webpHeader(2048, 2048)), h: url('image/jpeg', jpegHeader(2048, 2048)), ...over });
+
+test('عکس سکه: خواندن ابعاد از سرآیند WebP / JPEG / PNG', () => {
+  assert.deepEqual(imageInfo(webpHeader(4096, 4096)), { type: 'image/webp', w: 4096, h: 4096 });
+  assert.deepEqual(imageInfo(jpegHeader(2048, 1024)), { type: 'image/jpeg', w: 2048, h: 1024 });
+  const png = Buffer.alloc(40);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]).copy(png);
+  png.write('IHDR', 12);
+  png.writeUInt32BE(640, 16);
+  png.writeUInt32BE(480, 20);
+  assert.deepEqual(imageInfo(png), { type: 'image/png', w: 640, h: 480 });
+  assert.equal(imageInfo(Buffer.from('not an image at all, just some text...')), null);
+});
+
+test('عکس سکه: فقط مدیر بارگذاری می‌کند؛ ابعاد و نوع بررسی می‌شود؛ حذف فایل‌ها را پاک می‌کند', async () => {
+  const body = { coin: 'emami', label: 'تمام امامی — عکس شعبه', source: 'عکس خودمان', sides: { obv: side(), rev: side() } };
+  const e = await login('09120000004');
+  assert.equal((await call('POST', '/api/coin-photos', body, e)).status, 403);
+  const m = await login('09120000002');
+  assert.equal((await call('POST', '/api/coin-photos', { ...body, coin: 'toString' }, m)).status, 400);
+  assert.equal((await call('POST', '/api/coin-photos', { ...body, sides: { obv: side() } }, m)).status, 400);
+  const wrongSize = await call('POST', '/api/coin-photos', { ...body, sides: { obv: side({ c4: url('image/webp', webpHeader(2048, 2048)) }), rev: side() } }, m);
+  assert.equal(wrongSize.status, 400);
+  assert.match(wrongSize.body.error, /۴۰۹۶|4096/);
+  const liar = await call('POST', '/api/coin-photos', { ...body, sides: { obv: side({ c2: url('image/webp', jpegHeader(2048, 2048)) }), rev: side() } }, m);
+  assert.equal(liar.status, 400);
+  const ok = await call('POST', '/api/coin-photos', body, m);
+  assert.equal(ok.status, 200);
+  const list = (await call('GET', '/api/coin-photos', null, e)).body.items;
+  const it = list.find((x) => x.id === ok.body.id);
+  assert.ok(it && !it.builtin && it.coin === 'emami' && it.sides.obv.px === 900);
+  assert.ok(list.filter((x) => x.builtin).every((x) => x.sides.obv.c4 && x.sides.rev.h && x.credit));
+  const r = await fetch(base + it.sides.obv.c4);
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('content-type'), 'image/webp');
+  assert.match(r.headers.get('cache-control'), /immutable/);
+  assert.equal((await fetch(base + '/media/coins/..%2F..%2Fetc%2Fpasswd')).status, 404);
+  assert.equal((await fetch(base + '/media/coins/beatris-v2.db')).status, 404);
+  assert.equal((await call('DELETE', `/api/coin-photos/${ok.body.id}`, null, e)).status, 403);
+  assert.equal((await call('DELETE', `/api/coin-photos/${ok.body.id}`, null, m)).status, 200);
+  assert.equal((await fetch(base + it.sides.obv.c4)).status, 404);
+  assert.equal((await call('DELETE', `/api/coin-photos/${ok.body.id}`, null, m)).status, 404);
 });

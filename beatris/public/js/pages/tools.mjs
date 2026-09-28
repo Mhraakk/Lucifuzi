@@ -4,6 +4,7 @@ import * as K from '../calc.mjs';
 import { binaryPosterior, likelihoodRatios, decide, SEAL_TESTS, COIN_TESTS } from '../coins.mjs';
 
 const TOOLS = {
+  melt: { title: 'ثبت سریع آب‌شده', desc: 'خرید و فروش آب‌شده با الگوی ثابت دفتر، دفتر جلسه و خروجی CSV برای نرم‌افزار حسابداری.' },
   invoice: { title: 'ماشین‌حساب فاکتور', desc: 'ارزش طلا، اجرت، سود و مالیات فقط بر اجرت و سود.' },
   mazaneh: { title: 'مظنه و قیمت گرم', desc: 'تبدیل دوطرفه مظنه، گرم ۱۸ و گرم طلای خالص؛ قیمت قطعه آب‌شده.' },
   buyback: { title: 'خرید طلای مستعمل', desc: 'بر اساس عیار سنجیده‌شده و کسر اعلام‌شده فروشگاه.' },
@@ -18,7 +19,7 @@ const TOOLS = {
   resize: { title: 'سایز، مفتول و ورق', desc: 'فلز لازم برای تغییر سایز؛ طول مفتول و مساحت ورق از وزن.', rare: true },
   bayes: { title: 'ماشین‌حساب احتمال تقلب', desc: 'نرخ پایه تقلب، هر تعداد آزمون با حساسیت و هشدار کاذب دلخواه؛ احتمال نهایی قدم‌به‌قدم (قضیه بیز).', rare: true },
 };
-const TOOL_ICON = { invoice: 'tools', mazaneh: 'tools', buyback: 'tools', coin: 'tools', density: 'tools', ring: 'ring', karat: 'ring', alloy: 'cube', casting: 'cube', plating: 'sun', stone: 'cube', resize: 'ring', bayes: 'tools' };
+const TOOL_ICON = { melt: 'tools', invoice: 'tools', mazaneh: 'tools', buyback: 'tools', coin: 'tools', density: 'tools', ring: 'ring', karat: 'ring', alloy: 'cube', casting: 'cube', plating: 'sun', stone: 'cube', resize: 'ring', bayes: 'tools' };
 const GEM_SG = [['3.52', 'الماس ۳٫۵۲'], ['4.00', 'یاقوت / یاقوت کبود ۴٫۰۰'], ['2.72', 'زمرد ۲٫۷۲'], ['2.65', 'آمتیست / کوارتز ۲٫۶۵'], ['3.53', 'توپاز ۳٫۵۳'], ['3.60', 'اسپینل ۳٫۶۰'], ['3.35', 'تانزانیت ۳٫۳۵']];
 
 export function toolsPage(root) {

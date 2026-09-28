@@ -12,6 +12,7 @@ export async function practicePage(root) {
     <div class="grid2" style="margin-top:18px">
       <a class="tray row" href="/cards" data-link><span class="row-main"><span class="row-t">کارت‌های مرور</span><span class="row-s">${fa(p.cards.due)} کارت منتظر · ${fa(p.cards.mastered)} کارت تثبیت‌شده</span></span><span class="chev">${ICON.chev}</span></a>
       <a class="tray row" href="/drill" data-link><span class="row-main"><span class="row-t">تمرین محاسبه</span><span class="row-s">${fa(p.drills.correct)} درست از ${fa(p.drills.total)} تمرین</span></span><span class="chev">${ICON.chev}</span></a>
+      <a class="tray row" href="/ledger" data-link><span class="row-main"><span class="row-t">تمرین‌گر دفتر آب‌شده</span><span class="row-s">ثبت فیلدبه‌فیلد معامله، زمان‌دار، با آزمون و خطا</span></span><span class="chev">${ICON.chev}</span></a>
     </div>
     <h2>شبیه‌ساز مشتری</h2>
     <p class="small">هر مرحله زمان محدود دارد. گزینه‌هایی که قانون امنیت یا شفافیت را می‌شکنند امتیاز منفی می‌گیرند.</p>

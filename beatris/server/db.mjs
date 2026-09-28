@@ -132,6 +132,15 @@ CREATE TABLE IF NOT EXISTS designs (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_designs_created ON designs(created_at);
+CREATE TABLE IF NOT EXISTS coin_photos (
+  id TEXT PRIMARY KEY,
+  coin TEXT NOT NULL,
+  label TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT '',
+  sides_json TEXT NOT NULL,
+  created_by TEXT,
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,

@@ -95,8 +95,10 @@ function block(b, ctx) {
     }
     case 'model':
       return html`<div class="blk blk-model"><div class="stage" data-model="${b.view}"></div><p class="cap">${fa(b.caption ?? '')}</p></div>`;
+    case 'viz':
+      return html`<div class="blk blk-viz" data-viz="${JSON.stringify(b)}"><div class="vz-body"></div>${b.caption ? html`<p class="cap">${fa(b.caption)}</p>` : ''}</div>`;
     case 'tool': {
-      const href = b.tool === 'studio' ? '/studio' : b.tool === 'coinlab' ? `/coins${b.q ?? ''}` : b.tool === 'sop' ? `/sop/${b.ref}` : `/tools/${b.tool}`;
+      const href = b.tool === 'studio' ? '/studio' : b.tool === 'coinlab' ? `/coins${b.q ?? ''}` : b.tool === 'ledger' ? '/ledger' : b.tool === 'sop' ? `/sop/${b.ref}` : `/tools/${b.tool}`;
       return html`<div class="blk blk-tool"><a href="${href}" data-link><span>${fa(b.label)}</span>${ICON.chev}</a></div>`;
     }
     default:
@@ -209,6 +211,8 @@ export async function lessonPage(root, { id }) {
     const { mountModelBlock } = await import('./models.mjs');
     for (const st of stages) cleanups.push(mountModelBlock(st, st.dataset.model));
   }
+  // interactive diagrams
+  if ($$('[data-viz]', root).length) (await import('../viz.mjs')).mountViz(root);
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'center' });
   return () => cleanups.forEach((fn) => fn());
 }

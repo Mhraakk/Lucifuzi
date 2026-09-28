@@ -14,9 +14,12 @@ route('/scenario/:id', lazy('./pages/practice.mjs', 'scenarioPage'), { tab: 'pra
 route('/cards', lazy('./pages/practice.mjs', 'cardsPage'), { tab: 'practice' });
 route('/drill', lazy('./pages/practice.mjs', 'drillPage'), { tab: 'practice' });
 route('/tools', lazy('./pages/tools.mjs', 'toolsPage'), { tab: 'tools' });
+route('/tools/melt', lazy('./pages/melttool.mjs', 'meltToolPage'), { tab: 'tools' });
 route('/tools/:id', lazy('./pages/tools.mjs', 'toolPage'), { tab: 'tools' });
+route('/ledger', lazy('./pages/ledger.mjs', 'ledgerPage'), { tab: 'practice' });
 route('/studio', lazy('./pages/studio3d.mjs', 'studioPage'), { tab: 'studio', tone: 'full' });
 route('/coins', lazy('./pages/coinlab.mjs', 'coinLabPage'), { tab: 'tools', tone: 'full' });
+route('/coins/manage', lazy('./pages/coinphotos.mjs', 'coinPhotosPage'), { tab: 'tools', staff: true });
 route('/history', lazy('./pages/history.mjs', 'historyPage'), { tab: 'learn', tone: 'full' });
 route('/library', lazy('./pages/library.mjs', 'libraryPage'), { tab: 'me' });
 route('/sop/:id', lazy('./pages/library.mjs', 'sopPage'), { tab: 'me' });

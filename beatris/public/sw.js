@@ -3,7 +3,7 @@
 // - Fonts, the three.js bundle and icons: stale-while-revalidate (instant load, refreshed in the background).
 // - App code and pages: network-first with a cache fallback, so online users always get the latest deploy
 //   and the app still opens on a flaky connection.
-const CACHE = 'beatris-v4';
+const CACHE = 'beatris-v5';
 const PRECACHE = ['/', '/app.css', '/js/app.mjs', '/js/core.mjs', '/js/ui.mjs', '/js/calc.mjs', '/icon.svg', '/manifest.webmanifest', '/fonts/vazirmatn-var.woff2', '/fonts/markazi-arabic-600.woff2', '/fonts/reem-kufi-arabic.woff2'];
 
 self.addEventListener('install', (e) => {
@@ -20,6 +20,8 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
+  // coin photographs are large and immutable: the browser's HTTP cache handles them, not the SW cache
+  if (url.pathname.startsWith('/media/') || /^\/coins\/photos\/[^/]+\.(webp|jpg|png|json)$/.test(url.pathname)) return;
 
   if (isStatic(url.pathname)) {
     e.respondWith(

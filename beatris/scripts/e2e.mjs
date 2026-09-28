@@ -4,6 +4,7 @@
 //   npm run e2e                       # uses the globally installed playwright
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run e2e
 //   E2E_BASE=https://... E2E_PHONE=... E2E_PIN=... npm run e2e   # smoke-test a live deploy (read-only checks)
+//   E2E_ONLY='melted|mobile pages' npm run e2e                     # only the steps whose name matches (login always runs)
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -37,7 +38,9 @@ const check = (name, ok, detail = '') => {
   results.push({ name, ok: !!ok, detail });
   console.log(`${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
 };
+const only = process.env.E2E_ONLY ? new RegExp(process.env.E2E_ONLY) : null;
 const step = async (name, fn) => {
+  if (only && !/login/.test(name) && !only.test(name)) return;
   try {
     await fn();
   } catch (e) {
@@ -103,7 +106,7 @@ async function loginUI(page) {
   await step('learn', async () => {
     await go(page, '/learn');
     const n = await page.$$eval('a.row[href^="/learn/"]', (a) => a.length);
-    check('learn: 10 courses listed', n === 10, String(n));
+    check('learn: 11 courses listed', n === 11, String(n));
     await go(page, '/learn/c-rare');
     const lessons = await page.$$eval('a.course-row', (a) => a.length);
     check('course c-rare: 6 lessons', lessons === 6, String(lessons));
@@ -138,8 +141,8 @@ async function loginUI(page) {
   await step('tools', async () => {
     await go(page, '/tools');
     const ids = await page.$$eval('a.tool-card[href^="/tools/"]', (a) => a.map((x) => x.getAttribute('href').split('/').pop()));
-    check('tools: 13 calculators listed', ids.length === 13, String(ids.length));
-    for (const id of ids) {
+    check('tools: 14 calculators listed', ids.length === 14, String(ids.length));
+    for (const id of ids.filter((x) => x !== 'melt')) {
       await go(page, `/tools/${id}`, 700);
       const out = await text(page, '#out');
       check(`tool ${id}: renders a clean result`, out.length > 10 && noBadNumbers(out));
@@ -289,6 +292,73 @@ async function loginUI(page) {
     check('/coins with prototype keys → genuine full coin', /تمام امامی/.test(await text(page, '#ltitle')));
   });
 
+  await step('real coins: built-in photos, 3D viewer, 4K textures, photo specimens', async () => {
+    await go(page, '/coins?mode=real', 12000);
+    const chips = await page.$$eval('[data-photo]', (x) => x.length);
+    check('real coins: 4 built-in reference coins listed', chips >= 4, String(chips));
+    await page.waitForFunction(() => /۴۰۹۶ × ۴۰۹۶/.test(document.querySelector('#panel')?.innerText ?? ''), null, { timeout: 90000 }).catch(() => {});
+    check('real coins: 4K textures load on desktop', /۴۰۹۶ × ۴۰۹۶/.test(await text(page, '#panel')));
+    check('real coins: front = bank emblem side for the old design', /جلوی سکه/.test(await text(page, '#panel')) && /بانک ملی ایران/.test(await text(page, '#panel')));
+    for (const t of ['flip', 'loupe', 'rake', 'edge']) {
+      await page.click(`.lab-tools [data-tool="${t}"]`);
+      await page.waitForTimeout(1500);
+    }
+    check('real coins: flip shows the back', /پشت سکه/.test(await text(page, '#panel')));
+    check('real coins: licence credit and true source resolution shown', /CC BY-SA/.test(await text(page, '#panel')) && /پیکسل در قطر/.test(await text(page, '#panel')));
+    await go(page, '/coins?coin=emami&kind=plugged&seed=3', 3000);
+    await page.waitForFunction(() => /از عکس واقعی ساخته شده/.test(document.querySelector('#panel')?.innerText ?? ''), null, { timeout: 90000 }).catch(() => {});
+    check('coin lab: specimen rendered from the real photograph', /از عکس واقعی ساخته شده/.test(await text(page, '#panel')));
+    await page.click('[data-photomode="0"]');
+    await page.waitForTimeout(6000);
+    check('coin lab: stylised design on request', (await page.$eval('[data-photomode="0"]', (b) => b.getAttribute('aria-pressed'))) === 'true');
+    await page.click('[data-photomode="1"]');
+    await page.waitForTimeout(4000);
+  });
+
+  await step('coin photo pipeline + uploader: detect, build 4K, save, delete', async () => {
+    // two gold discs on a light background, drawn inside the page (CSP forbids eval, so no code strings)
+    const det = await page.evaluate(async () => {
+      const P = await import('/js/coinphoto.mjs');
+      const c = document.createElement('canvas');
+      c.width = 1400;
+      c.height = 700;
+      const g = c.getContext('2d');
+      g.fillStyle = '#f4f4f4';
+      g.fillRect(0, 0, 1400, 700);
+      for (const [x, t] of [[360, 'جلو'], [1040, 'پشت']]) {
+        const gr = g.createRadialGradient(x - 80, 270, 20, x, 350, 300);
+        gr.addColorStop(0, '#fff1b8');
+        gr.addColorStop(1, '#c8962f');
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(x, 350, 290, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#8a6418';
+        g.font = 'bold 120px sans-serif';
+        g.textAlign = 'center';
+        g.fillText(t, x, 390);
+      }
+      window.__coinsPng = c.toDataURL('image/png').split(',')[1];
+      return P.detectCoins(c).map((f) => [f.cx, f.cy, f.r]);
+    });
+    check('photo pipeline: both coins found, centre and radius within 1 %', det.length === 2 && Math.abs(det[0][0] - 360) < 4 && Math.abs(det[1][0] - 1040) < 4 && det.every((d) => Math.abs(d[1] - 350) < 4 && Math.abs(d[2] - 290) < 3), JSON.stringify(det.map((d) => d.map((v) => Math.round(v)))));
+    const png = await page.evaluate(() => window.__coinsPng);
+    await go(page, '/coins/manage', 2500);
+    const before = await page.$$eval('.photo-item', (x) => x.length);
+    await page.setInputFiles('input[name=files]', { name: 'coins.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+    await page.waitForFunction(() => /سکه پیدا شد/.test(document.querySelector('#msg')?.textContent ?? ''), null, { timeout: 30000 });
+    check('uploader: coins detected and previews drawn', /۲ سکه پیدا شد/.test(await text(page, '#msg')));
+    await page.fill('input[name=source]', 'آزمون خودکار');
+    await page.click('#save');
+    await page.waitForFunction((n) => document.querySelectorAll('.photo-item').length > n, before, { timeout: 300000 });
+    const after = await page.$$eval('.photo-item', (x) => x.length);
+    check('uploader: 4K set built in the browser and stored', after === before + 1, `${before} → ${after}`);
+    page.once('dialog', (d) => d.accept());
+    await page.click('[data-del]');
+    await page.waitForFunction((n) => document.querySelectorAll('.photo-item').length === n, before, { timeout: 15000 }).catch(() => {});
+    check('uploader: uploaded photo deleted', (await page.$$eval('.photo-item', (x) => x.length)) === before);
+  });
+
   await step('coin lab: study, tools, seal, game, course link', async () => {
     const geoCheck = await page.evaluate(async () => {
       const [C3, K] = await Promise.all([import('/js/three/coins3d.mjs'), import('/js/coins.mjs')]);
@@ -386,6 +456,121 @@ async function loginUI(page) {
     check('lesson k11 links the probability calculator', !!(await page.$('a[href="/tools/bayes"]')));
   });
 
+  await step('melted gold: course, lesson diagrams, ledger trainer, quick entry', async () => {
+    await go(page, '/learn/c-melt', 1200);
+    check('course c-melt: 6 lessons', (await page.$$eval('a.course-row', (a) => a.length)) === 6);
+    await go(page, '/lesson/h1', 1500);
+    check('lesson h1: unit ladder drawn', (await page.$$eval('.blk-viz .vz-bar', (x) => x.length)) === 4);
+    const t1 = await text(page, '.blk-viz .vz-total');
+    await page.fill('.blk-viz [name=w]', '۲۰');
+    await page.waitForTimeout(200);
+    const t2 = await text(page, '.blk-viz .vz-total');
+    const want = await page.evaluate(async () => {
+      const [M, C] = await Promise.all([import('/js/melt.mjs'), import('/js/calc.mjs')]);
+      const b = JSON.parse(document.querySelector('.blk-viz').dataset.viz);
+      return C.fmt(M.ledgerValue(20, b.ayar, b.maz));
+    });
+    check('lesson h1: ladder recomputes with the ledger rule', t1 !== t2 && t2.includes(want) && noBadNumbers(t2), `${want} in «${t2.replace(/\s+/g, ' ')}»`);
+    await go(page, '/lesson/h3', 1500);
+    for (let i = 0; i < 6; i++) await page.click('.blk-viz [data-vz=next]');
+    const tacc = await text(page, '.blk-viz .vz-t');
+    check('lesson h3: the trade lands in both ledger columns', /\+/.test(tacc) && /−/.test(tacc) && noBadNumbers(tacc), tacc.replace(/\s+/g, ' '));
+    await go(page, '/lesson/h4', 1500);
+    const setAssay = (v) =>
+      page.$eval(
+        '.blk-viz [name=measured]',
+        (r, v) => {
+          r.value = v;
+          r.dispatchEvent(new Event('input', { bubbles: true }));
+        },
+        v,
+      );
+    await setAssay('760');
+    const high = !(await page.$('.blk-viz .vz-total b.neg'));
+    await setAssay('730');
+    check('lesson h4: assay slider flips the difference sign', high && !!(await page.$('.blk-viz .vz-total b.neg')));
+    await go(page, '/lesson/h5', 1500);
+    for (let i = 0; i < 4; i++) await page.click('.blk-viz [data-vz=next]');
+    const last = await page.$$eval('.blk-viz tbody tr', (r) => r.at(-1).innerText);
+    check('lesson h5: a week with the wholesaler ends with zero gold debt', (await page.$$eval('.blk-viz tbody tr', (r) => r.length)) === 5 && /\t۰ گرم/.test(last), last.replace(/\s+/g, ' '));
+
+    // ledger trainer: exact answers typed in Persian digits, Enter walks the fields and submits
+    const faNum = (s) => s.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]).replace('.', '٫').replace('-', '−');
+    const answers = () =>
+      page.evaluate(async () => {
+        const [M, C] = await Promise.all([import('/js/melt.mjs'), import('/js/core.mjs')]);
+        const f = document.querySelector('#lf');
+        return M.makeTrade(Number(f.dataset.seed), Number(f.dataset.level), C.store.me.pricing.p750).fields.map((x) => [x.id, x.answer, x.unit]);
+      });
+    await go(page, '/ledger', 1500);
+    const drillsBefore = await page.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).progress.drills.total);
+    const ans = await answers();
+    for (const [id, a, unit] of ans) await page.fill(`input[data-f="${id}"]`, faNum(unit === 'گرم' ? a.toFixed(3) : String(Math.round(a))));
+    await page.focus('input[data-f]');
+    for (let i = 0; i < ans.length; i++) await page.keyboard.press('Enter');
+    await page.waitForTimeout(600);
+    const fb = await page.$$eval('.ledger-fb', (x) => x.map((e) => e.textContent));
+    check('ledger trainer: exact entry graded all correct', fb.length === ans.length && fb.every((t) => t.includes('✓')), `${fb.filter((t) => t.includes('✓')).length}/${ans.length}`);
+    check('ledger trainer: session score counts the row', /۱<\/b> درست از <b>۱</.test(await page.$eval('.ledger-stats', (e) => e.innerHTML)));
+    const drillsAfter = await page.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).progress.drills.total);
+    check('ledger trainer: result recorded on the server', drillsAfter === drillsBefore + 1, `${drillsBefore} → ${drillsAfter}`);
+    const seed1 = await page.$eval('#lf', (f) => f.dataset.seed);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(400);
+    check('ledger trainer: Enter deals the next row', (await page.$eval('#lf', (f) => f.dataset.seed)) !== seed1 && !(await page.$('.ledger-fb')));
+    const ans2 = await answers();
+    for (const [id] of ans2) await page.fill(`input[data-f="${id}"]`, '1');
+    await page.click('#lf button[type=submit]');
+    await page.waitForTimeout(400);
+    const bad = await page.$$eval('#lf .field.bad', (x) => x.length);
+    check('ledger trainer: wrong entry shows the right value and the method', bad === ans2.length && /✗ درست/.test(await text(page, '#lf')) && noBadNumbers(await text(page, '#lf')), `${bad} red of ${ans2.length}`);
+    await page.click('[data-level="3"]');
+    await page.waitForTimeout(400);
+    check('ledger trainer: level 3 deals a level-3 row', page.url().endsWith('/ledger?level=3') && (await page.$eval('#lf', (f) => f.dataset.level)) === '3');
+    await page.click('[data-act=hint]');
+    await page.waitForTimeout(200);
+    check('ledger trainer: hint shows the fixed pattern', (await page.$$eval('.ledger-hint > div', (x) => x.length)) >= 2);
+
+    // quick entry at the counter
+    await page.evaluate(() => localStorage.removeItem('beatris.melt.session'));
+    await go(page, '/tools/melt', 1200);
+    await page.fill('#mf [name=mid]', '40000000');
+    await page.fill('#mf [name=spread]', '150000');
+    await page.fill('#mf [name=ayar]', '74');
+    await page.fill('#mf [name=w]', '۱۰');
+    check('quick entry: two-digit fineness flagged as a typo', /اشتباه تایپی/.test(await text(page, '#live')));
+    await page.press('#mf [name=w]', 'Enter');
+    await page.waitForTimeout(300);
+    check('quick entry: typo is not booked', !(await page.$('#book tbody tr')));
+    await page.fill('#mf [name=ayar]', '740');
+    const exp = await page.evaluate(async () => {
+      const [M, C] = await Promise.all([import('/js/melt.mjs'), import('/js/calc.mjs')]);
+      const buy = M.ledgerValue(10, 740, 39850000), sell = M.ledgerValue(10, 740, 40150000);
+      return { eq: C.fmt(M.r3(M.eq750(10, 740)), 3), buy: C.fmt(buy), cash: C.fmt(sell - buy) };
+    });
+    const liveOut = await text(page, '#live');
+    check('quick entry: live line uses the ledger rule', liveOut.includes(exp.eq) && liveOut.includes(exp.buy), liveOut.replace(/\s+/g, ' '));
+    await page.press('#mf [name=w]', 'Enter');
+    await page.waitForTimeout(300);
+    check('quick entry: weight cleared and focused for the next piece', (await page.$eval('#mf [name=w]', (i) => i.value === '' && document.activeElement === i)));
+    await page.click('#mf [data-side="sell"]');
+    await page.fill('#mf [name=w]', '10');
+    await page.press('#mf [name=w]', 'Enter');
+    await page.waitForTimeout(300);
+    const rowsN = await page.$$eval('#book tbody tr', (x) => x.length);
+    const totals = await text(page, '#book .ledger');
+    check('quick entry: buy + sell booked; gold nets to zero, till keeps the spread', rowsN === 2 && /[+−]۰(\s|$)/.test(totals) && totals.includes(`+${exp.cash}`), `${rowsN} rows · ${totals.replace(/\s+/g, ' ')}`);
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.click('[data-act=csv]')]);
+    const csv = (await (await import('node:fs')).promises.readFile(await dl.path(), 'utf8')).replace(/^﻿/, '').trim().split('\n');
+    check('quick entry: CSV has the header and both booked rows', csv.length === 3 && csv[0].startsWith('row,date_jalali,time,side') && /^"1","14\d\d\/\d\d\/\d\d","\d\d:\d\d","buy"/.test(csv[1]) && csv[1].includes('"9.867"') && csv[2].includes('"sell"') && csv[2].includes('"-9.867"'), csv.join(' | '));
+    await go(page, '/tools/melt', 1000);
+    check('quick entry: session ledger survives a reload', (await page.$$eval('#book tbody tr', (x) => x.length)) === 2);
+    page.once('dialog', (d) => d.accept());
+    await page.click('[data-act=clear]');
+    await page.waitForTimeout(200);
+    check('quick entry: session ledger cleared', !(await page.$('#book tbody tr')));
+  });
+
   if (!live) {
     await step('PWA: service worker + offline shell', async () => {
       await go(page, '/', 2000);
@@ -410,7 +595,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px`);

@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from '../content/index.mjs';
-import { COIN_TYPES, RHO, RHO_750, SEAL_TYPES, binaryPosterior } from '../public/js/coins.mjs';
+import { COIN_TYPES, RHO, RHO_750, packTare, binaryPosterior } from '../public/js/coins.mjs';
+import * as MELT from '../public/js/melt.mjs';
 import { checkNumeric, invoice, g750FromMazaneh, moltenPiecePrice, buyback, coinIntrinsic, COINS, densityFromWeighing, alloyAdjust, waxToMetal, platingMass, stoneCarat, resizeMetal, wireLength } from '../public/js/calc.mjs';
 
 test('یکپارچگی محتوا', () => assert.deepEqual(C.validateContent(), []));
 test('حجم برنامه آموزشی', () => {
-  assert.equal(C.COURSES.length, 10);
+  assert.equal(C.COURSES.length, 11);
   assert.ok(C.LESSONS.size >= 30);
   assert.ok(C.QUESTIONS.size >= 90);
   assert.ok(C.SCENARIOS.length >= 8);
@@ -37,14 +38,26 @@ test('پاسخ عددی پرسش‌ها با موتور محاسبه یکی اس
   ok('k3q1', full.weight * (21.7 / 22) ** 2);
   ok('k4q1', densityFromWeighing(8.133, 7.664));
   // seals and probability — the numbers come from the same engine the coin lab uses
-  const refPack = full.weight + SEAL_TYPES.bank.tare;
-  assert.ok(Math.abs(refPack - 10.533) < 1e-9);
-  ok('k9q2', refPack - 10.29);
+  const refPack = full.weight + packTare('bank', 'emami');
+  assert.ok(Math.abs(refPack - 11.133) < 1e-9 && refPack >= 10.8 && refPack <= 11.5); // market range for a vacuum-packed full coin
+  ok('k9q2', refPack - 10.89);
   ok('k10q2', COIN_TYPES.gerami.pure - COIN_TYPES.parsian.pure);
   const p1 = binaryPosterior(0.05, 0.9, 0.05, true);
   ok('k11q1', p1 * 100);
   ok('k11q2', binaryPosterior(p1, 0.85, 0.03, true) * 100);
   ok('k11q3', binaryPosterior(0.07, 0.97, 0.005, false) * 100);
+  // melted-gold bookkeeping — same engine as the ledger trainer and the quick-entry tool
+  ok('h1q1', MELT.gram18(40e6));
+  ok('h1q2', MELT.r3(MELT.eq750(12.34, 742)));
+  ok('h2q1', MELT.ledgerValue(20, 740, 40e6));
+  ok('h2q2', 10 * 4.6083);
+  ok('h3q1', MELT.ledgerValue(15.6, 745, 39.8e6));
+  const diff = MELT.r3(MELT.eq750(50, 742) - MELT.eq750(50, 750));
+  ok('h4q1', Math.abs(diff));
+  ok('h4q2', MELT.rT(Math.abs(diff) * MELT.gram18(40e6)));
+  const settled = MELT.r3(500e6 / MELT.gram18(40e6));
+  ok('h5q1', settled);
+  ok('h5q2', MELT.r3(120 - settled));
 });
 test('نمای عمومی پاسخ‌ها را لو نمی‌دهد', () => {
   const json = JSON.stringify([C.bootstrap(), ...[...C.LESSONS.keys()].map(C.publicLesson), ...C.SCENARIOS.map(C.publicScenario)]);

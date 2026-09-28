@@ -1,7 +1,10 @@
 import { randomUUID, randomBytes } from 'node:crypto';
+import path from 'node:path';
 import * as C from '../content/index.mjs';
 import { checkNumeric, RECORD_KINDS } from '../public/js/calc.mjs';
 import { ROLES, STAFF_ROLES, ADMIN_ROLES, hashPin, verifyPin, validPin, normalizePhone, validPhone, makeLimiter } from './auth.mjs';
+import { COIN_TYPES } from '../public/js/coins.mjs';
+import { PHOTO_KINDS, PHOTO_SIDES, checkTexture, storeFiles, removeFiles, builtinPhotos } from './media.mjs';
 
 const now = () => new Date().toISOString();
 const tehranDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(d);
@@ -36,7 +39,7 @@ function grade(q, answer) {
 }
 const reveal = (q) => (q.o ? { answer: q.a, answerText: q.o[q.a] } : { answer: q.n, unit: q.unit });
 
-export function createApi({ db, signer, demo }) {
+export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media') }) {
   const loginByPhone = makeLimiter(6, 10 * 60 * 1000);
   const loginByIp = makeLimiter(30, 10 * 60 * 1000);
   const audit = (uid, action, detail = {}) => db.run('INSERT INTO audit(user_id,action,detail_json,created_at) VALUES (?,?,?,?)', uid, action, JSON.stringify(detail), now());
@@ -341,6 +344,48 @@ export function createApi({ db, signer, demo }) {
     if (d.user_id !== user.id && !ADMIN_ROLES.has(user.role)) throw new HttpError(403, 'فقط سازنده طرح یا مدیر می‌تواند آن را حذف کند.');
     db.run('DELETE FROM designs WHERE id=?', params.id);
     audit(user.id, 'design.delete', { id: params.id });
+    return { ok: true };
+  });
+
+  /* ---------------- coin reference photos ---------------- */
+  const coinDir = path.join(mediaDir, 'coins');
+  const photoRow = (r) => ({ id: r.id, coin: r.coin, label: r.label, credit: { text: r.source }, builtin: false, createdAt: r.created_at, ...JSON.parse(r.sides_json) });
+  on('GET', '/api/coin-photos', 'auth', () => ({
+    items: [...db.all('SELECT * FROM coin_photos ORDER BY created_at DESC').map(photoRow), ...builtinPhotos()],
+  }));
+  on('POST', '/api/coin-photos', 'admin', async ({ user, body }) => {
+    const coin = String(body.coin ?? '');
+    if (!Object.hasOwn(COIN_TYPES, coin)) throw bad('نوع سکه نامعتبر است.');
+    const label = String(body.label ?? '').trim();
+    if (label.length < 2 || label.length > 80) throw bad('عنوان باید ۲ تا ۸۰ نویسه باشد.');
+    const source = String(body.source ?? '').trim().slice(0, 200);
+    const id = randomBytes(6).toString('hex');
+    const files = [];
+    const sides = {};
+    for (const side of PHOTO_SIDES) {
+      const s = body.sides?.[side];
+      if (!s || typeof s !== 'object') throw bad('عکس هر دو روی سکه لازم است.');
+      sides[side] = { px: Math.max(0, Math.min(20000, Math.round(Number(s.px) || 0))) };
+      for (const kind of Object.keys(PHOTO_KINDS)) {
+        const r = checkTexture(s[kind], kind);
+        if (r.error) throw bad(r.error);
+        const name = `${id}-${side}-${kind}.${r.ext}`;
+        files.push({ name, buf: r.buf });
+        sides[side][kind] = `/media/coins/${name}`;
+      }
+    }
+    await storeFiles(coinDir, files);
+    db.run('INSERT INTO coin_photos(id,coin,label,source,sides_json,created_by,created_at) VALUES (?,?,?,?,?,?,?)', id, coin, label, source, JSON.stringify({ sides }), user.id, now());
+    audit(user.id, 'coinphoto.create', { id, coin });
+    return { id };
+  });
+  on('DELETE', '/api/coin-photos/:id', 'admin', async ({ user, params }) => {
+    const r = db.get('SELECT * FROM coin_photos WHERE id=?', params.id);
+    if (!r) throw notFound('این عکس پیدا نشد؛ عکس‌های همراه برنامه حذف‌شدنی نیستند.');
+    db.run('DELETE FROM coin_photos WHERE id=?', r.id);
+    const { sides } = JSON.parse(r.sides_json);
+    await removeFiles(coinDir, Object.values(sides).flatMap((sd) => Object.keys(PHOTO_KINDS).map((k) => path.basename(String(sd[k] ?? '')))).filter(Boolean));
+    audit(user.id, 'coinphoto.delete', { id: r.id });
     return { ok: true };
   });
 

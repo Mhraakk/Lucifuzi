@@ -1,4 +1,4 @@
-import { html, fa, api, toast, $ } from '../core.mjs';
+import { html, fa, api, toast, store, $ } from '../core.mjs';
 import { ICON } from '../ui.mjs';
 import { fmt } from '../calc.mjs';
 import {
@@ -9,6 +9,7 @@ import {
 } from '../coins.mjs';
 
 const BEST_KEY = 'beatris.coinlab.best';
+const PHOTO_KEY = 'beatris.coinlab.photo';
 const COIN_TOOLS = [
   ['scale', 'ترازوی ۰٫۰۰۱'],
   ['caliper', 'کولیس'],
@@ -22,6 +23,13 @@ const COIN_TOOLS = [
   ['rake', 'نور مورب'],
 ];
 const SEAL_TOOLS = Object.entries(SEAL_TESTS).map(([k, v]) => [k, v.label]);
+const REAL_TOOLS = [
+  ['flip', 'پشت و رو'],
+  ['loupe', 'ذره‌بین'],
+  ['rake', 'نور مورب'],
+  ['edge', 'نمای لبه'],
+  ['hq', 'بافت ۴K'],
+];
 const COMPOSITIONS = [
   ['طلای ۹۰۰ (سکه)', null],
   ['طلای ۷۵۰', RHO_750],
@@ -34,6 +42,28 @@ const f3 = (n) => fmt(n, 3);
 const f2 = (n) => fmt(n, 2);
 /** Probability as a Persian percentage; never prints a false 0 % or 100 %. */
 const pct = (p) => (p < 0.001 ? 'کمتر از ۰٫۱٪' : p > 0.999 ? 'بیش از ۹۹٫۹٪' : `${fmt(p * 100, p < 0.1 || p > 0.9 ? 1 : 0)}٪`);
+
+/** Stamp the training label and the photo credit (required by the photo's licence) onto an exported still. */
+async function creditStamp(blob, lines) {
+  const bmp = await createImageBitmap(blob);
+  const cv = document.createElement('canvas');
+  cv.width = bmp.width;
+  cv.height = bmp.height;
+  const g = cv.getContext('2d');
+  g.drawImage(bmp, 0, 0);
+  bmp.close?.();
+  const fs = Math.round(cv.height * 0.017);
+  g.font = `500 ${fs}px Vazirmatn`;
+  g.direction = 'rtl';
+  g.textAlign = 'right';
+  const w = Math.max(...lines.map((l) => g.measureText(l).width)) + fs * 1.6;
+  const h = lines.length * fs * 1.55 + fs * 0.8;
+  g.fillStyle = 'rgba(8, 7, 5, 0.55)';
+  g.fillRect(cv.width - w - fs, cv.height - h - fs, w, h);
+  g.fillStyle = 'rgba(247, 230, 176, 0.92)';
+  lines.forEach((l, i) => g.fillText(l, cv.width - fs * 1.8, cv.height - h - fs + fs * 1.45 + i * fs * 1.55));
+  return new Promise((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error('encode'))), 'image/png'));
+}
 
 /** A URL parameter is used only if it names one of the table's own keys (never "toString" and the like). */
 const pickKey = (table, key, fallback) => (key != null && Object.hasOwn(table, key) ? key : fallback);
@@ -52,8 +82,12 @@ export async function coinLabPage(root) {
   const q = new URLSearchParams(location.search);
   const mode = q.get('mode');
   const S = {
-    area: mode === 'seal' || mode === 'sealgame' ? 'seal' : 'coin',
+    area: mode === 'seal' || mode === 'sealgame' ? 'seal' : mode === 'real' ? 'real' : 'coin',
     game: mode === 'game' || mode === 'sealgame',
+    photo: q.get('item'),
+    photos: null,
+    realSide: 'obv',
+    photoMode: true, // render coins from real photographs where the app has them
     coin: pickKey(COIN_TYPES, q.get('coin'), 'emami'),
     kind: pickKey(SPECIMENS, q.get('kind'), 'genuine'),
     sealType: pickKey(SEAL_TYPES, q.get('seal'), 'bank'),
@@ -74,6 +108,7 @@ export async function coinLabPage(root) {
   if (!SEAL_TYPES[S.sealType].scenarios.includes(S.scenario)) S.scenario = 'S0';
   try {
     S.best = Number(localStorage.getItem(BEST_KEY)) || 0;
+    S.photoMode = localStorage.getItem(PHOTO_KEY) !== 'off';
   } catch {
     S.best = 0;
   }
@@ -105,14 +140,35 @@ export async function coinLabPage(root) {
   const rake = new T.DirectionalLight(0xfff1dc, 0);
   stage.scene.add(rake, rake.target);
 
+  if (q.has('debuglab')) window.__lab = { stage, coinGroup, T }; // TMPDEBUG
   const seal = () => S.area === 'seal';
-  const urlFor = () => (seal() ? (S.game ? '/coins?mode=sealgame' : '/coins?mode=seal') : S.game ? '/coins?mode=game' : '/coins');
+  const real = () => S.area === 'real';
+  const urlFor = () => (real() ? `/coins?mode=real${S.photo ? `&item=${encodeURIComponent(S.photo)}` : ''}` : seal() ? (S.game ? '/coins?mode=sealgame' : '/coins?mode=seal') : S.game ? '/coins?mode=game' : '/coins');
+  // 4K textures load by themselves on desktops; phones fetch them when the loupe or a 4K still needs them
+  const autoHQ = () => stage.renderer.capabilities.maxTextureSize >= 4096 && !matchMedia('(pointer: coarse)').matches;
+  const photoSpec = (coinId) => {
+    const c = COIN_TYPES[coinId];
+    return { coinId, kind: 'genuine', seed: 1, diameter: c.diameter, thickness: c.thickness, weight: c.weight, magnetic: false, reeds: { count: c.reeds, depth: 1, regular: true }, look: { soft: 0, pores: 0, plug: false, seam: false, beads: 72, font: 'Markazi', tint: 0 } };
+  };
+  const currentPhoto = () => S.photos?.find((p) => p.id === S.photo) ?? null;
+  // uploaded photographs come first in the list, so a branch's own photo wins over the built-in one
+  const photoFor = (coinId) => (S.photoMode && S.photos ? S.photos.find((p) => p.coin === coinId) ?? null : null);
+  const isPhoto = () => !!photoObj && coinMesh === photoObj.mesh;
 
   /* ---------------- specimen / pack ---------------- */
   let coinMesh = null;
   let sealMesh = null;
   let buildId = 0;
+  let photoObj = null;
+  const dropPhoto = () => {
+    if (!photoObj) return;
+    coinGroup.remove(photoObj.mesh);
+    photoObj.dispose();
+    if (coinMesh === photoObj.mesh) coinMesh = null;
+    photoObj = null;
+  };
   async function build({ reframe = true, quality = 1 } = {}) {
+    if (real()) return buildReal({ reframe });
     const id = ++buildId;
     if (seal()) {
       S.pack = S.game ? pickPack(S.seed) : makePack(S.sealType, S.scenario, S.seed);
@@ -124,16 +180,33 @@ export async function coinLabPage(root) {
     S.measured = {};
     S.answered = false;
     S.lastTool = null;
+    setTitle(); // the title belongs to the specimen, not to its (possibly slow) 3D model
     await document.fonts.load('700 50px Markazi', 'نمونه ۱۴۰۵');
     await document.fonts.load('700 50px Vazirmatn', 'نمونه ۱۴۰۵');
     if (id !== buildId) return;
-    const geo = C3.coinGeometry(S.specimen, { quality });
+    // the real photograph (altered per counterfeit) where the app has one; the stylised coin otherwise
+    const photo = photoFor(S.specimen.coinId);
+    let pc = null;
+    if (photo) {
+      S.loading = true;
+      updateReadout();
+      pc = await C3.photoCoin(photo, S.specimen, { quality, anisotropy: stage.renderer.capabilities.getMaxAnisotropy() }).catch(() => null);
+      S.loading = false;
+      if (id !== buildId) return pc?.dispose();
+    }
+    dropPhoto();
     if (coinMesh) {
       coinGroup.remove(coinMesh);
       coinMesh.geometry.dispose();
+      coinMesh = null;
     }
-    coinMesh = new T.Mesh(geo, C3.coinMaterial(S.specimen));
-    coinMesh.castShadow = true;
+    if (pc) {
+      photoObj = pc;
+      coinMesh = pc.mesh;
+    } else {
+      coinMesh = new T.Mesh(C3.coinGeometry(S.specimen, { quality }), C3.coinMaterial(S.specimen));
+      coinMesh.castShadow = true;
+    }
     coinGroup.add(coinMesh);
     if (sealMesh) {
       coinGroup.remove(sealMesh);
@@ -152,6 +225,76 @@ export async function coinLabPage(root) {
     stage.invalidate();
     renderPanel();
   }
+  async function buildReal({ reframe = true } = {}) {
+    const id = ++buildId;
+    S.measured = {};
+    S.lastTool = null;
+    S.answered = false;
+    S.realSide = 'obv';
+    if (!S.photos) {
+      renderPanel();
+      S.photos = await api('/api/coin-photos').then((r) => r.items, () => []);
+      if (id !== buildId) return;
+    }
+    const item = currentPhoto() ?? S.photos[0] ?? null;
+    S.photo = item?.id ?? null;
+    history.replaceState({}, '', urlFor());
+    if (coinMesh && coinMesh !== photoObj?.mesh) {
+      coinGroup.remove(coinMesh);
+      coinMesh.geometry.dispose();
+      coinMesh = null;
+    }
+    if (sealMesh) {
+      coinGroup.remove(sealMesh);
+      disposeTree(sealMesh);
+      sealMesh = null;
+    }
+    S.pack = null;
+    if (!item) {
+      dropPhoto();
+      renderPanel();
+      return;
+    }
+    S.specimen = photoSpec(item.coin);
+    S.loading = true;
+    renderPanel();
+    let pc;
+    try {
+      pc = await C3.photoCoin(item, S.specimen, { anisotropy: stage.renderer.capabilities.getMaxAnisotropy() });
+    } catch {
+      if (id === buildId) {
+        S.loading = false;
+        updateReadout();
+        toast('بارگذاری عکس‌های این سکه ممکن نشد؛ دوباره تلاش کنید.', 'error');
+      }
+      return;
+    }
+    if (id !== buildId) return pc.dispose();
+    S.loading = false;
+    dropPhoto();
+    photoObj = pc;
+    coinMesh = pc.mesh;
+    coinGroup.add(coinMesh);
+    coinGroup.rotation.set(-0.32, 0, 0);
+    coinGroup.position.set(0, 0, 0);
+    rakeOff();
+    stage.ground();
+    // place the camera at once: texture uploads may hold the main thread for a moment
+    if (reframe) stage.frame(stage.root, { pitch: 0.25, yaw: 0.35, pad: 1.35, instant: true });
+    stage.invalidate();
+    renderPanel();
+    if (autoHQ()) setTimeout(() => photoObj === pc && upgradeHQ(false), 900);
+  }
+  async function upgradeHQ(tell = true) {
+    const pc = photoObj;
+    if (!pc || pc.hi) return;
+    if (tell) toast('بافت ۴K در حال بارگذاری است…');
+    await pc.upgrade().catch(() => {});
+    if (photoObj !== pc) return;
+    stage.invalidate();
+    if (real()) renderPanel();
+  }
+
   const home = () => (seal() ? stage.frame(stage.root, { pitch: 0.15, yaw: 0.2, pad: 1.2 }) : stage.frame(stage.root, { pitch: 0.25, yaw: 0.35, pad: 1.35 }));
 
   /* ---------------- probability model for the current item ---------------- */
@@ -237,10 +380,11 @@ export async function coinLabPage(root) {
     panel.innerHTML = String(html`
       <div class="sheet-handle" data-sheet role="button" aria-label="باز و بسته کردن"></div>
       <div class="grp">
-        <div class="seg" role="group" style="width:100%"><button data-area="coin" aria-pressed="${!seal()}">سکه</button><button data-area="seal" aria-pressed="${seal()}">پلمپ و بسته</button></div>
-        <div class="seg" role="group" style="width:100%;margin-top:8px"><button data-game="0" aria-pressed="${!game}">مطالعه</button><button data-game="1" aria-pressed="${game}">${seal() ? 'آزمون: سالم یا دستکاری؟' : 'آزمون: اصل یا تقلبی؟'}</button></div>
+        <div class="seg" role="group" style="width:100%"><button data-area="coin" aria-pressed="${S.area === 'coin'}">سکه</button><button data-area="seal" aria-pressed="${seal()}">پلمپ و بسته</button><button data-area="real" aria-pressed="${real()}">سکه واقعی</button></div>
+        ${real() ? '' : html`<div class="seg" role="group" style="width:100%;margin-top:8px"><button data-game="0" aria-pressed="${!game}">مطالعه</button><button data-game="1" aria-pressed="${game}">${seal() ? 'آزمون: سالم یا دستکاری؟' : 'آزمون: اصل یا تقلبی؟'}</button></div>`}
+        ${!real() && S.photos?.length ? html`<div class="chips" style="margin-top:8px"><button class="chip" data-photomode="1" aria-pressed="${S.photoMode}">عکس واقعی</button><button class="chip" data-photomode="0" aria-pressed="${!S.photoMode}">طرح آموزشی</button><span class="small" style="align-self:center">${S.photoMode ? (isPhoto() ? 'این سکه از عکس واقعی ساخته شده' : 'برای این نوع سکه هنوز عکسی ثبت نشده') : ''}</span></div>` : ''}
       </div>
-      ${seal() ? sealChooser() : coinChooser()}
+      ${real() ? realPanel() : html`${seal() ? sealChooser() : coinChooser()}
       <div class="grp">
         <h3><span>${seal() ? 'بازرسی بسته (بدون باز کردن)' : 'ابزار بازرسی'}</span>${seal() && !game ? html`<span class="small">${SEAL_TYPES[S.sealType].label}</span>` : ''}</h3>
         <div class="lab-tools">${(seal() ? SEAL_TOOLS : COIN_TOOLS).map(([k, l]) => html`<button data-tool="${k}" class="${S.measured[k] ? 'done' : ''}">${l}</button>`)}</div>
@@ -252,13 +396,17 @@ export async function coinLabPage(root) {
         <canvas id="ringplot" width="600" height="150" style="width:100%;height:auto;margin-top:10px" ${S.measured.ring && !seal() ? '' : 'hidden'}></canvas>
       </div>
       ${!game || S.answered ? meterHtml() : ''}
-      ${game ? answerHtml() : seal() ? html`<div class="grp"><h3><span>استعلام درست</span></h3><p class="small">${SEAL_TYPES[S.sealType].inquiry}</p></div>` : html`<div class="grp"><h3><span>مشخصات مرجع</span></h3>${refTable(COIN_TYPES[S.specimen.coinId])}</div>`}
+      ${game ? answerHtml() : seal() ? html`<div class="grp"><h3><span>استعلام درست</span></h3><p class="small">${SEAL_TYPES[S.sealType].inquiry}</p></div>` : html`<div class="grp"><h3><span>مشخصات مرجع</span></h3>${refTable(COIN_TYPES[S.specimen.coinId])}</div>`}`}
     `);
-    if (S.measured.ring && !seal()) drawRingPlot();
+    if (S.measured.ring && S.area === 'coin') drawRingPlot();
     updateReadout();
   }
   function setTitle() {
     const t = $('#ltitle', root);
+    if (real()) {
+      t.textContent = currentPhoto()?.label ?? 'سکه واقعی';
+      return;
+    }
     if (seal()) {
       const p = S.pack;
       t.textContent = S.game && !S.answered ? `بسته ناشناس · ${SEAL_TYPES[p.type].label}` : `${SEAL_TYPES[p.type].label} · ${SEAL_SCENARIOS[p.scenario].short}`;
@@ -266,6 +414,36 @@ export async function coinLabPage(root) {
       const s = S.specimen;
       t.textContent = S.game && !S.answered ? 'سکه ناشناس' : `${COIN_TYPES[s.coinId].short} · ${SPECIMENS[s.kind].label}`;
     }
+  }
+
+  function realPanel() {
+    if (!S.photos) return html`<div class="grp"><p class="small">در حال بارگذاری عکس‌ها…</p></div>`;
+    const admin = store.isAdmin();
+    const add = admin ? html`<div class="actions" style="margin-top:10px"><a class="btn small ghost" href="/coins/manage" data-link>افزودن یا مدیریت عکس‌ها</a></div>` : '';
+    if (!S.photos.length) return html`<div class="grp"><p class="small">هنوز عکسی ثبت نشده است.</p>${add}</div>`;
+    const it = currentPhoto();
+    const side = it?.sides[S.realSide];
+    const c = it ? COIN_TYPES[it.coin] : null;
+    return html`<div class="grp">
+        <h3><span>سکه‌های واقعی</span><span class="small">${fa(S.photos.length)} مرجع</span></h3>
+        <div class="chips">${S.photos.map((p) => html`<button class="chip" data-photo="${p.id}" aria-pressed="${p.id === S.photo}">${p.label}</button>`)}</div>
+        ${add}
+      </div>
+      <div class="grp">
+        <h3><span>بازرسی</span></h3>
+        <div class="lab-tools">${REAL_TOOLS.map(([k, l]) => html`<button data-tool="${k}" class="${(k === 'hq' ? photoObj?.hi : S.measured[k]) ? 'done' : ''}">${l}</button>`)}</div>
+        <label class="param" style="margin-top:12px" ${S.measured.rake || S.measured.loupe ? '' : 'hidden'}><span class="lbl"><span>زاویه نور مورب</span></span><input type="range" min="0" max="360" step="1" value="${S.rakeAngle ?? 40}" data-rake aria-label="زاویه نور"></label>
+      </div>
+      ${it
+        ? html`<div class="grp">
+        <h3><span>${S.realSide === 'obv' ? 'جلوی سکه' : 'پشت سکه'}</span><span class="small">${photoObj?.hi ? 'بافت ۴۰۹۶' : 'بافت ۲۰۴۸'}</span></h3>
+        <p class="small">${side.label ?? ''}</p>
+        <div class="kv" style="margin-top:8px"><span>وضوح واقعی عکس</span><b>${fa(side.px)} پیکسل در قطر</b><span>بافت نمایش</span><b>${photoObj?.hi ? '۴۰۹۶ × ۴۰۹۶' : '۲۰۴۸ × ۲۰۴۸'}</b></div>
+        <p class="small" style="margin-top:8px">جزئیات نقش دقیقاً همان عکس است: تصویر ۴K فقط بازنمونه‌گیری دقیق است و هیچ جزئیاتی ساخته یا حدس زده نشده. برجستگی سه‌بعدی از خود عکس تخمین زده شده تا نور مورب روی آن بنشیند؛ مرجع شمارش دانه‌ها و قلم نوشته‌ها خود عکس است.</p>
+      </div>
+      <div class="grp"><h3><span>مشخصات مرجع</span></h3>${refTable(c)}</div>
+      <div class="grp"><h3><span>منبع عکس</span></h3><p class="small">${it.credit?.text || 'عکس ثبت‌شده در شعبه'}${it.credit?.url ? html` · <a href="${it.credit.url}" target="_blank" rel="noopener noreferrer">صفحه منبع</a>` : ''}</p></div>`
+        : ''}`;
   }
 
   function coinChooser() {
@@ -344,6 +522,13 @@ export async function coinLabPage(root) {
   }
   function loupeText(s) {
     const bits = [];
+    if (isPhoto()) {
+      if (s.look.soft) bits.push('جزئیات نرم و گرد');
+      if (s.look.pores) bits.push('حفره‌های ریز');
+      if (s.look.plug) bits.push('حلقه پرشده روی زمینه');
+      if (s.look.beads !== 72) bits.push('نقش مرکزی کمی کوچک‌تر و چرخیده نسبت به حاشیه (قالب کپی)');
+      return bits.length ? bits.join('، ') : 'لبه‌های نقش تیز، زمینه یکدست، نقش هم‌تراز با مرجع';
+    }
     if (s.look.soft) bits.push('جزئیات نرم و گرد');
     if (s.look.pores) bits.push('حفره‌های ریز');
     if (s.look.plug) bits.push('حلقه پرشده روی زمینه');
@@ -416,7 +601,11 @@ export async function coinLabPage(root) {
     const last = S.lastTool;
     let big = '';
     let sub = '';
-    if (seal()) {
+    if (real()) {
+      const it = currentPhoto();
+      if (S.loading) (big = '<span class="spin"></span>'), (sub = 'در حال بارگذاری عکس‌ها و ساخت مدل سه‌بعدی…');
+      else if (it && S.lastTool) (big = S.realSide === 'obv' ? 'جلو' : 'پشت'), (sub = `عکس واقعی · ${fa(it.sides[S.realSide].px)} پیکسل در قطر`);
+    } else if (seal()) {
       const p = S.pack;
       const ev = packEvidence(p);
       if (last === 'weight') (big = `${f3(p.packWeight)}<small>گرم</small>`), (sub = `بسته مرجع هم‌نوع ${f3(p.expectedWeight)} گرم`);
@@ -594,7 +783,33 @@ export async function coinLabPage(root) {
     else home();
     renderPanel();
   }
+  function useRealTool(k) {
+    if (!photoObj) return;
+    S.lastTool = k;
+    if (k === 'hq') return upgradeHQ(true);
+    if (k === 'flip') {
+      const r0 = coinGroup.rotation.y;
+      S.realSide = S.realSide === 'obv' ? 'rev' : 'obv';
+      tween(800, (x) => {
+        coinGroup.rotation.y = r0 + Math.PI * x;
+        stage.invalidate();
+      });
+      return renderPanel();
+    }
+    S.measured[k] = true;
+    if (k === 'loupe') {
+      upgradeHQ(false);
+      rakeOn(S.rakeAngle ?? 40);
+      stage.frame(coinGroup, { pitch: 0.2, yaw: 0.1, pad: 0.55 });
+    } else if (k === 'rake') rakeOn(S.rakeAngle ?? 40);
+    else if (k === 'edge') {
+      rakeOff();
+      stage.frame(coinGroup, { pitch: 0.05, yaw: Math.PI / 2, pad: 0.42 });
+    }
+    renderPanel();
+  }
   function useTool(k) {
+    if (real()) return useRealTool(k);
     if (seal()) return useSealTool(k);
     if (k !== 'rake' && k !== 'flip') S.lastTool = k;
     if (k === 'flip') {
@@ -674,6 +889,20 @@ export async function coinLabPage(root) {
       history.replaceState({}, '', urlFor());
       reset();
       await build();
+    } else if (d.photomode) {
+      S.photoMode = d.photomode === '1';
+      try {
+        localStorage.setItem(PHOTO_KEY, S.photoMode ? 'on' : 'off');
+      } catch {
+        /* storage unavailable */
+      }
+      reset();
+      await build({ reframe: false });
+    } else if (d.photo) {
+      if (d.photo === S.photo) return;
+      S.photo = d.photo;
+      reset();
+      await build();
     } else if (d.coin) {
       S.coin = d.coin;
       reset();
@@ -750,26 +979,36 @@ export async function coinLabPage(root) {
       stage.controls.autoRotate = !stage.controls.autoRotate;
       b.setAttribute('aria-pressed', String(stage.controls.autoRotate));
     } else if (b.dataset.act === 'shot') {
-      if (b.classList.contains('is-busy')) return;
+      if (b.classList.contains('is-busy') || !coinMesh) return;
       b.classList.add('is-busy');
       toast('در حال ساخت تصویر ۴K با بیشترین جزئیات…');
       const had = coinMesh;
-      const hi = new T.Mesh(C3.coinGeometry(S.specimen, { quality: 2 }), had.material);
-      hi.castShadow = true;
-      coinGroup.remove(had);
-      coinGroup.add(hi);
+      const pc = isPhoto() ? photoObj : null;
+      let hi = null;
       try {
+        if (pc) await pc.upgrade();
+        if (coinMesh !== had) return; // the user switched coins meanwhile
+        hi = new T.Mesh(pc ? pc.hiGeometry() : C3.coinGeometry(S.specimen, { quality: 2 }), had.material);
+        hi.castShadow = true;
+        coinGroup.remove(had);
+        coinGroup.add(hi);
         const r = await stage.snapshot({ width: 3840, height: 2160 });
+        const it = pc ? (real() ? currentPhoto() : photoFor(S.specimen.coinId)) : null;
+        const blob = it ? await creditStamp(r.blob, [`بئاتریس · تصویر آموزشی${real() ? ` — ${it.label}` : ''}`, it.credit?.text].filter(Boolean)) : r.blob;
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(r.blob);
+        a.href = URL.createObjectURL(blob);
         const unknown = S.game && !S.answered;
-        a.download = `beatris-${seal() ? `seal-${S.pack.type}-${unknown ? 'unknown' : S.pack.scenario}` : `coin-${S.specimen.coinId}-${unknown ? 'unknown' : S.specimen.kind}`}.png`;
+        a.download = `beatris-${real() ? `real-${S.photo}-${S.realSide}` : seal() ? `seal-${S.pack.type}-${unknown ? 'unknown' : S.pack.scenario}` : `coin-${S.specimen.coinId}-${unknown ? 'unknown' : S.specimen.kind}`}.png`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      } catch {
+        toast('ساخت تصویر ممکن نشد؛ دوباره تلاش کنید.', 'error');
       } finally {
-        coinGroup.remove(hi);
-        hi.geometry.dispose();
-        if (coinMesh === had) coinGroup.add(had);
+        if (hi) {
+          coinGroup.remove(hi);
+          hi.geometry.dispose();
+          if (coinMesh === had) coinGroup.add(had);
+        }
         b.classList.remove('is-busy');
         stage.invalidate();
       }
@@ -800,11 +1039,28 @@ export async function coinLabPage(root) {
     drag = null;
   });
 
+  // real photographs (built-in and the branch's own); the lab never waits more than a few seconds for them
+  const photosReady = api('/api/coin-photos').then(
+    (r) => (S.photos = r.items),
+    () => (S.photos = S.photos ?? []),
+  );
+  let built = false, gone = false;
+  // a slow list must not leave the lab on the stylised coin: once it arrives, the current specimen switches to its photo
+  photosReady.then(() => {
+    if (!built || gone || real()) return; // the real-coin area fetches the list itself
+    if (S.specimen && photoFor(S.specimen.coinId) && !isPhoto()) build({ reframe: false });
+    else renderPanel();
+  });
+  await Promise.race([photosReady, new Promise((r) => setTimeout(r, 4000))]);
   await build();
+  built = true;
   return () => {
+    gone = true;
     stopTick();
     tweens.clear();
     audio?.close?.();
+    buildId++;
+    dropPhoto();
     stage.dispose();
   };
 }

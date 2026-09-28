@@ -19,15 +19,20 @@ export const coinAlloyDensity = (fineness) => mixDensity([[fineness / 1000, RHO.
 /** 18 k jewellery gold (Au 75, Ag 12.5, Cu 12.5). */
 export const RHO_750 = mixDensity([[0.75, RHO.au], [0.125, RHO.ag], [0.125, RHO.cu]]);
 
+// The coins of Iran's market, in the order of the market's own reference tables. Market classification:
+// old design (Bahar Azadi) = dated 1386 or earlier; new design (Emami) = 1386 onwards (the Emami design itself
+// first appeared in 1370); the bank gram coin from 1390; a 1403-dated quarter is in circulation. Coins dated
+// 1403/1404 are physically identical to 1386 ones (same weight and fineness) but trade at a discount.
+// "front" (جلو) / "back" (پشت) follow the market tables: old design front = bank emblem, back = shrine.
 export const COIN_TYPES = {
-  // Old design (Bahar Azadi) was struck 1358–1370; the Emami design from 1370 onwards.
-  emami: { label: 'تمام امامی (طرح جدید)', short: 'تمام امامی', weight: 8.133, fineness: 900, diameter: 22, obv: 'cameo', rev: 'shrine', legal: true },
-  bahar: { label: 'تمام بهار آزادی (طرح قدیم)', short: 'تمام طرح قدیم', weight: 8.133, fineness: 900, diameter: 22, obv: 'words', rev: 'shrine', legal: true },
-  half: { label: 'نیم سکه', short: 'نیم', weight: 4.0665, fineness: 900, diameter: 19, obv: 'cameo', rev: 'shrine', legal: true },
-  quarter: { label: 'ربع سکه', short: 'ربع', weight: 2.03325, fineness: 900, diameter: 16, obv: 'cameo', rev: 'shrine', legal: true },
-  quarterOld: { label: 'ربع سکه طرح قدیم', short: 'ربع قدیم', weight: 2.03325, fineness: 900, diameter: 16, obv: 'words', rev: 'shrine', legal: true },
-  gerami: { label: 'سکه گرمی', short: 'گرمی', weight: 1.01, fineness: 900, diameter: 13.3, obv: 'words', rev: 'rosette', legal: true },
-  parsian: { label: 'سکه پارسیان یک گرمی (غیررسمی، ۱۸ عیار)', short: 'پارسیان', weight: 1.0, fineness: 750, diameter: 14, obv: 'parsian', rev: 'rosette', legal: false },
+  bahar: { label: 'تمام بهار آزادی (طرح قدیم)', short: 'تمام قدیم', years: '۱۳۸۶ و ماقبل', weight: 8.133, fineness: 900, diameter: 22, obv: 'words', rev: 'shrine', legal: true },
+  emami: { label: 'تمام امامی (طرح جدید)', short: 'تمام امامی', years: '۱۳۸۶ به بعد', weight: 8.133, fineness: 900, diameter: 22, obv: 'cameo', rev: 'shrine', legal: true },
+  halfOld: { label: 'نیم سکه بهار آزادی (طرح قدیم)', short: 'نیم قدیم', years: '۱۳۸۶ و ماقبل', weight: 4.0665, fineness: 900, diameter: 19, obv: 'words', rev: 'shrine', legal: true },
+  half: { label: 'نیم سکه امامی (طرح جدید)', short: 'نیم امامی', years: '۱۳۸۶ به بعد', weight: 4.0665, fineness: 900, diameter: 19, obv: 'cameo', rev: 'shrine', legal: true },
+  quarterOld: { label: 'ربع سکه بهار آزادی (طرح قدیم)', short: 'ربع قدیم', years: '۱۳۸۶ و ماقبل', weight: 2.03325, fineness: 900, diameter: 16, obv: 'words', rev: 'shrine', legal: true },
+  quarter: { label: 'ربع سکه امامی (طرح جدید، از جمله ۱۴۰۳)', short: 'ربع امامی', years: '۱۳۸۶ به بعد · ۱۴۰۳', weight: 2.03325, fineness: 900, diameter: 16, obv: 'cameo', rev: 'shrine', legal: true },
+  gerami: { label: 'سکه گرمی (بانکی)', short: 'گرمی', years: '۱۳۹۰ به بعد', weight: 1.01, fineness: 900, diameter: 13.3, obv: 'words', rev: 'rosette', legal: true },
+  parsian: { label: 'سکه پارسیان یک گرمی (غیررسمی، ۱۸ عیار)', short: 'پارسیان', years: '—', weight: 1.0, fineness: 750, diameter: 14, obv: 'parsian', rev: 'rosette', legal: false },
 };
 for (const c of Object.values(COIN_TYPES)) {
   c.density = c.fineness === 750 ? RHO_750 : coinAlloyDensity(c.fineness);
@@ -193,7 +198,7 @@ export function assessCoin(s) {
   if (!s.reeds.regular || s.reeds.depth < 0.8 || s.reeds.count !== c.reeds) flags.push({ key: 'reeds', text: s.reeds.count !== c.reeds ? `شمار دندانه لبه ${s.reeds.count} به جای ${c.reeds}` : 'دندانه‌های لبه کم‌عمق یا نامنظم' });
   if (s.look.soft || s.look.pores || s.look.seam) flags.push({ key: 'detail', text: 'جزئیات نرم، حفره ریز یا خط درز قالب' });
   if (s.look.plug) flags.push({ key: 'plug', text: 'اثر حلقه پرشده روی زمینه نقش' });
-  if (s.look.beads !== 72 || s.look.font !== 'Markazi') flags.push({ key: 'die', text: 'شمار دانه‌های حاشیه یا قلم نوشته با مرجع نمی‌خواند' });
+  if (s.look.beads !== 72 || s.look.font !== 'Markazi') flags.push({ key: 'die', text: 'جزئیات قالب (دانه‌های حاشیه، قلم نوشته یا نسبت نقش) با مرجع نمی‌خواند' });
   return flags;
 }
 
@@ -358,7 +363,7 @@ export const SEAL_TYPES = {
   bank: {
     label: 'پلمپ بانکی',
     header: '#1b2a4a',
-    tare: 2.4,
+    tare: 3.0, // a full coin in a bank vacuum weighs about 10.8–11.5 g in the market
     coins: ['emami', 'half', 'quarter', 'gerami'],
     inquiry: 'سریال و کد را خودتان در درگاه رسمی بانک مرکزی وارد کنید؛ نه از QR یا شماره روی بسته.',
     serial: { sens: 0.97, fp: 0.005 },
@@ -367,8 +372,8 @@ export const SEAL_TYPES = {
   exchange: {
     label: 'پلمپ صرافی',
     header: '#1f4a3a',
-    tare: 2.1,
-    coins: ['emami', 'bahar', 'half', 'quarter', 'quarterOld', 'gerami'],
+    tare: 2.7,
+    coins: ['emami', 'bahar', 'half', 'halfOld', 'quarter', 'quarterOld', 'gerami'],
     inquiry: 'با شماره رسمی صرافی که خودتان از منبع مستقل پیدا کرده‌اید تماس بگیرید و سریال را بپرسید.',
     serial: { sens: 0.85, fp: 0.02 },
     scenarios: ['S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6'],
@@ -376,7 +381,7 @@ export const SEAL_TYPES = {
   maker: {
     label: 'بسته تولیدکننده (پارسیان)',
     header: '#5a1f2a',
-    tare: 1.6,
+    tare: 1.9,
     coins: ['parsian'],
     inquiry: 'کد بسته را فقط از مسیر رسمی استعلام تولیدکننده/سازمان استاندارد بررسی کنید.',
     serial: { sens: 0.9, fp: 0.01 },
@@ -438,8 +443,11 @@ export const sealAccuracy = (test, type) => (test === 'serial' ? { ...SEAL_TESTS
 export const sealLikelihood = (type) => (h, t) => pFlag(SEAL_ANOMALY[h][t], sealAccuracy(t, type));
 
 // same-weight swaps (price differs, weight does not) and lighter swaps
-const SWAP_SAME = { emami: 'bahar', bahar: 'emami', quarter: 'quarterOld', quarterOld: 'quarter', gerami: 'parsian', parsian: 'gerami' };
-const SWAP_LIGHT = { emami: 'half', bahar: 'half', half: 'quarter', quarter: 'gerami', quarterOld: 'gerami' };
+/** Weight of the empty pack for a given coin: smaller coins get smaller packs (teaching values; weigh your own). */
+export const packTare = (type, coinId) => Math.round(SEAL_TYPES[type].tare * (0.7 + (0.3 * COIN_TYPES[coinId].diameter) / 22) * 1000) / 1000;
+
+const SWAP_SAME = { emami: 'bahar', bahar: 'emami', half: 'halfOld', halfOld: 'half', quarter: 'quarterOld', quarterOld: 'quarter', gerami: 'parsian', parsian: 'gerami' };
+const SWAP_LIGHT = { emami: 'half', bahar: 'halfOld', half: 'quarter', halfOld: 'quarterOld', quarter: 'gerami', quarterOld: 'gerami' };
 export const PACK_TOL = 0.035; // g — a sealed pack weighed against a reference pack of the same type
 
 /**
@@ -480,8 +488,9 @@ export function makePack(type, scenario, seed = 1) {
   }
   const coin = makeSpecimen(coinId, kind, seed);
   coin.magnetic = magnetic;
-  const expected = COIN_TYPES[card].weight + T.tare;
-  const packWeight = Math.round((coin.weight + T.tare + (r() * 2 - 1) * 0.002) * 1000) / 1000;
+  const tare = packTare(type, card); // the pack was made for the coin its card names
+  const expected = COIN_TYPES[card].weight + tare;
+  const packWeight = Math.round((coin.weight + tare + (r() * 2 - 1) * 0.002) * 1000) / 1000;
   const digits = String(100000 + Math.floor(r() * 899999));
   return {
     type,
