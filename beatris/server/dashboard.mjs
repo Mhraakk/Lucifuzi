@@ -4,7 +4,7 @@
 // Money is integer rial, gold is grams of 750; the client converts to the operator's display unit.
 import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
-import { COIN_TYPES } from '../public/js/coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../public/js/coins.mjs';
 import { jalaliOf } from '../public/js/ta.mjs';
 
 const SYS = { id: null, role: 'owner', name: 'داشبورد' };
@@ -24,9 +24,9 @@ export function makeDashboard({ db, call, tehranDay, livePrices, market, audit }
   // eq-750 grams of every sealed bar ever booked (its latest recorded weight and fineness)
   function barGrams() {
     const m = new Map();
-    for (const r of db.all("SELECT type, data_json FROM bk_docs WHERE status='final' AND ((type='trade' AND data_json LIKE '%\"kind\":\"bar\"%') OR (type='opening' AND data_json LIKE '%\"acct\":\"bar:%')) ORDER BY date, created_at")) {
+    for (const r of db.all("SELECT type, data_json FROM bk_docs WHERE status='final' AND ((type='trade' AND data_json LIKE '%\"kind\":\"bar\"%') OR (type IN ('opening','adjust') AND data_json LIKE '%\"acct\":\"bar:%')) ORDER BY date, created_at")) {
       const d = JSON.parse(r.data_json);
-      if (r.type === 'opening') for (const b of d.balances ?? []) if (b.acct.startsWith('bar:') && b.weight) m.set(b.acct.slice(4), B.r3((B.num(b.weight) * B.num(b.fineness ?? 995)) / 750));
+      if (r.type !== 'trade') for (const b of d.balances ?? []) if (b.acct.startsWith('bar:') && b.weight) m.set(b.acct.slice(4), B.r3((B.num(b.weight) * B.num(b.fineness ?? 995)) / 750));
       for (const l of d.lines ?? []) if (l.kind === 'bar' && l.serial) m.set(l.serial, B.r3((B.num(l.weight) * B.num(l.fineness ?? 750)) / 750));
     }
     return m;

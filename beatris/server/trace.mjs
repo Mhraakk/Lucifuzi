@@ -4,7 +4,7 @@
 // event of the hash-chained log, the payments, the bank reconciliation, and the exact postings it made to each account.
 import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
-import { COIN_TYPES } from '../public/js/coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../public/js/coins.mjs';
 
 export const ACTION_FA = {
   'doc.create': 'ثبت سند', 'doc.update': 'ویرایش / نسخه جدید', 'doc.void': 'ابطال', 'doc.tax': 'مالیات / مودیان', 'doc.print': 'چاپ',

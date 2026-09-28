@@ -2,7 +2,7 @@
 // authenticity page. The counter editor is in bookdoc.mjs; customers, stock, cash, reports and settings in bookmgmt.mjs.
 import { html, raw, fa, api, store, toast, navigate, actions, $, $$, busy } from '../core.mjs';
 import * as B from '../books.mjs';
-import { COIN_TYPES } from '../coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { invoicePaper, THEMES } from '../invoice.mjs';
 import { T, TU, G, jd, jdLong, jdInput, parseDay, today, addDays, timeFa, modal, confirmBox, statusChip, exportButtons, wireExport, download, balText, balClass, EX, unitName, moneyWords, K, booksPrefs, prefs } from '../bk.mjs';
 
@@ -21,6 +21,7 @@ export function booksNav(cur) {
     ['docs', '/books/docs', 'اسناد'],
     ['parties', '/books/parties', 'مشتریان'],
     ['vault', '/books/vault', 'گاوصندوق'],
+    ['products', '/books/products', 'محصولات و موجودی'],
     ['bars', '/books/bars', 'شمش‌ها'],
     ...(base ? [] : [['stock', '/books/stock', 'انبار و ویترین']]),
     ['cash', '/books/cash', 'صندوق، بانک، چک'],

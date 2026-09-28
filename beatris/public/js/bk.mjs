@@ -2,7 +2,7 @@
 import { html, raw, esc, fa, $ } from './core.mjs';
 import { fmtMoney, fmtG, faNum, words } from './books.mjs';
 import { jalaliOf, isoDay, JALALI_MONTHS } from './ta.mjs';
-import { COIN_TYPES } from './coins.mjs';
+import { TRADE_COINS as COIN_TYPES, setCoinCatalogue } from './coins.mjs';
 import { FX_CODES } from './trade.mjs';
 import { api } from './core.mjs';
 
@@ -13,11 +13,15 @@ export async function booksPrefs(force = false) {
   try {
     const s = await api('/api/books/settings');
     Object.assign(prefs, { money: s.money === 'toman' ? 'toman' : 'rial', edition: s.edition === 'base' ? 'base' : 'full', settings: s, loaded: true });
+    // the shop's own products (custom coins, order, names) for every screen that lists or names a coin
+    setCoinCatalogue(() => prefs.settings?.products ?? null);
   } catch {
     /* keep defaults */
   }
   return prefs;
 }
+/** Currencies offered in pickers: the shop may hide the ones it never trades. */
+export const shownFx = () => Object.entries(FX_CODES).filter(([c]) => !(prefs.settings?.products?.fxHidden ?? []).includes(c));
 /** Money as the shop reads it (rial by default); T without the unit word, TU with it. */
 export const T = (rial) => fmtMoney(rial, prefs.money, { unit: false });
 export const TU = (rial) => fmtMoney(rial, prefs.money);

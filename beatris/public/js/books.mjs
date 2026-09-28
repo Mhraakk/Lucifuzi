@@ -13,7 +13,7 @@
 //  · a line discount reduces the taxable part (profit first, then making charge), never the gold value;
 //  · buying used gold from a customer is a purchase, not a sale: no VAT, and it is not sent as a sale invoice.
 import { MAZANEH_FINENESS, MESGHAL_G } from './calc.mjs';
-import { COIN_TYPES } from './coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from './coins.mjs';
 import { calcTrade, tradePostings, TRADE_DOCS } from './trade.mjs';
 
 /* ---------------- numbers ---------------- */
@@ -237,6 +237,7 @@ export const DOC_TYPES = {
   expense: { label: 'سند هزینه', short: 'هزینه', sign: 1, prefix: 'E' },
   transfer: { label: 'انتقال بین صندوق و بانک', short: 'انتقال', sign: 0, prefix: 'T' },
   opening: { label: 'سند افتتاحیه (مانده اول دوره)', short: 'افتتاحیه', sign: 0, prefix: 'O' },
+  adjust: { label: 'سند اصلاح موجودی (کسری و اضافه شمارش)', short: 'اصلاح موجودی', sign: 0, prefix: 'A' },
   trade: { label: 'سند معامله (سکه، آبشده، شمش، ارز)', short: 'معامله', sign: 0, prefix: 'M', base: true },
   hawala: { label: 'حواله بین طرف حساب‌ها', short: 'حواله', sign: 0, prefix: 'H', base: true },
   convert: { label: 'تبدیل مانده جنسی به ریال', short: 'تبدیل', sign: 0, prefix: 'C', base: true },
@@ -581,7 +582,7 @@ export function postings(doc, calc) {
     add(party, 'G750', calc.creditG);
   }
   // opening balances: { balances: [{ acct, unit, amt }] } are posted as given (amt in rial / grams / count)
-  if (doc.type === 'opening') for (const b of doc.balances ?? []) add(b.acct, b.unit, b.amt);
+  if (doc.type === 'opening' || doc.type === 'adjust') for (const b of doc.balances ?? []) add(b.acct, b.unit, b.amt);
   // merge duplicates so a statement shows one line per account and unit
   const m = new Map();
   for (const p of out) m.set(`${p.acct}|${p.unit}`, (m.get(`${p.acct}|${p.unit}`) ?? 0) + p.amt);

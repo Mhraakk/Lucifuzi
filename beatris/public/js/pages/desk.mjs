@@ -6,8 +6,8 @@
 import { html, raw, fa, api, store, toast, navigate, $, $$, busy } from '../core.mjs';
 import * as B from '../books.mjs';
 import * as TR from '../trade.mjs';
-import { COIN_TYPES } from '../coins.mjs';
-import { booksPrefs, prefs, R, G, jd, jdInput, parseDay, today, modal, balChips, unitLabel, unitVal, unitAmt, balUnits, timeFa, describeLine, lineVerb, balSentence } from '../bk.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
+import { booksPrefs, prefs, R, G, jd, jdInput, parseDay, today, modal, balChips, unitLabel, unitVal, unitAmt, balUnits, timeFa, describeLine, lineVerb, balSentence, shownFx } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 import { crown } from '../invoice.mjs';
 import { track } from '../harness.mjs';
@@ -205,7 +205,7 @@ export async function deskPage(root) {
         ${P ? html`${seg('basis', f.basis, [['mazaneh', 'مظنه'], ['gram750', 'قیمت گرم ۷۵۰'], ['amount', 'مبلغ توافقی']])}<div class="dk-grid">${f.basis === 'mazaneh' ? inp('mazaneh', f.mazaneh, 'مظنه (ریال هر مثقال ۷۰۵)', { w: 'big' }) : f.basis === 'gram750' ? inp('g750', f.g750, 'قیمت هر گرم ۷۵۰ (ریال)', { w: 'big' }) : inp('amount', f.amount, 'مبلغ کل توافقی (ریال)', { w: 'big' })}</div>` : ''}
         ${dir() === 'in' ? html`<label class="segopt dk-check"><input type="checkbox" data-f="conditional" ${f.conditional ? 'checked' : ''}><span>آبشده شرطی — عیار نهایی بعد از آزمایشگاه ثبت می‌شود</span></label>` : ''}`;
     else if (S.kind === 'coin')
-      body = html`<div class="dk-coins">${Object.entries(COIN_TYPES).map(([id, c]) => html`<button type="button" data-coin="${id}" aria-pressed="${f.coin === id}"><b>${c.short}</b><small>${fa(c.weight)} گرم · ${fa(c.fineness)}</small></button>`)}</div>
+      body = html`<div class="dk-coins">${shownCoins().map(([id, c]) => html`<button type="button" data-coin="${id}" aria-pressed="${f.coin === id}"><b>${c.short}</b><small>${fa(c.weight)} گرم · ${fa(c.fineness)}</small></button>`)}</div>
         <div class="dk-grid"><div class="field dk-f big"><span>تعداد</span><div class="dk-step"><button type="button" data-step="-1" aria-label="کم">−</button><input class="input ltr" data-f="count" value="${f.count}" inputmode="numeric"><button type="button" data-step="1" aria-label="زیاد">+</button></div></div>
         ${P ? (f.basis === 'count' ? inp('price', f.price, 'قیمت هر سکه (ریال)', { w: 'big' }) : f.basis === 'weight' ? html`${inp('weight', f.weight, 'وزن کل (گرم)')}${inp('gramPrice', f.gramPrice, 'قیمت هر گرم (ریال)')}` : inp('amount', f.amount, 'مبلغ کل (ریال)', { w: 'big' })) : ''}</div>
         ${P ? seg('basis', f.basis, [['count', 'تعدادی'], ['weight', 'وزنی'], ['amount', 'مبلغی']]) : ''}`;
@@ -215,7 +215,7 @@ export async function deskPage(root) {
         <div class="dk-grid">${inp('weight', f.weight, 'وزن خالص (گرم)')}${inp('fineness', f.fineness, 'عیار')}${inp('sealDate', f.sealDate, 'تاریخ پلمپ', { ph: '۱۴۰۳/۰۶/۲۱' })}</div>
         ${P ? html`${seg('basis', f.basis, [['mazaneh', 'مظنه'], ['amount', 'مبلغ توافقی']])}<div class="dk-grid">${f.basis === 'mazaneh' ? inp('mazaneh', f.mazaneh, 'مظنه (ریال)') : inp('amount', f.amount, 'مبلغ کل (ریال)')}${inp('fee', f.fee, 'اجرت پلمپ (ریال، اختیاری)')}</div>` : ''}`;
     else
-      body = html`<div class="dk-grid"><label class="field dk-f"><span>ارز</span><select class="input" data-f="code">${Object.entries(TR.FX_CODES).map(([c, n]) => html`<option value="${c}" ${f.code === c ? 'selected' : ''}>${n} (${c})</option>`)}</select></label>${inp('fxAmount', f.fxAmount, 'مقدار', { w: 'big' })}${P ? inp('rate', f.rate, 'نرخ هر واحد (ریال)', { w: 'big' }) : ''}</div>`;
+      body = html`<div class="dk-grid"><label class="field dk-f"><span>ارز</span><select class="input" data-f="code">${shownFx().map(([c, n]) => html`<option value="${c}" ${f.code === c ? 'selected' : ''}>${n} (${c})</option>`)}</select></label>${inp('fxAmount', f.fxAmount, 'مقدار', { w: 'big' })}${P ? inp('rate', f.rate, 'نرخ هر واحد (ریال)', { w: 'big' }) : ''}</div>`;
     $('#form', root).innerHTML = String(body);
     $$('[data-kind]', root).forEach((b) => b.setAttribute('aria-selected', String(b.dataset.kind === S.kind)));
     $$('[data-mode]', root).forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === S.mode)));
@@ -456,7 +456,7 @@ export async function deskPage(root) {
     const list = (await api('/api/books/parties')).items;
     return html`<select class="input" name="${name}" required><option value="">— انتخاب —</option>${list.map((p) => html`<option value="${p.id}">${p.label} · کد ${fa(p.code)}</option>`)}</select>`;
   }
-  const unitOptions = () => html`<option value="IRR">ریال</option><option value="G750">گرم طلای ۷۵۰</option>${Object.entries(COIN_TYPES).map(([id, c]) => html`<option value="COIN:${id}">سکه ${c.short}</option>`)}${Object.entries(TR.FX_CODES).map(([c, n]) => html`<option value="FX:${c}">${n}</option>`)}`;
+  const unitOptions = () => html`<option value="IRR">ریال</option><option value="G750">گرم طلای ۷۵۰</option>${shownCoins().map(([id, c]) => html`<option value="COIN:${id}">سکه ${c.short}</option>`)}${shownFx().map(([c, n]) => html`<option value="FX:${c}">${n}</option>`)}`;
   async function hawala() {
     modal(
       String(html`<h3 class="bk-h">حواله بین دو طرف حساب</h3><p class="small">مثال: مهران می‌گوید ۱۰ گرم طلای من را به حساب بنکدار نور بزن. «از» بدهکار می‌شود، «به» بستانکار.</p>

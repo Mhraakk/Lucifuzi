@@ -2,7 +2,7 @@
 // vault (melted gold, coins, sealed bars, currency) with what it cost, and every customer's balance, entered once and
 // booked as ONE opening document through the same handlers the rest of the app uses. Every chart and report then reads
 // the shop's own numbers; nothing is invented and nothing is booked twice.
-import { COIN_TYPES } from '../public/js/coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../public/js/coins.mjs';
 import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
 
@@ -31,7 +31,7 @@ export function makeSetup({ db, call, settings, getSetting, saveSetting, livePri
       money: s.money,
       today: tehranDay(),
       prices: { G750: lp.price.G750, mazaneh: lp.mazaneh, coins: Object.fromEntries(Object.keys(COIN_TYPES).map((k) => [k, lp.price[`COIN:${k}`] ?? null])), fx: Object.fromEntries(Object.keys(TR.FX_CODES).map((c) => [c, lp.price[`FX:${c}`] ?? null])), sample: !!lp.sample },
-      coinTypes: Object.entries(COIN_TYPES).map(([id, c]) => ({ id, label: c.short })),
+      coinTypes: shownCoins().map(([id, c]) => ({ id, label: c.short })),
       fxCodes: Object.entries(TR.FX_CODES).map(([id, label]) => ({ id, label })),
     };
   }

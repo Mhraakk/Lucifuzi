@@ -4,7 +4,7 @@
 import { html, raw, fa, api, store, toast, navigate, actions, $, $$, busy } from '../core.mjs';
 import * as B from '../books.mjs';
 import * as TR from '../trade.mjs';
-import { COIN_TYPES } from '../coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { booksPrefs, R, G, jd, jdLong, jdInput, parseDay, today, addDays, timeFa, modal, confirmBox, balChips, unitLabel, unitAmt, describeLine, lineVerb, exportButtons, wireExport, statusChip } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 
@@ -168,7 +168,7 @@ export async function vaultPage(root) {
     count: () => {
       const items = [['gold', 'طلای آبشده (گرم ۷۵۰)', v.gold], ...Object.keys(COIN_TYPES).map((k) => [`coin:${k}`, COIN_TYPES[k].short, v.coins[k] ?? 0])];
       modal(
-        String(html`<h3 class="bk-h">شمارش فیزیکی گاوصندوق</h3><p class="small">مقدار شمرده‌شده را وارد کنید؛ اختلاف با دفتر همین‌جا نشان داده می‌شود.${admin ? ' مدیر می‌تواند اختلاف را با یک سند «مانده افتتاحیه / اصلاح شمارش» ثبت کند.' : ''}</p>
+        String(html`<h3 class="bk-h">شمارش فیزیکی گاوصندوق</h3><p class="small">مقدار شمرده‌شده را وارد کنید؛ اختلاف با دفتر همین‌جا نشان داده می‌شود.${admin ? ' مدیر می‌تواند اختلاف را با «سند اصلاح موجودی» ثبت کند.' : ''}</p>
           <table class="table-plain vt-count">${items.map(([k, l, b]) => html`<tr data-k="${k}" data-b="${b}"><td>${l}</td><td class="num">دفتر: ${k === 'gold' ? G(b) : fa(b)}</td><td><input class="input ltr sm" inputmode="decimal" placeholder="شمارش"></td><td class="num vt-diff"></td></tr>`)}</table>
           <p class="err" id="vterr"></p><div class="actions">${admin ? html`<button class="btn" data-adj>ثبت اصلاحیه اختلاف</button>` : ''}<button class="btn ghost" data-close>بستن</button></div>`),
         (m, close) => {
@@ -198,11 +198,11 @@ export async function vaultPage(root) {
             const btn = ev.currentTarget;
             const bal = diffs();
             if (!bal.length) return ($('#vterr', m).textContent = 'اختلافی برای ثبت نیست.');
-            const ok = await confirmBox('ثبت اصلاحیه شمارش', `${fa(bal.length)} قلم اختلاف به‌صورت سند اصلاحی ثبت می‌شود و در تاریخچه می‌ماند.`);
-            if (!ok) return;
+            const reason = await confirmBox('ثبت اصلاحیه شمارش', `${fa(bal.length)} قلم اختلاف با «سند اصلاح موجودی» ثبت می‌شود و در تاریخچه می‌ماند. کسری به میانگین بها زیان همان روز است.`, { reason: true });
+            if (!reason) return;
             busy(btn, true);
             try {
-              await api('/api/books/docs', { method: 'POST', body: { type: 'opening', money: 'rial', balances: bal, note: `اصلاح شمارش فیزیکی گاوصندوق ${jd(today())}` } });
+              await api('/api/books/docs', { method: 'POST', body: { type: 'adjust', money: 'rial', balances: bal, note: `شمارش فیزیکی گاوصندوق ${jd(today())}: ${reason}` } });
               toast('اصلاحیه ثبت شد.', 'ok');
               close();
               navigate('/books/vault', { replace: true });

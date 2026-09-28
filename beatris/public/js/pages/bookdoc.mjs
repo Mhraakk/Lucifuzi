@@ -3,7 +3,7 @@
 import { html, raw, fa, api, store, toast, navigate, $, $$, busy } from '../core.mjs';
 import * as B from '../books.mjs';
 import { MAZANEH_TO_G750 } from '../calc.mjs';
-import { COIN_TYPES } from '../coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { T, TU, G, jd, jdInput, parseDay, today, modal, balText, balClass, EX, unitName, moneyWords, K, booksPrefs, prefs } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 
@@ -179,7 +179,7 @@ export async function docEditorPage(root, params) {
         <label class="field xs">نوع اجرت<select class="input" data-l="${i}" data-k="ojratMode" ${ro ? 'disabled' : ''}>${[['pct', 'درصد'], ['gram', `${unitName()} هر گرم`], ['fixed', `مبلغ ثابت (${unitName()})`]].map(([v, t2]) => html`<option value="${v}" ${l.ojratMode === v ? 'selected' : ''}>${t2}</option>`)}</select></label>
         ${lab('اجرت', inp(i, 'ojrat', l.ojrat, { ro }))}${lab('سود فروشنده ٪', inp(i, 'profitPct', l.profitPct, { ro }))}${lab(`سنگ (${unitName()})`, inp(i, 'stones', l.stones, { ro: !!l.itemId }))}${lab(`حق‌العمل (${unitName()})`, inp(i, 'bros', l.bros))}${lab(`تخفیف (${unitName()})`, inp(i, 'discount', l.discount, { ro: !admin && !settings.staffCanDiscount }))}`;
     else if (l.kind === 'coin')
-      f = html`<label class="field xs">سکه<select class="input" data-l="${i}" data-k="coin">${Object.entries(COIN_TYPES).map(([id, c]) => html`<option value="${id}" ${l.coin === id ? 'selected' : ''}>${c.label}</option>`)}</select></label>${lab('تعداد', inp(i, 'count', l.count))}${lab(`قیمت هر سکه (${unitName()})`, inp(i, 'price', l.price))}`;
+      f = html`<label class="field xs">سکه<select class="input" data-l="${i}" data-k="coin">${shownCoins().map(([id, c]) => html`<option value="${id}" ${l.coin === id ? 'selected' : ''}>${c.label}</option>`)}</select></label>${lab('تعداد', inp(i, 'count', l.count))}${lab(`قیمت هر سکه (${unitName()})`, inp(i, 'price', l.price))}`;
     else if (l.kind === 'melt') f = html`${lab('وزن (گرم)', inp(i, 'weight', l.weight))}${lab('عیار ری‌گیری', inp(i, 'fineness', l.fineness))}${lab(`مظنه (${unitName()})`, inp(i, 'mazaneh', l.mazaneh))}`;
     else if (l.kind === 'used') f = html`${lab('وزن کل (گرم)', inp(i, 'weight', l.weight))}${lab('وزن سنگ و ناخالصی', inp(i, 'stoneWeight', l.stoneWeight))}${lab('عیار ری‌گیری', inp(i, 'fineness', l.fineness))}${lab('قیمت خرید گرم ۱۸', inp(i, 'p750', l.p750))}${lab('کسر / افت ٪', inp(i, 'deductPct', l.deductPct))}`;
     else if (l.kind === 'service') f = html`${lab(`مبلغ خدمت (${unitName()}، بدون مالیات)`, inp(i, 'amount', l.amount))}`;
@@ -254,7 +254,7 @@ export async function docEditorPage(root, params) {
     const m = B.payMethod(p.method);
     let f = '';
     if (m.id === 'gold') f = html`${pin(i, 'weight', p.weight, 'وزن')}${pin(i, 'fineness', p.fineness, 'عیار')}${pin(i, 'p750', p.p750, 'قیمت گرم ۱۸ تسویه')}`;
-    else if (m.id === 'coin') f = html`<label class="field xs">سکه<select class="input" data-p="${i}" data-k="coin">${Object.entries(COIN_TYPES).map(([id, c]) => html`<option value="${id}" ${p.coin === id ? 'selected' : ''}>${c.short}</option>`)}</select></label>${pin(i, 'count', p.count, 'تعداد')}${pin(i, 'price', p.price, 'قیمت هر سکه')}`;
+    else if (m.id === 'coin') f = html`<label class="field xs">سکه<select class="input" data-p="${i}" data-k="coin">${shownCoins().map(([id, c]) => html`<option value="${id}" ${p.coin === id ? 'selected' : ''}>${c.short}</option>`)}</select></label>${pin(i, 'count', p.count, 'تعداد')}${pin(i, 'price', p.price, 'قیمت هر سکه')}`;
     else if (m.id === 'fx') f = html`${pin(i, 'fxCode', p.fxCode, 'ارز', { ltr: false, ph: 'دلار' })}${pin(i, 'fxAmount', p.fxAmount, 'مقدار ارز')}${pin(i, 'fxRate', p.fxRate, `نرخ (${unitName()})`)}${pin(i, 'amount', p.amount, `معادل (${unitName()})`)}${acctSel(i, p, 'cash')}`;
     else {
       f = html`${pin(i, 'amount', p.amount, `مبلغ (${unitName()})`)}`;

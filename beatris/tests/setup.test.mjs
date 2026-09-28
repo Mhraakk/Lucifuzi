@@ -90,8 +90,9 @@ test('راه‌اندازی: وضعیت واقعی مغازه یک بار ثبت
   const pnl = await ok('GET', '/api/books/report/pnl', null, O);
   assert.equal(pnl.missingCost, false);
   const g = pnl.positions.find((p) => p.key === 'G750');
-  assert.equal(g.qty, 250.5);
-  assert.equal(g.cost, Math.round(250.5 * 90000000));
+  // the sealed bar is gold too: its 750-equivalent and its cost join the melt position
+  assert.equal(g.qty, 383.167);
+  assert.equal(g.cost, Math.round(250.5 * 90000000) + 12000000000);
   // the dashboard reads the same state
   const d = await ok('GET', '/api/books/dashboard?range=7', null, O);
   assert.equal(d.kpi.physical.meltGrams, 250.5);

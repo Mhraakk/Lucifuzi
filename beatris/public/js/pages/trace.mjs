@@ -3,7 +3,7 @@
 import { html, raw, fa, api, toast, $ } from '../core.mjs';
 import * as B from '../books.mjs';
 import * as TR from '../trade.mjs';
-import { COIN_TYPES } from '../coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { barcodeSvg } from '../barcode.mjs';
 import { booksPrefs, R, G, jd, timeFa, unitAmt, unitLabel, describeLine, lineVerb, statusChip } from '../bk.mjs';
 import { booksNav } from './books.mjs';

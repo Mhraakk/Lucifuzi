@@ -1,7 +1,7 @@
 // API → view models for the management dashboard, and the few formatters it needs. Components only ever see the
 // shapes declared in types.mjs; raw server fields stay here.
 import * as B from '../books.mjs';
-import { COIN_TYPES } from '../coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { FX_CODES, TRADE_KINDS } from '../trade.mjs';
 import { T, G, unitName, prefs, jd } from '../bk.mjs';
 

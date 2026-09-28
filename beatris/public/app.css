@@ -2281,3 +2281,37 @@ html[data-theme='day'] .tb-card { background: #fff; border-color: var(--hair-2);
   .su-p1, .su-p2 { grid-template-columns: 1fr 1fr; }
   .su-p1 > .iconbtn { grid-column: 2; justify-self: end; }
 }
+/* ---------- products and stock ---------- */
+.pr-sec { margin-bottom: 12px; }
+.pr-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.pr-h h2 { margin: 0; font-size: 17px; }
+.pr-h small { color: var(--dust); font-size: 12px; }
+.pr-big { margin: 0; font-size: 26px; font-weight: 700; }
+.pr-big small { font-size: 13px; color: var(--dust); font-weight: 400; }
+.pr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pr-row { display: grid; grid-template-columns: auto minmax(0, 2fr) 1fr 1.2fr 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--hair); background: var(--vault-3); transition: border-color 0.15s, opacity 0.15s; }
+.pr-row.off { opacity: 0.6; }
+.pr-row.drag { opacity: 0.4; }
+.pr-row.over { border-color: var(--gold); }
+.pr-grip { cursor: grab; color: var(--dust-2); letter-spacing: -2px; user-select: none; }
+.pr-row small { display: block; font-size: 11.5px; color: var(--dust); }
+.pr-name b { font-size: 15px; }
+.pr-stock b { font-size: 18px; }
+.pr-stock b.neg { color: var(--carn); }
+.pr-act { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.pr-act .iconbtn { width: 32px; height: 32px; }
+.pr-act .chip { min-height: 32px; font-size: 12px; }
+.pr-bars, .pr-fx { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pr-bars li, .pr-fx li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px; background: var(--vault-3); }
+.pr-bars li .chip, .pr-fx li > span:last-child { margin-inline-start: auto; }
+.pr-fx { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.pr-fx li.off { opacity: 0.55; }
+.pr-fx li > span:last-child { display: flex; gap: 4px; }
+.pr-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.pr-form .actions, .pr-form .err, .pr-form p { grid-column: 1 / -1; }
+@media (max-width: 760px) {
+  .pr-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .pr-grip { display: none; }
+  .pr-spec, .pr-price { display: none; }
+  .pr-act { grid-column: 1 / -1; justify-content: flex-start; }
+}

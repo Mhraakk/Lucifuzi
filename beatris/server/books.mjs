@@ -4,7 +4,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import * as B from '../public/js/books.mjs';
 import { jalaliOf } from '../public/js/ta.mjs';
-import { COIN_TYPES } from '../public/js/coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../public/js/coins.mjs';
 import { makeAudit } from './audit.mjs';
 import { makeTrace } from './trace.mjs';
 import { makeLearn } from './learn.mjs';
@@ -408,7 +408,89 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   on('GET', '/api/books/templates', 'auth', () => ({ groups: B.TEMPLATE_GROUPS, items: B.templatesWith(settings().templates) }));
   on('GET', '/api/books/settings', 'auth', () => {
     const s = settings();
-    return { ...s, taxReady: B.validMemoryId(s.memoryId) && !!s.economicCode };
+    return { ...s, products: catalogue(), taxReady: B.validMemoryId(s.memoryId) && !!s.economicCode };
+  });
+
+  /* ---------------- محصولات: the shop's own list of what it trades ---------------- */
+  // { custom: { id: { label, short, weight, fineness, price? } }, order: [ids], hidden: [ids], labels: { id: short }, fxHidden: [codes] }
+  const catalogue = () => ({ custom: {}, order: [], hidden: [], labels: {}, fxHidden: [], ...getSetting('products', {}) });
+  const saveCatalogue = (c, user) => {
+    saveSetting('products', c, user.id);
+    log(user, 'settings', 'products', c);
+  };
+  const productUse = (id) => db.get("SELECT COUNT(*) AS n FROM bk_postings WHERE acct=? OR unit=?", `coin:${id}`, `COIN:${id}`).n + db.get("SELECT COUNT(*) AS n FROM bk_docs WHERE data_json LIKE ?", `%"coin":"${id}"%`).n;
+  function cleanProduct(body, cur = {}) {
+    const label = txt(body.label ?? cur.label, 80);
+    const short = txt(body.short ?? cur.short ?? label, 30);
+    const weight = B.num(body.weight ?? cur.weight);
+    const fineness = B.num(body.fineness ?? cur.fineness ?? 750);
+    if (label.length < 2) throw bad('نام محصول را بنویسید.');
+    if (!(weight > 0 && weight < 10000)) throw bad('وزن هر عدد (گرم) را درست وارد کنید.');
+    if (!(fineness >= 1 && fineness <= 1000)) throw bad('عیار باید بین ۱ و ۱۰۰۰ باشد.');
+    const price = body.price === '' || body.price == null ? (body.price === undefined ? cur.price : undefined) : Math.round(B.num(body.price));
+    if (price != null && !(price > 0 && price < 1e15)) throw bad('قیمت دستی نامعتبر است.');
+    return { label, short, weight: B.r3(weight), fineness, custom: true, ...(price ? { price } : {}) };
+  }
+  on('GET', '/api/books/products', 'auth', () => {
+    const c = catalogue();
+    const v = call('GET', '/api/books/vault', null);
+    const lp = livePrices();
+    const hidden = new Set(c.hidden);
+    return {
+      items: Object.entries(COIN_TYPES).map(([id, p]) => ({ id, label: p.label, short: p.short, weight: p.weight, fineness: p.fineness, custom: !!p.custom, price: lp.price[`COIN:${id}`] ?? null, manualPrice: p.price ?? null, hidden: hidden.has(id), stock: v.coins[id] ?? 0, custody: v.custody[`COIN:${id}`] ?? null, used: productUse(id) })),
+      fx: Object.entries(TR.FX_CODES).map(([code, label]) => ({ code, label, hidden: c.fxHidden.includes(code), stock: v.fx[code] ?? 0 })),
+      gold: v.gold,
+      goldPrice: lp.price.G750,
+      bars: v.bars.map((b) => ({ serial: b.serial, weight: b.weight, fineness: b.fineness, brand: b.brand })),
+    };
+  });
+  on('POST', '/api/books/products', 'auth', ({ user, body }) => {
+    guardAdmin(user);
+    const c = catalogue();
+    if (Object.keys(c.custom).length >= 60) throw bad('حداکثر ۶۰ محصول سفارشی.');
+    const id = `u${randomUUID().replace(/-/g, '').slice(0, 7)}`;
+    c.custom = { ...c.custom, [id]: cleanProduct(body) };
+    c.order = [...c.order.filter((k) => k !== id), id];
+    saveCatalogue(c, user);
+    return { id, product: c.custom[id] };
+  });
+  on('PUT', '/api/books/products/:id', 'auth', ({ user, params, body }) => {
+    guardAdmin(user);
+    const c = catalogue();
+    const id = params.id;
+    if (c.custom[id]) c.custom = { ...c.custom, [id]: cleanProduct(body, c.custom[id]) };
+    else if (COIN_TYPES[id]) {
+      // an official coin keeps its weight and fineness; only its name on the desk can change
+      const short = txt(body.short ?? body.label, 30);
+      c.labels = { ...c.labels };
+      if (short) c.labels[id] = short;
+      else delete c.labels[id];
+    } else throw notFound('این محصول پیدا نشد.');
+    if (body.hidden !== undefined) c.hidden = body.hidden ? [...new Set([...c.hidden, id])] : c.hidden.filter((k) => k !== id);
+    saveCatalogue(c, user);
+    return { ok: true };
+  });
+  on('PUT', '/api/books/products', 'auth', ({ user, body }) => {
+    guardAdmin(user);
+    const c = catalogue();
+    const known = new Set(Object.keys(COIN_TYPES));
+    if (Array.isArray(body.order)) c.order = body.order.map(String).filter((k) => known.has(k));
+    if (Array.isArray(body.hidden)) c.hidden = body.hidden.map(String).filter((k) => known.has(k));
+    if (Array.isArray(body.fxHidden)) c.fxHidden = body.fxHidden.map(String).filter((k) => TR.FX_CODES[k]);
+    saveCatalogue(c, user);
+    return { ok: true, products: c };
+  });
+  on('DELETE', '/api/books/products/:id', 'auth', ({ user, params }) => {
+    guardAdmin(user);
+    const c = catalogue();
+    if (!c.custom[params.id]) throw bad(COIN_TYPES[params.id] ? 'سکه‌های رسمی حذف نمی‌شوند؛ می‌توانید پنهانشان کنید.' : 'این محصول پیدا نشد.');
+    if (productUse(params.id)) throw new HttpError(409, 'این محصول در اسناد یا موجودی آمده است؛ حذفش سابقه را خراب می‌کند. به‌جای حذف پنهانش کنید.');
+    const { [params.id]: _gone, ...rest } = c.custom;
+    c.custom = rest;
+    c.order = c.order.filter((k) => k !== params.id);
+    c.hidden = c.hidden.filter((k) => k !== params.id);
+    saveCatalogue(c, user);
+    return { ok: true };
   });
   on('PUT', '/api/books/settings', 'auth', ({ user, body }) => {
     guardAdmin(user);
@@ -516,12 +598,16 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       note: txt(body.note ?? prev?.note, 600),
       seller: txt(body.seller ?? prev?.seller ?? user.name, 60),
       ref: body.ref ?? prev?.ref ?? null, // the document this one returns or came from
-      balances: type === 'opening' ? cleanBalances(body.balances, body.money ?? prev?.money ?? 'toman') : undefined,
-      money: type === 'opening' ? (body.money ?? prev?.money ?? 'toman') : undefined,
+      balances: type === 'opening' ? cleanBalances(body.balances, body.money ?? prev?.money ?? 'toman') : type === 'adjust' ? adjustBalances(body.balances, body.money ?? prev?.money ?? 'rial') : undefined,
+      money: type === 'opening' || type === 'adjust' ? (body.money ?? prev?.money ?? (type === 'adjust' ? 'rial' : 'toman')) : undefined,
       round: B.DOC_TYPES[type].base ? prev?.round ?? s.tradeRound : undefined,
       hawala: type === 'hawala' ? { from: String(body.hawala?.from ?? ''), to: String(body.hawala?.to ?? ''), unit: String(body.hawala?.unit ?? ''), amount: body.hawala?.amount } : undefined,
       convert: type === 'convert' ? { unit: String(body.convert?.unit ?? ''), amount: body.convert?.amount, basis: body.convert?.basis === 'gram750' ? 'gram750' : 'mazaneh', mazaneh: body.convert?.mazaneh, g750: body.convert?.g750, price: body.convert?.price } : undefined,
     };
+    if (type === 'adjust') {
+      guardAdmin(user);
+      if (doc.note.length < 3) throw bad('دلیل اصلاح موجودی را بنویسید (مثلاً «شمارش پایان روز»).');
+    }
     let calc;
     try {
       calc = B.calcDoc(doc, { vatPct: s.vatPct, round: s.tradeRound });
@@ -623,6 +709,25 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       const amt = unit === 'IRR' ? B.rnd(v * k) : unit === 'G750' ? B.r3(v) : Math.round(v);
       const cost = b.cost && (acct === 'gold' || acct.startsWith('coin:')) ? B.rnd(B.num(b.cost) * k) : undefined;
       return { acct, unit, amt, cost };
+    });
+  }
+
+  /** Stock corrections: only what sits in the shop (melt, coins, currency, sealed bars, cash); every line is ± from the
+   *  books, and a bar that leaves carries its card so the trading result knows its gold. */
+  function adjustBalances(list, money) {
+    const rows = cleanBalances(list, money);
+    if (!rows.length) throw bad('دست‌کم یک قلم اصلاحی لازم است.');
+    return rows.map((b) => {
+      if (!/^(gold|coin:\w+|fx:[A-Z]+|bar:[A-Z0-9-]{3,30}|cash:[\w-]{1,40})$/.test(b.acct)) throw bad('اصلاح موجودی فقط برای طلا، سکه، ارز، شمش و صندوق نقد است؛ مانده مشتری و بانک با سند خودشان اصلاح می‌شود.');
+      if (b.acct.startsWith('bar:')) {
+        const info = barInfo(b.acct.slice(4));
+        if (b.amt < 0 && !info.inVault) throw bad(`شمش ${b.acct.slice(4)} در گاوصندوق نیست.`);
+        if (b.amt > 0 && info.inVault) throw bad(`شمش ${b.acct.slice(4)} همین حالا در گاوصندوق است.`);
+        if (Math.abs(b.amt) !== 1) throw bad('هر ردیف شمش یک عدد است.');
+        if (b.amt < 0) return { ...b, weight: info.weight, fineness: info.fineness };
+        if (!b.weight) throw bad(`وزن شمش ${b.acct.slice(4)} را وارد کنید.`);
+      }
+      return b;
     });
   }
 
@@ -1166,7 +1271,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     }
     const COIN_MAP = { bahar: 'sekeb', emami: 'sekee', halfOld: 'nim', half: 'nim', quarterOld: 'rob', quarter: 'rob', gerami: 'gerami' };
     const price = { G750: p750 };
-    for (const k of Object.keys(COIN_TYPES)) price[`COIN:${k}`] = board[COIN_MAP[k]] ?? B.rnd((COIN_TYPES[k].weight * COIN_TYPES[k].fineness * p750) / 750);
+    for (const k of Object.keys(COIN_TYPES)) price[`COIN:${k}`] = board[COIN_MAP[k]] ?? COIN_TYPES[k].price ?? B.rnd((COIN_TYPES[k].weight * COIN_TYPES[k].fineness * p750) / 750);
     if (board.usd) price['FX:USD'] = board.usd;
     let sample = true;
     try {
@@ -1212,10 +1317,10 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const hist = db.all("SELECT d.id, d.type, d.no, d.fy, d.date, d.status, d.party_id, d.data_json FROM bk_docs d WHERE d.status='final' AND (d.data_json LIKE ? OR d.data_json LIKE ?) ORDER BY d.date, COALESCE(d.issued_at, d.created_at)", `%"serial":"${serial}"%`, `%"acct":"bar:${serial}"%`)
       .flatMap((d) => {
         const data = JSON.parse(d.data_json);
-        if (d.type === 'opening') return (data.balances ?? []).map((b, i) => ({ b, i })).filter(({ b }) => b.acct === `bar:${serial}` && b.amt > 0).map(({ b, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: 'in', priced: true, party: null, brand: b.brand ?? '', gallery: b.gallery ?? '', weight: b.weight ? B.r3(b.weight) : null, fineness: b.fineness ?? null, sealDate: b.sealDate ?? '', opening: true }));
+        if (d.type === 'opening' || d.type === 'adjust') return (data.balances ?? []).map((b, i) => ({ b, i })).filter(({ b }) => b.acct === `bar:${serial}`).map(({ b, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: b.amt > 0 ? 'in' : 'out', priced: true, party: null, brand: b.brand ?? '', gallery: b.gallery ?? '', weight: b.weight ? B.r3(b.weight) : null, fineness: b.fineness ?? null, sealDate: b.sealDate ?? '', [d.type]: true }));
         return (data.lines ?? []).map((l, i) => ({ l, i })).filter(({ l }) => l.kind === 'bar' && l.serial === serial).map(({ l, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: l.dir, priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null, brand: l.brand ?? '', gallery: l.gallery ?? '', weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness ?? 750), sealDate: l.sealDate ?? '' }));
       });
-    const last = hist.at(-1) ?? {};
+    const last = [...hist].reverse().find((h) => h.weight) ?? hist.at(-1) ?? {};
     const inVault = db.get("SELECT COALESCE(SUM(amt),0) AS s FROM bk_postings WHERE acct=?", `bar:${serial}`).s > 0;
     const holder = db.get("SELECT acct FROM bk_postings WHERE unit=? GROUP BY acct HAVING SUM(amt)<0", `BAR:${serial}`)?.acct;
     return { serial, brand: last.brand ?? '', gallery: last.gallery ?? '', weight: last.weight ?? null, fineness: last.fineness ?? null, sealDate: last.sealDate ?? '', inVault, custodyOf: holder ? TR.partyLabel(partyRow(holder.slice(6)) ?? { name: '؟' }) : null, history: hist };
@@ -1391,5 +1496,5 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   on('POST', '/api/books/setup', 'auth', ({ user, body }) => setup.run(user, body));
   on('POST', '/api/books/setup/skip', 'auth', ({ user }) => setup.skip(user));
 
-  return { verifyLog, settings, audit, assistant, learn };
+  return { verifyLog, settings, audit, assistant, learn, catalogue };
 }

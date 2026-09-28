@@ -4,7 +4,7 @@
 // by serial, foreign currency by code), exactly how a gold desk keeps «ته‌حساب جنسی» apart from «ته‌حساب ریالی»
 // so that a moving مظنه never distorts anyone's balance.
 import { MESGHAL_G, MAZANEH_FINENESS } from './calc.mjs';
-import { COIN_TYPES } from './coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from './coins.mjs';
 import { num, rnd, r3, digitsOnly, BookError, calcPayment, payMethod } from './books.mjs';
 
 export const TRADE_KINDS = { melt: 'آبشده', coin: 'سکه', bar: 'شمش پلمپ', fx: 'ارز' };
@@ -246,6 +246,7 @@ export function tradePostings(doc, calc) {
  * realized profit of every priced trade. events: final documents in time order as { date, type, calc, data }.
  * Unpriced moves change what the shop holds and owes equally, so they do not touch the position.
  */
+const rnd3 = (x) => Math.round(x * 1000) / 1000;
 export function positionReport(events) {
   const P = {};
   const byDay = {};
@@ -296,10 +297,16 @@ export function positionReport(events) {
         if (l.kind === 'melt' || l.kind === 'used') trade('G750', l.g750, l.total, e.date, (e.type === 'return' ? l.side === 'out' : l.side === 'in') ? 'in' : 'out');
         if (l.kind === 'coin') trade(`COIN:${l.coin}`, l.count, l.total, e.date, (e.type === 'return' ? l.side === 'out' : l.side === 'in') ? 'in' : 'out');
       }
-    } else if (e.type === 'opening') {
+    } else if (e.type === 'opening' || e.type === 'adjust') {
       for (const b of e.data.balances ?? []) {
-        const key = b.acct === 'gold' ? 'G750' : b.acct.startsWith('coin:') ? `COIN:${b.acct.slice(5)}` : b.acct.startsWith('fx:') ? `FX:${b.acct.slice(3)}` : null;
-        if (key && b.amt > 0) trade(key, b.amt, b.cost ?? 0, e.date, 'in');
+        // a sealed bar is gold: its 750-equivalent joins the G750 position (when its card is known)
+        const bar = b.acct.startsWith('bar:') && b.weight ? rnd3((b.weight * (b.fineness ?? 995)) / 750) : 0;
+        const key = b.acct === 'gold' || bar ? 'G750' : b.acct.startsWith('coin:') ? `COIN:${b.acct.slice(5)}` : b.acct.startsWith('fx:') ? `FX:${b.acct.slice(3)}` : null;
+        if (!key) continue;
+        const q = bar ? bar * Math.sign(b.amt) : b.amt;
+        if (q > 0) trade(key, q, b.cost ?? 0, e.date, 'in');
+        // a shortage found by counting leaves at no price: its average cost is the loss of that day
+        else if (q < 0 && e.type === 'adjust') trade(key, -q, 0, e.date, 'out');
       }
     }
   }

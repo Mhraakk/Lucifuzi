@@ -8,7 +8,7 @@
 // Adapted from the owner's «iran-accounting-agent» module: tenant-scoped read tools, untrusted tool data, proposals only.
 import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
-import { COIN_TYPES } from '../public/js/coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../public/js/coins.mjs';
 import { jalaliOf } from '../public/js/ta.mjs';
 
 const SYS = { id: null, role: 'owner', name: 'دستیار' };

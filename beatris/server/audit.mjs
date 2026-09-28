@@ -5,7 +5,7 @@
 // and the shop's exposure to a move of the مظنه. Read-only: it never changes a document, it only points at one.
 import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
-import { COIN_TYPES } from '../public/js/coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../public/js/coins.mjs';
 import { jalaliOf } from '../public/js/ta.mjs';
 
 export const AUDIT_DEFAULTS = { auditMazPct: 3, auditCoinPct: 5, agingDays: 30, auditBigAnon: 5_000_000_000, auditKyc: 10_000_000_000, bankOpenDays: 3, assayDays: 3 };

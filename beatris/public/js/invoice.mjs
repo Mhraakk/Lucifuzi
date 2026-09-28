@@ -4,7 +4,7 @@
 import { crownSvg } from './crown.mjs';
 import { html, raw, fa } from './core.mjs';
 import * as B from './books.mjs';
-import { COIN_TYPES } from './coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from './coins.mjs';
 import { qrSvg } from './qr.mjs';
 import { T, TU, G, jd, timeFa, EX, unitName, moneyWords, K, booksPrefs, prefs, lineVerb, unitAmt, unitVal } from './bk.mjs';
 import { TRADE_KINDS, FX_CODES } from './trade.mjs';

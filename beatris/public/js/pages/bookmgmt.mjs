@@ -1,7 +1,7 @@
 // Shop books management: customers and their statements, stock and labels, cash/bank/cheques, reports, settings.
 import { html, raw, fa, api, store, toast, navigate, actions, $, $$, busy } from '../core.mjs';
 import * as B from '../books.mjs';
-import { COIN_TYPES } from '../coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { barcodeSvg } from '../barcode.mjs';
 import { T, TU, G, jd, jdInput, parseDay, today, addDays, modal, confirmBox, exportButtons, wireExport, download, balText, balClass, unitAmt, EX, unitName, moneyWords, K, booksPrefs, prefs, unitLabel, unitVal, balChips, balUnits, R, balBoard, balSentence, sideWord, lineVerb, describeLine, timeFa } from '../bk.mjs';
 import { TRADE_KINDS as TR_KINDS } from '../trade.mjs';

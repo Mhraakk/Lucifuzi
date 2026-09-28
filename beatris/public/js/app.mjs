@@ -68,6 +68,7 @@ route('/books/docs', lazy('./pages/books.mjs', 'docsPage'), { tab: 'books', tone
 route('/books/log', lazy('./pages/books.mjs', 'logPage'), { tab: 'books', tone: 'wide' });
 route('/books/parties', lazy('./pages/bookmgmt.mjs', 'partiesPage'), { tab: 'books', tone: 'wide' });
 route('/books/party/:id', lazy('./pages/bookmgmt.mjs', 'partyPage'), { tab: 'books', tone: 'wide' });
+route('/books/products', lazy('./pages/products.mjs', 'productsPage'), { tab: 'books', tone: 'wide' });
 route('/books/stock', lazy('./pages/bookmgmt.mjs', 'stockPage'), { tab: 'books', tone: 'wide' });
 route('/books/cash', lazy('./pages/bookmgmt.mjs', 'cashPage'), { tab: 'books', tone: 'wide' });
 route('/books/reports', lazy('./pages/bookmgmt.mjs', 'reportsPage'), { tab: 'books', tone: 'wide' });

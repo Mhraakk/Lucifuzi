@@ -43,6 +43,45 @@ for (const c of Object.values(COIN_TYPES)) {
   c.reeds = Math.round(c.diameter * Math.PI * 2.2);
 }
 
+/**
+ * The coins a shop trades: the official set plus the shop's own products (a «سکه پارسیان ۵۰۰ سوتی», a private-mint
+ * piece…), in the shop's order, with its labels. Lookups resolve every product (hidden ones too, so old documents and
+ * stock keep their names); listings give them all in the shop's order. The shop's catalogue comes from a resolver:
+ * the browser sets it from the shop settings, the server per request (each shop has its own catalogue).
+ */
+let catalogue = () => null;
+export const setCoinCatalogue = (fn) => (catalogue = fn);
+const coinOf = (k) => {
+  const c = catalogue();
+  const base = COIN_TYPES[k] ?? c?.custom?.[k];
+  if (!base) return undefined;
+  const label = c?.labels?.[k];
+  return label ? { ...base, short: label } : base;
+};
+const coinOrder = () => {
+  const c = catalogue();
+  const all = [...Object.keys(COIN_TYPES), ...Object.keys(c?.custom ?? {})];
+  const ord = c?.order ?? [];
+  return [...ord.filter((k) => all.includes(k)), ...all.filter((k) => !ord.includes(k))];
+};
+export const TRADE_COINS = new Proxy(
+  {},
+  {
+    get: (_, k) => (typeof k === 'string' ? coinOf(k) : undefined),
+    has: (_, k) => typeof k === 'string' && !!coinOf(k),
+    ownKeys: () => coinOrder(),
+    getOwnPropertyDescriptor: (_, k) => {
+      const v = typeof k === 'string' ? coinOf(k) : undefined;
+      return v ? { value: v, enumerable: true, configurable: true, writable: false } : undefined;
+    },
+  },
+);
+/** The products offered in pickers (desk, invoice line): the shop's order, without the hidden ones. */
+export const shownCoins = () => {
+  const hidden = new Set(catalogue()?.hidden ?? []);
+  return coinOrder().filter((k) => !hidden.has(k)).map((k) => [k, coinOf(k)]);
+};
+
 /** Specimen kinds: the genuine coin and the counterfeits a gallery actually meets. */
 export const SPECIMENS = {
   genuine: {

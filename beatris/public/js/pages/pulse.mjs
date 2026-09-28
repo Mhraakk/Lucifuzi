@@ -3,7 +3,7 @@
 // things that happened (each with its tracking code) and who owes whom. Quiet colours, no blinking: it is read all day.
 import { html, fa, api, store, navigate, $, $$ } from '../core.mjs';
 import * as B from '../books.mjs';
-import { COIN_TYPES } from '../coins.mjs';
+import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { sparkline } from '../charts.mjs';
 import { booksPrefs, R, G, jd, jdLong, timeFa, today, unitAmt, unitLabel, balUnits } from '../bk.mjs';
 import { booksNav } from './books.mjs';

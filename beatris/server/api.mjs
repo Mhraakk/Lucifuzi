@@ -11,6 +11,12 @@ import { SYMBOLS, isSymbol, DAY_RE } from '../public/js/market.mjs';
 import { isoDay } from '../public/js/ta.mjs';
 import { createMcp, hashToken, newToken, tokenMatches } from './mcp.mjs';
 import { registerBooks } from './books.mjs';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { setCoinCatalogue } from '../public/js/coins.mjs';
+
+// each request sees its own shop's product list (custom coins, order, names), even across awaits
+const SHOP = new AsyncLocalStorage();
+setCoinCatalogue(() => SHOP.getStore()?.coins ?? null);
 
 const now = () => new Date().toISOString();
 const tehranDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(d);
@@ -702,6 +708,16 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   }
 
   const handle = async function handle(req, url, body, ip) {
+    let coins = null;
+    try {
+      const r = db.get("SELECT value_json FROM settings WHERE key='products'");
+      coins = r ? JSON.parse(r.value_json) : null;
+    } catch {
+      /* no catalogue yet */
+    }
+    return SHOP.run({ coins }, () => dispatch(req, url, body, ip));
+  };
+  const dispatch = async function dispatch(req, url, body, ip) {
     for (const r of routes) {
       if (r.method !== req.method) continue;
       const m = r.re.exec(url.pathname);
