@@ -62,11 +62,11 @@ export async function booksHome(root) {
         ${methodIn.length ? html`<table class="table-plain"><thead><tr><th>روش</th><th>دریافت</th><th>پرداخت</th></tr></thead><tbody>${methodIn.map(([m, a, b]) => html`<tr><td>${m.label}</td><td class="num">${a ? T(a) : '—'}</td><td class="num">${b ? T(b) : '—'}</td></tr>`)}</tbody></table>` : html`<p class="small">امروز هنوز سندی ثبت نشده است.</p>`}
       </section>
       <section class="tray"><h3 class="bk-h">مانده صندوق‌ها و بانک‌ها</h3>
-        <table class="table-plain"><tbody>${s.accounts.map((a) => html`<tr><td>${a.title}<span class="small"> ${a.kind === 'cash' ? 'صندوق' : a.bank || 'بانک'}</span></td><td class="num">${TU(a.balance)}</td><td class="small num">+${T(a.flow.in)} / −${T(a.flow.out)}</td></tr>`)}</tbody></table>
+        <div class="scrollx"><table class="table-plain"><tbody>${s.accounts.map((a) => html`<tr><td>${a.title}<span class="small"> ${a.kind === 'cash' ? 'صندوق' : a.bank || 'بانک'}</span></td><td class="num">${TU(a.balance)}</td><td class="small num">+${T(a.flow.in)}<br>−${T(a.flow.out)}</td></tr>`)}</tbody></table></div>
         <p class="small">صندوق طلا: <b>${G(s.gold)}</b> گرم ۷۵۰ · موجودی ویترین: <b>${fa(s.stock.n)}</b> قطعه، <b>${G(s.stock.w)}</b> گرم${Object.keys(s.coins).length ? html` · سکه: ${Object.entries(s.coins).map(([k, n]) => `${COIN_TYPES[k].short} ${fa(n)}`).join('، ')}` : ''}</p>
       </section>
     </div>
-    ${s.dueSoon.length ? html`<section class="tray bk-sec"><h3 class="bk-h">چک‌های سررسید تا یک هفته</h3><table class="table-plain"><tbody>${s.dueSoon.map((c) => html`<tr class="${c.due < today() ? 'bad' : ''}"><td>${c.dir === 'in' ? 'دریافتی' : 'پرداختی'}</td><td>${c.partyName ?? '—'}</td><td>${fa(c.no || c.sayad)}</td><td>${jd(c.due)}</td><td class="num">${TU(c.amount)}</td><td>${B.CHEQUE_STATUS[c.status]}</td></tr>`)}</tbody></table><a class="chip" href="/books/cash" data-link>مدیریت چک‌ها</a></section>` : ''}`);
+    ${s.dueSoon.length ? html`<section class="tray bk-sec"><h3 class="bk-h">چک‌های سررسید تا یک هفته</h3><div class="scrollx"><table class="table-plain"><tbody>${s.dueSoon.map((c) => html`<tr class="${c.due < today() ? 'bad' : ''}"><td>${c.dir === 'in' ? 'دریافتی' : 'پرداختی'}</td><td>${c.partyName ?? '—'}</td><td>${fa(c.no || c.sayad)}</td><td>${jd(c.due)}</td><td class="num">${TU(c.amount)}</td><td>${B.CHEQUE_STATUS[c.status]}</td></tr>`)}</tbody></table></div><a class="chip" href="/books/cash" data-link>مدیریت چک‌ها</a></section>` : ''}`);
 }
 
 /* ---------------- journal ---------------- */
