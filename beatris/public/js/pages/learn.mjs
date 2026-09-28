@@ -98,7 +98,7 @@ function block(b, ctx) {
     case 'viz':
       return html`<div class="blk blk-viz" data-viz="${JSON.stringify(b)}"><div class="vz-body"></div>${b.caption ? html`<p class="cap">${fa(b.caption)}</p>` : ''}</div>`;
     case 'tool': {
-      const href = b.tool === 'studio' ? '/studio' : b.tool === 'coinlab' ? `/coins${b.q ?? ''}` : b.tool === 'ledger' ? '/ledger' : b.tool === 'sop' ? `/sop/${b.ref}` : `/tools/${b.tool}`;
+      const href = b.tool === 'studio' ? '/studio' : b.tool === 'coinlab' ? `/coins${b.q ?? ''}` : b.tool === 'ledger' ? '/ledger' : b.tool === 'market' ? `/market${b.q ?? ''}` : b.tool === 'sop' ? `/sop/${b.ref}` : `/tools/${b.tool}`;
       return html`<div class="blk blk-tool"><a href="${href}" data-link><span>${fa(b.label)}</span>${ICON.chev}</a></div>`;
     }
     default:

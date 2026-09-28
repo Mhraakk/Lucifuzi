@@ -24,6 +24,7 @@ export const ICON = {
   plus: P('<path d="M12 5v14M5 12h14"/>'),
   video: P('<rect x="3.5" y="6" width="12" height="12" rx="2"/><path d="m15.5 10.5 5-3v9l-5-3"/>'),
   grid: P('<path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>'),
+  chart: P('<path d="M4 20h16"/><path d="m5 15 4.5-5 3.5 3.5L19 6"/><path d="M15 6h4v4"/>'),
   sun: P('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>'),
   undo: P('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
   trash: P('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'),

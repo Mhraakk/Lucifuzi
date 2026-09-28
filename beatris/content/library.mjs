@@ -19,6 +19,10 @@ export const REFERENCES = [
   { id: 'ir-consumer', group: 'قوانین ایران', title: 'قانون حمایت از حقوق مصرف‌کنندگان (۱۳۸۸)', org: 'مجلس شورای اسلامی', url: 'https://rc.majlis.ir/', use: 'الزام عرضه‌کننده به ارائه اطلاعات صحیح کالا و فاکتور؛ پایه پاسخ‌گویی به شکایت.' },
   { id: 'ir-cbi', group: 'قوانین ایران', title: 'بانک مرکزی جمهوری اسلامی ایران — سکه‌های طلا', org: 'بانک مرکزی ج.ا.ا', url: 'https://www.cbi.ir/', use: 'مرجع رسمی وزن، عیار و مشخصات سکه‌های بهار آزادی و اطلاعیه‌های مربوط به سکه‌های تقلبی.' },
   { id: 'ir-inso', group: 'قوانین ایران', title: 'سازمان ملی استاندارد ایران — عیارسنجی فلزات گران‌بها', org: 'INSO', url: 'https://inso.gov.ir/', use: 'استانداردهای ملی و آزمایشگاه‌های همکار عیارسنجی.' },
+  { id: 'src-tgju', group: 'بازار', title: 'قیمت روز طلا، سکه و ارز — tgju.org', org: 'پایگاه قیمت‌های بازار ایران', url: 'https://www.tgju.org/', use: 'مرجع رایج قیمت‌های بازار ایران و سابقه روزانه مظنه، سکه، دلار و انس.' },
+  { id: 'bk-murphy', group: 'کتاب', title: 'Technical Analysis of the Financial Markets — John J. Murphy', org: 'کتاب مرجع تحلیل تکنیکال', url: '', use: 'روند، حمایت و مقاومت، میانگین‌ها، اسیلاتورها و الگوهای قیمت.' },
+  { id: 'bk-wilder', group: 'کتاب', title: 'New Concepts in Technical Trading Systems — J. Welles Wilder', org: 'کتاب مرجع شاخص‌ها', url: '', use: 'تعریف اصلی RSI، ATR، ADX/DMI و سار سهموی که این برنامه دقیقاً پیاده کرده است.' },
+  { id: 'bk-elliott', group: 'کتاب', title: 'Elliott Wave Principle — A. J. Frost & Robert Prechter', org: 'کتاب مرجع امواج الیوت', url: '', use: 'قواعد قطعی و رهنمودهای فیبوناچی امواج محرک و اصلاحی.' },
   { id: 'bk-untracht', group: 'کتاب', title: 'Jewelry Concepts and Technology — Oppi Untracht', org: 'کتاب مرجع ساخت جواهر', url: '', use: 'روش‌های ساخت، نگین‌گذاری و پرداخت؛ برای فهم «اجرت از کجا می‌آید».' },
   { id: 'bk-brepohl', group: 'کتاب', title: 'The Theory and Practice of Goldsmithing — Erhard Brepohl', org: 'کتاب مرجع زرگری', url: '', use: 'آلیاژها، چگالی، لحیم و رفتار فلز؛ پشتوانه فنی درس‌های عیار و تعمیر.' },
   { id: 'bk-read', group: 'کتاب', title: 'Gemmology — Peter G. Read', org: 'کتاب درسی سنگ‌شناسی', url: '', use: 'مبانی علمی سنگ‌ها، لوپ، شکست نور و تشخیص.' },
@@ -73,4 +77,4 @@ export const GLOSSARY = [
   { id: 'chainrec', term: 'زنجیره ردیابی', def: 'ثبت هر جابه‌جایی قطعه امانی یا تعمیری با وزن، تاریخ و امضا.' },
 ];
 
-export const PATH = ['c-metal', 'c-price', 'c-melt', 'c-sales', 'c-security', 'c-product', 'c-gems', 'c-assay', 'c-coins', 'c-service', 'c-rare'];
+export const PATH = ['c-metal', 'c-price', 'c-melt', 'c-market', 'c-sales', 'c-security', 'c-product', 'c-gems', 'c-assay', 'c-coins', 'c-service', 'c-rare'];

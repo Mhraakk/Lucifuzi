@@ -34,6 +34,7 @@ const PIN = process.env.E2E_PIN || '1234';
 const results = [];
 const errors = [];
 let offline = false;
+let expectedError = null; // a console error a check provokes on purpose (e.g. a refused request)
 const check = (name, ok, detail = '') => {
   results.push({ name, ok: !!ok, detail });
   console.log(`${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
@@ -60,6 +61,7 @@ async function session(viewport) {
     const t = m.text();
     if (/favicon|preload/.test(t)) return;
     if (/status of 401/.test(t) && page.url().includes('/login')) return; // the deliberate wrong-PIN attempt
+    if (expectedError?.test(t)) return;
     errors.push(`[${label}] ${page.url()} console: ${t.slice(0, 240)}`);
   });
   page.on('response', (r) => {
@@ -106,7 +108,7 @@ async function loginUI(page) {
   await step('learn', async () => {
     await go(page, '/learn');
     const n = await page.$$eval('a.row[href^="/learn/"]', (a) => a.length);
-    check('learn: 11 courses listed', n === 11, String(n));
+    check('learn: 12 courses listed', n === 12, String(n));
     await go(page, '/learn/c-rare');
     const lessons = await page.$$eval('a.course-row', (a) => a.length);
     check('course c-rare: 6 lessons', lessons === 6, String(lessons));
@@ -141,8 +143,8 @@ async function loginUI(page) {
   await step('tools', async () => {
     await go(page, '/tools');
     const ids = await page.$$eval('a.tool-card[href^="/tools/"]', (a) => a.map((x) => x.getAttribute('href').split('/').pop()));
-    check('tools: 14 calculators listed', ids.length === 14, String(ids.length));
-    for (const id of ids.filter((x) => x !== 'melt')) {
+    check('tools: 15 calculators listed', ids.length === 15, String(ids.length));
+    for (const id of ids.filter((x) => x !== 'melt' && x !== 'inspect')) {
       await go(page, `/tools/${id}`, 700);
       const out = await text(page, '#out');
       check(`tool ${id}: renders a clean result`, out.length > 10 && noBadNumbers(out));
@@ -456,6 +458,162 @@ async function loginUI(page) {
     check('lesson k11 links the probability calculator', !!(await page.$('a[href="/tools/bayes"]')));
   });
 
+  await step('market desk: board, chart, indicators, hunt, Elliott, analytics, alerts, data entry', async () => {
+    await go(page, '/market', 3500);
+    check('market: 11 price tiles with sparklines', (await page.$$eval('.mk-tile canvas', (x) => x.length)) === 11);
+    check('market: sample data clearly labelled', /داده نمونه آموزشی/.test(await text(page, '#notice')) && /داده نمونه/.test(await text(page, '#src')));
+    const board = await text(page, '#board');
+    check('market: board numbers are clean', noBadNumbers(board) && /[۰-۹]/.test(board));
+    check('market: main chart drawn', !!(await page.$('#chart canvas.chart-top')));
+    // indicators and chart types must never throw
+    for (const id of ['sma200', 'ema21', 'ichimoku', 'supertrend', 'psar', 'donchian', 'keltner', 'pivots', 'fib', 'zigzag']) await page.click(`[data-ov="${id}"]`);
+    for (const id of ['stoch', 'atr', 'adx', 'cci', 'wr', 'roc']) await page.click(`[data-pane="${id}"]`);
+    await page.waitForTimeout(500);
+    check('market: all 13 overlays and 8 panes switch on', (await page.$$eval('[data-ov][aria-pressed="true"], [data-pane][aria-pressed="true"]', (x) => x.length)) === 21);
+    const box = await page.$eval('#chart', (e) => {
+      const r = e.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    await page.mouse.move(box.x + box.w * 0.5, box.y + 120);
+    await page.mouse.wheel(0, -400);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.w * 0.3, box.y + 140, { steps: 5 });
+    await page.mouse.up();
+    await page.mouse.dblclick(box.x + box.w * 0.5, box.y + 120);
+    for (const t of ['ohlc', 'line', 'area', 'heikin', 'renko', 'linebreak', 'candle']) {
+      await page.selectOption('#type', t);
+      await page.waitForTimeout(250);
+    }
+    for (const r of ['1m', '1y', 'all', '6m']) {
+      await page.click(`[data-range="${r}"]`);
+      await page.waitForTimeout(500);
+    }
+    check('market: chart types, ranges, zoom and pan run without errors', true);
+    // turn the extra indicators off again so the rest of the walk is light
+    for (const id of ['sma200', 'ema21', 'ichimoku', 'supertrend', 'psar', 'donchian', 'keltner', 'pivots', 'fib', 'zigzag']) await page.click(`[data-ov="${id}"]`);
+    for (const id of ['stoch', 'atr', 'adx', 'cci', 'wr', 'roc']) await page.click(`[data-pane="${id}"]`);
+    const hunt = await text(page, '#hunt');
+    const nums = await page.$$eval('.hunt-pair b', (b) => b.map((x) => Number(x.textContent.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٬,]/g, ''))));
+    const close = await page.$eval('.ladder .now .num', (x) => Number(x.textContent.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٬,]/g, '')));
+    check('market hunt: patient bid below and ask above the close', nums.length === 2 && nums[0] <= close && nums[1] >= close && noBadNumbers(hunt), `${nums[0]} ≤ ${close} ≤ ${nums[1]}`);
+    check('market hunt: fair value from ounce × dollar shown for mazaneh', /ارزش از انس × دلار/.test(hunt));
+    check('market Elliott: counts listed with rules and a verdict', (await page.$$eval('.wave-card', (x) => x.length)) >= 1 && /قواعد قطعی/.test(await text(page, '#wave')));
+    await page.click('.mk-tile[data-sym="sekee"]');
+    await page.waitForTimeout(1500);
+    check('market: tile switches the chart to the emami coin', (await page.$eval('#sym', (s) => s.value)) === 'sekee' && /حباب/.test(await text(page, '#hunt')));
+    check('market: four charts at once', (await page.$$eval('.mk-mini canvas.chart-top', (x) => x.length)) === 4);
+    const [png] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.click('#png')]);
+    const pngSize = (await (await import('node:fs')).promises.stat(await png.path())).size;
+    check('market: chart PNG export', pngSize > 20000, `${pngSize} bytes`);
+    await page.$eval('#lab', (e) => e.scrollIntoView());
+    await page.waitForTimeout(2500);
+    for (const tab of ['bubble', 'dollar', 'perf', 'corr', 'risk', 'dist', 'season', 'ratio']) {
+      await page.click(`[data-lab="${tab}"]`);
+      await page.waitForTimeout(900);
+      const t = await text(page, '#labbody');
+      const drawn = await page.$$eval('#labbody canvas', (x) => x.length);
+      check(`market analytics ${tab}: rendered`, drawn >= 1 && noBadNumbers(t), `${drawn} canvases`);
+    }
+    await page.selectOption('#af select[name=symbol]', 'usd');
+    await page.selectOption('#af select[name=op]', 'above');
+    await page.fill('#af input[name=price]', '۱۰۰');
+    await page.click('#af button[type=submit]');
+    await page.click('#reload');
+    await page.waitForTimeout(1500);
+    check('market alerts: a crossed alert fires and is marked', /رسید/.test(await text(page, '#alerts')));
+    await page.click('[data-delalert="0"]');
+    // manager enters a real price: the desk leaves sample mode; deleting it brings the sample back
+    await go(page, '/market/data', 1500);
+    await page.click('[data-mode="json"]');
+    await page.fill('#ff input[name=url]', 'http://prices.example.com/latest');
+    expectedError = /status of 400/;
+    await page.click('#ff button[type=submit]');
+    await page.waitForTimeout(800);
+    expectedError = null;
+    check('market data: insecure feed URL refused', /https/.test(await page.$eval('#toasts', (t) => t.innerText).catch(() => '')));
+    await go(page, '/market/data', 1200);
+    await page.selectOption('#one select[name=symbol]', 'sekee');
+    await page.fill('#one input[name=price]', '۲۴۰٬۵۰۵٬۰۰۰');
+    await page.click('#one button[type=submit]');
+    await page.waitForTimeout(1200);
+    check('market data: manual price stored', (await page.$$eval('#recent tbody tr', (x) => x.length)) === 1 && /۲۴۰٬۵۰۵٬۰۰۰/.test(await text(page, '#recent')));
+    await go(page, '/market', 3000);
+    check('market: real price replaces the sample on the board', !(await page.$('#notice .notice')) && /۲۴۰٬۵۰۵٬۰۰۰/.test(await text(page, '#board')));
+    await go(page, '/market/data?s=sekee', 1500);
+    page.once('dialog', (d) => d.accept());
+    await page.click('#recent [data-del]');
+    await page.waitForTimeout(1000);
+    await go(page, '/market', 2500);
+    check('market: deleting the only real price restores the labelled sample', /داده نمونه آموزشی/.test(await text(page, '#notice')));
+    // the course
+    await go(page, '/learn/c-market', 1200);
+    check('course c-market: 7 lessons', (await page.$$eval('a.course-row', (a) => a.length)) === 7);
+    await go(page, '/lesson/mk4', 3500);
+    check('lesson mk4: market chart with RSI and MACD panes', !!(await page.$('.vz-chart canvas.chart-top')) && /داده نمونه آموزشی/.test(await text(page, '.vz-chart')));
+    check('lesson mk4 links the market desk', !!(await page.$('a[href="/market?s=mesghal&r=6m"]')));
+  });
+
+  await step('MCP: owner creates a token, an AI client lists and calls tools, token revoked', async () => {
+    await go(page, '/staff/settings', 1800);
+    await page.click('[data-mcp="new"]');
+    await page.waitForSelector('[data-copy]', { timeout: 10000 });
+    const tok = await page.$eval('[data-copy]', (i) => i.value);
+    check('MCP: token shown once with setup commands', /^btr_/.test(tok) && /claude mcp add/.test(await text(page, '#mcp')));
+    const res = await page.evaluate(async (t) => {
+      const post = (body) => fetch('/mcp', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: JSON.stringify(body) }).then((r) => r.json());
+      const init = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'e2e', version: '1' } } });
+      const list = await post({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+      const gold = await post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'gold_value', arguments: { weight: 10, fineness: 750 } } });
+      return { v: init.result?.protocolVersion, n: list.result?.tools?.length, value: gold.result?.structuredContent?.value };
+    }, tok);
+    check('MCP: same-origin client initialises, lists 11 tools and prices gold', res.v === '2025-06-18' && res.n === 11 && res.value > 0, JSON.stringify(res));
+    page.once('dialog', (d) => d.accept());
+    await page.click('[data-mcp="off"]');
+    await page.waitForTimeout(800);
+    expectedError = /status of 401/;
+    const after = await page.evaluate((t) => fetch('/mcp', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: '{"jsonrpc":"2.0","id":1,"method":"ping"}' }).then((r) => r.status), tok);
+    await page.waitForTimeout(300);
+    expectedError = null;
+    check('MCP: revoked token is refused', after === 401, String(after));
+  });
+
+  await step('product page: public intro, demo request reaches the owner', async () => {
+    const pub = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+    const p2 = await pub.newPage();
+    p2.on('pageerror', (e) => errors.push(`[intro] pageerror: ${e.message}`));
+    await p2.goto(base + '/intro');
+    await p2.waitForTimeout(1500);
+    check('intro: opens without login, with real content counts', /مغز دوم طلافروشی/.test(await text(p2, 'h1')) && /۱۲/.test(await text(p2, '.lux-stats')));
+    check('intro: slides, ticker, 8 features, 3 packages, no invented prices', (await p2.$$eval('.lux-slide', (x) => x.length)) === 4 && (await p2.$$eval('.lux-ticker .tk', (x) => x.length)) >= 8 && (await p2.$$eval('.intro-feat', (x) => x.length)) === 8 && (await p2.$$eval('.intro-pack', (x) => x.length)) === 3 && !/تومان/.test(await text(p2, '.intro')));
+    await p2.click('.intro-pack.hi a');
+    await p2.fill('#lf input[name=name]', 'مریم کاظمی');
+    await p2.fill('#lf input[name=shop]', 'گالری آزمون خودکار');
+    await p2.fill('#lf input[name=city]', 'اصفهان');
+    await p2.fill('#lf input[name=phone]', '۰۹۱۳۱۲۳۴۵۶۷');
+    await p2.click('#lf button[type=submit]');
+    await p2.waitForTimeout(1200);
+    check('intro: demo request accepted', /ثبت شد/.test(await text(p2, '#lmsg')));
+    await pub.close();
+    await go(page, '/staff/leads', 1500);
+    check('owner sees the demo request with the chosen package', /گالری آزمون خودکار/.test(await text(page, '#main')) && /حرفه‌ای/.test(await text(page, '#main')));
+    await page.click('[data-status="contacted"]');
+    await page.waitForTimeout(800);
+    check('owner marks the request as contacted', (await page.$eval('[data-status="contacted"]', (b) => b.getAttribute('aria-pressed'))) === 'true');
+  });
+
+  await step('coin inspection report: flags a light, magnetic coin and prints for the customer', async () => {
+    await go(page, '/tools/inspect', 1200);
+    await page.fill('#ins input[name=weight]', '۸٫۱۲۰');
+    await page.check('#ins input[name=magnet][value="0"]', { force: true });
+    await page.waitForTimeout(300);
+    check('inspection: full coin 0.013 g light is within tolerance, low fraud', /✓ همخوان/.test(await text(page, '#rep')) && !/✗/.test(await text(page, '#rep')));
+    await page.fill('#ins input[name=weight]', '8.05');
+    await page.check('#ins input[name=magnet][value="1"]', { force: true });
+    await page.waitForTimeout(300);
+    const rep = await text(page, '#rep');
+    check('inspection: light + magnetic → reject', /✗ ناهمخوان/.test(rep) && /رد یا ارجاع/.test(rep) && noBadNumbers(rep));
+  });
+
   await step('melted gold: course, lesson diagrams, ledger trainer, quick entry', async () => {
     await go(page, '/learn/c-melt', 1200);
     check('course c-melt: 6 lessons', (await page.$$eval('a.course-row', (a) => a.length)) === 6);
@@ -595,7 +753,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px`);

@@ -21,7 +21,7 @@ export async function teamPage(root) {
     </div>
     <div class="actions">
       <a class="btn ${pendingFloor ? '' : 'ghost'}" href="/staff/queue" data-link>بررسی کارهای عملی${pendingFloor ? ` (${fa(pendingFloor)})` : ''}</a>
-      ${store.isAdmin() ? html`<a class="btn ghost" href="/staff/settings" data-link>قیمت مرجع و تنظیمات</a>` : ''}
+      ${store.isAdmin() ? html`<a class="btn ghost" href="/staff/settings" data-link>قیمت مرجع و تنظیمات</a><a class="btn ghost" href="/staff/leads" data-link>درخواست‌های نمایش</a>` : ''}
     </div>
     <h2>همکاران</h2>
     <div class="scrollx" tabindex="0"><table class="table-plain">
@@ -191,7 +191,63 @@ export function settingsPage(root) {
       <div style="align-self:end"><button class="btn block" type="submit">ذخیره</button></div>
     </form>
     <p class="small" style="margin-top:12px">نرخ مالیات ۱۴۰۵ برای اجرت، سود و حق‌العمل طلا ۱۰٪ است (قانون بودجه ۱۴۰۵). ابتدای هر سال با قانون بودجه همان سال تطبیق دهید.</p>
-    ${pr.updatedAt ? html`<p class="small">آخرین تغییر: ${faDate(pr.updatedAt)} ${faTime(pr.updatedAt)}</p>` : ''}`);
+    <form class="tray form cols" id="bf" style="margin-top:16px">
+      <label class="field">نام فروشگاه (روی صفحه ورود و نوار بالا)<input class="input" name="shopName" maxlength="40" value="${store.me.brand?.shopName ?? ''}" placeholder="مثلاً طلا و جواهر نمونه"></label>
+      <div style="align-self:end"><button class="btn block" type="submit">ذخیره نام</button></div>
+    </form>
+    ${pr.updatedAt ? html`<p class="small">آخرین تغییر: ${faDate(pr.updatedAt)} ${faTime(pr.updatedAt)}</p>` : ''}
+    <section class="tray" style="margin-top:22px" id="mcp">
+      <h2 style="margin-top:0">اتصال به دستیار هوش مصنوعی (MCP)</h2>
+      <p class="small">با این اتصال، Claude یا هر دستیار سازگار با MCP می‌تواند ابزارهای همین فروشگاه را به کار بگیرد: ارزش طلا و آب‌شده به قاعده دفتر، فاکتور، خرید مستعمل، حباب سکه، تابلو و تحلیل بازار، احتمال تقلب و فهرست دوره‌ها. اطلاعات کارکنان و مشتریان در دسترس دستیار نیست.</p>
+      <div id="mcpbox"><div class="loading"><span></span></div></div>
+    </section>`);
+  const endpoint = `${location.origin}/mcp`;
+  async function drawMcp(fresh) {
+    const m = await api('/api/mcp');
+    const box = $('#mcpbox', root);
+    const desktop = fresh ? JSON.stringify({ mcpServers: { beatris: { command: 'npx', args: ['mcp-remote', endpoint, '--header', 'Authorization:${AUTH}'], env: { AUTH: `Bearer ${fresh}` } } } }, null, 2) : '';
+    box.innerHTML = String(html`<div class="ledger" style="background:rgba(8,7,5,0.45);border-color:var(--vault-4)"><div><span>نشانی</span><span class="ltr">${endpoint}</span></div><div><span>وضعیت</span><span>${m.configured ? `فعال${m.createdAt ? ` · توکن از ${faDate(m.createdAt)}` : ''}${m.fromEnv ? ' · توکن محیطی سرور' : ''}` : 'غیرفعال (توکنی ساخته نشده)'}</span></div></div>
+      ${fresh ? html`<p class="notice" style="margin-top:12px">این توکن فقط همین یک بار نمایش داده می‌شود؛ آن را جای امن نگه دارید. هر کس توکن را داشته باشد می‌تواند از ابزارهای این فروشگاه استفاده کند.</p>
+        <label class="field" style="margin-top:10px">توکن<input class="input ltr" readonly value="${fresh}" data-copy></label>
+        <p class="small" style="margin-top:12px">Claude Code:</p><pre class="ltr small" style="white-space:pre-wrap;word-break:break-all">claude mcp add --transport http beatris ${endpoint} --header "Authorization: Bearer ${fresh}"</pre>
+        <p class="small">Claude Desktop (فایل claude_desktop_config.json):</p><pre class="ltr small" style="white-space:pre-wrap;word-break:break-all">${desktop}</pre>` : ''}
+      <div class="actions" style="margin-top:12px"><button class="btn" type="button" data-mcp="new">${m.configured ? 'ساخت توکن تازه (توکن قبلی باطل می‌شود)' : 'ساخت توکن و فعال‌سازی'}</button>${m.configured && !m.fromEnv ? html`<button class="btn ghost" type="button" data-mcp="off">ابطال و غیرفعال‌سازی</button>` : ''}</div>`);
+  }
+  $('#mcp', root).addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-mcp]');
+    if (e.target.matches('[data-copy]')) return e.target.select();
+    if (!b) return;
+    if (b.dataset.mcp === 'off' && !confirm('اتصال دستیار هوش مصنوعی قطع شود؟')) return;
+    busy(b, true);
+    try {
+      if (b.dataset.mcp === 'new') {
+        const r = await api('/api/mcp/token', { method: 'POST' });
+        await drawMcp(r.token);
+      } else {
+        await api('/api/mcp/token', { method: 'DELETE' });
+        await drawMcp();
+      }
+    } catch (err) {
+      toast(err.message, 'error');
+      busy(b, false);
+    }
+  });
+  drawMcp().catch((err) => toast(err.message, 'error'));
+  $('#bf', root).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    busy(btn, true);
+    try {
+      const r = await api('/api/settings/brand', { method: 'PUT', body: { shopName: e.target.elements.shopName.value } });
+      store.me.brand = r.brand;
+      render();
+      toast('نام فروشگاه ذخیره شد', 'ok');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      busy(btn, false);
+    }
+  });
   $('#sf', root).addEventListener('submit', async (e) => {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(e.target));
@@ -209,5 +265,35 @@ export function settingsPage(root) {
       busy(btn, false);
     }
   });
+}
+const LEAD_STATUS = { new: 'تازه', contacted: 'تماس گرفته شد', won: 'مشتری شد', lost: 'منصرف شد' };
+/** Demo requests from the public product page (/intro). */
+export async function leadsPage(root) {
+  if (!store.isAdmin()) return render();
+  const draw = async () => {
+    const { items } = await api('/api/leads');
+    root.innerHTML = String(html`${back('/staff', 'تیم')}<h1>درخواست‌های نمایش</h1>
+      <p class="lead">درخواست‌هایی که از صفحه معرفی (<a href="/intro" data-link>/intro</a>) ثبت شده‌اند.</p>
+      ${items.length
+        ? html`<div class="rows" style="margin-top:16px">${items.map((l) => html`<div class="tray lead-row"><div><b>${l.shop}</b> <span class="small">· ${l.name} · ${l.city || '—'} · ${fa(l.branches)} شعبه · ${faDate(l.createdAt)}</span></div>
+            <div class="small ltr" style="text-align:end"><a href="tel:${l.phone}">${fa(l.phone)}</a></div>
+            ${l.message ? html`<p class="small" style="grid-column:1/-1">${l.message}</p>` : ''}
+            <div class="chips" style="grid-column:1/-1">${Object.entries(LEAD_STATUS).map(([k, v]) => html`<button class="chip" data-lead="${l.id}" data-status="${k}" aria-pressed="${l.status === k}">${v}</button>`)}<button class="chip" data-lead="${l.id}" data-del="1">حذف</button></div></div>`)}</div>`
+        : html`<p class="small" style="margin-top:16px">هنوز درخواستی ثبت نشده است.</p>`}`);
+  };
+  root.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-lead]');
+    if (!b) return;
+    try {
+      if (b.dataset.del) {
+        if (!confirm('این درخواست حذف شود؟')) return;
+        await api(`/api/leads/${b.dataset.lead}`, { method: 'DELETE' });
+      } else await api(`/api/leads/${b.dataset.lead}`, { method: 'PATCH', body: { status: b.dataset.status } });
+      await draw();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  });
+  await draw();
 }
 export { ICON };

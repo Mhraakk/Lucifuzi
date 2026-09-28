@@ -165,3 +165,17 @@ test('بازی پلمپ: توزیع بسته‌ها همان پیشین «آزم
   }
   near(s0 / N, 0.4 * 0.75 + (0.4 / 0.8) * 0.25, 0.03);
 });
+
+test('برگه بازرسی: تلورانس وزن، آهنربا و باند تصمیم', async () => {
+  const { inspectCoin, weightTol } = await import('../public/js/inspect.mjs');
+  const { COIN_TYPES } = await import('../public/js/coins.mjs');
+  assert.equal(weightTol(COIN_TYPES.emami), 0.02);
+  assert.equal(weightTol(COIN_TYPES.gerami), 0.01);
+  const ok = inspectCoin('emami', { weight: 8.12, magnet: false, edge: 'ok' }, 0.1);
+  assert.equal(ok.flags, 0);
+  assert.ok(ok.pFraud < 0.01);
+  const bad = inspectCoin('emami', { weight: 8.05, magnet: true }, 0.1);
+  assert.equal(bad.flags, 2);
+  assert.equal(bad.decision.key, 'reject');
+  assert.equal(inspectCoin('emami', {}, 0.1).pFraud, 0.1);
+});

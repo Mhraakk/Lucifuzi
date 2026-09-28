@@ -440,9 +440,12 @@ function cardTexture(pack, W, H) {
   g.fillStyle = '#1b2a4a';
   const x0 = 1024 - 70 + (bad ? 16 : 0);
   const fin = c.fineness === 900 ? '۹۰۰' : '۷۵۰';
+  // mint year inside the design's period (old design up to 1386, new design after it)
+  const [y0, y1] = pack.card === 'gerami' ? [1390, 1404] : c.years?.includes('ماقبل') ? [1370, 1386] : c.years?.includes('به بعد') ? [1387, 1404] : [1380, 1404];
+  const year = y0 + ((pack.seed >>> 0) % (y1 - y0 + 1));
   const lines = [
     ['700 52px Vazirmatn', c.label.replace(/ \(.*\)$/, '')],
-    ['500 42px Vazirmatn', `وزن ${faDigits(c.weight)} ${bad ? 'گرام' : 'گرم'} · عیار ${fin}`],
+    ['500 42px Vazirmatn', `وزن ${faDigits(c.weight)} ${bad ? 'گرام' : 'گرم'} · عیار ${fin} · ضرب ${faDigits(year)}`],
     ['500 42px Vazirmatn', `سریال ${faDigits(pack.serial)}`],
     ['500 36px Vazirmatn', `کد استعلام ${faDigits(String((pack.seed * 7919) % 90000 + 10000))}`],
   ];

@@ -10,7 +10,7 @@ export async function loginPage(root) {
     <div class="login-art" id="art"><p class="quote">«دریک، سکه زر داریوش، با وزن و عیار یکسان در سراسر شاهنشاهی پذیرفته می‌شد.»<small>اعتماد، از دقت در وزن و عیار آغاز می‌شود</small></p></div>
     <section class="login">
       <div class="mark">${brandMark}</div>
-      <span class="eyebrow">آکادمی گالری طلا</span>
+      <span class="eyebrow">${cfg.shopName ? cfg.shopName : 'آکادمی گالری طلا'}</span>
       <h1 class="gold-text" style="margin:10px 0 6px">بئاتریس</h1>
       <p class="lead">آموزش پشت ویترین: فلز و عیار، فاکتور، سنگ، فروش، امنیت و طراحی سه‌بعدی.</p>
       <form class="form" id="f" novalidate>
@@ -24,6 +24,7 @@ export async function loginPage(root) {
         <button class="btn block" type="submit">ورود</button>
       </form>
       <p class="small">رمز را مدیر شعبه می‌دهد. اگر فراموش کرده‌اید از مدیر بخواهید آن را بازنشانی کند.</p>
+      <p class="small"><a href="/intro" data-link>آشنایی با بئاتریس برای فروشگاه شما</a></p>
       ${cfg.demo && cfg.demoAccounts.length
         ? html`<div class="demo tray"><h3>حساب‌های نمایشی</h3><p class="small">رمز همه: ۱۲۳۴</p>
             <ul class="rows">${cfg.demoAccounts.map((a) => html`<li><button class="row btn ghost small" style="border:0;border-radius:0" data-act="demo" data-phone="${a.phone}">

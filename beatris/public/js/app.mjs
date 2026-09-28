@@ -4,6 +4,7 @@ import { ICON, brandMark } from './ui.mjs';
 const lazy = (mod, fn) => async (root, params) => (await import(mod))[fn](root, params);
 
 route('/login', lazy('./pages/login.mjs', 'loginPage'), { public: true, bare: true, tone: 'full' });
+route('/intro', lazy('./pages/intro.mjs', 'introPage'), { public: true, bare: true, tone: 'full' });
 route('/', lazy('./pages/home.mjs', 'homePage'), { tab: 'home', tone: 'full' });
 route('/learn', lazy('./pages/learn.mjs', 'learnPage'), { tab: 'learn' });
 route('/learn/:id', lazy('./pages/learn.mjs', 'coursePage'), { tab: 'learn' });
@@ -15,8 +16,11 @@ route('/cards', lazy('./pages/practice.mjs', 'cardsPage'), { tab: 'practice' });
 route('/drill', lazy('./pages/practice.mjs', 'drillPage'), { tab: 'practice' });
 route('/tools', lazy('./pages/tools.mjs', 'toolsPage'), { tab: 'tools' });
 route('/tools/melt', lazy('./pages/melttool.mjs', 'meltToolPage'), { tab: 'tools' });
+route('/tools/inspect', lazy('./pages/inspect.mjs', 'inspectPage'), { tab: 'tools' });
 route('/tools/:id', lazy('./pages/tools.mjs', 'toolPage'), { tab: 'tools' });
 route('/ledger', lazy('./pages/ledger.mjs', 'ledgerPage'), { tab: 'practice' });
+route('/market', lazy('./pages/market.mjs', 'marketPage'), { tab: 'market', tone: 'wide' });
+route('/market/data', lazy('./pages/marketdata.mjs', 'marketDataPage'), { tab: 'market', staff: true, tone: 'wide' });
 route('/studio', lazy('./pages/studio3d.mjs', 'studioPage'), { tab: 'studio', tone: 'full' });
 route('/coins', lazy('./pages/coinlab.mjs', 'coinLabPage'), { tab: 'tools', tone: 'full' });
 route('/coins/manage', lazy('./pages/coinphotos.mjs', 'coinPhotosPage'), { tab: 'tools', staff: true });
@@ -27,11 +31,13 @@ route('/me', lazy('./pages/me.mjs', 'mePage'), { tab: 'me' });
 route('/staff', lazy('./pages/team.mjs', 'teamPage'), { tab: 'team', staff: true, tone: 'wide' });
 route('/staff/queue', lazy('./pages/team.mjs', 'queuePage'), { tab: 'team', staff: true });
 route('/staff/settings', lazy('./pages/team.mjs', 'settingsPage'), { tab: 'team', staff: true });
+route('/staff/leads', lazy('./pages/team.mjs', 'leadsPage'), { tab: 'team', staff: true });
 route('/staff/:id', lazy('./pages/team.mjs', 'memberPage'), { tab: 'team', staff: true, tone: 'wide' });
 
 setShell((opts) => {
   const top = $('#topbar');
   const nav = $('#tabbar');
+  document.body.classList.toggle('bare', !!opts.bare);
   if (opts.bare) {
     top.hidden = true;
     nav.hidden = true;
@@ -39,11 +45,13 @@ setShell((opts) => {
   }
   const u = store.me?.user;
   top.hidden = false;
-  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span>بئاتریس</span></a><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a>`);
+  const shop = store.me?.brand?.shopName;
+  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span>بئاتریس${shop ? html`<small class="shop-name">${shop}</small>` : ''}</span></a><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a>`);
   const tabs = [
     ['home', '/', 'خانه', ICON.home],
     ['learn', '/learn', 'آموزش', ICON.learn],
     ['practice', '/practice', 'تمرین', ICON.practice],
+    ['market', '/market', 'بازار', ICON.chart],
     ['studio', '/studio', 'استودیو', ICON.cube],
     ['tools', '/tools', 'ابزار', ICON.tools],
   ];

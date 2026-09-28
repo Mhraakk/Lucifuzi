@@ -161,7 +161,8 @@ export async function render() {
 
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href]');
-  if (!a || a.target || a.hasAttribute('download') || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  // in-page anchors (#section) and links a page already handled are not navigations
+  if (!a || e.defaultPrevented || a.getAttribute('href').startsWith('#') || a.target || a.hasAttribute('download') || e.metaKey || e.ctrlKey || e.shiftKey) return;
   const url = new URL(a.href, location.href);
   if (url.origin !== location.origin) return;
   e.preventDefault();

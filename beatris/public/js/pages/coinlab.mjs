@@ -140,7 +140,6 @@ export async function coinLabPage(root) {
   const rake = new T.DirectionalLight(0xfff1dc, 0);
   stage.scene.add(rake, rake.target);
 
-  if (q.has('debuglab')) window.__lab = { stage, coinGroup, T }; // TMPDEBUG
   const seal = () => S.area === 'seal';
   const real = () => S.area === 'real';
   const urlFor = () => (real() ? `/coins?mode=real${S.photo ? `&item=${encodeURIComponent(S.photo)}` : ''}` : seal() ? (S.game ? '/coins?mode=sealgame' : '/coins?mode=seal') : S.game ? '/coins?mode=game' : '/coins');

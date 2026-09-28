@@ -23,8 +23,8 @@ const SECURITY = {
 const PHOTO_BODY = 48 * 1024 * 1024; // two faces × (4096 + 2048 + relief) as base64
 const COMPRESSED = new Set(['.webp', '.jpg', '.png', '.woff2']);
 
-export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media') }) {
-  const handle = createApi({ db, signer: makeSigner(secret), demo, mediaDir });
+export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts }) {
+  const handle = createApi({ db, signer: makeSigner(secret), demo, mediaDir, marketOpts });
 
   /** Uploaded coin photos: immutable, server-named files on the data volume. */
   async function serveMedia(req, res, name) {
@@ -96,9 +96,56 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     });
   }
 
-  return http.createServer(async (req, res) => {
+  /** MCP (Streamable HTTP, JSON answers only): POST /mcp with a bearer token; no GET stream, no sessions. */
+  const mcpHits = new Map();
+  async function serveMcp(req, res, ip) {
+    const H = { ...SECURITY, 'Cache-Control': 'no-store' };
+    const json = (status, obj, extra = {}) => {
+      res.writeHead(status, { ...H, 'Content-Type': 'application/json; charset=utf-8', ...extra });
+      res.end(JSON.stringify(obj));
+    };
+    if (req.method !== 'POST') {
+      res.writeHead(405, { ...H, Allow: 'POST' });
+      return res.end();
+    }
+    // browsers from other sites may not drive this endpoint (DNS-rebinding protection from the MCP spec)
+    const origin = req.headers.origin;
+    let sameOrigin = true;
+    try {
+      sameOrigin = !origin || new URL(origin).host === req.headers.host;
+    } catch {
+      sameOrigin = false;
+    }
+    if (!sameOrigin) return json(403, { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'Origin not allowed' } });
+    const now = Date.now(), hit = mcpHits.get(ip);
+    if (!hit || now - hit.t0 > 5 * 60000) mcpHits.set(ip, { t0: now, n: 1 });
+    else if (++hit.n > 300) return json(429, { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'Too many requests' } }, { 'Retry-After': '60' });
+    if (mcpHits.size > 5000) mcpHits.clear();
+    const auth = String(req.headers.authorization ?? '');
+    if (!handle.mcpAuth(auth.startsWith('Bearer ') ? auth.slice(7).trim() : '')) return json(401, { jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Unauthorized: create an MCP token in Beatris (team → settings) and send it as "Authorization: Bearer <token>".' } }, { 'WWW-Authenticate': 'Bearer realm="beatris-mcp"' });
+    let body;
+    try {
+      body = await readBody(req, 256 * 1024);
+    } catch (e) {
+      return json(e.status === 413 ? 413 : 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
+    }
+    const out = await handle.mcp(body);
+    if (out.status === 202) {
+      res.writeHead(202, H);
+      return res.end();
+    }
+    json(out.status, out.body);
+  }
+
+  const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://local');
     const ip = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim();
+    if (url.pathname === '/mcp')
+      return serveMcp(req, res, ip).catch((e) => {
+        if (!quiet) console.error('[beatris] mcp', e);
+        if (!res.headersSent) res.writeHead(500);
+        res.end();
+      });
     if (!url.pathname.startsWith('/api/')) {
       if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405);
@@ -116,11 +163,16 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     }
     const send = (status, obj) => {
       const body = JSON.stringify(obj);
-      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...SECURITY });
+      const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', Vary: 'Accept-Encoding', ...SECURITY };
+      if (body.length > 8192 && /\bgzip\b/.test(req.headers['accept-encoding'] ?? '')) {
+        res.writeHead(status, { ...headers, 'Content-Encoding': 'gzip' });
+        return res.end(gzipSync(body));
+      }
+      res.writeHead(status, headers);
       res.end(body);
     };
     try {
-      const limit = url.pathname === '/api/designs' ? 2 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : undefined;
+      const limit = url.pathname === '/api/designs' || url.pathname === '/api/market/bars' ? 2.5 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : undefined;
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, limit) : {};
       const out = await handle(req, url, body, ip);
       send(200, out);
@@ -130,6 +182,8 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       send(500, { error: 'خطای داخلی سرور. دوباره تلاش کنید.' });
     }
   });
+  server.market = handle.market;
+  return server;
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -145,7 +199,21 @@ if (isMain) {
   const server = createServer({ db, secret: resolveSecret(), demo });
   const port = Number(process.env.PORT) || 3000;
   server.listen(port, '0.0.0.0', () => console.log(`[beatris] listening on :${port}${demo ? ' (demo accounts on)' : ''}`));
-  const stop = () => server.close(() => (db.close(), process.exit(0)));
+  if (process.env.NODE_ENV !== 'test') server.market.start(); // price feed polling, when the owner has switched one on
+  // redeploys send SIGTERM: stop accepting, drop idle keep-alive sockets, give requests in flight 5 s
+  const stop = () => {
+    const done = () => {
+      try {
+        db.close();
+      } catch {
+        /* already closed */
+      }
+      process.exit(0);
+    };
+    server.close(done);
+    server.closeIdleConnections();
+    setTimeout(done, 5000).unref();
+  };
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
 }

@@ -141,6 +141,29 @@ CREATE TABLE IF NOT EXISTS coin_photos (
   created_by TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS market_bars (
+  symbol TEXT NOT NULL,
+  day TEXT NOT NULL,
+  o REAL NOT NULL,
+  h REAL NOT NULL,
+  l REAL NOT NULL,
+  c REAL NOT NULL,
+  src TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (symbol, day)
+);
+CREATE TABLE IF NOT EXISTS leads (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  shop TEXT NOT NULL,
+  city TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL,
+  branches INTEGER NOT NULL DEFAULT 1,
+  message TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','contacted','won','lost')),
+  ip TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,

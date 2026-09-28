@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import * as C from '../content/index.mjs';
 import { COIN_TYPES, RHO, RHO_750, packTare, binaryPosterior } from '../public/js/coins.mjs';
 import * as MELT from '../public/js/melt.mjs';
+import * as TA from '../public/js/ta.mjs';
 import { checkNumeric, invoice, g750FromMazaneh, moltenPiecePrice, buyback, coinIntrinsic, COINS, densityFromWeighing, alloyAdjust, waxToMetal, platingMass, stoneCarat, resizeMetal, wireLength } from '../public/js/calc.mjs';
 
 test('یکپارچگی محتوا', () => assert.deepEqual(C.validateContent(), []));
 test('حجم برنامه آموزشی', () => {
-  assert.equal(C.COURSES.length, 11);
+  assert.equal(C.COURSES.length, 12);
   assert.ok(C.LESSONS.size >= 30);
   assert.ok(C.QUESTIONS.size >= 90);
   assert.ok(C.SCENARIOS.length >= 8);
@@ -58,6 +59,22 @@ test('پاسخ عددی پرسش‌ها با موتور محاسبه یکی اس
   const settled = MELT.r3(500e6 / MELT.gram18(40e6));
   ok('h5q1', settled);
   ok('h5q2', MELT.r3(120 - settled));
+  // market analysis — the same functions as the market desk
+  ok('mk1q1', TA.impliedMesghal(4200, 235000));
+  ok('mk1q2', TA.impliedUsdMesghal(103543000, 4213.22));
+  const coin = TA.coinIntrinsic(TA.COIN_PURE_G.sekee, 4200, 235000);
+  ok('mk2q1', coin);
+  ok('mk2q2', TA.bubble(240505000, coin) * 100);
+  ok('mk4q1', 100 - 100 / (1 + 2 / 1));
+  const pv = TA.pivots(104405000, 103275000, 103543000);
+  ok('mk5q1', pv.P);
+  ok('mk5q2', pv.S1);
+  ok('mk5q3', TA.fibLevels(90e6, 110e6).retrace.find((r) => r.r === 0.618).price);
+  ok('mk6q1', 103.82 + 1.618 * (110 - 100));
+  ok('mk7q1', (5e9 * 0.01) / 2e6);
+  const w4 = TA.elliott([100, 110, 103.82, 120, 108, 125].map((price, i) => ({ i, price, kind: i % 2 ? 'H' : 'L' }))).find((c) => c.kind === 'impulse-done');
+  assert.equal(C.QUESTIONS.get('mk6q2').a, 1);
+  assert.equal(w4.rules.find((r) => r.id === 'w4').ok, false);
 });
 test('نمای عمومی پاسخ‌ها را لو نمی‌دهد', () => {
   const json = JSON.stringify([C.bootstrap(), ...[...C.LESSONS.keys()].map(C.publicLesson), ...C.SCENARIOS.map(C.publicScenario)]);

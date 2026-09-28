@@ -5,6 +5,10 @@ import { checkNumeric, RECORD_KINDS } from '../public/js/calc.mjs';
 import { ROLES, STAFF_ROLES, ADMIN_ROLES, hashPin, verifyPin, validPin, normalizePhone, validPhone, makeLimiter } from './auth.mjs';
 import { COIN_TYPES } from '../public/js/coins.mjs';
 import { PHOTO_KINDS, PHOTO_SIDES, checkTexture, storeFiles, removeFiles, builtinPhotos } from './media.mjs';
+import { createMarket, parseTable, checkFeedUrl, FEED_MODES, FEED_LABEL } from './market.mjs';
+import { SYMBOLS, isSymbol, DAY_RE } from '../public/js/market.mjs';
+import { isoDay } from '../public/js/ta.mjs';
+import { createMcp, hashToken, newToken, tokenMatches } from './mcp.mjs';
 
 const now = () => new Date().toISOString();
 const tehranDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(d);
@@ -39,7 +43,7 @@ function grade(q, answer) {
 }
 const reveal = (q) => (q.o ? { answer: q.a, answerText: q.o[q.a] } : { answer: q.n, unit: q.unit });
 
-export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media') }) {
+export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media'), marketOpts = {} }) {
   const loginByPhone = makeLimiter(6, 10 * 60 * 1000);
   const loginByIp = makeLimiter(30, 10 * 60 * 1000);
   const audit = (uid, action, detail = {}) => db.run('INSERT INTO audit(user_id,action,detail_json,created_at) VALUES (?,?,?,?)', uid, action, JSON.stringify(detail), now());
@@ -49,6 +53,8 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     return r ? { ...fallback, ...JSON.parse(r.value_json) } : { ...fallback };
   };
   const pricing = () => getSetting('pricing', DEFAULT_PRICING);
+  const savePricing = (next, by) =>
+    db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', 'pricing', JSON.stringify(next), now(), by);
 
   const publicUser = (u) => ({ id: u.id, name: u.name, phone: u.phone, role: u.role, branch: u.branch, active: !!u.active, lastLoginAt: u.last_login_at, createdAt: u.created_at });
 
@@ -100,8 +106,16 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   const on = (method, pattern, guard, fn) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), guard, fn });
 
   on('GET', '/api/health', 'public', () => ({ ok: true, time: now() }));
+  on('GET', '/api/intro', 'public', () => {
+    // a few public market prices for the product page's ticker (the same board staff see; sample data is flagged)
+    const b = market.board();
+    const pick = ['mesghal', 'geram18', 'sekee', 'sekeb', 'nim', 'rob', 'usd', 'ons'];
+    return { courses: C.COURSES.length, lessons: C.LESSONS.size, questions: C.QUESTIONS.size, sample: b.sample, source: b.source.label, prices: b.items.filter((x) => pick.includes(x.id) && !x.empty).map((x) => ({ id: x.id, c: x.c, pct: x.pct, d: x.d })) };
+  });
+  const brand = () => getSetting('brand', { shopName: '' });
   on('GET', '/api/config', 'public', () => ({
     demo,
+    shopName: brand().shopName,
     demoAccounts: demo ? db.all("SELECT name, phone, role FROM users WHERE demo=1 AND active=1 ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'trainer' THEN 2 ELSE 3 END").map((u) => ({ ...u, pin: '1234' })) : [],
   }));
 
@@ -136,7 +150,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
 
   on('GET', '/api/me', 'auth', ({ user }) => {
     const today = db.get('SELECT in_at, out_at FROM attendance WHERE user_id=? AND day=?', user.id, tehranDay());
-    return { user: publicUser(user), pricing: pricing(), progress: progressFor(user.id), attendance: today ? { inAt: today.in_at, outAt: today.out_at } : null };
+    return { user: publicUser(user), pricing: pricing(), brand: brand(), progress: progressFor(user.id), attendance: today ? { inAt: today.in_at, outAt: today.out_at } : null };
   });
 
   on('GET', '/api/content', 'auth', () => C.bootstrap());
@@ -491,6 +505,12 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     return { ok: true };
   });
 
+  on('PUT', '/api/settings/brand', 'admin', ({ user, body }) => {
+    const shopName = String(body.shopName ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 40);
+    db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', 'brand', JSON.stringify({ shopName }), now(), user.id);
+    audit(user.id, 'settings.brand', { shopName });
+    return { brand: { shopName } };
+  });
   on('PUT', '/api/settings/pricing', 'admin', ({ user, body }) => {
     const cur = pricing();
     const n = (v, lo, hi) => {
@@ -506,9 +526,134 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
       priceNote: String(body.priceNote ?? '').slice(0, 120),
       updatedAt: now(),
     };
-    db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', 'pricing', JSON.stringify(next), now(), user.id);
+    savePricing(next, user.id);
     audit(user.id, 'settings.pricing', next);
     return { pricing: next };
+  });
+
+  /* ---------------- market data ---------------- */
+  // with "follow the market" on, the shop's price of a gram of 750 tracks the live 18k quote
+  const market = createMarket({
+    db,
+    ...marketOpts,
+    onPrice: (p750, label) => {
+      const time = new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }).format(new Date());
+      savePricing({ ...pricing(), p750: Math.round(p750 / 1000) * 1000, priceNote: `قیمت خودکار بازار (${label})، ساعت ${time}`, updatedAt: now() }, 'system');
+    },
+  });
+  const feedView = () => {
+    const cfg = market.config();
+    return { config: { mode: cfg.mode, url: cfg.url, token: cfg.token ? '••••' : '', syncPrice: !!cfg.syncPrice, interval: cfg.interval, backfilled: cfg.backfilled ?? null }, status: market.status(), hasReal: market.hasReal(), modes: FEED_MODES.map((id) => ({ id, label: FEED_LABEL[id] })) };
+  };
+  let lastManualSync = 0;
+  on('GET', '/api/market', 'auth', () => market.board());
+  on('GET', '/api/market/series', 'auth', ({ url }) => {
+    const ids = [...new Set(String(url.searchParams.get('symbols') ?? '').split(',').filter(Boolean))];
+    if (!ids.length || ids.length > SYMBOLS.length || !ids.every(isSymbol)) throw bad('نماد نامعتبر است.');
+    const from = url.searchParams.get('from');
+    if (from && !DAY_RE.test(from)) throw bad('تاریخ شروع نامعتبر است.');
+    return market.series(ids, from);
+  });
+  on('POST', '/api/market/bars', 'admin', ({ user, body }) => {
+    const id = String(body.symbol ?? '');
+    if (!isSymbol(id)) throw bad('نماد نامعتبر است.');
+    let bars;
+    if (typeof body.table === 'string') {
+      if (body.table.length > 2_000_000) throw bad('جدول بیش از حد بزرگ است.');
+      const r = parseTable(body.table);
+      if (r.errors.length) throw bad(`${r.errors.slice(0, 3).join(' · ')}${r.errors.length > 3 ? ` و ${r.errors.length - 3} خطای دیگر` : ''}`);
+      bars = r.bars;
+    } else {
+      const d = isoDay(body.day ?? market.today()), c = Number(body.price);
+      if (!d) throw bad('تاریخ نامعتبر است.');
+      if (!(c > 0 && c < 1e13)) throw bad('قیمت باید عدد مثبت باشد.');
+      const cur = db.get('SELECT o,h,l FROM market_bars WHERE symbol=? AND day=?', id, d);
+      bars = [{ d, o: cur?.o ?? c, h: Math.max(cur?.h ?? c, c), l: Math.min(cur?.l ?? c, c), c }];
+    }
+    if (!bars.length) throw bad('هیچ سطر معتبری پیدا نشد.');
+    if (bars.length > 50000) throw bad('حداکثر ۵۰٬۰۰۰ روز در هر بار.');
+    const saved = market.upsert(id, bars, 'manual', { force: true });
+    audit(user.id, 'market.bars', { symbol: id, n: bars.length, from: bars[0].d, to: bars.at(-1).d });
+    return { saved, from: bars[0].d, to: bars.at(-1).d };
+  });
+  on('DELETE', '/api/market/bars/:symbol/:day', 'admin', ({ user, params }) => {
+    if (!isSymbol(params.symbol) || !DAY_RE.test(params.day)) throw bad('نماد یا تاریخ نامعتبر است.');
+    if (!Number(db.run('DELETE FROM market_bars WHERE symbol=? AND day=?', params.symbol, params.day).changes)) throw notFound('این روز ثبت نشده است.');
+    audit(user.id, 'market.delete', { symbol: params.symbol, day: params.day });
+    return { ok: true };
+  });
+  on('GET', '/api/market/feed', 'admin', feedView);
+  on('PUT', '/api/market/feed', 'admin', ({ user, body }) => {
+    const cur = market.config();
+    const mode = FEED_MODES.includes(body.mode) ? body.mode : cur.mode;
+    const url = String(body.url ?? cur.url ?? '').trim().slice(0, 500);
+    if (mode === 'json') {
+      const e = checkFeedUrl(url);
+      if (e) throw bad(e);
+    }
+    const token = body.token === undefined || body.token === '••••' ? cur.token : String(body.token).trim().slice(0, 500);
+    const interval = Math.min(60, Math.max(5, Math.round(Number(body.interval) || cur.interval)));
+    market.save('market', { ...market.stored(), mode, url, token, syncPrice: !!body.syncPrice, interval }, user.id);
+    audit(user.id, 'market.feed', { mode, url, syncPrice: !!body.syncPrice, interval });
+    if (mode !== 'off') market.sync().catch(() => {}); // the first run of a feed also loads its history
+    return feedView();
+  });
+  on('POST', '/api/market/sync', 'admin', async ({ body }) => {
+    if (Date.now() - lastManualSync < 15000) throw new HttpError(429, 'به‌روزرسانی همین حالا انجام شد؛ چند ثانیه دیگر دوباره امتحان کنید.');
+    lastManualSync = Date.now();
+    await market.sync({ backfill: !!body.backfill });
+    return feedView();
+  });
+
+  /* ---------------- demo requests from the product page ---------------- */
+  const leadLimit = makeLimiter(5, 60 * 60 * 1000);
+  const LEAD_STATUS = ['new', 'contacted', 'won', 'lost'];
+  on('POST', '/api/leads', 'public', ({ body, ip }) => {
+    if (leadLimit.blocked(ip)) throw new HttpError(429, 'درخواست‌های زیادی ثبت شده است؛ یک ساعت دیگر دوباره امتحان کنید.');
+    if (String(body.website ?? '')) return { ok: true }; // honeypot: bots fill every field
+    const txt = (v, max) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
+    const name = txt(body.name, 60), shop = txt(body.shop, 80), city = txt(body.city, 40), message = txt(body.message, 600);
+    const phone = normalizePhone(body.phone);
+    const branches = Math.min(500, Math.max(1, Math.round(Number(body.branches) || 1)));
+    if (name.length < 2) throw bad('نام را بنویسید.');
+    if (shop.length < 2) throw bad('نام فروشگاه را بنویسید.');
+    if (!validPhone(phone)) throw bad('شماره موبایل باید ۱۱ رقم و با ۰۹ باشد.');
+    leadLimit.fail(ip);
+    db.run('INSERT INTO leads(id,name,shop,city,phone,branches,message,ip,created_at) VALUES (?,?,?,?,?,?,?,?,?)', randomUUID(), name, shop, city, phone, branches, message, String(ip).slice(0, 60), now());
+    return { ok: true };
+  });
+  on('GET', '/api/leads', 'admin', () => ({ items: db.all('SELECT id,name,shop,city,phone,branches,message,status,created_at AS createdAt FROM leads ORDER BY created_at DESC LIMIT 500') }));
+  on('PATCH', '/api/leads/:id', 'admin', ({ user, params, body }) => {
+    if (!LEAD_STATUS.includes(body.status)) throw bad('وضعیت نامعتبر است.');
+    if (!Number(db.run('UPDATE leads SET status=? WHERE id=?', body.status, params.id).changes)) throw notFound('این درخواست پیدا نشد.');
+    audit(user.id, 'lead.status', { id: params.id, status: body.status });
+    return { ok: true };
+  });
+  on('DELETE', '/api/leads/:id', 'admin', ({ user, params }) => {
+    if (!Number(db.run('DELETE FROM leads WHERE id=?', params.id).changes)) throw notFound('این درخواست پیدا نشد.');
+    audit(user.id, 'lead.delete', { id: params.id });
+    return { ok: true };
+  });
+
+  /* ---------------- MCP: the shop's tools for AI assistants ---------------- */
+  const mcp = createMcp({ market, pricing, courses: C.COURSES });
+  const mcpSetting = () => getSetting('mcp', {});
+  const envToken = process.env.BEATRIS_MCP_TOKEN && process.env.BEATRIS_MCP_TOKEN.length >= 24 ? hashToken(process.env.BEATRIS_MCP_TOKEN) : null;
+  const mcpAuth = (token) => tokenMatches(token, mcpSetting().hash) || tokenMatches(token, envToken);
+  on('GET', '/api/mcp', 'admin', () => {
+    const m = mcpSetting();
+    return { configured: !!(m.hash || envToken), createdAt: m.createdAt ?? null, fromEnv: !!envToken, endpoint: '/mcp' };
+  });
+  on('POST', '/api/mcp/token', 'admin', ({ user }) => {
+    const token = newToken();
+    db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', 'mcp', JSON.stringify({ hash: hashToken(token), createdAt: now() }), now(), user.id);
+    audit(user.id, 'mcp.token', {});
+    return { token, endpoint: '/mcp' };
+  });
+  on('DELETE', '/api/mcp/token', 'admin', ({ user }) => {
+    db.run("DELETE FROM settings WHERE key='mcp'");
+    audit(user.id, 'mcp.revoke', {});
+    return { ok: true };
   });
 
   /* ---------------- dispatcher ---------------- */
@@ -522,7 +667,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     return u;
   }
 
-  return async function handle(req, url, body, ip) {
+  const handle = async function handle(req, url, body, ip) {
     for (const r of routes) {
       if (r.method !== req.method) continue;
       const m = r.re.exec(url.pathname);
@@ -539,6 +684,10 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     }
     throw notFound('مسیر API وجود ندارد.');
   };
+  handle.market = market;
+  handle.mcp = mcp;
+  handle.mcpAuth = mcpAuth;
+  return handle;
 }
 
 /* ---------------- seeding ---------------- */

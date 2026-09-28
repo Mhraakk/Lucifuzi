@@ -129,7 +129,32 @@ function balance(el) {
   draw();
 }
 
-const WIDGETS = { ladder, patterns, journal, assay, balance };
+/* ---------------- chart: a market chart inside a lesson ---------------- */
+// Drawn from the sample market ending on a fixed day, so the picture always matches the lesson text.
+const LESSON_DAY = '2026-09-27';
+async function chart(el, b) {
+  el.innerHTML = '<div class="vz-chart"><div class="vz-cv"></div><p class="vz-note">داده نمونه آموزشی (شبیه‌سازی‌شده، نه قیمت واقعی) · کشیدن و بزرگ‌نمایی فعال است</p></div>';
+  const [{ createChart }, M, T, I] = await Promise.all([import('./charts.mjs'), import('./market.mjs'), import('./ta.mjs'), import('./indicators.mjs')]);
+  const id = M.isSymbol(b.symbol) ? b.symbol : 'mesghal';
+  const show = b.bars ?? 180;
+  const bars = M.sampleMarket(LESSON_DAY)[id].slice(-(show + 260)); // extra days warm up the indicators
+  const c = T.closes(bars), sym = M.SYMBOL[id];
+  const f = (v) => fmt(M.roundQuote(id, v), sym.decimals ?? 0);
+  // a convincing Elliott count (all rules, score ≥ 40) is labelled on the zigzag; otherwise the zigzag alone
+  let wave = null;
+  if (b.overlays?.includes('zigzag')) {
+    const zz = T.zigzag(bars, T.swingPct(bars));
+    const best = T.elliott(zz).find((x) => x.valid && x.score >= 40);
+    if (best) wave = { ...best, zz };
+  }
+  const overlays = I.OVERLAYS.filter(([k]) => b.overlays?.includes(k)).flatMap(([, , build]) => build(bars, c, f, wave));
+  const panes = I.PANES.filter(([k]) => b.panes?.includes(k)).map(([, , build]) => ({ ...build(bars, c), height: 90 }));
+  const height = 290 + panes.length * 90;
+  const ch = createChart(el.querySelector('.vz-cv'), { height, label: b.caption ?? 'نمودار بازار' });
+  ch.set({ bars, type: b.type ?? 'candle', overlays, panes, unit: sym.unit, decimals: sym.decimals ?? 0, format: (v) => fmt(v, sym.decimals ?? 0), view: show, height });
+}
+
+const WIDGETS = { ladder, patterns, journal, assay, balance, chart };
 export const VIZ_KINDS = Object.keys(WIDGETS);
 
 /** Mount every viz block inside root. */
