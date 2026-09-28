@@ -182,7 +182,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       res.end(body);
     };
     try {
-      const limit = url.pathname === '/api/designs' || url.pathname === '/api/market/bars' ? 2.5 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : undefined;
+      const limit = url.pathname === '/api/designs' || url.pathname === '/api/market/bars' ? 2.5 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : /^\/api\/books\/bars\/[^/]+\/card$/.test(url.pathname) ? 1.5 * 1024 * 1024 : undefined;
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, limit) : {};
       const auth = String(req.headers.authorization ?? '');
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
@@ -193,6 +193,12 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
         const user = handle.authenticate(req);
         if (!user) throw new HttpError(401, 'ورود لازم است.');
         out = platform.vendor(req.method, url.pathname, body, user);
+      } else if (url.pathname.startsWith('/api/public/statement/')) {
+        // a customer's statement link names its shop: «<shop>~<random>»
+        const tok = decodeURIComponent(url.pathname.split('/')[4] ?? '');
+        const tn = tok.split('~')[0];
+        if (!/^(main|t_[0-9a-f]{12})$/.test(tn)) throw new HttpError(404, 'این برگه وجود ندارد.');
+        out = await (tn === MAIN ? handle : platform.handleFor(tn))(req, url, body, ip);
       } else if (url.pathname.startsWith('/api/verify/')) {
         // the authenticity page is public and printed on every shop's invoices: look the code up in each shop
         let found = null;

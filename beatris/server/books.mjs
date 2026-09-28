@@ -11,6 +11,7 @@ import { makeLearn } from './learn.mjs';
 import { makeDashboard } from './dashboard.mjs';
 import { makeAssistant } from './assistant.mjs';
 import { makeSetup } from './setup.mjs';
+import { makeIdeas } from './ideas.mjs';
 import { PROVIDERS, checkBaseUrl, keyHint } from './providers.mjs';
 import * as TR from '../public/js/trade.mjs';
 
@@ -80,6 +81,7 @@ export const DEFAULT_BOOKS = {
 export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market, sealer = null, shopId = 'main' }) {
   // every handler is also kept by name, so the auditor and the assistant reuse exactly the logic (and the checks) of the API
   const handlers = new Map();
+  let ideas = null; // the seven tools hook into saving (locked quotes, closed days); set once they are registered
   const on = (method, path, guard, fn) => {
     handlers.set(`${method} ${path}`, fn);
     onRoute(method, path, guard, fn);
@@ -582,7 +584,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     if (partyId && (!party || (party.deleted_at && partyId !== prev?.partyId))) throw bad('مشتری انتخاب‌شده پیدا نشد.');
     const lines = (Array.isArray(body.lines) ? body.lines : []).slice(0, 300).map((l) => {
       const o = {};
-      for (const k of ['kind', 'side', 'tpl', 'itemId', 'title', 'weight', 'fineness', 'p750', 'ojratMode', 'ojrat', 'profitPct', 'bros', 'stones', 'discount', 'coin', 'count', 'price', 'mazaneh', 'stoneWeight', 'deductPct', 'amount', 'qty', 'vatPct', 'code', 'dir', 'priced', 'basis', 'g750', 'gramPrice', 'serial', 'brand', 'gallery', 'sealDate', 'fee', 'fxAmount', 'rate', 'conditional', 'assay', 'note']) if (l[k] !== undefined && l[k] !== '') o[k] = typeof l[k] === 'string' ? txt(l[k], 120) : typeof l[k] === 'object' ? l[k] : l[k];
+      for (const k of ['kind', 'side', 'tpl', 'itemId', 'title', 'weight', 'fineness', 'p750', 'ojratMode', 'ojrat', 'profitPct', 'bros', 'stones', 'discount', 'coin', 'count', 'price', 'mazaneh', 'stoneWeight', 'deductPct', 'amount', 'qty', 'vatPct', 'code', 'dir', 'priced', 'basis', 'g750', 'gramPrice', 'serial', 'brand', 'gallery', 'sealDate', 'fee', 'fxAmount', 'rate', 'conditional', 'assay', 'note', 'quote']) if (l[k] !== undefined && l[k] !== '') o[k] = typeof l[k] === 'string' ? txt(l[k], 120) : typeof l[k] === 'object' ? l[k] : l[k];
       if (o.kind === 'bar' && o.serial) o.serial = TR.normSerial(o.serial);
       return o;
     });
@@ -798,6 +800,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   function save(user, body, prevRow = null, reason = '') {
     const prev = prevRow ? docOut(prevRow) : null;
     const { doc, calc, warn } = prepare(user, body, prev);
+    const usedQuotes = ideas ? ideas.hooks.check(user, doc, calc, prev) : [];
     const wantStatus = body.status === 'draft' || doc.type === 'proforma' ? (doc.type === 'proforma' ? 'final' : 'draft') : 'final';
     if (prev?.status === 'final' && wantStatus === 'draft') throw bad('سند قطعی را نمی‌توان به پیش‌نویس برگرداند؛ ویرایش کنید یا باطل کنید.');
     if (prev?.status === 'void') throw bad('سند باطل‌شده ویرایش نمی‌شود.');
@@ -824,6 +827,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       else db.run('INSERT INTO bk_docs(id,type,fy,no,serial,status,version,date,party_id,data_json,calc_json,tax_json,hash,created_by,created_at,updated_by,updated_at,issued_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, doc.type, fy, no, serial, wantStatus, version, doc.date, doc.partyId, data, cj, JSON.stringify(tax), hash, user.id, t, user.id, t, issuedAt);
       db.run('INSERT INTO bk_versions(doc_id,version,status,data_json,calc_json,hash,by,at,reason) VALUES (?,?,?,?,?,?,?,?,?)', id, version, wantStatus, data, cj, hash, user.id, t, txt(reason, 300));
       writePostings(id, doc, calc, doc.type === 'proforma' ? 'draft' : wantStatus);
+      if (usedQuotes.length && wantStatus === 'final') ideas.hooks.commit(id, usedQuotes);
       log(user, prev ? 'doc.update' : 'doc.create', id, { type: doc.type, fy, no, version, status: wantStatus, net: calc.net, hash, reason: txt(reason, 300) || undefined });
       return docOut(db.get('SELECT * FROM bk_docs WHERE id=?', id), { warnings: warn });
     });
@@ -845,6 +849,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   function voidDoc(user, id, reason) {
     const cur = db.get('SELECT * FROM bk_docs WHERE id=?', id);
     if (!cur) throw notFound('سند پیدا نشد.');
+    ideas?.hooks.voiding(user, cur);
     if (cur.status === 'void') throw bad('این سند قبلاً باطل شده است.');
     if (String(reason ?? '').trim().length < 3) throw bad('دلیل ابطال را بنویسید.');
     const d = docOut(cur);
@@ -1580,6 +1585,9 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   });
   on('GET', '/api/books/assistant', 'auth', () => assistant.info());
   on('POST', '/api/books/assistant', 'auth', async ({ user, body }) => assistant.ask(user, body));
+
+  /* ---------------- the seven tools: locked quotes, price-move risk, bar cards, counts, shared statements, forecast, day close ---------------- */
+  ideas = makeIdeas({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, sealer, shopId, partyRow, verifyLog });
 
   /* ---------------- راه‌اندازی فروشگاه: the real opening state of a new shop in one step ---------------- */
   const setup = makeSetup({ db, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, HttpError, isAdmin });
