@@ -60,6 +60,18 @@
   color-scheme: dark;
 }
 
+/* ---------- semantic tokens ----------
+   Names components should reach for; each theme fills them through its palette below. */
+:root {
+  --background: var(--vault); --foreground: var(--bone);
+  --surface: var(--vault-2); --surface-elevated: var(--vault-2); --surface-muted: var(--vault-3);
+  --border: var(--hair-2); --border-subtle: var(--hair);
+  --muted: var(--vault-3); --muted-foreground: var(--dust);
+  --accent: var(--gold); --accent-foreground: var(--gold-hi);
+  --positive: var(--turq); --negative: var(--carn); --warning: #d38a2e; --info: var(--lapis);
+  --chart-1: var(--gold); --chart-2: var(--lapis); --chart-3: var(--carn); --chart-4: var(--turq);
+}
+
 /* ---------- themes ----------
    آرام (default): graphite with a warm-gold accent, low glare and no texture, for eight hours at the counter.
    روز: warm paper for a bright shop.  کلاسیک: the original black-and-molten-gold. */
@@ -84,15 +96,18 @@
   --grain: none;
 }
 :root[data-theme='day'] {
-  --void: #e9e5dc; --vault: #f4f1ea; --vault-2: #fffdf9; --vault-3: #efebe2; --vault-4: #d8d1c2;
-  --hair: rgba(70, 55, 25, 0.1); --hair-2: rgba(70, 55, 25, 0.18);
-  --gold: #946c22; --gold-hi: #6a4c13; --gold-lo: #b8944f; --gold-deep: #563d10;
-  --molten: linear-gradient(118deg, #f6e4b3 0%, #e0bf72 46%, #c79c4c 100%);
-  --bone: #25211b; --dust: #675f51; --dust-2: #978e7c;
-  --turq: #1d8069; --carn: #b74e2b; --lapis: #3456a3;
-  --ink-rgb: 255, 255, 255; --raise-rgb: 255, 255, 255; --gold-rgb: 176, 134, 52; --ok-rgb: 29, 128, 105; --bad-rgb: 183, 78, 43; --info-rgb: 52, 86, 163; --glint-rgb: 255, 255, 255;
-  --bad-hi: #a8431f; --info-hi: #2d4c96;
+  /* روز — ivory page, white surfaces, charcoal type; gold only as an accent (reference: the light dashboard design) */
+  --void: #f1ede6; --vault: #f7f4ef; --vault-2: #ffffff; --vault-3: #faf7f2; --vault-4: #e6dfd3;
+  --hair: rgba(60, 45, 20, 0.085); --hair-2: rgba(60, 45, 20, 0.15);
+  --gold: #9a7024; --gold-hi: #1f1b15; --gold-lo: #c9a660; --gold-deep: #6b4c16;
+  --molten: linear-gradient(180deg, #e7cc92 0%, #d6b067 100%);
+  --bone: #1f1b15; --dust: #6e675b; --dust-2: #8e8679;
+  --turq: #1f8a5b; --carn: #c8433a; --lapis: #2f5bbf;
+  --ink-rgb: 255, 255, 255; --raise-rgb: 255, 255, 255; --gold-rgb: 196, 152, 72; --ok-rgb: 31, 138, 91; --bad-rgb: 200, 67, 58; --info-rgb: 47, 91, 191; --glint-rgb: 120, 90, 40;
+  --bad-hi: #a8352d; --info-hi: #274c9f;
   --grain: none;
+  --l-shadow: 0 1px 2px rgba(40, 30, 10, 0.04), 0 10px 24px -20px rgba(40, 30, 10, 0.22);
+  --l-shadow-pop: 0 2px 6px rgba(40, 30, 10, 0.06), 0 22px 44px -24px rgba(40, 30, 10, 0.3);
   color-scheme: light;
 }
 
@@ -1563,12 +1578,6 @@ html:not([data-theme='classic']) .tray::after { display: none; }
 html:not([data-theme='classic']) .btn { box-shadow: 0 6px 18px -10px rgba(var(--gold-rgb), 0.55); }
 html:not([data-theme='classic']) #main > .page { animation-duration: 0.35s; }
 html:not([data-theme='classic']) ::view-transition-new(root) { animation-duration: 260ms; }
-html[data-theme='day'] #topbar { background: rgba(250, 248, 243, 0.9); }
-html[data-theme='day'] #tabbar { background: rgba(255, 253, 249, 0.92); box-shadow: 0 10px 30px rgba(60, 45, 20, 0.12); }
-@media (min-width: 960px) { html[data-theme='day'] #tabbar { background: #f7f4ed; box-shadow: none; } }
-html[data-theme='day'] .input, html[data-theme='day'] select.input, html[data-theme='day'] textarea.input { background: #fff; }
-html[data-theme='day'] .btn { color: #2a1d06; }
-html[data-theme='day'] .dk-price, html[data-theme='day'] .vt-tile { background: #fff; }
 /* crisp on 4K / high-density screens: vector marks, hairlines that land on device pixels */
 @media (min-resolution: 2dppx) { :root { --hair-w: 0.5px; } .stats { gap: 0.5px; } }
 img { image-rendering: auto; }
@@ -2032,3 +2041,157 @@ i.s-gold { background: var(--gd-gold); } i.s-info { background: var(--gd-info); 
 .gd-table td, .gd-table th { padding-inline: 6px; }
 .gd-table td[data-l='نوع'], .gd-table td[data-l='قیمت واحد'] { white-space: normal; }
 .gd-table td[data-l='وضعیت'] { white-space: nowrap; }
+
+/* =====================================================================================================
+   روز (Light Mode) — one layer for the whole product, scoped to [data-theme='day'] so the dark themes are untouched.
+   Ivory page, white surfaces with hairline borders and near-invisible shadows, charcoal type; gold is an accent
+   (active states, links, the first chart series), green/red only for money direction, blue only for information.
+   ===================================================================================================== */
+:root[data-theme='day'] {
+  --surface-elevated: #ffffff; --warning: #b7791f;
+  --chart-1: #d4a24c; --chart-2: #3d6fd6; --chart-3: #e0564f; --chart-4: #26a672;
+  --l-gold-ink: #8d6420; --l-gold-soft: #f6ecd8; --l-gold-line: #e3c68c;
+}
+html[data-theme='day'] body { background: var(--vault); }
+html[data-theme='day'] ::selection { background: rgba(var(--gold-rgb), 0.28); color: var(--bone); }
+html[data-theme='day'] :focus-visible { outline-color: var(--l-gold-ink); }
+/* shell */
+html[data-theme='day'] #topbar { background: rgba(255, 255, 255, 0.86); border-bottom-color: var(--hair); backdrop-filter: blur(14px) saturate(1.1); }
+html[data-theme='day'] #topbar .who i { background: var(--l-gold-soft); color: var(--l-gold-ink); box-shadow: inset 0 0 0 1px var(--l-gold-line); }
+html[data-theme='day'] #tabbar { background: rgba(255, 255, 255, 0.95); border: 1px solid var(--hair); box-shadow: var(--l-shadow-pop); }
+html[data-theme='day'] #tabbar a { color: var(--dust); }
+html[data-theme='day'] #tabbar a:hover { color: var(--bone); }
+html[data-theme='day'] #tabbar a[aria-current='page'] { color: var(--l-gold-ink); background: var(--l-gold-soft); box-shadow: inset 0 0 0 1px var(--l-gold-line); }
+html[data-theme='day'] #tabbar a[aria-current='page']::after { background: var(--l-gold-ink); box-shadow: none; }
+@media (min-width: 960px) { html[data-theme='day'] #tabbar { background: #fbf9f5; box-shadow: none; border-width: 0 0 0 0; border-inline-start: 1px solid var(--hair); border-radius: 0; } }
+html[data-theme='day'] .brand-t b { color: var(--bone); }
+html[data-theme='day'] .theme-btn { background: #fff; }
+/* surfaces */
+html[data-theme='day'] .tray, html[data-theme='day'] .glass { background: #fff; border-color: var(--hair); box-shadow: var(--l-shadow); }
+html[data-theme='day'] .tile, html[data-theme='day'] .tool-card, html[data-theme='day'] .lux-card { background: #fff; border-color: var(--hair); box-shadow: var(--l-shadow); }
+html[data-theme='day'] .tile.engraved { background: var(--guilloche) -20% 40% / 480px no-repeat, #fff; }
+html[data-theme='day'] .tile.rosette { background: linear-gradient(270deg, #fff 35%, rgba(255, 255, 255, 0.8)), var(--rosette) 0 0 / 70px, #fff; }
+html[data-theme='day'] .stats { background: var(--hair); border-color: var(--hair); box-shadow: var(--l-shadow); }
+html[data-theme='day'] .stats > div { background: #fff; }
+html[data-theme='day'] .rule { background: var(--hair-2); }
+/* buttons: primary is a quiet gold, secondary is a white outline */
+html[data-theme='day'] .btn { background: var(--molten); color: #2b1f0a; border: 1px solid #c9a35a; box-shadow: 0 1px 2px rgba(60, 40, 10, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.45); }
+html[data-theme='day'] .btn:hover { box-shadow: 0 6px 16px -10px rgba(120, 85, 25, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.45); }
+html[data-theme='day'] .btn.ghost { background: #fff; color: var(--bone); border: 1px solid var(--hair-2); box-shadow: none; }
+html[data-theme='day'] .btn.ghost:hover { background: var(--vault-3); border-color: var(--l-gold-line); }
+html[data-theme='day'] .btn.danger { background: #fff; color: var(--carn); border-color: rgba(var(--bad-rgb), 0.4); }
+html[data-theme='day'] .btn.is-busy::after { border-color: #2b1f0a; border-top-color: transparent; }
+/* form controls */
+html[data-theme='day'] .input, html[data-theme='day'] select.input, html[data-theme='day'] textarea.input { background: #fff; border-color: var(--vault-4); color: var(--bone); }
+html[data-theme='day'] .input::placeholder { color: var(--dust-2); }
+html[data-theme='day'] .input:hover { border-color: #d6cdbd; }
+html[data-theme='day'] .input:focus { border-color: var(--l-gold-line); box-shadow: 0 0 0 3px rgba(var(--gold-rgb), 0.16); }
+html[data-theme='day'] .chip { background: #fff; border-color: var(--vault-4); color: var(--dust); }
+html[data-theme='day'] .chip:hover { color: var(--bone); border-color: #d6cdbd; }
+html[data-theme='day'] .chip[aria-pressed='true'], html[data-theme='day'] .seg button[aria-pressed='true'], html[data-theme='day'] .segopt input:checked + span, html[data-theme='day'] .iconbtn[aria-pressed='true'] { color: var(--l-gold-ink); border-color: var(--l-gold-line); background: var(--l-gold-soft); box-shadow: none; }
+html[data-theme='day'] .iconbtn { background: #fff; }
+/* tabs, tables */
+html[data-theme='day'] .tabs [aria-current='page'], html[data-theme='day'] .tabs [aria-selected='true'] { color: var(--bone); font-weight: 600; border-bottom-color: #c9a35a; }
+html[data-theme='day'] .table-plain th { color: var(--dust); font-size: 12.5px; font-weight: 500; background: var(--vault-3); }
+html[data-theme='day'] .table-plain th, html[data-theme='day'] .table-plain td { border-bottom-color: var(--hair); }
+html[data-theme='day'] .table-plain tbody tr:hover td { background: #fcfaf6; }
+html[data-theme='day'] .table-plain tr.big td { color: var(--bone); }
+html[data-theme='day'] .table-plain tr.bad td, html[data-theme='day'] .table-plain tr.chg td { background: rgba(var(--bad-rgb), 0.05); }
+html[data-theme='day'] .market .tablewrap th { background: var(--vault-3); color: var(--bone); }
+/* overlays */
+html[data-theme='day'] .modal { background: rgba(40, 32, 20, 0.28); }
+html[data-theme='day'] .modal > div { box-shadow: var(--l-shadow-pop); }
+html[data-theme='day'] .toast { background: #1f1b15; color: #f7f4ef; box-shadow: 0 12px 30px -12px rgba(30, 20, 5, 0.45); }
+html[data-theme='day'] .toast.error { background: #fbe9e6; color: #7d241d; box-shadow: 0 0 0 1px rgba(var(--bad-rgb), 0.25), 0 12px 30px -14px rgba(30, 20, 5, 0.35); }
+html[data-theme='day'] .toast.ok { background: #e6f3ec; color: #145c3c; box-shadow: 0 0 0 1px rgba(var(--ok-rgb), 0.25), 0 12px 30px -14px rgba(30, 20, 5, 0.35); }
+/* the counter desk, day book, vault and customer pages: white cards, charcoal figures */
+html[data-theme='day'] .dk-price, html[data-theme='day'] .vt-tile, html[data-theme='day'] .dy-card, html[data-theme='day'] .br-card, html[data-theme='day'] .pl-tick { background: #fff; border-color: var(--hair); box-shadow: var(--l-shadow); }
+html[data-theme='day'] .dk-price:hover { border-color: var(--l-gold-line); }
+html[data-theme='day'] .dk-seg button[aria-pressed='true'] { background: var(--l-gold-soft); color: var(--l-gold-ink); box-shadow: inset 0 0 0 1px var(--l-gold-line); }
+html[data-theme='day'] .dk-kinds button[aria-selected='true'] { background: var(--l-gold-soft); color: var(--l-gold-ink); box-shadow: inset 0 0 0 1px var(--l-gold-line); -webkit-text-fill-color: currentColor; }
+html[data-theme='day'] .dk-coins button { background: #fff; }
+html[data-theme='day'] .dy-card::before { box-shadow: 0 0 0 3px var(--vault); }
+html[data-theme='day'] .dy-no, html[data-theme='day'] .dk-who b { color: var(--l-gold-ink); }
+html[data-theme='day'] .bk-h { color: var(--bone); }
+html[data-theme='day'] .eyebrow, html[data-theme='day'] .tile .k { color: var(--l-gold-ink); }
+html[data-theme='day'] .gold-text { background: none; color: #b08434; -webkit-text-fill-color: currentColor; }
+/* skeletons */
+html[data-theme='day'] .sk { background: linear-gradient(90deg, #f3efe8, #faf7f2, #f3efe8); background-size: 200% 100%; }
+
+/* ---------- management dashboard, light ---------- */
+html[data-theme='day'] .gd {
+  --gd-bg: #f7f4ef; --gd-side: #fbf9f6; --gd-surface: #ffffff; --gd-elev: #f7f3ec;
+  --gd-border: #ece6db; --gd-border-2: #e1d9cb; --gd-text: #1d1a15; --gd-muted: #6f685c; --gd-muted-2: #978f82;
+  --gd-gold: #c89a45; --gd-gold-hi: #8d6420; --gd-pos: #22a06b; --gd-neg: #dd4b45; --gd-info: #3464d0;
+  --gd-violet: #7b61d1; --gd-amber: #e38a3f;
+}
+html[data-theme='day'] .gd-side { box-shadow: none; }
+html[data-theme='day'] .gd-brand b { color: var(--gd-text); }
+html[data-theme='day'] .gd-nav a { color: #4f493f; }
+html[data-theme='day'] .gd-nav a:hover { background: #f5f1ea; color: var(--gd-text); }
+html[data-theme='day'] .gd-nav a[aria-current='page'] { color: #7a561b; font-weight: 600; background: #f8efdd; box-shadow: inset 0 0 0 1px #ecd7ae; }
+html[data-theme='day'] .gd-nav a[aria-current='page'] svg { color: #b8862f; }
+html[data-theme='day'] .gd-nav a[aria-current='page']::before { display: none; }
+html[data-theme='day'] .gd-store, html[data-theme='day'] .gd-ic, html[data-theme='day'] .gd-search { background: #fff; box-shadow: 0 1px 2px rgba(40, 30, 10, 0.03); }
+html[data-theme='day'] .gd-user i { background: #f6ead2; color: #7a561b; box-shadow: inset 0 0 0 1px #ecd7ae; }
+html[data-theme='day'] .gd-ic:hover { color: #7a561b; }
+html[data-theme='day'] .gd-date svg { color: #b8862f; }
+html[data-theme='day'] .gd-card { box-shadow: 0 1px 2px rgba(40, 30, 10, 0.03), 0 12px 28px -24px rgba(40, 30, 10, 0.25); }
+html[data-theme='day'] .gd-hero { border-color: var(--gd-border); background: #fff; }
+html[data-theme='day'] .gd-hero-art .h0 { stop-color: #f2e2bd; } html[data-theme='day'] .gd-hero-art .h1 { stop-color: #faf5ea; } html[data-theme='day'] .gd-hero-art .h2 { stop-color: #fbf9f5; }
+html[data-theme='day'] .gd-hero-art .wv path { opacity: 0.22; stroke: #d2ad62; }
+html[data-theme='day'] .gd-hero-art .hc { opacity: 0.07; }
+html[data-theme='day'] .gd-price { background: rgba(255, 255, 255, 0.9); border-color: var(--gd-border); box-shadow: 0 1px 2px rgba(40, 30, 10, 0.04), 0 14px 30px -24px rgba(40, 30, 10, 0.35); }
+html[data-theme='day'] .gd-kpi-ic { background: #f8efdc; color: #c08d33; }
+html[data-theme='day'] .k-receivables .gd-kpi-ic { background: #eaf0fd; color: #3464d0; }
+html[data-theme='day'] .k-liabilities .gd-kpi-ic { background: #fdecea; color: #dd4b45; }
+html[data-theme='day'] .k-net .gd-kpi-ic { background: #e5f5ee; color: #22a06b; }
+html[data-theme='day'] .gd-price .gd-spark .l { stroke: #c89a45; }
+html[data-theme='day'] .gd-btn { background: #fff; border-color: var(--gd-border-2); }
+html[data-theme='day'] .gd-btn:hover { border-color: #e3c68c; color: #7a561b; }
+html[data-theme='day'] .gd-btn svg { color: #b8862f; }
+html[data-theme='day'] .gd-range, html[data-theme='day'] .gd-toggle { background: #f7f4ef; border-color: var(--gd-border); }
+html[data-theme='day'] .gd-range button[aria-pressed='true'], html[data-theme='day'] .gd-toggle button[aria-pressed='true'] { background: #f8efdd; color: #7a561b; box-shadow: inset 0 0 0 1px #e8cf9f; }
+html[data-theme='day'] .gd-custom input { background: #fff; }
+/* charts: restrained palette on white */
+html[data-theme='day'] .gd-pos .grid line { stroke: #efe9df; stroke-dasharray: none; }
+html[data-theme='day'] .gd-pos .grid line.zero { stroke: #ded5c6; }
+html[data-theme='day'] .gd-pos text { fill: #8f877a; }
+html[data-theme='day'] .gd-pos .s-gold { stroke: #d4a24c; } html[data-theme='day'] .gd-pos .s-info { stroke: #3d6fd6; } html[data-theme='day'] .gd-pos .s-neg { stroke: #e0564f; } html[data-theme='day'] .gd-pos .s-pos { stroke: #26a672; }
+html[data-theme='day'] .gd-pos .stop-s-gold { stop-color: #e0b35f; } html[data-theme='day'] .gd-pos .stop-s-pos { stop-color: #3dbb86; }
+html[data-theme='day'] .gd-pos .xh line { stroke: #c9a35a; }
+html[data-theme='day'] i.s-gold { background: #d4a24c; } html[data-theme='day'] i.s-info { background: #3d6fd6; } html[data-theme='day'] i.s-neg { background: #e0564f; } html[data-theme='day'] i.s-pos { background: #26a672; }
+html[data-theme='day'] .gd-tip { background: #fff; border-color: var(--gd-border); box-shadow: 0 2px 6px rgba(40, 30, 10, 0.06), 0 18px 36px -18px rgba(40, 30, 10, 0.3); backdrop-filter: none; }
+html[data-theme='day'] .gd-age:hover:not(:disabled), html[data-theme='day'] .gd-age.on { background: #fbf8f3; border-color: var(--gd-border); }
+html[data-theme='day'] .gd-age.r0 .gd-bar i { background: linear-gradient(270deg, #ecd6a6, #dcb56a); }
+html[data-theme='day'] .gd-age.r1 .gd-bar i { background: linear-gradient(270deg, #f3b774, #e99a4c); }
+html[data-theme='day'] .gd-age.r2 .gd-bar i { background: linear-gradient(270deg, #f0a07a, #e5805a); }
+html[data-theme='day'] .gd-age.r3 .gd-bar i { background: linear-gradient(270deg, #eb7c6e, #df5d52); }
+html[data-theme='day'] .gd-age.r4 .gd-bar i { background: linear-gradient(270deg, #df5f5a, #c9403d); }
+html[data-theme='day'] .gd-donut-svg .trk { stroke: #f3eee6; }
+html[data-theme='day'] .gd-leg button:hover, html[data-theme='day'] .gd-leg button[aria-pressed='true'] { background: #faf6ef; }
+html[data-theme='day'] .gd-table th { background: #faf7f2; color: var(--gd-muted); }
+html[data-theme='day'] .gd-table tbody tr:hover td { background: #fcfaf6; }
+html[data-theme='day'] .gd-pill.ok { background: #e5f5ee; color: #17784f; box-shadow: inset 0 0 0 1px #c8ead9; }
+html[data-theme='day'] .gd-pill.wait { background: #eaf0fd; color: #2c56b8; box-shadow: inset 0 0 0 1px #d2def9; }
+html[data-theme='day'] .gd-pill.void { background: #fdecea; color: #b53a34; box-shadow: inset 0 0 0 1px #f6d0cc; }
+html[data-theme='day'] .gd-pill.goods { background: #f8efdd; color: #7a561b; box-shadow: inset 0 0 0 1px #ecd7ae; }
+html[data-theme='day'] .gd-cash-n { background: #fbf9f5; border-color: var(--gd-border); }
+html[data-theme='day'] .gd-cash-n.good b { color: #1d8a5c; }
+html[data-theme='day'] .gd-cashbars .in { fill: #34b27b; opacity: 0.85; } html[data-theme='day'] .gd-cashbars .out { fill: #e0564f; opacity: 0.8; }
+html[data-theme='day'] .gd-inv-ic { background: #f8efdc; color: #b8862f; }
+html[data-theme='day'] .gd .sk { background: linear-gradient(90deg, #f4f0e9, #fbf9f5, #f4f0e9); background-size: 200% 100%; }
+html[data-theme='day'] .gd .l0 { fill: #f2eee7; background: #f2eee7; }
+html[data-theme='day'] .gd .l1 { fill: #f3e2bd; background: #f3e2bd; }
+html[data-theme='day'] .gd .l2 { fill: #e8c888; background: #e8c888; }
+html[data-theme='day'] .gd .l3 { fill: #d7a855; background: #d7a855; }
+html[data-theme='day'] .gd .l4 { fill: #b5842f; background: #b5842f; }
+html[data-theme='day'] .gd-heat-svg .hc { stroke: none; }
+html[data-theme='day'] .gd-heat-svg .hc:hover, html[data-theme='day'] .gd-heat-svg .hc.on { stroke: #1d1a15; stroke-width: 1.4; }
+html[data-theme='day'] .gd-ret td { background: #f7f4ef; }
+html[data-theme='day'] .gd-ret td.tot { background: #fff; }
+html[data-theme='day'] .gd-ret .rc.pos { background: rgba(38, 166, 114, calc(var(--t) * 0.4)); }
+html[data-theme='day'] .gd-ret .rc.neg { background: rgba(224, 86, 79, calc(var(--t) * 0.36)); }
+html[data-theme='day'] .gd-ret td.tot.pos { color: #1d8a5c; } html[data-theme='day'] .gd-ret td.tot.neg { color: #c8433a; }
+html[data-theme='day'] .tb-say { background: #fbf6ec; border-color: #eddcb8; }
+html[data-theme='day'] .tb-card { background: #fff; border-color: var(--hair-2); box-shadow: var(--l-shadow); }

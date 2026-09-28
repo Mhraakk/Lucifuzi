@@ -1047,6 +1047,19 @@ async function loginUI(page) {
     await page.waitForTimeout(800);
     check('mobile studio: tap handle opens sheet', await page.$eval('#panel', (p) => p.classList.contains('open')));
   });
+  await step('light mode (روز): ivory page, white surfaces, no overflow on phone', async () => {
+    await page.evaluate(() => localStorage.setItem('beatris.theme', 'day'));
+    for (const p of ['/books/desk', '/books/day', '/books/parties', '/books/reports?tab=pnl', '/books/settings', '/books/dashboard', '/']) {
+      await go(page, p, 1500);
+      const st = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, ov: document.documentElement.scrollWidth - innerWidth }));
+      check(`light ${p}: day theme applied, no horizontal overflow`, st.theme === 'day' && st.bg === 'rgb(247, 244, 239)' && st.ov <= 1, JSON.stringify(st));
+    }
+    await go(page, '/books/dashboard', 2000);
+    await page.waitForSelector('.gd-kpi b');
+    check('light dashboard: white cards, charcoal figures', await page.$eval('.gd-kpi', (k) => getComputedStyle(k).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(k.querySelector('.gd-kpi-v b')).color === 'rgb(29, 26, 21)'));
+    await page.click('#gdTheme');
+    check('light dashboard: theme toggle returns to dark and persists', await page.evaluate(() => document.documentElement.dataset.theme === 'calm' && localStorage.getItem('beatris.theme') === 'calm'));
+  });
   await ctx.close();
 }
 
