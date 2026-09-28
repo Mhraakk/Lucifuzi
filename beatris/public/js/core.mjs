@@ -174,7 +174,7 @@ window.addEventListener('popstate', () => render());
 const io = 'IntersectionObserver' in window ? new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && (e.target.classList.add('in'), io.unobserve(e.target))), { rootMargin: '0px 0px -6% 0px' }) : null;
 export function reveal(root) {
   if (!io || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const els = $$(':scope > *:not(.home-hero):not(.studio3d):not(.paper), .rows > li, .grid2 > *, .bento > *, .tool-grid > *, .stats > div, .era-item', root);
+  const els = $$(':scope > *:not(.home-hero):not(.studio3d):not(.paper):not(.printable), .rows > li, .grid2 > *, .bento > *, .tool-grid > *, .stats > div, .era-item', root);
   els.forEach((el, i) => {
     if (el.classList.contains('rv')) return;
     el.classList.add('rv');

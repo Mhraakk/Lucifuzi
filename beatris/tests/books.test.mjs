@@ -226,3 +226,21 @@ test('قالب‌ها: همه شناسه‌ها یکتا و هر قالب نوع
   const over = B.templatesWith({ 'ring-w': { ojrat: 21 } });
   assert.equal(over.find((t) => t.id === 'ring-w').ojrat, 21);
 });
+
+test('گرد کردن فاکتور با تخفیف از سود: جمع دقیقاً به زیر هزار تومان می‌رسد و مالیات هم کم می‌شود', () => {
+  const cases = [[5.23, 15], [12.345, 9], [1.07, 25], [33.3, 11.5]];
+  for (let i = 0; i < 300; i++) cases.push([Math.round((0.5 + i * 0.137) * 1000) / 1000, 5 + (i % 20)]);
+  for (const [w, oj] of cases) {
+    const line = { ...J, weight: w, ojrat: oj };
+    const c0 = B.calcLine(line);
+    const target = Math.floor(c0.total / 10000) * 10000;
+    const d = B.discountForTarget(line, c0.total, target);
+    assert.ok(d != null && d >= 0, `d for ${w}`);
+    const c1 = B.calcLine({ ...line, discount: d });
+    assert.ok(c1.total % 10000 === 0 && c1.total <= target && target - c1.total <= 30000, `${w}: ${c1.total} vs ${target}`);
+    assert.ok(c1.vat <= c0.vat);
+    assert.equal(c1.principal, c0.principal); // the gold value is untouched
+  }
+  // a line with no taxable room cannot absorb it
+  assert.equal(B.discountForTarget({ ...J, ojrat: 0, profitPct: 0 }, B.calcLine({ ...J, ojrat: 0, profitPct: 0 }).total, 0), null);
+});

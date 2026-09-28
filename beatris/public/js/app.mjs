@@ -21,6 +21,19 @@ route('/tools/:id', lazy('./pages/tools.mjs', 'toolPage'), { tab: 'tools' });
 route('/ledger', lazy('./pages/ledger.mjs', 'ledgerPage'), { tab: 'practice' });
 route('/market', lazy('./pages/market.mjs', 'marketPage'), { tab: 'market', tone: 'wide' });
 route('/market/data', lazy('./pages/marketdata.mjs', 'marketDataPage'), { tab: 'market', staff: true, tone: 'wide' });
+route('/books', lazy('./pages/books.mjs', 'booksHome'), { tab: 'books', tone: 'wide' });
+route('/books/new/:type', lazy('./pages/bookdoc.mjs', 'docEditorPage'), { tab: 'books', tone: 'wide' });
+route('/books/doc/:id/edit', lazy('./pages/bookdoc.mjs', 'docEditorPage'), { tab: 'books', tone: 'wide' });
+route('/books/doc/:id', lazy('./pages/books.mjs', 'docPage'), { tab: 'books', tone: 'wide' });
+route('/books/docs', lazy('./pages/books.mjs', 'docsPage'), { tab: 'books', tone: 'wide' });
+route('/books/log', lazy('./pages/books.mjs', 'logPage'), { tab: 'books', tone: 'wide' });
+route('/books/parties', lazy('./pages/bookmgmt.mjs', 'partiesPage'), { tab: 'books', tone: 'wide' });
+route('/books/party/:id', lazy('./pages/bookmgmt.mjs', 'partyPage'), { tab: 'books', tone: 'wide' });
+route('/books/stock', lazy('./pages/bookmgmt.mjs', 'stockPage'), { tab: 'books', tone: 'wide' });
+route('/books/cash', lazy('./pages/bookmgmt.mjs', 'cashPage'), { tab: 'books', tone: 'wide' });
+route('/books/reports', lazy('./pages/bookmgmt.mjs', 'reportsPage'), { tab: 'books', tone: 'wide' });
+route('/books/settings', lazy('./pages/bookmgmt.mjs', 'settingsPage'), { tab: 'books', tone: 'wide' });
+route('/verify/:code', lazy('./pages/books.mjs', 'verifyPage'), { public: true, bare: true });
 route('/studio', lazy('./pages/studio3d.mjs', 'studioPage'), { tab: 'studio', tone: 'full' });
 route('/coins', lazy('./pages/coinlab.mjs', 'coinLabPage'), { tab: 'tools', tone: 'full' });
 route('/coins/manage', lazy('./pages/coinphotos.mjs', 'coinPhotosPage'), { tab: 'tools', staff: true });
@@ -52,6 +65,7 @@ setShell((opts) => {
     ['learn', '/learn', 'آموزش', ICON.learn],
     ['practice', '/practice', 'تمرین', ICON.practice],
     ['market', '/market', 'بازار', ICON.chart],
+    ['books', '/books', 'حساب', ICON.book],
     ['studio', '/studio', 'استودیو', ICON.cube],
     ['tools', '/tools', 'ابزار', ICON.tools],
   ];

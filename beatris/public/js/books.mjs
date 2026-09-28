@@ -395,6 +395,28 @@ export function calcLine(line, { vatPct = 10 } = {}) {
   return o;
 }
 
+/**
+ * Round an invoice down to a target total (e.g. the nearest 1000 toman) the lawful way: a discount on the
+ * seller's profit (then making charge) of one piece, so VAT falls with it and the gold value is untouched.
+ * Returns the discount in toman to put on that line, or null when its taxable part cannot absorb it.
+ * docTotal and target are rials; the line is the jewel line that receives the discount.
+ */
+export function discountForTarget(line, docTotal, target, { vatPct = 10 } = {}) {
+  const base = calcLine({ ...line, discount: 0 }, { vatPct });
+  if (docTotal <= target) return 0;
+  const rest = docTotal - base.total; // the other lines, unchanged
+  const room = base.spro + base.consfee;
+  // the line total falls by d plus the VAT on d: search around d = gap ÷ (1 + rate) and land exactly on the target (rial steps). VAT rounding skips an occasional value; then the next round
+  // figure down is used (step = the rounding unit), so the printed total is always round.
+  const step = 10000; // 1000 toman
+  for (let k = 0; k < 4; k++) {
+    const tg = target - k * step;
+    const g = Math.floor((docTotal - tg) / (1 + (base.vra || 0) / 100));
+    for (let d = Math.max(0, g - 3); d <= g + 12 && d <= room; d++) if (rest + calcLine({ ...line, discount: d / 10 }, { vatPct }).total === tg) return d / 10;
+  }
+  return null;
+}
+
 /* ---------------- a whole document ---------------- */
 const SALE_KINDS = new Set(['jewel', 'coin', 'melt', 'service', 'goods']);
 const BUY_KINDS = new Set(['used', 'melt', 'coin']);

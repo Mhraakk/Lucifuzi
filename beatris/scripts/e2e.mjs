@@ -584,7 +584,7 @@ async function loginUI(page) {
     await p2.goto(base + '/intro');
     await p2.waitForTimeout(1500);
     check('intro: opens without login, with real content counts', /مغز دوم طلافروشی/.test(await text(p2, 'h1')) && /۱۲/.test(await text(p2, '.lux-stats')));
-    check('intro: slides, ticker, 8 features, 3 packages, no invented prices', (await p2.$$eval('.lux-slide', (x) => x.length)) === 4 && (await p2.$$eval('.lux-ticker .tk', (x) => x.length)) >= 8 && (await p2.$$eval('.intro-feat', (x) => x.length)) === 8 && (await p2.$$eval('.intro-pack', (x) => x.length)) === 3 && !/تومان/.test(await text(p2, '.intro')));
+    check('intro: slides, ticker, 9 features, 3 packages, no invented prices', (await p2.$$eval('.lux-slide', (x) => x.length)) === 4 && (await p2.$$eval('.lux-ticker .tk', (x) => x.length)) >= 8 && (await p2.$$eval('.intro-feat', (x) => x.length)) === 9 && (await p2.$$eval('.intro-pack', (x) => x.length)) === 3 && !/تومان/.test(await text(p2, '.intro')));
     await p2.click('.intro-pack.hi a');
     await p2.fill('#lf input[name=name]', 'مریم کاظمی');
     await p2.fill('#lf input[name=shop]', 'گالری آزمون خودکار');
@@ -729,6 +729,119 @@ async function loginUI(page) {
     check('quick entry: session ledger cleared', !(await page.$('#book tbody tr')));
   });
 
+  if (!live)
+    await step('shop books: stock, counter invoice, official print, verify, edit, cheque, reports, exports', async () => {
+      const fs = (await import('node:fs')).promises;
+      const dl = async (sel) => {
+        const [d] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.click(sel)]);
+        return fs.readFile(await d.path(), 'utf8');
+      };
+      // stock: three pieces from one template with automatic barcodes, labels
+      await go(page, '/books/stock', 1200);
+      await page.click('[data-act=batch]');
+      await page.selectOption('#itf [name=tpl]', 'ring-w');
+      await page.fill('#itf [name=weights]', '۵٫۲۳ 6.10 4.87');
+      await page.click('#itf button:not([type])');
+      await page.waitForSelector('#bulk:not([hidden])');
+      check('books: batch of 3 pieces gets barcodes', (await page.$$eval('#tbl tbody tr', (r) => r.length)) === 3);
+      await page.click('[data-bulk=labels]');
+      await page.waitForSelector('.bk-label svg');
+      check('books: labels carry a Code128 barcode', (await page.$$('.bk-label svg')).length === 3);
+      await page.keyboard.press('Escape');
+      const xls = await dl('[data-act=ex-xls]');
+      check('books: stock exports to Excel', xls.includes('<Workbook') && xls.includes('100001') && xls.includes('DisplayRightToLeft'));
+      // counter: new customer, scan, coin from the catalogue, trade-in, card payment of the remainder
+      await go(page, '/books/new/sale', 1200);
+      await page.click('[data-act=party-new]');
+      await page.fill('#np [name=name]', 'مریم رضایی');
+      await page.fill('#np [name=mobile]', '09351234567');
+      await page.fill('#np [name=nid]', '0499370899');
+      await page.click('#np button:not([type])');
+      await page.waitForSelector('.bk-party-sel');
+      await page.fill('#scan', '100001');
+      await page.press('#scan', 'Enter');
+      await page.waitForSelector('[data-line="0"]');
+      await page.click('[data-act=catalog]');
+      await page.fill('#tq', 'ربع');
+      await page.click('[data-tpl=coin-quarter]');
+      await page.click('[data-act=add-used]');
+      await page.fill('[data-l="2"][data-k=weight]', '3');
+      await page.click('[data-add-pay=pos]');
+      await page.fill('[data-p="0"][data-k=ref]', '123456');
+      check('books: payment fills the remainder, invoice settles', /تسویه کامل/.test(await text(page, '#totals')));
+      await page.click('[data-act=save]');
+      await page.waitForURL(/\/books\/doc\//, { timeout: 15000 });
+      await page.waitForSelector('.bk-paper');
+      const inv = await text(page, '.bk-paper');
+      const exp = await page.evaluate(async () => {
+        const B = await import('/js/books.mjs');
+        const id = location.pathname.split('/').pop();
+        const d = await (await fetch(`/api/books/docs/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json();
+        const c = B.calcDoc(d);
+        return { sales: B.fmtRial(c.sales, { unit: false }), vat: B.fmtRial(c.vat, { unit: false }), net: B.fmtRial(c.net, { unit: false }), same: c.sales === d.calc.sales && c.net === d.calc.net };
+      });
+      check('books: printed totals equal the engine (sales, VAT, net) and the stored calc', exp.same && inv.includes(exp.sales) && inv.includes(exp.vat) && inv.includes(exp.net), JSON.stringify(exp));
+      check('books: official invoice carries buyer code, QR and authenticity code', /۰۴۹۹۳۷۰۸۹۹/.test(inv) && !!(await page.$('.bk-p-verify svg')) && /کد اصالت/.test(inv) && noBadNumbers(inv));
+      const code = (await text(page, '.bk-p-verify b')).trim();
+      const pub = await ctx.newPage();
+      await pub.goto(`${base}/verify/${code}`);
+      await pub.waitForSelector('.bk-v-res');
+      check('books: public page verifies the printed code', !!(await pub.$('.bk-v-res.ok')) && !(await pub.innerText('body')).includes('مریم'));
+      await pub.close();
+      await page.click('[data-fmt=r80]');
+      check('books: 80 mm roll layout', !!(await page.$('.bk-paper.r80 .bk-p-table.roll')));
+      await page.click('[data-fmt=a4]');
+      const mj = JSON.parse(await dl('[data-act=moadian]'));
+      check('books: tax-system file uses the gold pattern with integer making charge', mj[0].header.inp === 3 && mj[0].body.every((r) => Number.isInteger(r.consfee) && r.tcpbs === r.consfee + r.spro + r.bros));
+      // edit with a reason → version 2; rounding lands on a round thousand toman
+      await page.click('a:has-text("ویرایش")');
+      await page.waitForSelector('[name=reason]');
+      await page.click('[data-act=round]');
+      await page.click('[data-fill="0"]');
+      await page.fill('[name=reason]', 'گرد کردن مبلغ');
+      await page.click('[data-act=save]');
+      await page.waitForURL(/\/books\/doc\/[^/?]+(\?.*)?$/, { timeout: 15000 });
+      await page.waitForSelector('.bk-paper');
+      const v2 = await page.evaluate(async () => {
+        const id = location.pathname.split('/').pop();
+        return (await (await fetch(`/api/books/docs/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json());
+      });
+      check('books: edit makes version 2 and the total is round', v2.version === 2 && v2.calc.sales % 10000 === 0 && v2.versions[0].reason === 'گرد کردن مبلغ', `${v2.version} ${v2.calc.sales}`);
+      // credit sale with a cheque, then the cheque is deposited
+      await go(page, '/books/new/sale', 1200);
+      await page.fill('#pq', 'مریم');
+      await page.waitForSelector('[data-pick]');
+      await page.click('[data-pick]');
+      await page.fill('#scan', '100002');
+      await page.press('#scan', 'Enter');
+      await page.waitForSelector('[data-line="0"]');
+      await page.click('[data-add-pay=cheque]');
+      await page.fill('[data-p="0"][data-k=amount]', '5000000');
+      await page.fill('[data-p="0"][data-k=chequeNo]', '445566');
+      await page.fill('[data-p="0"][data-k=dueJ]', '1405/08/15');
+      check('books: the unpaid part shows as credit', /نسیه/.test(await text(page, '#totals')));
+      await page.click('[data-act=save]');
+      await page.waitForURL(/\/books\/doc\//, { timeout: 15000 });
+      await go(page, '/books/cash', 1200);
+      await page.click('[data-to=deposited]');
+      await page.click('#cf button:not([type])');
+      await page.waitForSelector('text=واگذار به بانک');
+      check('books: cheque moves to the bank', true);
+      await go(page, '/books/parties', 1200);
+      check('books: customer shows a debit balance', /بدهکار/.test(await text(page, '#tbl')));
+      // journal: select all, bulk bar; reports render real numbers
+      await go(page, '/books/docs', 1200);
+      await page.check('#all');
+      check('books: journal multi-select', !!(await page.$('#bulk:not([hidden])')) && (await page.$eval('#all', (x) => x.checked)));
+      for (const t of ['balance', 'day', 'vat', 'sales']) {
+        await go(page, `/books/reports?tab=${t}`, 1500);
+        const r = await text(page, '#rep');
+        check(`books: report ${t} has numbers`, r.length > 40 && noBadNumbers(r), r.slice(0, 80).replace(/\s+/g, ' '));
+      }
+      await go(page, '/books/log', 1200);
+      check('books: event chain is intact', !!(await page.$('.notice.ok')));
+    });
+
   if (!live) {
     await step('PWA: service worker + offline shell', async () => {
       await go(page, '/', 2000);
@@ -753,7 +866,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px`);
