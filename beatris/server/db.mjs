@@ -183,6 +183,7 @@ export function openDb(dir = process.env.BEATRIS_DATA_DIR || path.resolve('data'
 
 function wrap(db) {
   const cache = new Map();
+  let depth = 0;
   const stmt = (sql) => {
     let s = cache.get(sql);
     if (!s) {
@@ -196,14 +197,19 @@ function wrap(db) {
     all: (sql, ...p) => stmt(sql).all(...p),
     get: (sql, ...p) => stmt(sql).get(...p),
     run: (sql, ...p) => stmt(sql).run(...p),
+    // nested calls become savepoints, so a helper that opens a transaction can run inside a bigger one
     tx(fn) {
-      db.exec('BEGIN');
+      const sp = depth ? `sp${depth}` : null;
+      db.exec(sp ? `SAVEPOINT ${sp}` : 'BEGIN');
+      depth++;
       try {
         const r = fn();
-        db.exec('COMMIT');
+        depth--;
+        db.exec(sp ? `RELEASE ${sp}` : 'COMMIT');
         return r;
       } catch (e) {
-        db.exec('ROLLBACK');
+        depth--;
+        db.exec(sp ? `ROLLBACK TO ${sp}; RELEASE ${sp}` : 'ROLLBACK');
         throw e;
       }
     },

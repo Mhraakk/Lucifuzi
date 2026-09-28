@@ -9,6 +9,7 @@ import { createMarket, parseTable, checkFeedUrl, FEED_MODES, FEED_LABEL } from '
 import { SYMBOLS, isSymbol, DAY_RE } from '../public/js/market.mjs';
 import { isoDay } from '../public/js/ta.mjs';
 import { createMcp, hashToken, newToken, tokenMatches } from './mcp.mjs';
+import { registerBooks } from './books.mjs';
 
 const now = () => new Date().toISOString();
 const tehranDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(d);
@@ -656,6 +657,11 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     return { ok: true };
   });
 
+  /* ---------------- shop books (accounting) ---------------- */
+  const saveSetting = (key, value, by) =>
+    db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', key, JSON.stringify(value), now(), by);
+  const books = registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin: (u) => ADMIN_ROLES.has(u.role), market });
+
   /* ---------------- dispatcher ---------------- */
   function authenticate(req) {
     const h = req.headers.authorization ?? '';
@@ -687,6 +693,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   handle.market = market;
   handle.mcp = mcp;
   handle.mcpAuth = mcpAuth;
+  handle.books = books;
   return handle;
 }
 
