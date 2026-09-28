@@ -24,8 +24,10 @@ export function makeDashboard({ db, call, tehranDay, livePrices, market, audit }
   // eq-750 grams of every sealed bar ever booked (its latest recorded weight and fineness)
   function barGrams() {
     const m = new Map();
-    for (const r of db.all("SELECT data_json FROM bk_docs WHERE status='final' AND type='trade' AND data_json LIKE '%\"kind\":\"bar\"%' ORDER BY date, created_at")) {
-      for (const l of JSON.parse(r.data_json).lines ?? []) if (l.kind === 'bar' && l.serial) m.set(l.serial, B.r3((B.num(l.weight) * B.num(l.fineness ?? 750)) / 750));
+    for (const r of db.all("SELECT type, data_json FROM bk_docs WHERE status='final' AND ((type='trade' AND data_json LIKE '%\"kind\":\"bar\"%') OR (type='opening' AND data_json LIKE '%\"acct\":\"bar:%')) ORDER BY date, created_at")) {
+      const d = JSON.parse(r.data_json);
+      if (r.type === 'opening') for (const b of d.balances ?? []) if (b.acct.startsWith('bar:') && b.weight) m.set(b.acct.slice(4), B.r3((B.num(b.weight) * B.num(b.fineness ?? 995)) / 750));
+      for (const l of d.lines ?? []) if (l.kind === 'bar' && l.serial) m.set(l.serial, B.r3((B.num(l.weight) * B.num(l.fineness ?? 750)) / 750));
     }
     return m;
   }

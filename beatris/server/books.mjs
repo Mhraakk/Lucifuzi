@@ -10,6 +10,7 @@ import { makeTrace } from './trace.mjs';
 import { makeLearn } from './learn.mjs';
 import { makeDashboard } from './dashboard.mjs';
 import { makeAssistant } from './assistant.mjs';
+import { makeSetup } from './setup.mjs';
 import * as TR from '../public/js/trade.mjs';
 
 export const BOOKS_SCHEMA = `
@@ -609,7 +610,9 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
         const v = B.num(b.amount);
         if (!Number.isFinite(v) || v === 0) throw bad('مقدار مانده نامعتبر است.');
         const cost = b.cost ? B.rnd(B.num(b.cost) * k) : undefined;
-        return { acct, unit: acct.startsWith('fx:') ? 'FX' : 'COUNT', amt: acct.startsWith('fx:') ? Math.round(v * 100) / 100 : Math.round(v), cost };
+        // a sealed bar keeps its card (weight, fineness, maker) so the vault and the bar registry know it from day one
+        const meta = acct.startsWith('bar:') && B.num(b.weight) > 0 ? { weight: B.r3(B.num(b.weight)), fineness: Math.min(1000, Math.max(1, B.num(b.fineness ?? 995) || 995)), brand: txt(b.brand, 40), gallery: txt(b.gallery, 40), sealDate: txt(b.sealDate, 20) } : {};
+        return { acct, unit: acct.startsWith('fx:') ? 'FX' : 'COUNT', amt: acct.startsWith('fx:') ? Math.round(v * 100) / 100 : Math.round(v), cost, ...meta };
       }
       if (acct.startsWith('party:') && !db.get('SELECT 1 FROM bk_parties WHERE id=?', acct.slice(6))) throw bad('مشتری مانده افتتاحیه پیدا نشد.');
       if (/^(cash|bank):/.test(acct) && !db.get('SELECT 1 FROM bk_accounts WHERE id=? AND kind=?', acct.split(':')[1], acct.split(':')[0])) throw bad(`حساب ${acct} پیدا نشد.`);
@@ -1206,8 +1209,12 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     return { ...out, custody, prices: livePrices() };
   });
   function barInfo(serial) {
-    const hist = db.all("SELECT d.id, d.type, d.no, d.fy, d.date, d.status, d.party_id, d.data_json FROM bk_docs d WHERE d.status='final' AND d.data_json LIKE ? ORDER BY d.date, COALESCE(d.issued_at, d.created_at)", `%"serial":"${serial}"%`)
-      .flatMap((d) => JSON.parse(d.data_json).lines.map((l, i) => ({ l, i })).filter(({ l }) => l.kind === 'bar' && l.serial === serial).map(({ l, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: l.dir, priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null, brand: l.brand ?? '', gallery: l.gallery ?? '', weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness ?? 750), sealDate: l.sealDate ?? '' })));
+    const hist = db.all("SELECT d.id, d.type, d.no, d.fy, d.date, d.status, d.party_id, d.data_json FROM bk_docs d WHERE d.status='final' AND (d.data_json LIKE ? OR d.data_json LIKE ?) ORDER BY d.date, COALESCE(d.issued_at, d.created_at)", `%"serial":"${serial}"%`, `%"acct":"bar:${serial}"%`)
+      .flatMap((d) => {
+        const data = JSON.parse(d.data_json);
+        if (d.type === 'opening') return (data.balances ?? []).map((b, i) => ({ b, i })).filter(({ b }) => b.acct === `bar:${serial}` && b.amt > 0).map(({ b, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: 'in', priced: true, party: null, brand: b.brand ?? '', gallery: b.gallery ?? '', weight: b.weight ? B.r3(b.weight) : null, fineness: b.fineness ?? null, sealDate: b.sealDate ?? '', opening: true }));
+        return (data.lines ?? []).map((l, i) => ({ l, i })).filter(({ l }) => l.kind === 'bar' && l.serial === serial).map(({ l, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: l.dir, priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null, brand: l.brand ?? '', gallery: l.gallery ?? '', weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness ?? 750), sealDate: l.sealDate ?? '' }));
+      });
     const last = hist.at(-1) ?? {};
     const inVault = db.get("SELECT COALESCE(SUM(amt),0) AS s FROM bk_postings WHERE acct=?", `bar:${serial}`).s > 0;
     const holder = db.get("SELECT acct FROM bk_postings WHERE unit=? GROUP BY acct HAVING SUM(amt)<0", `BAR:${serial}`)?.acct;
@@ -1377,6 +1384,12 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin, learn });
   on('GET', '/api/books/assistant', 'auth', () => assistant.info());
   on('POST', '/api/books/assistant', 'auth', async ({ user, body }) => assistant.ask(user, body));
+
+  /* ---------------- راه‌اندازی فروشگاه: the real opening state of a new shop in one step ---------------- */
+  const setup = makeSetup({ db, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, HttpError, isAdmin });
+  on('GET', '/api/books/setup', 'auth', ({ user }) => setup.info(user));
+  on('POST', '/api/books/setup', 'auth', ({ user, body }) => setup.run(user, body));
+  on('POST', '/api/books/setup/skip', 'auth', ({ user }) => setup.skip(user));
 
   return { verifyLog, settings, audit, assistant, learn };
 }

@@ -45,7 +45,12 @@ function grade(q, answer) {
 }
 const reveal = (q) => (q.o ? { answer: q.a, answerText: q.o[q.a] } : { answer: q.n, unit: q.unit });
 
-export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media'), marketOpts = {} }) {
+export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media'), marketOpts = {}, tenant = null, sharedMarket = null }) {
+  // one handler per shop: the main shop (tenant null) owns the price feed, the registry and the vendor console;
+  // every other shop runs on its own database, reads the shared price feed and has its accounts issued by the vendor
+  let T = tenant;
+  const isMain = !T || T.id === 'main';
+  const tenantId = isMain ? 'main' : T.id;
   const loginByPhone = makeLimiter(6, 10 * 60 * 1000);
   const loginByIp = makeLimiter(30, 10 * 60 * 1000);
   const audit = (uid, action, detail = {}) => db.run('INSERT INTO audit(user_id,action,detail_json,created_at) VALUES (?,?,?,?)', uid, action, JSON.stringify(detail), now());
@@ -58,7 +63,10 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   const savePricing = (next, by) =>
     db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', 'pricing', JSON.stringify(next), now(), by);
 
-  const publicUser = (u) => ({ id: u.id, name: u.name, phone: u.phone, role: u.role, branch: u.branch, active: !!u.active, lastLoginAt: u.last_login_at, createdAt: u.created_at });
+  const publicUser = (u) => ({ id: u.id, name: u.name, phone: /^09\d{9}$/.test(u.phone) ? u.phone : '', username: u.username ?? null, role: u.role, branch: u.branch, active: !!u.active, lastLoginAt: u.last_login_at, createdAt: u.created_at });
+  const mainOnly = () => {
+    if (!isMain) throw new HttpError(403, 'این بخش فقط در دست ارائه‌دهنده است.');
+  };
 
   /* ---------------- progress ---------------- */
   function progressFor(uid) {
@@ -105,7 +113,9 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
 
   /* ---------------- handlers ---------------- */
   const routes = [];
-  const on = (method, pattern, guard, fn) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), guard, fn });
+  const on = (method, pattern, guard, fn) => routes.push({ method, key: `${method} ${pattern}`, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), guard, fn });
+  // the shared price feed, product-page leads, MCP and the coin photo library belong to the vendor's main shop
+  const MAIN_ONLY = new Set(['POST /api/coin-photos', 'DELETE /api/coin-photos/:id', 'POST /api/market/bars', 'DELETE /api/market/bars/:symbol/:day', 'GET /api/market/feed', 'PUT /api/market/feed', 'POST /api/market/sync', 'GET /api/leads', 'PATCH /api/leads/:id', 'DELETE /api/leads/:id', 'GET /api/mcp', 'POST /api/mcp/token', 'DELETE /api/mcp/token']);
 
   on('GET', '/api/health', 'public', () => ({ ok: true, time: now() }));
   on('GET', '/api/intro', 'public', () => {
@@ -115,14 +125,14 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     return { courses: C.COURSES.length, lessons: C.LESSONS.size, questions: C.QUESTIONS.size, sample: b.sample, source: b.source.label, prices: b.items.filter((x) => pick.includes(x.id) && !x.empty).map((x) => ({ id: x.id, c: x.c, pct: x.pct, d: x.d })) };
   });
   // one-time rename requested by the owner: the house is «خانه سکه و شمش تاج» (later edits in team settings stay)
-  if (!getSetting('brand.taj', null)) {
+  if (isMain && !getSetting('brand.taj', null)) {
     const put = (k, v) => db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,NULL) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at', k, JSON.stringify(v), now());
     put('brand', { ...getSetting('brand', {}), shopName: SHOP_NAME });
     put('brand.taj', { at: now() });
   }
   const brand = () => {
     const b = getSetting('brand', { shopName: '' });
-    return { ...b, shopName: b.shopName || SHOP_NAME };
+    return { ...b, shopName: b.shopName || (isMain ? SHOP_NAME : T.name) };
   };
   on('GET', '/api/config', 'public', () => ({
     demo,
@@ -151,17 +161,23 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   });
 
   on('POST', '/api/auth/pin', 'auth', ({ user, body }) => {
+    if (!isMain && !T.allow_pw_change) throw new HttpError(403, 'رمز این حساب را فقط ارائه‌دهنده عوض می‌کند.');
     const u = db.get('SELECT pin_hash FROM users WHERE id=?', user.id);
     if (!verifyPin(String(body.current ?? ''), u.pin_hash)) throw bad('رمز فعلی درست نیست.');
-    if (!validPin(body.next)) throw bad('رمز جدید باید ۴ تا ۱۲ رقم باشد.');
+    if (user.username ? !(String(body.next ?? '').length >= 8 && String(body.next).length <= 64) : !validPin(body.next)) throw bad(user.username ? 'رمز جدید باید دست‌کم ۸ نویسه باشد.' : 'رمز جدید باید ۴ تا ۱۲ رقم باشد.');
     db.run('UPDATE users SET pin_hash=?, token_version=token_version+1 WHERE id=?', hashPin(body.next), user.id);
     const fresh = db.get('SELECT * FROM users WHERE id=?', user.id);
-    return { token: signer.sign({ t: 'session', uid: fresh.id, tv: fresh.token_version }, 30 * 86400) };
+    return { token: signer.sign({ t: 'session', uid: fresh.id, tv: fresh.token_version, tn: tenantId }, 30 * 86400) };
   });
 
   on('GET', '/api/me', 'auth', ({ user }) => {
     const today = db.get('SELECT in_at, out_at FROM attendance WHERE user_id=? AND day=?', user.id, tehranDay());
-    return { user: publicUser(user), pricing: pricing(), brand: brand(), progress: progressFor(user.id), attendance: today ? { inAt: today.in_at, outAt: today.out_at } : null };
+    return {
+      user: publicUser(user), pricing: pricing(), brand: brand(), progress: progressFor(user.id), attendance: today ? { inAt: today.in_at, outAt: today.out_at } : null,
+      tenant: { id: tenantId, main: isMain, name: isMain ? brand().shopName : T.name, plan: isMain ? 'full' : T.plan, expiresAt: isMain ? null : T.expires_at, allowPasswordChange: isMain || !!T.allow_pw_change },
+      vendor: isMain && user.role === 'owner',
+      setupDone: !!getSetting('setup', { done: false }).done || isMain,
+    };
   });
 
   on('GET', '/api/content', 'auth', () => C.bootstrap());
@@ -450,6 +466,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   });
 
   on('POST', '/api/team', 'admin', ({ user, body }) => {
+    if (!isMain) throw new HttpError(403, 'حساب کاربری جدید را فقط ارائه‌دهنده صادر می‌کند؛ از او بخواهید.');
     const phone = normalizePhone(body.phone);
     const name = String(body.name ?? '').trim();
     const role = String(body.role ?? 'employee');
@@ -482,6 +499,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
       db.run('UPDATE users SET active=?, token_version=token_version+1 WHERE id=?', body.active ? 1 : 0, u.id);
     }
     if (body.pin !== undefined) {
+      if (!isMain) throw new HttpError(403, 'رمز کاربران را فقط ارائه‌دهنده صادر می‌کند.');
       if (!validPin(body.pin)) throw bad('رمز باید ۴ تا ۱۲ رقم باشد.');
       db.run('UPDATE users SET pin_hash=?, token_version=token_version+1 WHERE id=?', hashPin(body.pin), u.id);
     }
@@ -544,7 +562,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
 
   /* ---------------- market data ---------------- */
   // with "follow the market" on, the shop's price of a gram of 750 tracks the live 18k quote
-  const market = createMarket({
+  const market = sharedMarket ?? createMarket({
     db,
     ...marketOpts,
     onPrice: (p750, label) => {
@@ -677,7 +695,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     const h = req.headers.authorization ?? '';
     const token = h.startsWith('Bearer ') ? h.slice(7) : null;
     const p = token && signer.verify(token);
-    if (!p || p.t !== 'session') return null;
+    if (!p || p.t !== 'session' || (p.tn ?? 'main') !== tenantId) return null;
     const u = db.get('SELECT * FROM users WHERE id=?', p.uid);
     if (!u || !u.active || u.token_version !== p.tv) return null;
     return u;
@@ -695,12 +713,25 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
         if (r.guard === 'staff' && !STAFF_ROLES.has(user.role)) throw new HttpError(403, 'این بخش مخصوص مدیر و مربی است.');
         if (r.guard === 'admin' && !ADMIN_ROLES.has(user.role)) throw new HttpError(403, 'این بخش مخصوص مدیر است.');
       }
+      if (!isMain && MAIN_ONLY.has(r.key)) mainOnly();
       const params = Object.fromEntries(Object.entries(m.groups ?? {}).map(([k, v]) => [k, decodeURIComponent(v)]));
       return r.fn({ req, url, body: body ?? {}, params, user, ip });
     }
     throw notFound('مسیر API وجود ندارد.');
   };
   handle.market = market;
+  handle.db = db;
+  handle.authenticate = authenticate;
+  handle.setTenant = (row) => {
+    if (!isMain && row) T = row;
+  };
+  /** A new shop: its name on the letterhead, its edition, nothing else — the owner enters the real state in the setup wizard. */
+  handle.initShop = ({ name, plan }) => {
+    saveSetting('brand', { ...getSetting('brand', {}), shopName: name }, null);
+    const cur = getSetting('books', {});
+    saveSetting('books', { ...cur, legalName: name, edition: plan === 'full' ? 'full' : 'base' }, null);
+    saveSetting('setup', { done: false }, null);
+  };
   handle.mcp = mcp;
   handle.mcpAuth = mcpAuth;
   handle.books = books;

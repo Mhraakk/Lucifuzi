@@ -12,18 +12,18 @@ export async function loginPage(root) {
       <div class="mark">${brandMark}</div>
       <span class="eyebrow">${cfg.shopName ? cfg.shopName : 'آکادمی گالری طلا'}</span>
       <h1 class="gold-text" style="margin:10px 0 6px">بئاتریس</h1>
-      <p class="lead">آموزش پشت ویترین: فلز و عیار، فاکتور، سنگ، فروش، امنیت و طراحی سه‌بعدی.</p>
+      <p class="lead">حسابداری معاملات طلا، سکه، شمش و ارز؛ روزنگار، گاوصندوق، مشتریان و آموزش کارکنان.</p>
       <form class="form" id="f" novalidate>
-        <label class="field">شماره موبایل
-          <input class="input ltr" name="phone" inputmode="tel" autocomplete="username" placeholder="۰۹۱۲۰۰۰۰۰۰۰" required>
+        <label class="field">نام کاربری یا شماره موبایل
+          <input class="input ltr" name="login" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="username" required>
         </label>
-        <label class="field">رمز عددی
-          <input class="input ltr" name="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" required>
+        <label class="field">رمز عبور
+          <span class="pw-box"><input class="input ltr" name="password" type="password" autocomplete="current-password" maxlength="64" required><button type="button" class="pw-eye" data-act="eye" aria-label="نمایش رمز" aria-pressed="false">نمایش</button></span>
         </label>
         <p class="err" id="err" role="alert"></p>
         <button class="btn block" type="submit">ورود</button>
       </form>
-      <p class="small">رمز را مدیر شعبه می‌دهد. اگر فراموش کرده‌اید از مدیر بخواهید آن را بازنشانی کند.</p>
+      <p class="small">نام کاربری و رمز را فقط ارائه‌دهنده نرم‌افزار صادر می‌کند. با همین حساب روی گوشی، تبلت و کامپیوتر وارد شوید. برای رمز فراموش‌شده با ارائه‌دهنده تماس بگیرید.</p>
       <p class="small"><a href="/intro" data-link>آشنایی با بئاتریس برای فروشگاه شما</a></p>
       ${cfg.demo && cfg.demoAccounts.length
         ? html`<div class="demo tray"><h3>حساب‌های نمایشی</h3><p class="small">رمز همه: ۱۲۳۴</p>
@@ -35,12 +35,12 @@ export async function loginPage(root) {
 
   const form = $('#f', root);
   const cleanupArt = await coinArt($('#art', root));
-  const submit = async (phone, pin) => {
+  const submit = async (login, password) => {
     const btn = $('button[type=submit]', form);
     busy(btn, true);
     $('#err', root).textContent = '';
     try {
-      const r = await api('/api/auth/login', { method: 'POST', body: { phone, pin } });
+      const r = await api('/api/auth/login', { method: 'POST', body: { login, password } });
       auth.token = r.token;
       store.me = null;
       cleanupArt?.();
@@ -54,16 +54,22 @@ export async function loginPage(root) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const d = new FormData(form);
-    if (!d.get('phone') || !d.get('pin')) {
-      $('#err', root).textContent = 'شماره و رمز را وارد کنید.';
+    if (!String(d.get('login')).trim() || !d.get('password')) {
+      $('#err', root).textContent = 'نام کاربری و رمز را وارد کنید.';
       return;
     }
-    submit(String(d.get('phone')), String(d.get('pin')));
+    submit(String(d.get('login')).trim(), String(d.get('password')));
   });
   actions(root, {
+    eye: (el) => {
+      const on = form.password.type === 'password';
+      form.password.type = on ? 'text' : 'password';
+      el.textContent = on ? 'پنهان' : 'نمایش';
+      el.setAttribute('aria-pressed', String(on));
+    },
     demo: (el) => {
-      form.phone.value = fa(el.dataset.phone);
-      form.pin.value = '1234';
+      form.login.value = fa(el.dataset.phone);
+      form.password.value = '1234';
       submit(el.dataset.phone, '1234');
     },
   });

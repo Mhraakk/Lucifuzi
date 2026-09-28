@@ -9,6 +9,7 @@ import { makeSigner, resolveSecret } from './auth.mjs';
 import { createApi, seedUsers, HttpError } from './api.mjs';
 import { validateContent } from '../content/index.mjs';
 import { MEDIA_NAME } from './media.mjs';
+import { createPlatform, PlatformError, MAIN } from './platform.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
@@ -23,8 +24,16 @@ const SECURITY = {
 const PHOTO_BODY = 48 * 1024 * 1024; // two faces × (4096 + 2048 + relief) as base64
 const COMPRESSED = new Set(['.webp', '.jpg', '.png', '.woff2']);
 
-export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts }) {
-  const handle = createApi({ db, signer: makeSigner(secret), demo, mediaDir, marketOpts });
+export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts, tenantsDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'tenants') : ':memory:' }) {
+  const signer = makeSigner(secret);
+  const handle = createApi({ db, signer, demo, mediaDir, marketOpts });
+  // every other shop: its own database file under tenants/, the shared price feed of the main shop
+  const platform = createPlatform({
+    mainDb: db,
+    signer,
+    mainHandle: handle,
+    openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market }),
+  });
 
   /** Uploaded coin photos: immutable, server-named files on the data volume. */
   async function serveMedia(req, res, name) {
@@ -174,15 +183,41 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     try {
       const limit = url.pathname === '/api/designs' || url.pathname === '/api/market/bars' ? 2.5 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : undefined;
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, limit) : {};
-      const out = await handle(req, url, body, ip);
+      const auth = String(req.headers.authorization ?? '');
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+      let out;
+      if (url.pathname === '/api/auth/login' && req.method === 'POST') out = platform.login(body, ip, req.headers['user-agent']);
+      else if (url.pathname.startsWith('/api/vendor/')) {
+        if (token && platform.tenantOfToken(token) && platform.tenantOfToken(token) !== MAIN) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
+        const user = handle.authenticate(req);
+        if (!user) throw new HttpError(401, 'ورود لازم است.');
+        out = platform.vendor(req.method, url.pathname, body, user);
+      } else if (url.pathname.startsWith('/api/verify/')) {
+        // the authenticity page is public and printed on every shop's invoices: look the code up in each shop
+        let found = null;
+        for (const [, h] of platform.all()) {
+          try {
+            found = await h(req, url, body, ip);
+            break;
+          } catch (e) {
+            if (!(e instanceof HttpError) || e.status !== 404) throw e;
+          }
+        }
+        if (!found) throw new HttpError(404, 'سندی با این کد پیدا نشد.');
+        out = found;
+      } else {
+        const tn = (token && platform.tenantOfToken(token)) || MAIN;
+        out = await (tn === MAIN ? handle : platform.handleFor(tn))(req, url, body, ip);
+      }
       send(200, out);
     } catch (e) {
-      if (e instanceof HttpError) return send(e.status, { error: e.message });
+      if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message });
       if (!quiet) console.error('[beatris]', req.method, url.pathname, e);
       send(500, { error: 'خطای داخلی سرور. دوباره تلاش کنید.' });
     }
   });
   server.market = handle.market;
+  server.platform = platform;
   return server;
 }
 

@@ -178,7 +178,16 @@ export function openDb(dir = process.env.BEATRIS_DATA_DIR || path.resolve('data'
   const db = new DatabaseSync(dir === ':memory:' ? ':memory:' : path.join(dir, file));
   db.exec(snapshot ? SCHEMA.replace('PRAGMA journal_mode = WAL;', 'PRAGMA journal_mode = DELETE;') : SCHEMA);
   db.prepare("INSERT OR IGNORE INTO meta(key,value) VALUES ('schema_version','2')").run();
+  migrate(db);
   return wrap(db);
+}
+
+/** Additive migrations for databases created by earlier versions. */
+function migrate(db) {
+  const cols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (!cols.includes('username')) db.exec('ALTER TABLE users ADD COLUMN username TEXT');
+  if (!cols.includes('last_login_ua')) db.exec('ALTER TABLE users ADD COLUMN last_login_ua TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL');
 }
 
 function wrap(db) {

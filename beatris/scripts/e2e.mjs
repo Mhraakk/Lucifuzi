@@ -78,12 +78,12 @@ const noBadNumbers = (s) => !/NaN|undefined|Infinity/.test(s);
 
 async function loginUI(page) {
   await go(page, '/login', 800);
-  await page.fill('input[name=phone]', PHONE);
-  await page.fill('input[name=pin]', '0000');
+  await page.fill('input[name=login]', PHONE);
+  await page.fill('input[name=password]', '0000');
   await page.click('button[type=submit]');
   await page.waitForTimeout(600);
   if (!live) check('login: wrong PIN shows an error', (await text(page, '#err')).length > 3);
-  await page.fill('input[name=pin]', PIN);
+  await page.fill('input[name=password]', PIN);
   await page.click('button[type=submit]');
   await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 });
   check('login: correct PIN reaches home', true);
