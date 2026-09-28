@@ -74,4 +74,17 @@ test('داشبورد: سن مطالبات به روش اولین‌ورود، س
   assert.equal(c.series.at(-1).receivables, 985000000);
   assert.ok(d.recent.length >= 2 && d.recent[0].track);
   assert.equal((await call('GET', '/api/books/dashboard', null, E)).status, 403);
+  // the year: one square per day for 53 weeks, counts and priced value from the stored documents
+  const cal = d.calendar;
+  assert.equal(cal.days.length, 371);
+  assert.equal(cal.days.at(-1).day, today);
+  assert.deepEqual(cal.days.find((x) => x.day === ago(40)), { day: ago(40), docs: 1, trades: 1, value: 985000000 });
+  assert.deepEqual(cal.days.find((x) => x.day === ago(3)), { day: ago(3), docs: 1, trades: 1, value: 0 }); // custody: not priced
+  const t0 = cal.days.at(-1);
+  assert.equal(t0.docs, 2);
+  assert.ok(t0.value > 100000000);
+  // monthly results are the P&L report's own days, grouped by Jalali month
+  const pnl = await ok('GET', '/api/books/report/pnl', null, M);
+  assert.equal(cal.months.reduce((s, m) => s + m.realized, 0), pnl.days.reduce((s, x) => s + x.realized, 0));
+  assert.ok(cal.year >= 1405);
 });

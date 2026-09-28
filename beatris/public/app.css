@@ -1945,6 +1945,41 @@ i.s-gold { background: var(--gd-gold); } i.s-info { background: var(--gd-info); 
 .gd-state.err b { color: var(--gd-text); }
 .gd-state a { color: var(--gd-gold-hi); text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) { .gd .sk { animation: none; } .gd-age .gd-bar i, .gd-tip { transition: none; } }
+/* the year: activity heat calendar + monthly results */
+.gd-year { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gd-gap); }
+.gd-year .gd-card { display: flex; flex-direction: column; padding: 16px 18px 14px; min-width: 0; }
+.gd-heat-host { overflow-x: auto; overscroll-behavior-x: contain; padding: 4px 0 6px; border-radius: 10px; outline: none; scrollbar-width: thin; }
+.gd-heat-host:focus-visible { box-shadow: 0 0 0 2px rgba(var(--gold-rgb), 0.45); }
+.gd-heat-svg { display: block; width: 100%; min-width: 640px; max-width: 1180px; height: auto; margin-inline: auto; }
+.gd-heat-svg text { fill: var(--gd-muted-2); font-size: 9.5px; font-family: inherit; }
+.gd-heat-svg .hc { cursor: pointer; stroke: rgba(var(--gold-rgb), 0.05); stroke-width: 1; transition: stroke 0.15s; }
+.gd-heat-svg .hc:hover, .gd-heat-svg .hc.on { stroke: var(--gd-gold-hi); stroke-width: 1.6; }
+.gd .l0 { fill: var(--gd-elev); background: var(--gd-elev); }
+.gd .l1 { fill: rgba(var(--gold-rgb), 0.22); background: rgba(var(--gold-rgb), 0.22); }
+.gd .l2 { fill: rgba(var(--gold-rgb), 0.42); background: rgba(var(--gold-rgb), 0.42); }
+.gd .l3 { fill: rgba(var(--gold-rgb), 0.66); background: rgba(var(--gold-rgb), 0.66); }
+.gd .l4 { fill: var(--gd-gold-hi); background: var(--gd-gold-hi); }
+.gd-heat-f { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: auto; padding-top: 8px; }
+.gd-heat-read { margin: 0; min-height: 1.6em; font-size: 12.5px; color: var(--gd-muted); }
+.gd-heat-read b { color: var(--gd-text); font-weight: 600; }
+.gd-heat-key { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--gd-muted-2); }
+.gd-heat-key i { width: 11px; height: 11px; border-radius: 3px; }
+.gd-heat-key i:first-child { margin-inline-start: 4px; } .gd-heat-key i:last-child { margin-inline-end: 4px; }
+.gd-ret-host { overflow-x: auto; scrollbar-width: thin; }
+.gd-ret { width: 100%; min-width: 640px; border-collapse: separate; border-spacing: 4px; table-layout: fixed; font-size: 12px; }
+.gd-ret th { padding: 2px 0 4px; font-weight: 500; color: var(--gd-muted-2); font-size: 11.5px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gd-ret th[scope='row'] { width: 44px; color: var(--gd-muted); text-align: start; }
+.gd-ret td { height: 36px; padding: 0; text-align: center; border-radius: 7px; background: var(--gd-elev); font-variant-numeric: tabular-nums; }
+.gd-ret td.fut { background: none; outline: 1px dashed var(--gd-border); outline-offset: -1px; }
+.gd-ret td.nil span { color: var(--gd-muted-2); opacity: 0.6; }
+.gd-ret td.tot { width: 76px; font-weight: 600; background: var(--gd-surface); box-shadow: inset 0 0 0 1px var(--gd-border); color: var(--gd-text); }
+.gd-ret td.tot.pos { color: var(--gd-pos); } .gd-ret td.tot.neg { color: var(--gd-neg); }
+.gd-ret .rc, .gd-ret td.tot { direction: ltr; unicode-bidi: isolate; }
+.gd-ret .rc { width: 100%; height: 100%; border: 0; border-radius: 7px; font: inherit; font-size: 12px; cursor: pointer; color: var(--gd-text); transition: transform 0.15s, box-shadow 0.15s; }
+.gd-ret .rc.pos { background: rgba(var(--ok-rgb), calc(var(--t) * 0.55)); }
+.gd-ret .rc.neg { background: rgba(var(--bad-rgb), calc(var(--t) * 0.55)); }
+.gd-ret .rc:hover, .gd-ret .rc:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--gd-gold-hi); transform: translateY(-1px); }
+@media (prefers-reduced-motion: reduce) { .gd-ret .rc, .gd-heat-svg .hc { transition: none; } }
 /* responsive */
 @media (max-width: 1360px) { .gd-charts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .gd-c1 { grid-column: 1 / -1; } .gd-lower { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .gd-recent { grid-column: 1 / -1; } }
 @media (max-width: 1180px) { .gd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gd { grid-template-columns: 76px minmax(0, 1fr); } .gd-side { padding: 18px 10px; } .gd-brand span, .gd-nav a span, .gd-store div { display: none; } .gd-nav a { justify-content: center; padding: 11px; } .gd-brand { justify-content: center; } .gd-store { padding: 6px; justify-content: center; } }

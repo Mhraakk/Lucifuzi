@@ -86,5 +86,6 @@ export function toView(api) {
       { key: 'custody', label: 'امانی (نزد ما)', qty: `${grams(api.inventory.custodyG)} گرم`, value: Math.round(api.inventory.custodyG * p750), icon: 'lock', href: '/books/parties' },
     ],
     alerts: api.alerts,
+    calendar: api.calendar ?? { days: [], months: [], year: 0 },
   };
 }

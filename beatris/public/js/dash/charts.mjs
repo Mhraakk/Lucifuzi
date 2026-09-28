@@ -144,3 +144,60 @@ export function cashBars(byHour) {
     })
     .join('')}</svg>`;
 }
+
+/**
+ * Activity heat calendar: one square per day for the last 53 weeks, columns are Persian weeks (Saturday first) and the
+ * oldest week sits at the right like the rest of the page. level(day) → 0..4. Month names mark the week a month
+ * starts in. Squares carry data-day; the page wires hover, focus and click.
+ */
+export function heatCalendar(days, { level, monthOf, sel = null, cell = 12, gap = 3 } = {}) {
+  const P = cell + gap, lab = 24, top = 18;
+  const wd = (iso) => (new Date(`${iso}T12:00:00Z`).getUTCDay() + 1) % 7; // Sat=0 … Fri=6
+  const lead = days.length ? wd(days[0].day) : 0;
+  const cols = Math.ceil((lead + days.length) / 7);
+  const W = cols * P - gap + lab, H = top + 7 * P - gap;
+  const X = (c) => W - lab - (c + 1) * P + gap; // right→left
+  let cells = '', months = '', prevM = null;
+  days.forEach((d, i) => {
+    const k = lead + i, c = Math.floor(k / 7), r = k % 7;
+    cells += `<rect class="hc l${level(d)}${sel === d.day ? ' on' : ''}" data-day="${d.day}" x="${X(c)}" y="${top + r * P}" width="${cell}" height="${cell}" rx="3"/>`;
+  });
+  // a month's name sits over the first week column that starts inside it
+  for (let c = 0; c < cols; c++) {
+    const d = days[Math.max(0, c * 7 - lead)];
+    const m = monthOf(d.day).name;
+    if (m !== prevM && X(c) + cell >= 34) months += `<text x="${X(c) + cell}" y="11" text-anchor="end">${esc(m)}</text>`;
+    prevM = m;
+  }
+  const WD = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+  const rows = WD.map((w, r) => (r % 2 === 0 ? `<text x="${W - 4}" y="${top + r * P + cell - 2}" text-anchor="end">${w}</text>` : '')).join('');
+  return `<svg class="gd-heat-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="تقویم فعالیت ۵۳ هفته اخیر"><g class="ml">${months}</g><g class="wl">${rows}</g><g>${cells}</g></svg>`;
+}
+
+/**
+ * Monthly result calendar (Jalali): years as rows, 12 months and the year total as columns; the tint grows with the
+ * size of the result and turns red for a loss. Cells are buttons so a month opens its P&L report.
+ */
+export function returnsCalendar(months, { years, monthNames, fmt, cur }) {
+  const by = new Map(months.map((m) => [m.key, m]));
+  const max = Math.max(1, ...months.map((m) => Math.abs(m.realized)));
+  const tint = (v) => (v ? Math.max(0.12, Math.min(1, Math.sqrt(Math.abs(v) / max))).toFixed(2) : 0);
+  const head = `<tr><th scope="col">سال</th>${monthNames.map((n) => `<th scope="col">${esc(n)}</th>`).join('')}<th scope="col" class="tot">جمع</th></tr>`;
+  const body = years
+    .map((y) => {
+      let sum = 0, any = false;
+      const tds = monthNames
+        .map((n, i) => {
+          const key = `${y}-${String(i + 1).padStart(2, '0')}`, m = by.get(key);
+          const future = y * 100 + i + 1 > cur;
+          if (!m || !m.realized) return `<td class="${future ? 'fut' : 'nil'}">${future ? '' : '<span>—</span>'}</td>`;
+          sum += m.realized;
+          any = true;
+          return `<td><button class="rc ${m.realized < 0 ? 'neg' : 'pos'}" style="--t:${tint(m.realized)}" data-month="${key}" aria-label="${esc(`${n} ${y}: ${fmt(m.realized)}`)}">${esc(fmt(m.realized))}</button></td>`;
+        })
+        .join('');
+      return `<tr><th scope="row">${esc(String(y).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]))}</th>${tds}<td class="tot ${sum < 0 ? 'neg' : any ? 'pos' : ''}">${any ? esc(fmt(sum)) : '—'}</td></tr>`;
+    })
+    .join('');
+  return `<table class="gd-ret"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}

@@ -5,6 +5,7 @@
 import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
 import { COIN_TYPES } from '../public/js/coins.mjs';
+import { jalaliOf } from '../public/js/ta.mjs';
 
 const SYS = { id: null, role: 'owner', name: 'داشبورد' };
 const DAY = 864e5;
@@ -98,6 +99,43 @@ export function makeDashboard({ db, call, tehranDay, livePrices, market, audit }
     }
     const total = buckets.reduce((s, b) => s + b.amount, 0);
     return { total: Math.round(total), buckets: buckets.map((b) => ({ key: b.key, label: b.label, from: b.from, to: b.to, amount: Math.round(b.amount), pct: total ? (b.amount / total) * 100 : 0, customers: b.customers, avgDays: b.amount ? Math.round(b.daySum / b.amount) : 0, parties: b.parties.sort((x, y) => y.amount - x.amount).slice(0, 25) })) };
+  }
+
+  /**
+   * The year at a glance: per day, how many final documents and trades were booked and the rial value of priced trade
+   * lines (both sides), read from each document's stored calculation; per Jalali month, the realized trading result
+   * that the P&L report already computed (its `days`). Only counting and grouping happens here.
+   */
+  function calendar(today, pnlDays) {
+    const start = addDays(today, -370);
+    const byDay = new Map();
+    for (const r of db.all("SELECT date, type, calc_json FROM bk_docs WHERE status='final' AND date>=? AND date<=?", start, today)) {
+      const d = byDay.get(r.date) ?? { day: r.date, docs: 0, trades: 0, value: 0 };
+      d.docs++;
+      if (r.type === 'trade') {
+        d.trades++;
+        for (const l of JSON.parse(r.calc_json || '{}').lines ?? []) if (l.priced) d.value += Math.abs(l.value ?? 0);
+      }
+      byDay.set(r.date, d);
+    }
+    const days = Array.from({ length: 371 }, (_, k) => {
+      const iso = addDays(start, k), d = byDay.get(iso);
+      return d ? { ...d, value: Math.round(d.value) } : { day: iso, docs: 0, trades: 0, value: 0 };
+    });
+    const months = new Map();
+    for (const { day, realized } of pnlDays ?? []) {
+      const [jy, jm] = jalaliOf(day), k = `${jy}-${String(jm).padStart(2, '0')}`;
+      const m = months.get(k) ?? { key: k, jy, jm, realized: 0, days: 0 };
+      m.realized += realized;
+      if (realized) m.days++;
+      months.set(k, m);
+    }
+    const [ty] = jalaliOf(today);
+    return {
+      days,
+      months: [...months.values()].filter((m) => m.jy > ty - 3).sort((a, b) => a.key.localeCompare(b.key)).map((m) => ({ ...m, realized: Math.round(m.realized) })),
+      year: ty,
+    };
   }
 
   function build({ range = '7', from, to } = {}) {
@@ -200,7 +238,8 @@ export function makeDashboard({ db, call, tehranDay, livePrices, market, audit }
       cash: { in: cin, out: cout, net: cin - cout, byHour },
       inventory: { meltG, barG, bars: bars.length, coins: vault.coins, madeG: bal.stockG, custodyG, fx: vault.fx },
       alerts,
+      calendar: calendar(today, pnl.days),
     };
   }
-  return { build, positionSeries, aging };
+  return { build, positionSeries, aging, calendar };
 }

@@ -977,6 +977,20 @@ async function loginUI(page) {
       await page.click('[data-alloc=book]');
       await page.click('.gd-leg [data-seg=gold]');
       check('dashboard: book/market toggle and the physical-gold breakdown', (await text(page, '.gd-sub')).includes('آب‌شده'));
+      // the year: activity calendar (371 days, today is lit) and monthly results
+      check('dashboard: activity calendar has 371 days and today is active', (await page.$$('.gd-heat-svg rect.hc')).length === 371 && !(await page.$eval('.gd-heat-svg rect.hc:last-of-type', (r) => r.classList.contains('l0'))));
+      await page.focus('#gdHeatHost');
+      await page.keyboard.press('ArrowRight');
+      check('dashboard: keyboard moves through the activity calendar', (await text(page, '#gdHeatRead')).includes('سند') && !!(await page.$('.gd-heat-svg rect.hc.on')));
+      await page.click('[data-heat=value]');
+      check('dashboard: value metric redraws the calendar', (await page.$$('.gd-heat-svg rect.hc')).length === 371);
+      check('dashboard: monthly results table covers 12 Jalali months', (await page.$$('.gd-ret thead th')).length === 14 && noBadNumbers(await text(page, '#gdRetHost')));
+      const mcell = await page.$('.gd-ret .rc');
+      if (mcell) {
+        await mcell.click();
+        await page.waitForURL(/tab=pnl&from=/);
+        check('dashboard: a month opens its P&L report', (await text(page, '#rep')).includes('میانگین'));
+      }
       await go(page, '/books/reports?tab=pnl', 1500);
       check('reports: trading P&L renders', noBadNumbers(await text(page, '#rep')) && (await text(page, '#rep')).includes('میانگین'));
       // bank reconciliation from a pasted statement

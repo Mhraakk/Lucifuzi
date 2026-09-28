@@ -6,7 +6,8 @@ import { html, raw, fa, api, store, navigate, ROLE_FA, $, $$ } from '../core.mjs
 import { crownSvg } from '../crown.mjs';
 import { booksPrefs, prefs, jd, jdLong, parseDay, today, unitName } from '../bk.mjs';
 import { toView, money, compact, grams, pctText, weekday } from '../dash/adapters.mjs';
-import { sparkSvg, positionChart, agingRows, donutSvg, cashBars } from '../dash/charts.mjs';
+import { sparkSvg, positionChart, agingRows, donutSvg, cashBars, heatCalendar, returnsCalendar } from '../dash/charts.mjs';
+import { jalaliOf, toGregorian, JALALI_MONTHS } from '../ta.mjs';
 
 const I = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`);
 const ICON = {
@@ -71,7 +72,7 @@ export async function dashboardPage(root) {
   await booksPrefs();
   const me = store.me.user;
   const shop = prefs.settings?.legalName || store.me.brand?.shopName || '';
-  const S = { range: '7', from: '', to: '', alloc: 'market', bucket: null, hidden: new Set(), seg: null, data: null, busy: false };
+  const S = { range: '7', from: '', to: '', alloc: 'market', bucket: null, hidden: new Set(), seg: null, data: null, busy: false, heat: 'docs', hday: null };
   const stopChart = [];
 
   root.innerHTML = String(html`<div class="gd">
@@ -110,6 +111,15 @@ export async function dashboardPage(root) {
           <div class="gd-donut" id="gdDonut"><div class="sk sk-donut"></div></div>
           <footer><a class="gd-btn" href="/books/reports?tab=balance" data-link>مشاهده جزئیات دارایی‌ها ${ICON.back}</a></footer></article>
       </section>
+      <section class="gd-year">
+        <article class="gd-card gd-heat" id="gdHeat"><header class="gd-ch"><div><h2>تپش سال ${raw(`<span class="gd-i" title="هر خانه یک روز؛ هرچه پررنگ‌تر، روز پرکارتر. فقط اسناد قطعی شمرده می‌شوند.">${ICON.info}</span>`)}</h2><p>ضرب‌آهنگ کار خانه در ۵۳ هفته اخیر</p></div>
+            <div class="gd-toggle" role="group" aria-label="معیار"><button data-heat="docs" aria-pressed="true">تعداد سند</button><button data-heat="value" aria-pressed="false">ارزش معامله</button></div></header>
+          <div class="gd-heat-host" id="gdHeatHost" tabindex="0" role="application" aria-label="تقویم فعالیت؛ با کلیدهای جهت بین روزها حرکت کنید و با Enter روزنگار همان روز را باز کنید"><div class="sk sk-chart"></div></div>
+          <div class="gd-heat-f"><p class="gd-heat-read" id="gdHeatRead" aria-live="polite"></p><span class="gd-heat-key" aria-hidden="true">کم${[0, 1, 2, 3, 4].map((l) => html`<i class="l${l}"></i>`)}زیاد</span></div></article>
+        <article class="gd-card gd-rets" id="gdRets"><header class="gd-ch"><div><h2>کارنامه ماهانه ${raw(`<span class="gd-i" title="سود و زیان تحقق‌یافته معاملات به روش میانگین موزون، همان عدد گزارش سود و زیان؛ ماه‌ها شمسی">${ICON.info}</span>`)}</h2><p>سود و زیان تحقق‌یافته هر ماه شمسی</p></div></header>
+          <div class="gd-ret-host" id="gdRetHost"><div class="sk sk-rows"></div></div>
+          <footer><a class="gd-btn" href="/books/reports?tab=pnl" data-link>گزارش سود و زیان ${ICON.back}</a></footer></article>
+      </section>
       <section class="gd-lower">
         <article class="gd-card gd-recent"><header class="gd-ch"><h2>آخرین معاملات امروز</h2><a class="gd-btn sm" href="/books/day" data-link>مشاهده همه ${ICON.back}</a></header><div id="gdRecent"><div class="sk sk-rows"></div></div></article>
         <article class="gd-card gd-cash"><header class="gd-ch"><h2>جریان نقد امروز</h2></header><div id="gdCash"><div class="sk sk-rows"></div></div><footer><a class="gd-btn" href="/books/cash" data-link>گزارش نقدینگی ${ICON.back}</a></footer></article>
@@ -127,7 +137,7 @@ export async function dashboardPage(root) {
       drawAll();
     } catch (e) {
       const msg = e.status === 403 ? 'داشبورد مدیریت مخصوص مدیر و مالک است.' : e.message;
-      for (const id of ['gdPrice', 'gdKpis', 'gdAgeList', 'gdDonut', 'gdRecent', 'gdCash', 'gdInv']) $(`#${id}`, root).innerHTML = '';
+      for (const id of ['gdPrice', 'gdKpis', 'gdAgeList', 'gdDonut', 'gdRecent', 'gdCash', 'gdInv', 'gdHeatHost', 'gdRetHost']) $(`#${id}`, root).innerHTML = '';
       $('#gdPosHost .gd-pos-svg', root).innerHTML = String(html`<div class="gd-state err"><b>${msg}</b>${e.status === 403 ? html`<a class="gd-btn" href="/books/pulse" data-link>رفتن به «نبض»</a>` : html`<button class="gd-btn" data-retry>تلاش دوباره</button>`}</div>`);
     } finally {
       S.busy = false;
@@ -160,8 +170,65 @@ export async function dashboardPage(root) {
     drawPosition();
     drawAging();
     drawAlloc();
+    drawYear();
     drawLower();
   }
+  /* ---------------- the year: activity calendar and monthly results ---------------- */
+  const monthOf = (iso) => {
+    const [jy, jm, jdd] = jalaliOf(iso);
+    return { jy, jm, jd: jdd, name: JALALI_MONTHS[jm - 1] };
+  };
+  function heatLevels() {
+    const days = S.data.calendar.days, key = S.heat;
+    const vals = days.map((d) => d[key]).filter((x) => x > 0).sort((a, b) => a - b);
+    const q = (p) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))] ?? 0;
+    const cut = [q(0.25), q(0.5), q(0.75)];
+    return (d) => (!d[key] ? 0 : d[key] <= cut[0] ? 1 : d[key] <= cut[1] ? 2 : d[key] <= cut[2] ? 3 : 4);
+  }
+  function heatRead(iso) {
+    const cal = S.data.calendar;
+    const d = cal.days.find((x) => x.day === iso);
+    const box = $('#gdHeatRead', root);
+    if (!d) {
+      const act = cal.days.filter((x) => x.docs);
+      const wdSum = Array(7).fill(0), wdN = Array(7).fill(0);
+      for (const x of cal.days) {
+        const w = (new Date(`${x.day}T12:00:00Z`).getUTCDay() + 1) % 7;
+        wdSum[w] += x.docs;
+        wdN[w]++;
+      }
+      const best = wdSum.map((s, i) => s / (wdN[i] || 1)).reduce((b, v, i, a) => (v > a[b] ? i : b), 0);
+      const top = act.reduce((b, x) => (!b || x.value > b.value ? x : b), null);
+      box.innerHTML = act.length
+        ? String(html`<b>${fa(act.length)}</b> روز کاری · <b>${fa(act.reduce((s, x) => s + x.trades, 0))}</b> معامله · پرکارترین روز هفته: <b>${['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'][best]}</b>${top?.value ? html` · پرارزش‌ترین روز: <b>${jd(top.day)}</b> (${compact(top.value)})` : ''}`)
+        : 'هنوز سند قطعی در این یک سال ثبت نشده است.';
+      return;
+    }
+    box.innerHTML = String(html`<b>${weekday(d.day)}، ${jd(d.day)}</b> · ${d.docs ? html`${fa(d.docs)} سند · ${fa(d.trades)} معامله${d.value ? html` · ارزش ${compact(d.value)}` : ''}` : 'بدون سند'}`);
+  }
+  function drawYear() {
+    const cal = S.data.calendar;
+    const host = $('#gdHeatHost', root);
+    host.innerHTML = heatCalendar(cal.days, { level: heatLevels(), monthOf, sel: S.hday });
+    heatRead(S.hday);
+    // keep the newest week in view on narrow screens (RTL: newest is on the left)
+    host.scrollLeft = -host.scrollWidth;
+    const cur = cal.year * 100 + monthOf(today()).jm;
+    const years = [...new Set([cal.year, ...cal.months.map((m) => m.jy)])].sort((a, b) => b - a);
+    // one scale for the whole table so the cells compare at a glance
+    const disp = (r) => (prefs.money === 'rial' ? r : r / 10);
+    const top = Math.max(0, ...cal.months.map((m) => Math.abs(disp(m.realized))));
+    const [div, word] = top >= 1e9 ? [1e9, 'میلیارد '] : top >= 1e6 ? [1e6, 'میلیون '] : [1, ''];
+    const fmt = (v) => `${v < 0 ? '−' : ''}${fa((Math.abs(disp(v)) / div).toLocaleString('en-US', { maximumFractionDigits: div > 1 ? 1 : 0 })).replace(/,/g, '٬').replace(/\./g, '٫')}`;
+    $('#gdRetHost', root).innerHTML = returnsCalendar(cal.months, { years, monthNames: JALALI_MONTHS, cur, fmt }) + String(html`<p class="gd-note">ارقام به ${word}${unitName()}؛ رنگ پررنگ‌تر یعنی سود یا زیان بزرگ‌تر. هر ماه را بزنید تا گزارش همان ماه باز شود.</p>`);
+  }
+  const monthRange = (key) => {
+    const [jy, jm] = key.split('-').map(Number);
+    const iso = (y, m, d) => toGregorian(y, m, d).map((n, i) => String(n).padStart(i ? 2 : 4, '0')).join('-');
+    const from = iso(jy, jm, 1);
+    const next = jm === 12 ? iso(jy + 1, 1, 1) : iso(jy, jm + 1, 1);
+    return { from, to: new Date(Date.parse(`${next}T00:00:00Z`) - 864e5).toISOString().slice(0, 10) };
+  };
   function drawPosition() {
     const v = S.data.position;
     stopChart.splice(0).forEach((f) => f());
@@ -243,6 +310,19 @@ export async function dashboardPage(root) {
       S.seg = S.seg === sg.dataset.seg ? null : sg.dataset.seg;
       return drawAlloc();
     }
+    const hm = e.target.closest('[data-heat]');
+    if (hm && S.data) {
+      S.heat = hm.dataset.heat;
+      $$('[data-heat]', root).forEach((x) => x.setAttribute('aria-pressed', String(x === hm)));
+      return drawYear();
+    }
+    const hd = e.target.closest('rect[data-day]');
+    if (hd && S.data) return navigate(`/books/day?day=${hd.dataset.day}`);
+    const mo = e.target.closest('[data-month]');
+    if (mo) {
+      const { from, to } = monthRange(mo.dataset.month);
+      return navigate(`/books/reports?tab=pnl&from=${from}&to=${to}`);
+    }
     const tr = e.target.closest('tr[data-track]');
     if (tr && !e.target.closest('a')) return navigate(`/books/trace?q=${encodeURIComponent(tr.dataset.track)}`);
     if (e.target.closest('[data-retry]')) return load();
@@ -257,6 +337,31 @@ export async function dashboardPage(root) {
       $('#gdTheme', root).innerHTML = String(next === 'day' ? ICON.sun : ICON.moon);
       if (S.data) drawAll();
     }
+  });
+  const heatHost = $('#gdHeatHost', root);
+  const pickDay = (iso) => {
+    S.hday = iso;
+    $$('rect.hc.on', heatHost).forEach((r) => r.classList.remove('on'));
+    if (iso) $(`rect[data-day="${iso}"]`, heatHost)?.classList.add('on');
+    heatRead(iso);
+  };
+  heatHost.addEventListener('pointerover', (e) => {
+    const r = e.target.closest('rect[data-day]');
+    if (r) pickDay(r.dataset.day);
+  });
+  heatHost.addEventListener('pointerleave', () => pickDay(null));
+  heatHost.addEventListener('focus', () => S.data && pickDay(S.hday ?? S.data.calendar.days.at(-1)?.day));
+  heatHost.addEventListener('keydown', (e) => {
+    if (!S.data) return;
+    const days = S.data.calendar.days;
+    let i = days.findIndex((d) => d.day === S.hday);
+    if (i < 0) i = days.length - 1;
+    const step = { ArrowLeft: 7, ArrowRight: -7, ArrowUp: -1, ArrowDown: 1 }[e.key]; // left = newer (RTL)
+    if (step) {
+      e.preventDefault();
+      pickDay(days[Math.max(0, Math.min(days.length - 1, i + step))].day);
+    } else if (e.key === 'Enter' && S.hday) navigate(`/books/day?day=${S.hday}`);
+    else if (e.key === 'Escape') pickDay(null);
   });
   root.addEventListener('keydown', (e) => {
     const tr = e.target.closest('tr[data-track]');
