@@ -178,3 +178,13 @@ test('۷) بستن روز با امضای دیجیتال؛ روز بسته قف�
   await ok('POST', '/api/books/docs', { type: 'trade', lines: [{ kind: 'coin', dir: 'in', coin: 'emami', count: 1, price: 990000000 }], payments: [{ method: 'cash', dir: 'out', amount: 990000000 }] }, O);
   assert.equal((await ok('GET', `/api/books/close?day=${today}`, null, O)).closed.reopened.reason, 'سند جاافتاده');
 });
+
+test('خواندن ترازو: قالب‌های رایج', async () => {
+  const { parseScale } = await import('../public/js/scale.mjs');
+  assert.deepEqual(parseScale('ST,GS,+  123.456 g'), { grams: 123.456, stable: true });
+  assert.deepEqual(parseScale('US,GS,+  123.450 g'), { grams: 123.45, stable: false });
+  assert.deepEqual(parseScale('  12.5 ct'), { grams: 2.5, stable: false });
+  assert.equal(parseScale('1.000 ozt').grams, 31.103);
+  assert.equal(parseScale('-0.004 g').grams, -0.004);
+  assert.equal(parseScale('ERR'), null);
+});

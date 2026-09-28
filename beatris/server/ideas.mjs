@@ -341,7 +341,7 @@ export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, liv
       party: TR.partyLabel(d.party),
       asOf: now(),
       balance: d.balance,
-      lines: d.statement.filter((r) => r.date >= since).slice(-40).map((r) => ({ date: r.date, unit: r.unit, amt: r.amt, balance: r.balance, what: r.what, track: r.doc?.track ?? null })),
+      lines: d.statement.filter((r) => r.date >= since).slice(-40).map((r) => ({ date: r.date, unit: r.unit, amt: r.amt, balance: r.balance, what: r.doc ? B.DOC_TYPES[r.doc.type]?.short ?? '' : 'مانده', track: r.doc?.track ?? null })),
       expiresAt: s.expires_at,
       answer: s.answer ? { answer: s.answer, note: s.answer_note, at: s.answered_at } : null,
     };

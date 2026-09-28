@@ -104,7 +104,7 @@ export async function partyPage(root, { id }) {
   if (tab !== 'all' && !units.includes(tab)) tab = 'all';
   root.innerHTML = String(html`${booksNav('parties')}
     <div class="bk-head"><div><h1>${p.label}</h1><span class="small">کد ${fa(p.code)}${p.group ? ` · گروه ${p.group}` : ''} · ${fa(r.docs.filter((d) => d.status === 'final').length)} سند قطعی${p.creditLimit ? ` · سقف اعتبار ${TU(p.creditLimit)}` : ''}</span></div>
-      <div class="actions"><a class="btn small" href="/books/desk?party=${p.id}" data-link>معامله در میز</a>${prefs.edition === 'base' ? '' : html`<a class="btn small ghost" href="/books/new/sale?party=${p.id}" data-link>فروش</a><a class="btn small ghost" href="/books/new/receipt?party=${p.id}" data-link>دریافت</a><a class="btn small ghost" href="/books/new/payment?party=${p.id}" data-link>پرداخت</a>`}<button class="btn small ghost" data-act="edit">ویرایش</button><button class="btn small ghost" data-act="confirm">نامه تأیید مانده</button>${store.isAdmin() ? html`<button class="btn small danger" data-act="del">حذف</button>` : ''}</div></div>
+      <div class="actions"><a class="btn small" href="/books/desk?party=${p.id}" data-link>معامله در میز</a>${prefs.edition === 'base' ? '' : html`<a class="btn small ghost" href="/books/new/sale?party=${p.id}" data-link>فروش</a><a class="btn small ghost" href="/books/new/receipt?party=${p.id}" data-link>دریافت</a><a class="btn small ghost" href="/books/new/payment?party=${p.id}" data-link>پرداخت</a>`}<button class="btn small ghost" data-act="edit">ویرایش</button><button class="btn small ghost" data-act="confirm">نامه تأیید مانده</button><button class="btn small ghost" data-act="share">برگه ته حساب آنلاین</button>${store.isAdmin() ? html`<button class="btn small danger" data-act="del">حذف</button>` : ''}</div></div>
     <p class="small">${[p.mobile && `موبایل ${fa(p.mobile)}`, p.nid && `${p.kind === 'company' ? 'شناسه ملی' : 'کد ملی'} ${fa(p.nid)}`, p.eco && `شماره اقتصادی ${fa(p.eco)}`, p.postal && `کد پستی ${fa(p.postal)}`, p.birth && `تولد ${jd(p.birth)}`, p.address, p.tags && `برچسب: ${p.tags}`].filter(Boolean).join(' · ')}</p>
     <div class="printable pr-sheet"><h2 class="pr-only">ته حساب و ریز حساب ${p.label} · ${jd(today())}</h2>
     <h3 class="bk-h">ته حساب (مانده)</h3>${balBoard(p.name, r.balance, prices)}
@@ -158,6 +158,48 @@ export async function partyPage(root, { id }) {
     draw();
   });
   const map = {
+    // a dated, revocable link: the customer sees the balance on a phone and confirms or disputes it
+    share: async () => {
+      const hist = (await api(`/api/books/parties/${p.id}/shares`)).items;
+      modal(
+        String(html`<h3 class="bk-h">برگه ته حساب آنلاین برای ${p.label}</h3><p class="small">مشتری با این لینک مانده حساب و گردش ۶۰ روز اخیرش را می‌بیند و «تأیید می‌کنم» یا «مغایرت دارم» را می‌زند؛ پاسخ با تاریخ در دفتر رویداد ثبت می‌شود. لینک هر وقت بخواهید قابل لغو است.</p>
+          <div class="sh-new"><label class="field">اعتبار لینک<select class="input" id="shDays">${[1, 3, 7, 14, 30].map((d) => html`<option value="${d}" ${d === 7 ? 'selected' : ''}>${fa(d)} روز</option>`)}</select></label><button class="btn" data-sh-make>ساخت لینک</button></div>
+          <div id="shOut"></div>
+          ${hist.length ? html`<h4>لینک‌های قبلی</h4><ul class="sh-hist">${hist.map((h) => html`<li><span>${jd(h.created_at.slice(0, 10))} ${timeFa(h.created_at)}</span><span>${h.revoked ? 'لغو شده' : h.expired ? 'منقضی' : `${fa(h.views)} بار دیده شد`}</span><b class="${h.answer === 'agree' ? 'ok' : h.answer === 'dispute' ? 'bad' : ''}">${h.answer === 'agree' ? `تأیید شد ${jd(h.answered_at.slice(0, 10))}` : h.answer === 'dispute' ? `مغایرت: ${h.answer_note}` : 'بی‌پاسخ'}</b>${!h.revoked && !h.expired ? html`<button class="chip danger" data-sh-revoke="${h.id}">لغو</button>` : ''}</li>`)}</ul>` : ''}
+          <div class="actions"><button class="btn ghost" data-close>بستن</button></div>`),
+        (m) => {
+          m.querySelector('[data-sh-make]').addEventListener('click', async (e) => {
+            busy(e.currentTarget, true);
+            try {
+              const r = await api(`/api/books/parties/${p.id}/share`, { method: 'POST', body: { days: Number(m.querySelector('#shDays').value) } });
+              const url = `${location.origin}${r.path}`;
+              const msg = `${prefs.settings?.legalName || store.me.brand?.shopName || ''}\nمانده حساب شما: ${url}`;
+              const { qrSvg } = await import('../qr.mjs');
+              m.querySelector('#shOut').innerHTML = String(html`<div class="sh-link"><div class="sh-qr">${raw(qrSvg(url, { size: 150 }))}</div><div><input class="input ltr" readonly value="${url}"><div class="actions"><button class="btn small" data-sh-copy>کپی لینک</button><a class="btn small ghost" target="_blank" rel="noopener" href="https://wa.me/${p.mobile ? `98${p.mobile.slice(1)}` : ''}?text=${encodeURIComponent(msg)}">واتساپ</a>${p.mobile ? html`<a class="btn small ghost" href="sms:${p.mobile}?body=${encodeURIComponent(msg)}">پیامک</a>` : ''}</div><p class="small">معتبر تا ${jd(r.expiresAt.slice(0, 10))}</p></div></div>`);
+              m.querySelector('[data-sh-copy]').addEventListener('click', async () => {
+                try {
+                  await navigator.clipboard.writeText(url);
+                  toast('لینک کپی شد.', 'ok');
+                } catch {
+                  m.querySelector('.sh-link input').select();
+                }
+              });
+            } catch (err) {
+              toast(err.message, 'error');
+            } finally {
+              busy(e.currentTarget, false);
+            }
+          });
+          m.addEventListener('click', async (e) => {
+            const x = e.target.closest('[data-sh-revoke]');
+            if (!x) return;
+            await api(`/api/books/shares/${x.dataset.shRevoke}/revoke`, { method: 'POST' });
+            x.closest('li').querySelector('span:nth-child(2)').textContent = 'لغو شده';
+            x.remove();
+          });
+        },
+      );
+    },
     confirm: () =>
       modal(String(html`<div class="printable bk-letter"><h3>تأییدیه مانده حساب</h3><p>${prefs.settings?.legalName || store.me.brand?.shopName || ''}</p><p>جناب / سرکار ${p.label} (کد ${fa(p.code)})</p><p>مانده حساب شما در دفاتر ما تا تاریخ ${jd(today())} به شرح زیر است:</p><ul>${balUnits(r.balance).map((u) => html`<li>${sideWord(u, r.balance[u])}: ${u.startsWith('BAR:') ? unitLabel(u) : unitAmt(u, Math.abs(r.balance[u]))}</li>`)}</ul><p>${balSentence(p.name, r.balance)}</p>${balUnits(r.balance).length ? '' : html`<p>حساب شما تسویه است.</p>`}<p>لطفاً در صورت تأیید، این برگه را امضا و مهر کنید؛ در غیر این صورت مغایرت را اعلام فرمایید.</p><div class="bk-p-sign"><span>امضای مشتری</span><span>مهر و امضای فروشگاه</span></div></div><div class="actions"><button class="btn" data-pr>چاپ</button><button class="btn ghost" data-close>بستن</button></div>`), (m) => m.querySelector('[data-pr]').addEventListener('click', () => window.print())),
     edit: () =>

@@ -143,7 +143,7 @@ export async function vaultPage(root) {
   const cust = (u) => v.custody[u] ?? { owedByShop: 0, owedToShop: 0 };
   const netOf = (u, held) => held - cust(u).owedByShop + cust(u).owedToShop;
   root.innerHTML = String(html`${booksNav('vault')}
-    <div class="bk-head"><div><h1>گاوصندوق</h1><span class="small">موجودی فیزیکی، امانت مشتریان و موقعیت خالص · ارزش به قیمت زنده (ریال)</span></div><div class="actions"><button class="btn small" data-act="count">شمارش فیزیکی</button><button class="btn small ghost" data-act="print">چاپ</button></div></div>
+    <div class="bk-head"><div><h1>گاوصندوق</h1><span class="small">موجودی فیزیکی، امانت مشتریان و موقعیت خالص · ارزش به قیمت زنده (ریال)</span></div><div class="actions"><button class="btn small" data-act="count">شمارش فیزیکی</button><a class="btn small ghost" href="/books/smart?t=close" data-link>شمارش با ترازو و بستن روز</a><a class="btn small ghost" href="/books/smart?t=bars" data-link>شناسنامه شمش</a><a class="btn small ghost" href="/books/products" data-link>محصولات</a><button class="btn small ghost" data-act="print">چاپ</button></div></div>
     <div class="printable pr-sheet"><h2 class="pr-only">گاوصندوق ${jdLong(today())}</h2><div class="vt-tiles">
       <div class="vt-tile vt-gold"><span>طلای آبشده (گرم ۷۵۰)</span><b>${G(v.gold)}</b><small>${P.G750 ? money(goldValue) : ''}</small></div>
       ${coins.map((k) => html`<div class="vt-tile vt-coin"><span>${COIN_TYPES[k].label ?? COIN_TYPES[k].short}</span><b>${sg(v.coins[k] ?? 0)}</b><small>${P[`COIN:${k}`] ? sgm((v.coins[k] ?? 0) * P[`COIN:${k}`]) : ''}</small></div>`)}

@@ -3,7 +3,7 @@
 // (the مظنه comes from the live board with the shop's spread), take money any way it comes, save. Everything is
 // in rial and computed by the same engine the server books with, so the receipt, the day book and the customer's
 // statement agree to the last rial.
-import { html, raw, fa, api, store, toast, navigate, $, $$, busy } from '../core.mjs';
+import { html, raw, esc, fa, api, store, toast, navigate, $, $$, busy } from '../core.mjs';
 import * as B from '../books.mjs';
 import * as TR from '../trade.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
@@ -99,6 +99,7 @@ export async function deskPage(root) {
         <section class="tray dk-form">
           <nav class="dk-kinds" role="tablist">${KINDS.map(([k, t]) => html`<button role="tab" data-kind="${k}" aria-selected="${S.kind === k}">${t}</button>`)}</nav>
           <div id="form"></div>
+          <div class="dk-quote" id="dkQuote"></div>
           <div class="dk-live" id="live" aria-live="polite"></div>
           <div class="dk-add"><button class="btn" data-act="add">افزودن به سند <kbd>Enter</kbd></button></div>
         </section>
@@ -217,10 +218,60 @@ export async function deskPage(root) {
     else
       body = html`<div class="dk-grid"><label class="field dk-f"><span>ارز</span><select class="input" data-f="code">${shownFx().map(([c, n]) => html`<option value="${c}" ${f.code === c ? 'selected' : ''}>${n} (${c})</option>`)}</select></label>${inp('fxAmount', f.fxAmount, 'مقدار', { w: 'big' })}${P ? inp('rate', f.rate, 'نرخ هر واحد (ریال)', { w: 'big' }) : ''}</div>`;
     $('#form', root).innerHTML = String(body);
+    drawQuote();
     $$('[data-kind]', root).forEach((b) => b.setAttribute('aria-selected', String(b.dataset.kind === S.kind)));
     $$('[data-mode]', root).forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === S.mode)));
     liveLine();
   }
+  /* ---------------- مظنه قفل‌شده: lock today's price for the customer, or apply a lock by its code ---------------- */
+  let quoteTimer = null;
+  function drawQuote() {
+    const box = $('#dkQuote', root);
+    if (!box) return;
+    clearInterval(quoteTimer);
+    if (!priced()) return (box.innerHTML = '');
+    const q = S.quote;
+    if (q && q.kind === S.kind && q.dir === dir()) {
+      const tick = () => {
+        const left = Math.max(0, Math.round((Date.parse(q.expiresAt) - Date.now()) / 1000));
+        const el = $('#dkQLeft', root);
+        if (el) el.textContent = left ? `${fa(Math.floor(left / 60))}:${fa(String(left % 60).padStart(2, '0'))}` : 'منقضی شد';
+        if (!left) clearInterval(quoteTimer);
+      };
+      box.innerHTML = String(html`<div class="dk-qon"><b>قیمت قفل‌شده ${q.code}</b><span>${R(q.price)}${q.party ? ` · ${q.party.label}` : ''}</span><span class="dk-qleft" id="dkQLeft"></span><button type="button" class="chip" data-quote-print>برگه مشتری</button><button type="button" class="chip" data-quote-clear>برداشتن</button></div>`);
+      tick();
+      quoteTimer = setInterval(tick, 1000);
+      return;
+    }
+    box.innerHTML = String(html`<div class="dk-qoff"><button type="button" class="chip" data-quote-lock>قفل همین قیمت برای مشتری</button><label class="dk-qmin">به مدت<select class="input" id="dkQMin">${[5, 10, 15, 30, 60].map((m) => html`<option value="${m}" ${m === 10 ? 'selected' : ''}>${fa(m)} دقیقه</option>`)}</select></label><input class="input ltr" id="dkQCode" placeholder="Q…" aria-label="کد قیمت قفل‌شده"><button type="button" class="chip" data-quote-use>اعمال کد</button></div>`);
+  }
+  function applyQuote(q) {
+    if (q.status !== 'open') return toast(`قیمت ${q.code} ${q.status === 'expired' ? 'منقضی شده' : q.status === 'used' ? 'استفاده شده' : 'لغو شده'} است.`, 'error');
+    S.mode = MODES.find((m) => m[3] === q.dir && m[4])[0];
+    S.kind = q.kind;
+    resetForm();
+    const f = S.f[S.kind];
+    if (q.kind === 'melt' || q.kind === 'bar') Object.assign(f, { basis: 'mazaneh', mazaneh: String(q.price) });
+    if (q.kind === 'coin') Object.assign(f, { coin: q.coin, basis: 'count', price: String(q.price) });
+    if (q.kind === 'fx') Object.assign(f, { code: q.fxCode, rate: String(q.price) });
+    S.quote = q;
+    $$('[data-mode]', root).forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === S.mode)));
+    drawForm();
+  }
+  function quotePrice() {
+    const f = S.f[S.kind];
+    if (S.kind === 'melt' || S.kind === 'bar') return f.basis === 'mazaneh' ? B.num(f.mazaneh) : 0;
+    if (S.kind === 'coin') return f.basis === 'count' ? B.num(f.price) : 0;
+    return B.num(f.rate);
+  }
+  function printQuote(q) {
+    const w = window.open('', '_blank', 'width=420,height=620');
+    if (!w) return toast('پنجره چاپ باز نشد.', 'error');
+    const what = q.kind === 'coin' ? `سکه ${COIN_TYPES[q.coin]?.short ?? ''}` : q.kind === 'fx' ? TR.FX_CODES[q.fxCode] : TR.TRADE_KINDS[q.kind];
+    w.document.write(`<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>${q.code}</title><style>body{font:15px/1.9 Tahoma,sans-serif;padding:18px;color:#111}h1{font-size:18px;margin:0}.big{font-size:22px;font-weight:bold}.box{border:1.5px dashed #555;border-radius:10px;padding:12px;margin:10px 0}small{color:#555}</style><h1>${esc(prefs.settings?.legalName || store.me?.brand?.shopName || '')}</h1><small>برگه قیمت تضمینی</small><div class="box"><div>کد: <b>${q.code}</b></div><div>${q.dir === 'in' ? 'خرید از مشتری' : 'فروش به مشتری'} · ${esc(what)}</div><div class="big">${R(q.price)}${q.basis === 'mazaneh' ? ' (مظنه)' : ''}</div>${q.qty ? `<div>تا ${fa(q.qty)} ${q.kind === 'coin' ? 'عدد' : 'گرم'}</div>` : ''}${q.party ? `<div>برای: ${esc(q.party.label)}</div>` : ''}<div>معتبر تا ساعت <b>${new Date(q.expiresAt).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' })}</b> امروز</div></div><small>پس از این ساعت، قیمت روز ملاک است.</small><script>print()</script>`);
+    w.document.close();
+  }
+
   const lineFromForm = () => {
     const f = S.f[S.kind];
     const o = { kind: S.kind, dir: dir(), priced: priced() };
@@ -228,6 +279,8 @@ export async function deskPage(root) {
     if (S.kind === 'coin') Object.assign(o, { coin: f.coin, count: f.count });
     if (S.kind === 'bar') Object.assign(o, { serial: f.serial, brand: f.brand, gallery: f.gallery, weight: f.weight, fineness: f.fineness, sealDate: parseDay(f.sealDate) ?? '' });
     if (S.kind === 'fx') Object.assign(o, { code: f.code, fxAmount: f.fxAmount });
+    // a locked price travels with the line; the server checks it is exactly what was promised
+    if (o.priced && S.quote && S.quote.kind === S.kind && S.quote.dir === o.dir) o.quote = S.quote.id;
     if (o.priced) {
       if (S.kind === 'melt') Object.assign(o, { basis: f.basis, mazaneh: f.mazaneh, g750: f.g750, amount: f.amount });
       if (S.kind === 'coin') Object.assign(o, { basis: f.basis, price: f.price, weight: f.weight, gramPrice: f.gramPrice, amount: f.amount });
@@ -270,6 +323,7 @@ export async function deskPage(root) {
       if (h.fineness?.n >= 3 && Math.abs(f - h.fineness.value) >= 15) toast(`عیار ${fa(f)} با عیار همیشگی این مشتری (${fa(h.fineness.value)}) فرق دارد.`, 'info');
     }
     S.lines.push(l);
+    if (l.quote) S.quote = null; // a lock serves one line
     track('desk.add', { kind: l.kind, dir: l.dir, priced: l.priced !== false });
     const keep = S.f[S.kind];
     resetForm();
@@ -603,6 +657,34 @@ export async function deskPage(root) {
     const b = e.target.closest('button, [data-pick]');
     if (!b) return;
     if (b.dataset.pick) return pickParty($('#pdrop', root)._items.find((x) => x.id === b.dataset.pick));
+    if (b.hasAttribute('data-quote-lock')) {
+      const price = quotePrice();
+      if (!(price > 0)) return toast('اول قیمت (مظنه، قیمت هر سکه یا نرخ ارز) را وارد کنید.', 'error');
+      const f = S.f[S.kind];
+      try {
+        const q = await api('/api/books/quotes', { method: 'POST', body: { kind: S.kind, dir: dir(), price, coin: f.coin, code: f.code, minutes: Number($('#dkQMin', root).value), partyId: S.party?.id } });
+        S.quote = q;
+        toast(`قیمت با کد ${q.code} قفل شد.`, 'ok');
+        track('desk.quote', { kind: q.kind });
+        return drawQuote();
+      } catch (err) {
+        return toast(err.message, 'error');
+      }
+    }
+    if (b.hasAttribute('data-quote-use')) {
+      const code = $('#dkQCode', root).value.trim();
+      if (!code) return $('#dkQCode', root).focus();
+      try {
+        return applyQuote(await api(`/api/books/quotes/${encodeURIComponent(code.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))}`));
+      } catch (err) {
+        return toast(err.message, 'error');
+      }
+    }
+    if (b.hasAttribute('data-quote-clear')) {
+      S.quote = null;
+      return drawQuote();
+    }
+    if (b.hasAttribute('data-quote-print')) return S.quote && printQuote(S.quote);
     if (b.dataset.mode) {
       S.mode = b.dataset.mode;
       resetForm();
