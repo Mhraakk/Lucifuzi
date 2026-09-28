@@ -7,7 +7,7 @@ import { parseNum, MAZANEH_TO_G750 } from '../public/js/calc.mjs';
 
 export const FEED_MODES = ['off', 'owner', 'tgju', 'json'];
 export const FEED_LABEL = { off: 'ورود دستی مدیر', owner: 'کانال آب‌شده (@abshdh)، چنده و goldprice.org',  tgju: 'tgju.org (نقطه دسترسی عمومی و غیررسمی)', json: 'فید اختصاصی (JSON)', sample: 'داده نمونه آموزشی' };
-export const DEFAULT_FEED = { mode: 'off', url: '', token: '', syncPrice: false, interval: 10 };
+export const DEFAULT_FEED = { mode: 'off', url: '', token: '', syncPrice: true, interval: 10 }; // the shop's base price follows the live 18k quote unless the manager turns it off
 const TGJU_LIVE = 'https://call4.tgju.org/ajax.json';
 const TGJU_HISTORY = (key) => `https://api.tgju.org/v1/market/indicator/summary-table-data/${encodeURIComponent(key)}`;
 const MAX_JUMP = 0.3; // a live quote more than 30 % away from the last close is treated as a data error

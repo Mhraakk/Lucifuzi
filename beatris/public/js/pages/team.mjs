@@ -190,6 +190,7 @@ export function settingsPage(root) {
       <label class="field">یادداشت قیمت<input class="input" name="priceNote" value="${pr.priceNote ?? ''}" maxlength="120"></label>
       <div style="align-self:end"><button class="btn block" type="submit">ذخیره</button></div>
     </form>
+    <p class="small" style="margin-top:12px">قیمت گرم ۱۸ به‌طور پیش‌فرض هر چند دقیقه از قیمت زنده بازار به‌روز می‌شود؛ برای قیمت دستی، «به‌روزرسانی خودکار قیمت پایه» را در <a href="/market/data" data-link>مدیریت داده بازار</a> خاموش کنید.</p>
     <p class="small" style="margin-top:12px">نرخ مالیات ۱۴۰۵ برای اجرت، سود و حق‌العمل طلا ۱۰٪ است (قانون بودجه ۱۴۰۵). ابتدای هر سال با قانون بودجه همان سال تطبیق دهید.</p>
     <form class="tray form cols" id="bf" style="margin-top:16px">
       <label class="field">نام فروشگاه (روی صفحه ورود و نوار بالا)<input class="input" name="shopName" maxlength="40" value="${store.me.brand?.shopName ?? ''}" placeholder="مثلاً طلا و جواهر نمونه"></label>

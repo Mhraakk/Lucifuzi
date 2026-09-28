@@ -16,7 +16,7 @@ const DAY = 86400000;
 const CARD_INTERVAL_DAYS = [0, 0, 1, 2, 4, 8, 16, 32]; // index = box (1..7)
 const NEW_CARDS_PER_DAY = 12;
 
-export const DEFAULT_PRICING = { p750: 8500000, profitPct: 7, vatPct: 10, buybackDeductPct: 0, passPct: 70, priceNote: 'قیمت نمونه؛ مدیر قیمت روز را وارد کند.' };
+export const DEFAULT_PRICING = { p750: 24000000, profitPct: 7, vatPct: 10, buybackDeductPct: 0, passPct: 70, priceNote: 'قیمت اولیه تا رسیدن قیمت زنده بازار یا ورود مدیر.' };
 
 export class HttpError extends Error {
   constructor(status, message) {
