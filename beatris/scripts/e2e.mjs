@@ -959,6 +959,24 @@ async function loginUI(page) {
       check('trace: a tracking code opens the document life (lines, payments, postings, history)', (await text(page, '.tc-doc')).includes(tr) && (await page.$$('.tc-tl li')).length >= 1 && (await page.$$('.tc-post tr')).length >= 1);
       await go(page, '/books/memory', 1500);
       check('memory: replay accuracy, rhythm and notes render', (await page.$$('.mm-acc')).length === 3 && noBadNumbers(await text(page, '#main')));
+      // management dashboard: KPIs, the three charts and their interactions
+      await go(page, '/books/dashboard', 2500);
+      await page.waitForSelector('.gd-kpi b');
+      check('dashboard: four KPIs, price card and the three charts', (await page.$$('.gd-kpi')).length === 4 && !!(await page.$('.gd-pos')) && (await page.$$('.gd-age')).length === 5 && !!(await page.$('.gd-donut-svg')) && noBadNumbers(await text(page, '.gd-main')));
+      await page.focus('#gdPosHost');
+      await page.keyboard.press('ArrowRight');
+      check('dashboard: keyboard crosshair shows a financial tooltip', await page.$eval('.gd-tip', (t) => !t.hidden && t.innerText.includes('موقعیت خالص')));
+      await page.click('[data-range="30"]');
+      await page.waitForFunction(() => !document.querySelector('.gd.is-busy') && document.querySelectorAll('.gd-pos .xl text').length >= 3);
+      check('dashboard: range switch reloads the position series', true);
+      const bucket = await page.$('.gd-age:not([disabled])');
+      if (bucket) {
+        await bucket.click();
+        check('dashboard: an aging bucket opens its customer cohort', !!(await page.$('#gdCohort:not([hidden]) li a')));
+      }
+      await page.click('[data-alloc=book]');
+      await page.click('.gd-leg [data-seg=gold]');
+      check('dashboard: book/market toggle and the physical-gold breakdown', (await text(page, '.gd-sub')).includes('آب‌شده'));
       await go(page, '/books/reports?tab=pnl', 1500);
       check('reports: trading P&L renders', noBadNumbers(await text(page, '#rep')) && (await text(page, '#rep')).includes('میانگین'));
       // bank reconciliation from a pasted statement
@@ -1002,7 +1020,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/memory']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/memory', '/books/dashboard']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px`);

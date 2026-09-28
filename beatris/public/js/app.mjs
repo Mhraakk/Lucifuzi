@@ -52,6 +52,7 @@ route('/market', lazy('./pages/market.mjs', 'marketPage'), { tab: 'market', tone
 route('/market/data', lazy('./pages/marketdata.mjs', 'marketDataPage'), { tab: 'market', staff: true, tone: 'wide' });
 route('/books', lazy('./pages/books.mjs', 'booksHome'), { tab: 'books', tone: 'wide' });
 route('/books/desk', lazy('./pages/desk.mjs', 'deskPage'), { tab: 'books', tone: 'wide' });
+route('/books/dashboard', lazy('./pages/dashboard.mjs', 'dashboardPage'), { tab: 'books', tone: 'full', bare: true });
 route('/books/memory', lazy('./pages/memory.mjs', 'memoryPage'), { tab: 'books', tone: 'wide' });
 route('/books/pulse', lazy('./pages/pulse.mjs', 'pulsePage'), { tab: 'books', tone: 'wide' });
 route('/books/trace', lazy('./pages/trace.mjs', 'tracePage'), { tab: 'books', tone: 'wide' });

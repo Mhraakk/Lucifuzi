@@ -10,6 +10,7 @@ export function booksNav(cur) {
   const admin = store.isAdmin();
   const base = prefs.edition === 'base';
   const tabs = [
+    ...(admin ? [['dashboard', '/books/dashboard', 'داشبورد مدیریت']] : []),
     ['pulse', '/books/pulse', 'نبض'],
     ['desk', '/books/desk', 'میز معامله'],
     ['day', '/books/day', 'روزنگار'],
@@ -41,7 +42,7 @@ const QUICK = [
 /* ---------------- dashboard ---------------- */
 export async function booksHome(root) {
   await booksPrefs();
-  if (prefs.edition === 'base') return navigate('/books/pulse', { replace: true });
+  if (prefs.edition === 'base') return navigate(store.isAdmin() ? '/books/dashboard' : '/books/pulse', { replace: true });
   const s = await api('/api/books/summary');
   const T0 = s.totals;
   const methodIn = B.PAY_METHODS.map((m) => [m, T0.byMethod[`${m.id}:in`] ?? 0, T0.byMethod[`${m.id}:out`] ?? 0]).filter(([, a, b]) => a || b);

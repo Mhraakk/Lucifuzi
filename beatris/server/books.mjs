@@ -8,6 +8,7 @@ import { COIN_TYPES } from '../public/js/coins.mjs';
 import { makeAudit } from './audit.mjs';
 import { makeTrace } from './trace.mjs';
 import { makeLearn } from './learn.mjs';
+import { makeDashboard } from './dashboard.mjs';
 import { makeAssistant } from './assistant.mjs';
 import * as TR from '../public/js/trade.mjs';
 
@@ -1361,6 +1362,14 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   on('GET', '/api/books/learn', 'auth', ({ user }) => ({ replay: learn.replay(), operators: learn.operators(user), rhythm: learn.shopRhythm(), memory: learn.allMemories(), shop: learn.memories('shop', '') }));
   on('POST', '/api/books/memory', 'auth', ({ user, body }) => wrap(() => learn.remember(user, body)));
   on('DELETE', '/api/books/memory/:id', 'auth', ({ user, params }) => wrap(() => learn.forget(user, params.id)));
+
+  /* ---------------- داشبورد مدیریت (read-only aggregates) ---------------- */
+  const dashboard = makeDashboard({ db, call, tehranDay, livePrices, market, audit: { run: (u) => audit.run(u) } });
+  on('GET', '/api/books/dashboard', 'auth', ({ user, url }) => {
+    guardAdmin(user);
+    const range = ['today', '7', '30', '90', 'custom'].includes(url.searchParams.get('range')) ? url.searchParams.get('range') : '7';
+    return dashboard.build({ range, from: url.searchParams.get('from'), to: url.searchParams.get('to') });
+  });
 
   /* ---------------- ممیز (automatic audit) and the assistant ---------------- */
   const audit = makeAudit({ db, call, settings, verifyLog, tehranDay, livePrices, isAdmin });
