@@ -17,6 +17,7 @@ export function booksNav(cur) {
     ['trace', '/books/trace', 'رهگیری'],
     ['audit', '/books/audit', 'ممیز و تاجیار'],
     ['smart', '/books/smart', 'ابزارهای هوشمند'],
+    ['elliott', '/books/elliott', 'تحلیل الیوت'],
     ['memory', '/books/memory', 'حافظه'],
     ...(base ? [] : [['home', '/books', 'پیشخوان'], ['new', '/books/new/sale', 'فاکتور جدید']]),
     ['docs', '/books/docs', 'اسناد'],

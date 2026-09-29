@@ -328,7 +328,7 @@ export async function marketPage(root) {
         <div class="ledger">${c.guides.map((g) => html`<div><span>${g.label} (مطلوب ${fa(fmt(g.lo, 3))} تا ${fa(fmt(g.hi, 3))})</span><span class="num ${g.ok ? '' : 'warn'}">${fa(fmt(g.ratio, 3))}</span></div>`)}</div>
         ${c.valid ? html`<p><b>${c.next}</b></p><div class="ledger">${c.targets.map((t) => html`<div><span>${t.label}</span><span class="num">${f(t.price)}</span></div>`)}</div><p class="small">ابطال: ${f(c.invalid)} — ${c.invalidText}</p>` : ''}
       </div>`)}
-      <div class="actions"><button class="btn small ghost" id="showwave">${S.overlays.has('zigzag') ? 'نمایش روی نمودار فعال است' : 'نمایش زیگزاگ و شمارش روی نمودار'}</button></div>
+      <div class="actions"><a class="btn small" href="/market/elliott?s=${S.symbol}" data-link>استودیوی تحلیل جامع الیوت</a><button class="btn small ghost" id="showwave">${S.overlays.has('zigzag') ? 'نمایش روی نمودار فعال است' : 'نمایش زیگزاگ و شمارش روی نمودار'}</button></div>
       <p class="small">قواعد قطعی: موج ۲ از شروع موج ۱ پایین‌تر نمی‌رود، موج ۳ کوتاه‌ترین موج محرک نیست، موج ۴ وارد محدوده موج ۱ نمی‌شود (جز در مثلث‌های قطری). نسبت‌های فیبوناچی رهنمودند نه قانون؛ هر شمارش با یک قیمت ابطال همراه است.</p>`);
   }
 

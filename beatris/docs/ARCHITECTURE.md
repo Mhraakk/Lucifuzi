@@ -56,6 +56,11 @@
 - **بستن خودکار**: کار `books.autoclose` هر ۵ دقیقه روی همه فروشگاه‌ها؛ تطبیق و ثبت `ctl_recon`؛ اگر مغایرت نبود و روشن بود، `ideas.closeSystem` روز را با امضای «بستن خودکار» می‌بندد.
 - **UI**: داشبورد `.gd-sig` (نبض + «چه تغییر کرد؟») بالای `.gd-charts`؛ صفحه `/books/control` (`pages/control.mjs`، زبانه‌ها با خط هدف و فیلم ۱۳–۱۷)؛ `explain.mjs` (هر `[data-explain]`)؛ `palette.mjs` (Ctrl/⌘+K یا «/»).
 
+## استودیوی الیوت (spec `docs/specs/0003-elliott-studio.md`)
+- `public/js/elliott.mjs` (خالص): `waveMap(bars, {degree, format})` → درجه بزرگ (بهترین شمارش معتبر `T.elliott` روی نردبان آستانه زیگزاگ ×۱٫۸ تا ×۷ پایه)، `subdivide` (کوچک‌ترین آستانه‌ای که دقیقاً ۴ یا ۲ نقطه درونی بدهد و قواعد را پاس کند)، فیبو از شروع شمارش تا اوج آن، کانال ۲–۴ و موازی از ۳، سناریوهای `typedChoice(['primary','alternative'])`، ناحیه‌ها و یادداشت‌ها؛ `resample(bars, 'W'|'M')` (هفته شنبه، ماه جلالی).
+- `public/js/elliott-view.mjs`: canvas ترمینالی (DPR ≤ ۳، کشیدن، چرخ، دو انگشت، دوبار کلیک، کلیدها، `inset` برای کارت راهنما).
+- `pages/elliott.mjs`: مسیرهای `/books/elliott` (با منوی حساب) و `/market/elliott`؛ پوسته تیره ثابت با توکن‌های `--ew-*`؛ حجم رسم نمی‌شود چون داده‌اش نیست. فیلم فصل ۱۸.
+
 ## استقرار (Railway — سرور دائمی، نه serverless)
 - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.

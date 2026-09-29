@@ -597,6 +597,44 @@ const CHAPTERS = [
       await d.say('موتور تبدیل عیار: ۱۲٫۵ گرم ۱۸ عیار؛ خالص، معادل ۷۵۰ به قاعده دفتر، مثقال ۷۰۵ و قیراط، همه در یک نگاه.', 6000);
     },
   },
+  {
+    n: 18, slug: 'elliott', title: 'تحلیل جامع امواج الیوت', sub: 'شمارش دو درجه‌ای، فیبوناچی، کانال و دو سناریو روی یک نمودار', standalone: true,
+    steps: ['حسابداری ← «تحلیل الیوت» (یا بازار ← «استودیوی تحلیل جامع الیوت»). نماد، بازه ۱ روزه، هفتگی یا ماهانه و درجه موج را انتخاب کنید.', 'درجه بزرگ نارنجی: (I) تا (V) یا (A)(B)(C). درجه کوچک: ۱ تا ۵ آبی و A B C قرمز؛ فقط وقتی زیرموج‌ها خودشان قواعد را پاس کنند.', 'سطوح فیبوناچی با قیمت، کانال موج، ناحیه حمایت یا مقاومت و ناحیه هدف جایگزین.', 'سناریوی اصلی (سبز) و جایگزین (قرمز) با مسیر، هدف و احتمال؛ پایین صفحه جمله‌های هر سناریو و قیمت ابطال.', 'RSI و MACD زیر نمودار؛ کشیدن، چرخ ماوس و دوبار کلیک برای جابه‌جایی و بزرگ‌نمایی؛ دکمه «تصویر» برای ذخیره.'],
+    async run(page, d) {
+      await d.go('/books/elliott', 3200);
+      await d.say('تحلیل جامع امواج الیوت، داخل همان منوی حسابداری. همه چیز از قیمت‌های واقعی همین نماد حساب می‌شود، نه عدد ساختگی.', 6500);
+      await d.point('#ewStats');
+      await d.say('سربرگ: قیمت فعلی، تغییر، سقف و کف همین شمع و ۵۲ هفته.', 4200);
+      await d.point('.ew-legend');
+      await d.say('راهنمای موج‌ها: درجه بزرگ با پرانتز نارنجی، زیرموج‌ها در دایره؛ آبی حرکتی و قرمز اصلاحی.', 5500);
+      await d.point('.ew-chart');
+      await d.say('شمارش درجه بزرگ بهترین شمارشی است که همه قواعد را پاس می‌کند. هر پاره فقط وقتی زیرموج می‌گیرد که خودش هم قواعد را رعایت کند.', 7500);
+      const box = await page.locator('.ew-cv').boundingBox();
+      await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.35, { steps: 12 });
+      await d.say('خطوط فیبوناچی با قیمت، کانال موج خط‌چین، ناحیه آبی حمایت یا مقاومت و ناحیه قرمز هدف سناریوی جایگزین.', 7000);
+      await page.mouse.move(box.x + box.width * 0.88, box.y + box.height * 0.4, { steps: 12 });
+      await d.say('سبز خط‌چین سناریوی اصلی است و قرمز جایگزین؛ هر کدام با هدف قیمتی روی نمودار.', 5500);
+      await page.mouse.wheel(0, -400);
+      await page.waitForTimeout(900);
+      await d.say('با چرخ ماوس بزرگ‌نمایی کنید و با کشیدن جابه‌جا شوید؛ دوبار کلیک کل شمارش را برمی‌گرداند.', 4800);
+      await page.mouse.dblclick(box.x + box.width * 0.5, box.y + box.height * 0.3);
+      await page.waitForTimeout(800);
+      await d.click('[data-tf=W]', 1800);
+      await d.say('بازه هفتگی از همان داده روزانه ساخته می‌شود؛ درجه موج بزرگ‌تر دیده می‌شود.', 4500);
+      await d.click('[data-tf=D]', 1500);
+      await d.click('[data-deg="1.5"]', 1500);
+      await d.say('«درشت» یا «ریز» آستانه موج‌ها را عوض می‌کند تا شمارش درجه دیگری را ببینید.', 4500);
+      await d.click('[data-deg="1"]', 1200);
+      await d.scroll(760, 1400);
+      await d.point('#ewScen');
+      await d.say('سناریوهای احتمالی: احتمال هر کدام از کیفیت شمارش، شیب میانگین، RSI و MACD؛ با اطمینان و پوشش نشانه‌ها.', 7000);
+      await d.point('.ew-pats');
+      await d.say('الگوهای رایج اصلاحی و جدول نسبت‌های فیبوناچی برای یادآوری سریع.', 4500);
+      await d.scroll(520, 1400);
+      await d.point('#ewCount');
+      await d.say('شمارش و قواعد: هر قاعده با تیک یا ضربدر، نسبت‌های اندازه‌گیری‌شده و قیمت ابطال. آموزشی است، نه توصیه معامله.', 7000);
+    },
+  },
 ];
 
 try {
@@ -610,6 +648,8 @@ try {
   for (const ch of CHAPTERS) {
     if (ch.n > last) break;
     const rec = !only.length || only.includes(ch.n);
+    // chapters marked standalone only need the shop from chapters 1–2
+    if (!rec && ch.n > 2 && only.length && only.every((n) => CHAPTERS.find((c) => c.n === n)?.standalone)) continue;
     pace = rec ? 1 : 0.25;
     if (ch.n === 13) await prepControl();
     const vp = ch.viewport ?? { width: 1280, height: 720 };

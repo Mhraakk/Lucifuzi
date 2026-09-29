@@ -1050,6 +1050,35 @@ async function loginUI(page) {
     check('control: twin numbers explain themselves', (await text(page, '.xp-s')).length > 10);
     await page.keyboard.press('Escape');
   });
+  await step('elliott studio: multi-degree count, fib, scenarios, panes, cards (books and market)', async () => {
+    await go(page, '/books/elliott', 2500);
+    await page.waitForSelector('.ew-cv');
+    await page.waitForSelector('#ewScen h3');
+    const box = await page.locator('.ew-cv').boundingBox();
+    check('elliott: the chart canvas is large on a PC screen', box && box.width > 700 && box.height > 500, box ? `${Math.round(box.width)}×${Math.round(box.height)}` : 'none');
+    const painted = await page.evaluate(() => { const c = document.querySelector('.ew-cv'), g = c.getContext('2d'), d = g.getImageData(c.width / 2, 0, 1, c.height).data; let n = 0; for (let k = 0; k < d.length; k += 4) if (d[k] + d[k + 1] + d[k + 2] > 150) n++; return n; });
+    check('elliott: the chart is painted (candles, levels, labels)', painted > 5, String(painted));
+    const scen = await text(page, '#ewScen');
+    check('elliott: scenarios with probabilities, or an honest note', /سناریوی اصلی[\s\S]*٪[\s\S]*سناریوی جایگزین/.test(scen) || scen.includes('سناریو ساخته نمی‌شود'), scen.slice(0, 120));
+    check('elliott: header price card', (await text(page, '#ewStats')).includes('قیمت فعلی'));
+    check('elliott: five corrective patterns and the Fibonacci table', (await page.$$('.ew-pats figure')).length === 5 && (await page.$$('.ew-fib tr')).length >= 6);
+    check('elliott: rules of the count listed', (await page.$$('.ew-notes li')).length >= 1);
+    await page.click('[data-tf=W]');
+    await page.waitForTimeout(1200);
+    check('elliott: weekly bars from the daily series', (await text(page, '#ewSub')).includes('1W'));
+    await page.click('[data-deg="1.5"]');
+    await page.waitForTimeout(600);
+    await page.click('[data-tf=D]');
+    await page.click('[data-deg="1"]');
+    await page.waitForTimeout(1200);
+    await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.3);
+    await page.mouse.wheel(0, -300);
+    await page.waitForTimeout(300);
+    await page.goto(base + '/market/elliott?s=mesghal');
+    await page.waitForSelector('#ewScen h3');
+    check('elliott: also under the market with any symbol', (await text(page, '#ewSym')).includes('مظنه'));
+    check('elliott: linked from the books menu', (await page.goto(base + '/books/control').then(() => page.waitForSelector('.bk-nav a[href="/books/elliott"]', { timeout: 15000 }).then(() => true, () => false))));
+  });
 
   if (!live) {
     await step('PWA: service worker + offline shell', async () => {
@@ -1075,7 +1104,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       // name the widest offender so a failure is actionable

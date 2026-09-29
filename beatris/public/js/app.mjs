@@ -51,6 +51,7 @@ route('/tools/inspect', lazy('./pages/inspect.mjs', 'inspectPage'), { tab: 'tool
 route('/tools/:id', lazy('./pages/tools.mjs', 'toolPage'), { tab: 'tools' });
 route('/ledger', lazy('./pages/ledger.mjs', 'ledgerPage'), { tab: 'practice' });
 route('/market', lazy('./pages/market.mjs', 'marketPage'), { tab: 'market', tone: 'wide' });
+route('/market/elliott', lazy('./pages/elliott.mjs', 'elliottPage'), { tab: 'market', tone: 'full' });
 route('/market/data', lazy('./pages/marketdata.mjs', 'marketDataPage'), { tab: 'market', staff: true, tone: 'wide' });
 route('/books', lazy('./pages/books.mjs', 'booksHome'), { tab: 'books', tone: 'wide' });
 route('/books/desk', lazy('./pages/desk.mjs', 'deskPage'), { tab: 'books', tone: 'wide' });
@@ -73,6 +74,7 @@ route('/books/party/:id', lazy('./pages/bookmgmt.mjs', 'partyPage'), { tab: 'boo
 route('/books/ai', lazy('./pages/aikeys.mjs', 'aiKeysPage'), { tab: 'books', tone: 'wide', staff: true });
 route('/books/smart', lazy('./pages/smart.mjs', 'smartPage'), { tab: 'books', tone: 'wide' });
 route('/books/control', lazy('./pages/control.mjs', 'controlPage'), { tab: 'books', tone: 'wide' });
+route('/books/elliott', lazy('./pages/elliott.mjs', 'elliottPage'), { tab: 'books', tone: 'full' });
 route('/books/peers', lazy('./pages/peers.mjs', 'peersPage'), { tab: 'books', tone: 'wide' });
 route('/books/products', lazy('./pages/products.mjs', 'productsPage'), { tab: 'books', tone: 'wide' });
 route('/books/stock', lazy('./pages/bookmgmt.mjs', 'stockPage'), { tab: 'books', tone: 'wide' });
