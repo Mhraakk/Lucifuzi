@@ -10,7 +10,7 @@ export function booksNav(cur) {
   const admin = store.isAdmin();
   const base = prefs.edition === 'base';
   const tabs = [
-    ...(admin ? [['dashboard', '/books/dashboard', 'داشبورد مدیریت']] : []),
+    ...(admin ? [['dashboard', '/books/dashboard', 'داشبورد مدیریت'], ['control', '/books/control', 'کنترل']] : []),
     ['pulse', '/books/pulse', 'نبض'],
     ['desk', '/books/desk', 'میز معامله'],
     ['day', '/books/day', 'روزنگار'],

@@ -2,6 +2,8 @@ import { html, raw, $, route, render, setShell, store, ROLE_FA } from './core.mj
 import { ICON, brandMark } from './ui.mjs';
 import { SHOP_NAME } from './crown.mjs';
 import { startHarness } from './harness.mjs';
+import { initPalette, openPalette } from './palette.mjs';
+import { initExplain } from './explain.mjs';
 
 /* ---------- پوسته: آرام (default), روز, کلاسیک — remembered per device ---------- */
 const THEMES = ['calm', 'day', 'classic'];
@@ -70,6 +72,7 @@ route('/books/parties', lazy('./pages/bookmgmt.mjs', 'partiesPage'), { tab: 'boo
 route('/books/party/:id', lazy('./pages/bookmgmt.mjs', 'partyPage'), { tab: 'books', tone: 'wide' });
 route('/books/ai', lazy('./pages/aikeys.mjs', 'aiKeysPage'), { tab: 'books', tone: 'wide', staff: true });
 route('/books/smart', lazy('./pages/smart.mjs', 'smartPage'), { tab: 'books', tone: 'wide' });
+route('/books/control', lazy('./pages/control.mjs', 'controlPage'), { tab: 'books', tone: 'wide' });
 route('/books/peers', lazy('./pages/peers.mjs', 'peersPage'), { tab: 'books', tone: 'wide' });
 route('/books/products', lazy('./pages/products.mjs', 'productsPage'), { tab: 'books', tone: 'wide' });
 route('/books/stock', lazy('./pages/bookmgmt.mjs', 'stockPage'), { tab: 'books', tone: 'wide' });
@@ -108,7 +111,8 @@ setShell((opts) => {
   if (u) startHarness();
   top.hidden = false;
   const shop = store.me?.brand?.shopName || SHOP_NAME;
-  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a><button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
+  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><button class="theme-btn" id="palBtn" title="فرمان سریع (Ctrl+K)" aria-label="فرمان سریع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a><button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
+  $('#palBtn', top)?.addEventListener('click', () => openPalette());
   $('#themeBtn', top)?.addEventListener('click', (e) => {
     const next = THEMES[(THEMES.indexOf(theme()) + 1) % THEMES.length];
     setTheme(next);
@@ -132,6 +136,8 @@ setShell((opts) => {
   nav.innerHTML = String(html`${tabs.map(([k, href, label, icon]) => html`<a href="${href}" data-link ${opts.tab === k ? html`aria-current="page"` : ''}>${icon}<span>${label}</span></a>`)}`);
 });
 
+initPalette();
+initExplain();
 render();
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));

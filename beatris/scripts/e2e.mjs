@@ -1012,6 +1012,45 @@ async function loginUI(page) {
       check('bank: reconciliation saved', (await page.$$eval('[data-rc]:checked', (x) => x.length)) >= 2);
     });
 
+  await step('control: pulse, what changed, explain, palette, safe sale, exceptions, twin, lots, trial, forecast, karat', async () => {
+    await go(page, '/books/dashboard', 2500);
+    await page.waitForSelector('.gd-pulse .gd-sentence', { timeout: 20000 });
+    const sentence = await text(page, '.gd-sentence');
+    check('control: gold pulse sentence above the charts', sentence.length > 15 && /^(فروشگاه آرام است|به چند مورد نگاه کنید|هشدار)/.test(sentence), sentence);
+    check('control: what-changed list beside it', (await page.$$('.gd-news-list li, .gd-news .gd-empty')).length > 0);
+    const order = await page.evaluate(() => { const s = document.querySelector('.gd-sig'), c = document.querySelector('.gd-charts'); return !!(s && c && (s.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING)); });
+    check('control: the signature sits right above the three charts', order);
+    await page.click('.gd-kpi-w .gd-why');
+    await page.waitForSelector('.xp-s');
+    check('control: explain this number opens with a sentence and a formula', (await text(page, '.xp-s')).length > 20 && (await text(page, '.xp-f')).includes('فرمول'));
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Control+k');
+    await page.waitForSelector('.pal');
+    await page.keyboard.type('فروش امن');
+    await page.waitForTimeout(400);
+    const first = await text(page, '.pal-list li.on');
+    check('control: command palette finds a tool by two words', first.includes('فروش امن'), first);
+    await page.keyboard.press('Enter');
+    await page.waitForURL(/t=simulate/);
+    await page.waitForSelector('#simF');
+    await page.fill('#simF [name=weight]', '1');
+    await page.click('#simF [data-act=run]');
+    await page.waitForSelector('.ctl-verdict h2');
+    const v = await text(page, '.ctl-verdict');
+    check('control: safe-sale verdict with probabilities and before/after', /امن است|با احتیاط|ثبت نکنید/.test(v) && v.includes('اطمینان') && (await page.$$('.ctl-ba tbody tr')).length >= 3, v.slice(0, 80));
+    for (const [t, sel, name] of [['exceptions', '.ctl-exc, .ctl-empty', 'exceptions centre'], ['twin', '.ctl-twin .ctl-tw', 'digital twin'], ['lots', '.ctl-lots, .ctl-empty', 'gold lots'], ['trial', '.ctl-trial', 'dual trial balance'], ['forecast', '.ctl-fc svg', '10-day forecast'], ['approvals', '.ctl-ap, .ctl-empty', 'approvals'], ['periods', '.ctl-months', 'period lock'], ['close', '.ctl-recon, .ctl-empty', 'auto close'], ['karat', '.ctl-twin .ctl-tw', 'karat engine']]) {
+      await go(page, `/books/control?t=${t}`, 900);
+      const shown = await page.waitForSelector(sel, { timeout: 15000 }).then(() => true, () => false);
+      check(`control: ${name} renders`, shown && noBadNumbers(await text(page, '#ctlBody')), shown ? '' : (await text(page, '#ctlBody')).slice(0, 160));
+    }
+    await go(page, '/books/control?t=twin', 900);
+    await page.waitForSelector('.ctl-tw .ctl-why');
+    await page.click('.ctl-tw .ctl-why');
+    await page.waitForSelector('.xp-s');
+    check('control: twin numbers explain themselves', (await text(page, '.xp-s')).length > 10);
+    await page.keyboard.press('Escape');
+  });
+
   if (!live) {
     await step('PWA: service worker + offline shell', async () => {
       await go(page, '/', 2000);
@@ -1036,7 +1075,7 @@ async function loginUI(page) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       // name the widest offender so a failure is actionable

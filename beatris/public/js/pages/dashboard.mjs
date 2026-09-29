@@ -4,6 +4,7 @@
 // GET /api/books/dashboard; nothing on this page computes or writes accounting.
 import { html, raw, fa, api, store, navigate, ROLE_FA, $, $$ } from '../core.mjs';
 import { crownSvg } from '../crown.mjs';
+import { openPalette } from '../palette.mjs';
 import { booksPrefs, prefs, jd, jdLong, parseDay, today, unitName } from '../bk.mjs';
 import { toView, money, compact, grams, pctText, weekday } from '../dash/adapters.mjs';
 import { sparkSvg, positionChart, agingRows, donutSvg, cashBars, heatCalendar, returnsCalendar } from '../dash/charts.mjs';
@@ -36,9 +37,12 @@ const ICON = {
   bar: I('<path d="M4 16h16l-3-8H7Z"/><path d="M9 12h6"/>'),
   ring: I('<circle cx="12" cy="14" r="6"/><path d="m9 5 3 3 3-3"/>'),
   lock: I('<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'),
+  control: I('<path d="M3 12h4l2-6 4 12 2-6h6"/>'),
+  why: I('<circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.5a2.3 2.3 0 1 1 3.2 2.1c-.6.3-1 .9-1 1.6v.4M12 16.6h.01"/>'),
 };
 const NAV = [
   ['dashboard', '/books/dashboard', 'داشبورد', 'home'],
+  ['control', '/books/control', 'کنترل', 'control'],
   ['desk', '/books/desk', 'معاملات', 'trade'],
   ['vault', '/books/vault', 'موجودی طلا', 'vault'],
   ['parties', '/books/parties', 'مشتریان', 'people'],
@@ -96,6 +100,10 @@ export async function dashboardPage(root) {
         <article class="gd-price" id="gdPrice"><div class="sk sk-price"></div></article>
       </section>
       <section class="gd-kpis" id="gdKpis">${[0, 1, 2, 3].map(() => html`<div class="gd-card gd-kpi sk"></div>`)}</section>
+      <section class="gd-sig" aria-label="نبض طلا و تغییرات">
+        <article class="gd-card gd-pulse" id="gdPulse" aria-live="polite"><div class="sk sk-rows"></div></article>
+        <article class="gd-card gd-news" id="gdChg"><div class="sk sk-rows"></div></article>
+      </section>
       <section class="gd-charts">
         <article class="gd-card gd-c1" id="gdPos"><header class="gd-ch"><div><h2>موقعیت خالص طلا ${raw(`<span class="gd-i" title="موجودی فیزیکی (آبشده + شمش) + طلب طلایی از مشتریان − تعهد طلایی به مشتریان، به گرم ۷۵۰">${ICON.info}</span>`)}</h2><p>روند موجودی، مطالبات، بدهی و موقعیت خالص</p></div>
             <div class="gd-range" role="group" aria-label="بازه زمانی">${RANGES.map(([k, l]) => html`<button data-range="${k}" aria-pressed="${S.range === k}">${l}</button>`)}</div></header>
@@ -158,10 +166,10 @@ export async function dashboardPage(root) {
       <div class="gd-price-f"><small>${unitName()} / مثقال ۷۰۵ · گرم ۱۸: ${money(p.p750)}</small>${raw(sparkSvg(p.spark, { w: 120, h: 34 }))}</div>
       <small class="gd-upd">به‌روز شده ${new Date(p.at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' })}</small>`);
     // KPIs
-    $('#gdKpis', root).innerHTML = v.kpis.map((k) => String(html`<a class="gd-card gd-kpi k-${k.key}" href="${k.href}" data-link>
+    $('#gdKpis', root).innerHTML = v.kpis.map((k) => String(html`<div class="gd-kpi-w"><button class="gd-why" data-explain="${k.key}" title="این عدد از کجا آمد؟" aria-label="${k.title}: این عدد از کجا آمد؟">${ICON.why}</button><a class="gd-card gd-kpi k-${k.key}" href="${k.href}" data-link>
       <span class="gd-kpi-ic">${ICON[k.icon]}</span>
       <div class="gd-kpi-b"><header><h3>${k.title}</h3>${change(k.change, k.goodWhenUp)}</header><p class="gd-kpi-v"><b class="num">${k.value}</b><small>${k.unit}</small></p><p class="gd-kpi-s">${k.sub}</p>${k.extra ? html`<p class="gd-kpi-x">${k.extra}</p>` : ''}</div>
-      <span class="gd-kpi-sp">${raw(sparkSvg(k.spark, { w: 96, h: 30 }))}</span></a>`)).join('');
+      <span class="gd-kpi-sp">${raw(sparkSvg(k.spark, { w: 96, h: 30 }))}</span></a></div>`)).join('');
     const bell = $('#gdBell em', root);
     const n = (v.alerts.high ?? 0) + (v.alerts.mid ?? 0);
     bell.hidden = !n;
@@ -384,10 +392,44 @@ export async function dashboardPage(root) {
   $('#gdSearch', root).addEventListener('submit', (e) => {
     e.preventDefault();
     const q = new FormData(e.target).get('q').trim();
-    if (q) navigate(`/books/trace?q=${encodeURIComponent(q)}`);
+    openPalette(q); // one search for the whole app: customers, documents, pages and the manual
   });
+  /* ---------------- امضای داشبورد: نبض طلا + چه تغییر کرد؟ ---------------- */
+  const STATE_FA = { calm: ['آرام', 'calm'], watch: ['نیاز به نگاه', 'watch'], alarm: ['هشدار', 'alarm'] };
+  const pct = (x) => `${fa(Math.round(x * 100))}٪`;
+  const ago = (iso) => {
+    const m = Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60000));
+    return m < 60 ? `${fa(m)} دقیقه پیش` : m < 1440 ? `${fa(Math.round(m / 60))} ساعت پیش` : `${fa(Math.round(m / 1440))} روز پیش`;
+  };
+  async function loadSignature() {
+    const [p, c] = await Promise.all([api('/api/books/control/pulse').catch((e) => ({ error: e.message })), api('/api/books/control/changes').catch((e) => ({ error: e.message }))]);
+    const pe = $('#gdPulse', root), ce = $('#gdChg', root);
+    if (!pe || !ce) return;
+    if (p.error) pe.innerHTML = String(html`<p class="gd-empty">${p.error}</p>`);
+    else {
+      const [label, cls] = STATE_FA[p.state];
+      pe.className = `gd-card gd-pulse st-${cls}`;
+      pe.innerHTML = String(html`<header class="gd-ch"><div><h2><i class="gd-beat" aria-hidden="true"></i>نبض طلا</h2><p>یک جمله برای حال همین لحظه فروشگاه</p></div><span class="gd-verdict">${label}</span></header>
+        <p class="gd-sentence">${p.sentence}</p>
+        <div class="gd-prob" role="img" aria-label="احتمال‌ها: آرام ${pct(p.probabilities.calm)}، نیاز به نگاه ${pct(p.probabilities.watch)}، هشدار ${pct(p.probabilities.alarm)}">${['calm', 'watch', 'alarm'].map((k) => html`<i class="p-${k}" style="--w:${Math.max(0.5, p.probabilities[k] * 100)}%" title="${STATE_FA[k][0]} ${pct(p.probabilities[k])}"></i>`)}</div>
+        <div class="gd-pmeta"><span>آرام ${pct(p.probabilities.calm)} · نگاه ${pct(p.probabilities.watch)} · هشدار ${pct(p.probabilities.alarm)}</span><span title="اطمینان: فاصله از حالت «نمی‌دانم»">اطمینان ${pct(p.confidence)}</span><span title="چه سهمی از نشانه‌ها داده داشتند">پوشش داده ${pct(p.coverage)}</span></div>
+        <ul class="gd-drivers">${p.drivers.filter((d) => d.available).slice(0, 3).map((d) => html`<li><a href="${d.href}" data-link><i style="--s:${d.score}"></i>${d.text}</a></li>`)}</ul>
+        <footer><button class="gd-btn" data-explain="pulse">${ICON.why} چرا این حکم؟</button><a class="gd-btn" href="/books/control" data-link>مرکز کنترل ${ICON.back}</a></footer>`);
+    }
+    if (c.error) ce.innerHTML = String(html`<p class="gd-empty">${c.error}</p>`);
+    else {
+      ce.innerHTML = String(html`<header class="gd-ch"><div><h2>چه تغییر کرد؟</h2><p>${c.first ? 'در ۲۴ ساعت گذشته' : `از آخرین سر زدن شما، ${ago(c.since)}`}؛ فقط موارد مهم</p></div>${c.items.length ? html`<button class="gd-btn sm" id="gdSeen">دیدم</button>` : ''}</header>
+        ${c.items.length ? html`<ol class="gd-news-list">${c.items.map((x) => html`<li class="c-${x.icon}"><a href="${x.href}" data-link><b>${x.title}</b><span>${x.detail}</span></a></li>`)}</ol>${c.more ? html`<p class="gd-more">و ${fa(c.more)} مورد کم‌اهمیت‌تر</p>` : ''}` : html`<p class="gd-empty">از آخرین سر زدن شما تغییر مهمی نبوده است.</p>`}`);
+      $('#gdSeen', ce)?.addEventListener('click', async (e) => {
+        e.currentTarget.disabled = true;
+        await api('/api/books/control/changes/seen', { method: 'POST' }).catch(() => {});
+        loadSignature();
+      });
+    }
+  }
   // refresh the numbers every two minutes while the page is open
-  const timer = setInterval(() => !S.busy && document.visibilityState === 'visible' && load(), 120000);
+  const timer = setInterval(() => !S.busy && document.visibilityState === 'visible' && (load(), loadSignature()), 120000);
+  loadSignature();
   await load();
   return () => {
     clearInterval(timer);

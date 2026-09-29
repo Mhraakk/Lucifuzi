@@ -132,6 +132,7 @@ test('simulator + safe sale: before/after from the booking engine, typed verdict
   const bad = await ok('POST', '/api/books/control/simulate', { lines: [{ kind: 'melt', dir: 'out', weight: 9, fineness: 750, mazaneh: 300000000 }] }, M);
   assert.equal(bad.verdict.choice, 'stop');
   assert.equal(bad.checks.find((c) => c.key === 'stock').ok, false);
+  assert.equal(bad.checks.find((c) => c.key === 'unpaid')?.ok, false); // no customer, no payment: the money lands on nobody
   const low = await ok('POST', '/api/books/control/simulate', { lines: [{ kind: 'melt', dir: 'out', weight: 1, fineness: 750, mazaneh: 300000000 }] }, M);
   assert.equal(low.checks.find((c) => c.key === 'cost').ok, false);
   assert.equal(low.verdict.choice, 'stop');
@@ -147,6 +148,10 @@ test('exceptions: only the unusual, with probabilities; labels, calibration refu
   assert.ok(below, JSON.stringify(ex.items.map((x) => x.rule)));
   assert.match(below.detail, new RegExp(loss.track));
   assert.ok(below.p > 0 && below.p < 1);
+  // the setup's back-dated documents (10, 9 and 5 days back; 2 days is within tolerance) are one item, not three
+  const back = ex.items.filter((x) => x.rule === 'backdated');
+  assert.equal(back.length, 1);
+  assert.match(back[0].title, /۳ سند/);
   assert.equal(ex.calibrated, false);
   await ok('POST', '/api/books/control/exceptions/label', { key: below.key, real: true, status: 'resolved' }, M);
   assert.ok(!(await ok('GET', '/api/books/control/exceptions', null, M)).items.some((x) => x.key === below.key));

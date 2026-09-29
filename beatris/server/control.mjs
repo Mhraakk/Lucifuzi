@@ -248,10 +248,18 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     }
     for (const [k, e] of perPartyDay) if (e.n >= 3) push({ key: `split:${k}`, rule: 'split', title: 'چند معامله هم‌روز یک مشتری', detail: `${e.d.party}: ${fa(e.n)} سند در ${jd(e.d.date)} با جمع ${R(e.total)} (${e.docs.join('، ')}). اگر عمداً خرد شده، یک‌جا بررسی کنید.`, raw: 0.8 + Math.min(2, (e.n - 2) * 0.5), date: e.d.date, href: `/books/party/${e.d.partyId}` });
     // 6. back-dated documents, 7. edits of final documents, 8. voids
-    for (const d of db.all("SELECT id, type, fy, no, date, created_at, status, version FROM bk_docs WHERE updated_at>=? OR created_at>=?", `${since}T00:00:00Z`, `${since}T00:00:00Z`)) {
+    // back-dated documents, one item per day of entry (entering history after setup is one event, not fifty)
+    const back = new Map();
+    for (const d of db.all("SELECT id, type, fy, no, date, created_at FROM bk_docs WHERE created_at>=? AND type<>'opening'", `${since}T00:00:00Z`)) {
       const made = tehranDayOf(d.created_at);
-      if (daysBetween(d.date, made) > 2 && d.type !== 'opening') push({ key: `back:${d.id}`, rule: 'backdated', title: 'سند با تاریخ گذشته', detail: `${track(d)} در ${jd(made)} ثبت شده ولی تاریخ ${jd(d.date)} دارد (${fa(daysBetween(d.date, made))} روز عقب‌تر).`, raw: 0.8 + Math.min(1.5, daysBetween(d.date, made) / 10), date: made, href: `/books/doc/${d.id}` });
+      const gap = daysBetween(d.date, made);
+      if (gap <= 2) continue;
+      const g = back.get(made) ?? { made, docs: [], maxGap: 0, first: d };
+      g.docs.push(track(d));
+      g.maxGap = Math.max(g.maxGap, gap);
+      back.set(made, g);
     }
+    for (const g of back.values()) push({ key: `back:${g.made}:${g.docs.length}`, rule: 'backdated', title: g.docs.length > 1 ? `${fa(g.docs.length)} سند با تاریخ گذشته` : 'سند با تاریخ گذشته', detail: `در ${jd(g.made)} ${g.docs.length > 1 ? `${fa(g.docs.length)} سند` : g.docs[0]} با تاریخ عقب‌تر ثبت شد (تا ${fa(g.maxGap)} روز)${g.docs.length > 1 ? `: ${g.docs.slice(0, 4).join('، ')}${g.docs.length > 4 ? '…' : ''}` : ''}. اگر ورود سابقه بوده، «هشدار کاذب» بزنید.`, raw: 0.8 + Math.min(1.5, g.maxGap / 10), date: g.made, href: g.docs.length > 1 ? '/books/docs' : `/books/doc/${g.first.id}` });
     for (const v of db.all("SELECT v.doc_id, v.version, v.status, v.reason, v.at, d.type, d.fy, d.no FROM bk_versions v JOIN bk_docs d ON d.id=v.doc_id WHERE v.at>=? AND v.version>1", `${since}T00:00:00Z`)) {
       const printed = db.get("SELECT COUNT(*) AS n FROM bk_log WHERE ref=? AND action='doc.event' AND at<?", v.doc_id, v.at).n > 0;
       if (v.status === 'void') push({ key: `void:${v.doc_id}`, rule: 'void', title: 'سند باطل شد', detail: `${track(v)} باطل شد: «${v.reason || 'بی‌دلیل'}».${printed ? ' این سند پیش از ابطال چاپ یا ارسال شده بود.' : ''}`, raw: 1.1 + (printed ? 0.8 : 0), date: tehranDayOf(v.at), href: `/books/doc/${v.doc_id}` });
@@ -347,7 +355,8 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     const sig = (key, weight, available, score, text, href) => signals.push({ key, weight, available, score: available ? Math.max(0, Math.min(1, score)) : 0, text, href });
     const t = twin(today);
     const ex = exceptions();
-    sig('exceptions', 3, true, ex.count.high * 0.35 + ex.count.mid * 0.1, ex.count.high ? `${fa(ex.count.high)} استثنای جدی باز است` : ex.count.mid ? `${fa(ex.count.mid)} مورد نیاز به نگاه دارد` : 'استثنای جدی نیست', '/books/control?t=exceptions');
+    // serious items drive the pulse; medium ones can raise it at most to «نیاز به نگاه»
+    sig('exceptions', 3, true, ex.count.high * 0.35 + Math.min(0.45, ex.count.mid * 0.08), ex.count.high ? `${fa(ex.count.high)} استثنای جدی باز است` : ex.count.mid ? `${fa(ex.count.mid)} مورد نیاز به نگاه دارد` : 'استثنای جدی نیست', '/books/control?t=exceptions');
     let fc = null;
     try {
       fc = call('GET', '/api/books/forecast', SYS);
@@ -553,7 +562,9 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
       if (party.credit_limit > 0) check('credit', owe > party.credit_limit * 1.2 ? 'stop' : 'caution', owe <= party.credit_limit, owe <= party.credit_limit ? `بدهی مشتری در سقف اعتبار می‌ماند (${R(owe)} از ${R(party.credit_limit)})` : `بدهی مشتری به ${R(owe)} می‌رسد؛ بالاتر از سقف ${R(party.credit_limit)}`);
       else if (owe > 0) check('credit', 'caution', owe <= (b.party?.IRR ?? 0), owe > (b.party?.IRR ?? 0) ? `مشتری سقف اعتبار ندارد و ${R(owe)} بدهکار می‌شود` : 'بدهی مشتری بیشتر نمی‌شود');
     }
-    // 7. a locked day or month
+    // 7. who owes what: a sale with neither a customer nor a payment leaves the money on nobody
+    if (!party && (calc.credit ?? 0) > 0) check('unpaid', 'caution', false, `${R(calc.credit)} دریافت نشده و مشتری مشخص نیست؛ مشتری را انتخاب کنید یا پرداخت را ثبت کنید`);
+    // 8. a locked day or month
     const locked = lockOf(today);
     const closedToday = db.get('SELECT 1 AS x FROM bk_closes WHERE day=? AND reopened_at IS NULL', today);
     check('lock', 'stop', !locked && !closedToday, locked ? `ماه ${locked} قفل است` : closedToday ? 'امروز بسته شده است' : 'روز و ماه باز است');
