@@ -26,7 +26,9 @@ export function booksNav(cur) {
     ['bars', '/books/bars', 'شمش‌ها'],
     ...(base ? [] : [['stock', '/books/stock', 'انبار و ویترین']]),
     ['cash', '/books/cash', 'صندوق، بانک، چک'],
+    ...(admin ? [['peers', '/books/peers', 'تطبیق با همکار']] : []),
     ...(admin ? [['reports', '/books/reports', 'گزارش‌ها'], ['settings', '/books/settings', 'تنظیمات'], ['log', '/books/log', 'رویدادها']] : []),
+    ['help', '/help', 'راهنمای تصویری'],
   ];
   return html`<nav class="tabs bk-nav" aria-label="حسابداری">${tabs.map(([k, href, label]) => html`<a href="${href}" data-link ${cur === k ? raw('aria-current="page"') : ''}>${label}</a>`)}</nav>`;
 }

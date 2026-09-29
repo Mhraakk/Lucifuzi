@@ -70,11 +70,13 @@ route('/books/parties', lazy('./pages/bookmgmt.mjs', 'partiesPage'), { tab: 'boo
 route('/books/party/:id', lazy('./pages/bookmgmt.mjs', 'partyPage'), { tab: 'books', tone: 'wide' });
 route('/books/ai', lazy('./pages/aikeys.mjs', 'aiKeysPage'), { tab: 'books', tone: 'wide', staff: true });
 route('/books/smart', lazy('./pages/smart.mjs', 'smartPage'), { tab: 'books', tone: 'wide' });
+route('/books/peers', lazy('./pages/peers.mjs', 'peersPage'), { tab: 'books', tone: 'wide' });
 route('/books/products', lazy('./pages/products.mjs', 'productsPage'), { tab: 'books', tone: 'wide' });
 route('/books/stock', lazy('./pages/bookmgmt.mjs', 'stockPage'), { tab: 'books', tone: 'wide' });
 route('/books/cash', lazy('./pages/bookmgmt.mjs', 'cashPage'), { tab: 'books', tone: 'wide' });
 route('/books/reports', lazy('./pages/bookmgmt.mjs', 'reportsPage'), { tab: 'books', tone: 'wide' });
 route('/books/settings', lazy('./pages/bookmgmt.mjs', 'settingsPage'), { tab: 'books', tone: 'wide' });
+route('/help', lazy('./pages/help.mjs', 'helpPage'), { tab: 'books', tone: 'wide' });
 route('/setup', lazy('./pages/setup.mjs', 'setupPage'), { tab: 'books', tone: 'wide', setup: true });
 route('/vendor', lazy('./pages/vendor.mjs', 'vendorPage'), { tab: 'team', tone: 'wide', vendor: true });
 route('/s/:token', lazy('./pages/statement.mjs', 'statementPage'), { public: true, bare: true, tone: 'full' });
@@ -105,7 +107,7 @@ setShell((opts) => {
   if (u) startHarness();
   top.hidden = false;
   const shop = store.me?.brand?.shopName || SHOP_NAME;
-  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
+  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a><button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
   $('#themeBtn', top)?.addEventListener('click', (e) => {
     const next = THEMES[(THEMES.indexOf(theme()) + 1) % THEMES.length];
     setTheme(next);

@@ -10,9 +10,10 @@ import { createApi, seedUsers, HttpError } from './api.mjs';
 import { validateContent } from '../content/index.mjs';
 import { MEDIA_NAME } from './media.mjs';
 import { createPlatform, PlatformError, MAIN } from './platform.mjs';
+import { createPeers } from './peers.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8' };
 const SECURITY = {
   'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'",
   'X-Content-Type-Options': 'nosniff',
@@ -23,6 +24,23 @@ const SECURITY = {
 
 const PHOTO_BODY = 48 * 1024 * 1024; // two faces × (4096 + 2048 + relief) as base64
 const COMPRESSED = new Set(['.webp', '.jpg', '.png', '.woff2']);
+const STREAMED = new Set(['.mp4', '.webm']); // large media: streamed from disk with byte ranges (seeking), never held in memory
+
+/** `bytes=a-b` → [start, end] inside size, or null when unsatisfiable. Only the first range is served. */
+export function parseRange(h, size) {
+  const m = /^bytes=(\d*)-(\d*)/.exec(h ?? '');
+  if (!m || (!m[1] && !m[2])) return null;
+  let start;
+  let end;
+  if (!m[1]) {
+    start = Math.max(0, size - Number(m[2]));
+    end = size - 1;
+  } else {
+    start = Number(m[1]);
+    end = m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+  }
+  return start <= end && start < size ? [start, end] : null;
+}
 
 export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts, tenantsDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'tenants') : ':memory:' }) {
   const signer = makeSigner(secret);
@@ -35,6 +53,8 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     mainHandle: handle,
     openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market, sealer }),
   });
+
+  const peers = createPeers({ mainDb: db, platform });
 
   /** Uploaded coin photos: immutable, server-named files on the data volume. */
   async function serveMedia(req, res, name) {
@@ -69,6 +89,22 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     if (req.headers['if-none-match'] === etag) {
       res.writeHead(304, { ETag: etag, ...SECURITY });
       return res.end();
+    }
+    if (STREAMED.has(path.extname(file))) {
+      const base = { 'Content-Type': MIME[path.extname(file)], ETag: etag, 'Accept-Ranges': 'bytes', 'Cache-Control': 'public, max-age=86400', ...SECURITY };
+      if (req.headers.range) {
+        const r = parseRange(req.headers.range, st.size);
+        if (!r) {
+          res.writeHead(416, { 'Content-Range': `bytes */${st.size}`, ...SECURITY });
+          return res.end();
+        }
+        res.writeHead(206, { ...base, 'Content-Range': `bytes ${r[0]}-${r[1]}/${st.size}`, 'Content-Length': r[1] - r[0] + 1 });
+        if (req.method === 'HEAD') return res.end();
+        return createReadStream(file, { start: r[0], end: r[1] }).on('error', () => res.destroy()).pipe(res);
+      }
+      res.writeHead(200, { ...base, 'Content-Length': st.size });
+      if (req.method === 'HEAD') return res.end();
+      return createReadStream(file).on('error', () => res.destroy()).pipe(res);
     }
     let entry = fileCache.get(file);
     if (!entry || entry.etag !== etag) {
@@ -193,6 +229,10 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
         const user = handle.authenticate(req);
         if (!user) throw new HttpError(401, 'ورود لازم است.');
         out = platform.vendor(req.method, url.pathname, body, user);
+      } else if (url.pathname === '/api/peers' || url.pathname.startsWith('/api/peers/')) {
+        // تطبیق با همکار spans two shops: the registry is in the main database, each side's books in its own
+        const tn = (token && platform.tenantOfToken(token)) || MAIN;
+        out = peers.route(req.method, url.pathname.slice('/api/peers'.length), body, platform.handleFor(tn).authenticate(req), tn);
       } else if (url.pathname.startsWith('/api/public/statement/')) {
         // a customer's statement link names its shop: «<shop>~<random>»
         const tok = decodeURIComponent(url.pathname.split('/')[4] ?? '');

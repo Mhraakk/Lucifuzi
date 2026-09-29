@@ -48,7 +48,7 @@ export async function setupPage(root) {
   const disp = (rial) => (rial ? B.faNum(Math.round(rial / k).toLocaleString('en-US')).replace(/,/g, '٬') : '');
 
   root.innerHTML = String(html`<div class="su">
-    <header class="su-head"><div><span class="eyebrow">راه‌اندازی فروشگاه</span><h1>وضعیت امروز مغازه‌تان را یک بار وارد کنید</h1><p class="lead">از این پس هر عدد داشبورد، گاوصندوق، ریز حساب مشتری و سود و زیان از همین نقطه شروع می‌شود. همه مبالغ به ${unitName()} است.</p></div>
+    <header class="su-head"><div><span class="eyebrow">راه‌اندازی فروشگاه</span><h1>وضعیت امروز مغازه‌تان را یک بار وارد کنید</h1><p class="lead">از این پس هر عدد داشبورد، گاوصندوق، ریز حساب مشتری و سود و زیان از همین نقطه شروع می‌شود. همه مبالغ به ${unitName()} است. <a href="/help?ch=2" data-link>فیلم همین مرحله</a></p></div>
       <button class="btn ghost small" data-act="skip">بعداً؛ دفتر خالی شروع شود</button></header>
     <ol class="su-steps" id="suSteps"></ol>
     <form class="tray su-card" id="suForm" novalidate></form>
@@ -244,7 +244,7 @@ export async function setupPage(root) {
         store.me = null;
         await booksPrefs(true);
         root.innerHTML = String(html`<section class="su-done tray"><span class="eyebrow">آماده است</span><h1>دفتر فروشگاه باز شد</h1><p>${r.doc ? html`سند افتتاحیه با کد رهگیری <b class="ltr-num">${r.doc.track}</b> ثبت شد: ${fa(r.counts.balances)} مانده، ${fa(r.counts.parties)} مشتری، ${fa(r.counts.accounts)} صندوق و حساب.` : 'دفتر خالی باز شد.'}</p>
-          <div class="actions"><a class="btn" href="/books/dashboard" data-link>داشبورد مدیریت</a><a class="btn ghost" href="/books/desk" data-link>اولین معامله</a><a class="btn ghost" href="/books/vault" data-link>گاوصندوق</a></div></section>`);
+          <div class="actions"><a class="btn" href="/books/dashboard" data-link>داشبورد مدیریت</a><a class="btn ghost" href="/books/desk" data-link>اولین معامله</a><a class="btn ghost" href="/books/vault" data-link>گاوصندوق</a><a class="btn ghost" href="/help?ch=3" data-link>فیلم آموزش گام بعد</a></div></section>`);
       } catch (err) {
         $('#suErr', root).textContent = err.message;
         b.disabled = false;
