@@ -38,7 +38,7 @@ export async function helpPage(root, { ch } = {}) {
   const total = list.reduce((a, c) => a + c.seconds, 0);
 
   root.innerHTML = String(html`<section class="hlp">
-    <header class="hlp-head"><div><h1>راهنمای تصویری از صفر تا صد</h1><p class="small">${fa(list.length)} فصل · ${clock(total)} دقیقه · هر فصل با نمونه واقعی ثبت می‌شود؛ هر جا خواستید مکث کنید و همان کار را در برنامه انجام دهید.</p></div><div class="hlp-prog" id="hpProg"></div></header>
+    <header class="hlp-head"><div><h1>راهنمای تصویری از صفر تا صد</h1><p class="small">${fa(list.length)} فصل · ${clock(total)} دقیقه · هر فصل با نمونه واقعی ثبت می‌شود؛ هر جا خواستید مکث کنید و همان کار را در برنامه انجام دهید.</p><p class="small"><a href="/downloads/Beatris-Setup-x64.exe" download>دانلود نسخه ویندوز ۱۱ (۶۴ بیت)</a>: پنجره مستقل، آیکن روی دسکتاپ و منوی استارت، بدون نیاز به مدیر سیستم.</p></div><div class="hlp-prog" id="hpProg"></div></header>
     <div class="hlp-grid">
       <div class="hlp-main">
         <div class="hlp-stage" id="hpStage"><video id="hpVideo" controls playsinline preload="metadata"><source id="hpMp4" type="video/mp4; codecs=avc1.64001F"><source id="hpWebm" type="video/webm; codecs=vp9"></video></div>

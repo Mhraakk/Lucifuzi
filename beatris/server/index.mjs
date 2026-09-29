@@ -20,7 +20,7 @@ import { createFlags } from './flags.mjs';
 import { can } from './rbac.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8', '.exe': 'application/vnd.microsoft.portable-executable' };
 const SECURITY = {
   'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'",
   'X-Content-Type-Options': 'nosniff',
@@ -30,7 +30,7 @@ const SECURITY = {
 };
 
 const PHOTO_BODY = 48 * 1024 * 1024; // two faces × (4096 + 2048 + relief) as base64
-const COMPRESSED = new Set(['.webp', '.jpg', '.png', '.woff2']);
+const COMPRESSED = new Set(['.webp', '.jpg', '.png', '.woff2', '.exe']);
 const STREAMED = new Set(['.mp4', '.webm']); // large media: streamed from disk with byte ranges (seeking), never held in memory
 
 /** `bytes=a-b` → [start, end] inside size, or null when unsatisfiable. Only the first range is served. */
@@ -232,7 +232,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       entry = { etag, buf, gz: buf.length > 1024 && !COMPRESSED.has(path.extname(file)) ? gzipSync(buf) : null };
       fileCache.set(file, entry);
     }
-    const headers = { 'Content-Type': MIME[path.extname(file)] ?? 'application/octet-stream', ETag: etag, 'Cache-Control': 'no-cache', ...SECURITY };
+    const headers = { 'Content-Type': MIME[path.extname(file)] ?? 'application/octet-stream', ETag: etag, 'Cache-Control': 'no-cache', ...(path.extname(file) === '.exe' ? { 'Content-Disposition': `attachment; filename="${path.basename(file)}"` } : {}), ...SECURITY };
     const useGz = entry.gz && /\bgzip\b/.test(req.headers['accept-encoding'] ?? '');
     if (useGz) headers['Content-Encoding'] = 'gzip';
     res.writeHead(200, headers);
