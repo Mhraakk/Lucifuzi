@@ -379,21 +379,23 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
 
   /** Background polling (the server calls start(); tests drive sync() directly). */
   let timer = null, last = 0;
+  const everyMs = () => Math.min(60, Math.max(5, Number(config().interval) || 10)) * 60000;
+  /** One poll if the configured period has passed (the persistent market worker calls this every minute). */
+  function poll() {
+    const cfg = config();
+    if (cfg.mode === 'off') return null;
+    if (Date.now() - last < everyMs()) return null;
+    last = Date.now();
+    return sync();
+  }
   function start() {
     if (timer) return;
-    const tick = () => {
-      const cfg = config();
-      if (cfg.mode === 'off') return;
-      const every = Math.min(60, Math.max(5, Number(cfg.interval) || 10)) * 60000;
-      if (Date.now() - last < every) return;
-      last = Date.now();
-      sync().catch(() => {});
-    };
+    const tick = () => void poll()?.catch(() => {});
     timer = setInterval(tick, 60000);
     timer.unref();
     setTimeout(tick, 5000).unref();
   }
   const stop = () => (clearInterval(timer), (timer = null));
 
-  return { config, stored: () => setting('market') ?? {}, save, status: () => status, upsert, applyQuote, series, board, sync, start, stop, hasReal, today };
+  return { config, stored: () => setting('market') ?? {}, save, status: () => status, upsert, applyQuote, series, board, sync, poll, everyMs, start, stop, hasReal, today };
 }

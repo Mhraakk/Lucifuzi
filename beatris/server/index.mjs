@@ -11,6 +11,11 @@ import { validateContent } from '../content/index.mjs';
 import { MEDIA_NAME } from './media.mjs';
 import { createPlatform, PlatformError, MAIN } from './platform.mjs';
 import { createPeers } from './peers.mjs';
+import { randomUUID } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
+import { createBus } from './bus.mjs';
+import { createMetrics } from './metrics.mjs';
+import { backupAll, listBackups } from './backup.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8' };
@@ -42,7 +47,7 @@ export function parseRange(h, size) {
   return start <= end && start < size ? [start, end] : null;
 }
 
-export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts, tenantsDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'tenants') : ':memory:' }) {
+export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts, tenantsDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'tenants') : ':memory:', backupDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'backups') : null, rateLimit = 1500, accessLog = process.env.BEATRIS_ACCESS_LOG === '1' }) {
   const signer = makeSigner(secret);
   const sealer = makeSealer(secret);
   const handle = createApi({ db, signer, demo, mediaDir, marketOpts, sealer });
@@ -55,6 +60,65 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
   });
 
   const peers = createPeers({ mainDb: db, platform });
+
+  /* ---------- operations: metrics, event bus + job queue, persistent market worker, backups (spec 0001 #8 #18 #20) ---------- */
+  const metrics = createMetrics();
+  const bus = createBus({ db, onError: (e, ctx) => (metrics.inc('bus.errors'), quiet || console.error('[beatris] bus', JSON.stringify(ctx), e?.message)) });
+  let lastBackup = null;
+  bus.handle('market.poll', async () => {
+    const run = handle.market.poll();
+    if (!run) return;
+    const st = await run;
+    metrics.inc(st.ok ? 'market.poll.ok' : 'market.poll.fail');
+    if (st.ok) bus.publish('market.tick', { at: st.at ?? new Date().toISOString(), board: handle.market.board() });
+  });
+  const allDbs = () => [['main', db], ...[...platform.all()].filter(([id]) => id !== MAIN).map(([id, h]) => [id, h.db])];
+  const runBackup = () => {
+    if (!backupDir) throw new HttpError(409, 'پشتیبان‌گیری برای دیتابیس درون حافظه غیرفعال است.');
+    lastBackup = backupAll({ dbs: allDbs(), dir: backupDir });
+    metrics.inc('backup.ok');
+    return lastBackup;
+  };
+  bus.handle('ops.backup', () => void runBackup());
+  /** Deep health: the database answers, the price feed is fresh, the queue has no dead jobs, a recent backup exists. */
+  function health() {
+    const out = { ok: true, time: new Date().toISOString(), db: 'ok' };
+    try {
+      db.get('SELECT 1 AS x');
+    } catch {
+      out.db = 'down';
+      out.ok = false;
+    }
+    const cfg = handle.market.config();
+    const at = handle.market.status()?.at;
+    out.feed = cfg.mode === 'off' ? 'off' : at && Date.now() - Date.parse(at) < 3 * handle.market.everyMs() + 120000 ? 'ok' : 'stale';
+    const q = bus.stats();
+    out.queue = { queued: q.queued, dead: q.dead };
+    const b = backupDir ? listBackups(backupDir)[0] : null;
+    out.backup = b ? { stamp: b.stamp, files: b.files } : null;
+    return out;
+  }
+  function ops(method, pathname, req) {
+    const user = handle.authenticate(req);
+    if (!user) throw new HttpError(401, 'ورود لازم است.');
+    if (!platform.isVendor(user)) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
+    if (method === 'GET' && pathname === '/api/ops/metrics') return { health: health(), metrics: metrics.snapshot(), bus: bus.stats(), backups: backupDir ? listBackups(backupDir).slice(0, 14) : [], lastBackup, market: handle.market.status() };
+    if (method === 'POST' && pathname === '/api/ops/backup') return runBackup();
+    const m = /^\/api\/ops\/jobs\/([0-9a-f-]{36})\/retry$/.exec(pathname);
+    if (method === 'POST' && m) return { ok: bus.retry(m[1]) };
+    throw new HttpError(404, 'مسیر API وجود ندارد.');
+  }
+  const perIp = new Map();
+  const overLimit = (ip) => {
+    const t = Date.now();
+    const h = perIp.get(ip);
+    if (!h || t - h.t0 > 60000) {
+      if (perIp.size > 20000) perIp.clear();
+      perIp.set(ip, { t0: t, n: 1 });
+      return false;
+    }
+    return ++h.n > rateLimit;
+  };
 
   /** Uploaded coin photos: immutable, server-named files on the data volume. */
   async function serveMedia(req, res, name) {
@@ -207,9 +271,19 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
         res.end();
       });
     }
+    // API gateway (spec 0001 #3): request id, timing, metrics, a per-IP ceiling, structured logs
+    const t0 = performance.now();
+    const hdrId = String(req.headers['x-request-id'] ?? '');
+    const rid = /^[\w-]{8,64}$/.test(hdrId) ? hdrId : randomUUID();
+    res.setHeader('x-request-id', rid);
+    res.on('finish', () => {
+      const ms = performance.now() - t0;
+      metrics.record(req.method, url.pathname, res.statusCode, ms);
+      if (accessLog || res.statusCode >= 500 || ms > 1500) quiet || console.log(JSON.stringify({ at: new Date().toISOString(), rid, m: req.method, p: url.pathname, s: res.statusCode, ms: Math.round(ms) }));
+    });
     const send = (status, obj) => {
       const body = JSON.stringify(obj);
-      const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', Vary: 'Accept-Encoding', ...SECURITY };
+      const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', Vary: 'Accept-Encoding', 'Server-Timing': `app;dur=${(performance.now() - t0).toFixed(1)}`, ...SECURITY };
       if (body.length > 8192 && /\bgzip\b/.test(req.headers['accept-encoding'] ?? '')) {
         res.writeHead(status, { ...headers, 'Content-Encoding': 'gzip' });
         return res.end(gzipSync(body));
@@ -217,6 +291,14 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       res.writeHead(status, headers);
       res.end(body);
     };
+    if (url.pathname !== '/api/health' && overLimit(ip)) {
+      res.setHeader('Retry-After', '60');
+      return send(429, { error: 'درخواست‌ها بیش از حد است؛ یک دقیقه بعد دوباره تلاش کنید.', requestId: rid });
+    }
+    if (url.pathname === '/api/health' && url.searchParams.get('deep') === '1') {
+      const h = health();
+      return send(h.ok ? 200 : 503, h);
+    }
     try {
       const limit = url.pathname === '/api/designs' || url.pathname === '/api/market/bars' ? 2.5 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : /^\/api\/books\/bars\/[^/]+\/card$/.test(url.pathname) ? 1.5 * 1024 * 1024 : undefined;
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, limit) : {};
@@ -224,6 +306,10 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
       let out;
       if (url.pathname === '/api/auth/login' && req.method === 'POST') out = platform.login(body, ip, req.headers['user-agent']);
+      else if (url.pathname.startsWith('/api/ops/')) {
+        if (token && platform.tenantOfToken(token) && platform.tenantOfToken(token) !== MAIN) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
+        out = ops(req.method, url.pathname, req);
+      }
       else if (url.pathname.startsWith('/api/vendor/')) {
         if (token && platform.tenantOfToken(token) && platform.tenantOfToken(token) !== MAIN) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
         const user = handle.authenticate(req);
@@ -258,12 +344,21 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       }
       send(200, out);
     } catch (e) {
-      if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message });
-      if (!quiet) console.error('[beatris]', req.method, url.pathname, e);
-      send(500, { error: 'خطای داخلی سرور. دوباره تلاش کنید.' });
+      if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message, requestId: rid });
+      if (!quiet) console.error('[beatris]', rid, req.method, url.pathname, e);
+      send(500, { error: 'خطای داخلی سرور. دوباره تلاش کنید.', requestId: rid });
     }
   });
   server.market = handle.market;
+  server.bus = bus;
+  server.metrics = metrics;
+  server.health = health;
+  /** The persistent workers: the market feed every minute (it polls when its own period is due) and a daily backup. */
+  server.startWorkers = () => {
+    bus.every('market', 60000, 'market.poll', {}, { maxAttempts: 1 });
+    if (backupDir) bus.every('backup', 24 * 3600 * 1000, 'ops.backup', {}, { maxAttempts: 3 });
+    bus.start(1000);
+  };
   server.platform = platform;
   return server;
 }
@@ -281,7 +376,7 @@ if (isMain) {
   const server = createServer({ db, secret: resolveSecret(), demo });
   const port = Number(process.env.PORT) || 3000;
   server.listen(port, '0.0.0.0', () => console.log(`[beatris] listening on :${port}${demo ? ' (demo accounts on)' : ''}`));
-  if (process.env.NODE_ENV !== 'test') server.market.start(); // price feed polling, when the owner has switched one on
+  if (process.env.NODE_ENV !== 'test') server.startWorkers(); // price feed (when switched on) and daily backups, on the job queue
   // redeploys send SIGTERM: stop accepting, drop idle keep-alive sockets, give requests in flight 5 s
   const stop = () => {
     const done = () => {
@@ -292,6 +387,7 @@ if (isMain) {
       }
       process.exit(0);
     };
+    server.bus.stop();
     server.close(done);
     server.closeIdleConnections();
     setTimeout(done, 5000).unref();
