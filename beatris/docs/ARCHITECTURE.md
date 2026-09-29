@@ -49,6 +49,13 @@
 - **بازپخش و بک‌تست**: `GET /api/books/replay` (مدیر؛ بازسازی ثبت‌ها از اسناد قطعی و مقایسه، فقط‌خواندنی)؛ `public/js/backtest.mjs` (اجرای سیگنال در باز شدن روز بعد، کارمزد هر طرف) → `GET /api/market/backtest` و ابزار MCP `strategy_backtest`.
 - **CI** (`.github/workflows/beatris.yml` در ریشه مخزن): `npm run gate` سپس E2E با Playwright. **Evals**: `tests/evals.test.mjs` (بازیابی ≥ ۹۰٪، پوشاندن و تشخیص تزریق ۱۰۰٪).
 
+## کنترل (spec `docs/specs/0002-control.md`)
+- **موتورهای خالص** (`public/js`): `typed.mjs` (تصمیم نوع‌دار: softmax، `confidence` = (max−1/n)/(1−1/n)، `coverage`)، `calibration.mjs` (Platt با هدف هموار، AUC با رتبه میانگین، ECE، Brier؛ `calibrate` تقسیم قطعی و `helped` فقط اگر ECE نیمه آزمون بهتر شود)، `karat.mjs` (عیار ← خالص، ۷۵۰، مثقال ۷۰۵)، `lots.mjs` (سری‌ها و تخصیص FIFO هر فروش).
+- **سرور** (`server/control.mjs`، ساخته در `books.mjs`): همه زیر `/api/books/control/`: `pulse`، `changes`(+`/seen`)، `exceptions`(+`/label`، `/calibration`؛ کالیبراسیون به `RULES_VERSION` بسته است)، `simulate`، `twin?day&compare`، `lots`، `story?party|unit`، `trial`، `forecast10`، `explain?metric`، `find`، `periods`(+`/lock`، `/unlock` فقط مالک با دلیل)، `approvals`(+`/rules`، `/:id/approve|reject`)، `autoclose`، `recon`. جداول `ctl_seen`، `ctl_exc`، `ctl_locks`، `ctl_approvals`، `ctl_recon`.
+- **قلاب‌ها در ثبت سند**: `hooks.check` پیش از ذخیره (قفل ماه جلالی ← 423 برای ثبت، ویرایش، ابطال و پیش‌نویس؛ قاعده تأیید ← 428 با `approval {id,status,kind}`)، `hooks.commit` مصرف یک‌باره تأیید، `hooks.voiding` (ابطال؛ `dryRun` پیش از تراکنش تا درخواست تأیید rollback نشود). چهار چشم: تأییدکننده ≠ درخواست‌کننده؛ تأیید به هش محتوا بسته و ۲۴ ساعت معتبر؛ تکرار همان محتوا پس از تأیید خودکار عبور می‌کند.
+- **بستن خودکار**: کار `books.autoclose` هر ۵ دقیقه روی همه فروشگاه‌ها؛ تطبیق و ثبت `ctl_recon`؛ اگر مغایرت نبود و روشن بود، `ideas.closeSystem` روز را با امضای «بستن خودکار» می‌بندد.
+- **UI**: داشبورد `.gd-sig` (نبض + «چه تغییر کرد؟») بالای `.gd-charts`؛ صفحه `/books/control` (`pages/control.mjs`، زبانه‌ها با خط هدف و فیلم ۱۳–۱۷)؛ `explain.mjs` (هر `[data-explain]`)؛ `palette.mjs` (Ctrl/⌘+K یا «/»).
+
 ## استقرار (Railway — سرور دائمی، نه serverless)
 - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.

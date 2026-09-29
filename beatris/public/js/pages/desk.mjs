@@ -447,7 +447,8 @@ export async function deskPage(root) {
       drawPays();
       recalc();
     } catch (e) {
-      toast(e.message, 'error');
+      // 428: a manager's approval was requested; the same save goes through once it is approved (four eyes)
+      toast(e.message, e.status === 428 ? 'info' : 'error');
       track('desk.error', { msg: e.message.slice(0, 120) });
     } finally {
       busy(btn, false);

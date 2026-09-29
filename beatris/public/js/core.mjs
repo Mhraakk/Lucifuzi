@@ -64,7 +64,11 @@ export async function api(path, { method = 'GET', body } = {}) {
     store.me = null;
     navigate('/login');
   }
-  if (!res.ok) throw new ApiError(res.status, fa(data.error || 'درخواست انجام نشد.'));
+  if (!res.ok) {
+    const err = new ApiError(res.status, fa(data.error || 'درخواست انجام نشد.'));
+    err.data = data; // e.g. { approval: { id, status } } when a manager's approval is needed
+    throw err;
+  }
   return data;
 }
 

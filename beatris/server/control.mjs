@@ -916,6 +916,9 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
       if (Date.now() - Date.parse(a.decided_at) > DAY) throw new HttpError(410, 'مهلت این تأیید (۲۴ ساعت) تمام شده است.');
       return a.id;
     }
+    // the same person retrying the very same thing after it was approved: go ahead (it is consumed on success)
+    const ok = db.get("SELECT id, decided_at FROM ctl_approvals WHERE payload_hash=? AND requested_by=? AND status='approved' AND used_at IS NULL ORDER BY decided_at DESC LIMIT 1", h, user.id);
+    if (ok && Date.now() - Date.parse(ok.decided_at) <= DAY) return ok.id;
     let a = db.get("SELECT * FROM ctl_approvals WHERE payload_hash=? AND requested_by=? AND status='pending'", h, user.id);
     if (!a) {
       const id = randomId();

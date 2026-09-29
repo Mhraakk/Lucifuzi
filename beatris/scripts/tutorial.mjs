@@ -77,7 +77,9 @@ const OVERLAY = () => {
 };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+let pace = 1; // chapters outside --only still run (they build the shop's state) but unrecorded and fast
 function director(page, title) {
+  const wait = (ms) => new Promise((r) => setTimeout(r, Math.max(120, ms * pace)));
   const say = async (text, ms = 4600) => {
     await page.evaluate(([t, x]) => window.__tt.say(t, x), [title, text]);
     await wait(ms);
@@ -120,6 +122,26 @@ function director(page, title) {
 
 /* ---------------- the story ---------------- */
 const S = {}; // shared state between chapters
+// what chapters 13–17 need: a second manager (four eyes), a document to void, dated history, a sale below cost,
+// a large round cash receipt and a cheque due within ten days — all through the API, like real work
+async function prepControl() {
+  const { toJalali } = await import('../public/js/ta.mjs');
+  const faD = (iso) => toJalali(+iso.slice(0, 4), +iso.slice(5, 7), +iso.slice(8, 10)).map((x, i) => String(x).padStart(i ? 2 : 4, '0')).join('/').replace(/\d/g, (x) => '۰۱۲۳۴۵۶۷۸۹'[x]);
+  S.pastDayFa = faD(ago(10));
+  S.pastDay2Fa = faD(ago(20));
+  const vendor = (await J('POST', '/api/auth/login', { login: '09120000001', password: '1234' })).token;
+  const shop = (await J('GET', '/api/vendor/tenants', null, vendor)).items.find((t) => t.name === 'طلا و سکه امید');
+  const pw = 'Sara-manager-2026';
+  await J('POST', `/api/vendor/tenants/${shop.id}/users`, { name: 'سارا احمدی', username: 'sara.ahmadi', password: pw, role: 'manager' }, vendor);
+  S.managerToken = (await J('POST', '/api/auth/login', { login: 'sara.ahmadi', password: pw })).token;
+  const parties = (await J('GET', '/api/books/parties?q=', null, S.token)).items;
+  const reza = parties.find((p) => p.name === 'رضا تهرانی') ?? parties[0];
+  const doc = await J('POST', '/api/books/docs', { type: 'trade', date: today, partyId: reza.id, lines: [{ kind: 'melt', dir: 'in', weight: 1.2, fineness: 750, mazaneh: 405000000 }], payments: [{ method: 'cash', dir: 'out', amount: 112190000 }] }, S.token);
+  S.voidDoc = doc.id ?? doc.doc?.id;
+  await J('POST', '/api/books/docs', { type: 'trade', date: today, partyId: reza.id, lines: [{ kind: 'melt', dir: 'out', weight: 3, fineness: 750, mazaneh: 300000000 }], payments: [{ method: 'cash', dir: 'in', amount: 207770000 }] }, S.token).catch((e) => console.log('below-cost seed:', e.message));
+  await J('POST', '/api/books/docs', { type: 'trade', date: today, partyId: reza.id, lines: [], payments: [{ method: 'cash', dir: 'in', amount: 5000000000 }] }, S.token).catch((e) => console.log('round cash seed:', e.message));
+  await J('POST', '/api/books/docs', { type: 'trade', date: today, partyId: reza.id, lines: [], payments: [{ method: 'cheque', dir: 'in', amount: 900000000, chequeNo: '778899', bank: 'ملت', due: ago(-6) }] }, S.token).catch((e) => console.log('cheque seed:', e.message));
+}
 const CHAPTERS = [
   {
     n: 1, slug: 'vendor', title: 'ورود و صدور حساب فروشگاه', sub: 'ارائه‌دهنده برای هر خریدار نام کاربری و رمز می‌سازد',
@@ -426,6 +448,155 @@ const CHAPTERS = [
       await d.say('پایان. هر فصل را می‌توانید دوباره از صفحه «راهنما» ببینید.', 3600);
     },
   },
+  {
+    n: 13, slug: 'pulse', title: 'نبض طلا و «چه تغییر کرد؟»', sub: 'امضای داشبورد: حال فروشگاه در یک جمله',
+    steps: ['بالای سه نمودار داشبورد، «نبض طلا» حال همین لحظه فروشگاه را در یک جمله می‌گوید: آرام، نیاز به نگاه یا هشدار.', 'نوار رنگی احتمال هر حالت است؛ «اطمینان» فاصله از «نمی‌دانم» و «پوشش داده» سهم نشانه‌هایی است که داده داشتند.', '«چرا این حکم؟» همه نشانه‌ها را با وزن و امتیازشان نشان می‌دهد.', '«چه تغییر کرد؟» فقط تغییرات مهم از آخرین سر زدن شما را می‌آورد؛ «دیدم» نقطه را جلو می‌برد.', 'روی «؟» هر عدد بزنید تا بگوید از کجا آمده: جمله، فرمول، اجزا و اسناد.', 'Ctrl+K (یا دکمه ذره‌بین بالای صفحه): با چند کلمه هر مشتری، سند، ابزار یا راهنمایی را پیدا کنید.'],
+    async run(page, d) {
+      await d.go('/books/dashboard', 3200);
+      await d.say('داشبورد مدیریت؛ حالا بالای همان سه نمودار، امضای برنامه آمده است: «نبض طلا» و «چه تغییر کرد؟».', 5200);
+      await d.point('.gd-pulse');
+      await d.say('نبض طلا در یک جمله می‌گوید فروشگاه الان آرام است، نیاز به نگاه دارد یا هشدار است؛ و مهم‌ترین دلیلش را هم می‌گوید.', 6000);
+      await d.point('.gd-prob');
+      await d.say('این حکم «نوع‌دار» است: فقط یکی از سه حالت مجاز، با احتمال هر کدام، «اطمینان» و «پوشش داده» یعنی چه سهمی از نشانه‌ها واقعاً داده داشتند.', 7000);
+      await d.click('.gd-pulse [data-explain=pulse]', 1800);
+      await d.say('«چرا این حکم؟»: هر نشانه با امتیاز و وزنش؛ استثناها، نقد فردا، پوشش طلای امانی، نوسان قیمت، روز بسته‌نشده و درخواست‌های تأیید.', 7000);
+      await page.keyboard.press('Escape');
+      await d.point('.gd-news');
+      await d.say('«چه تغییر کرد؟» فقط تغییرات مهم از آخرین باری که سر زدید: معامله‌های بزرگ، ابطال‌ها، استثناهای تازه، تغییر نقد و طلا و مظنه.', 6500);
+      await d.click('#gdSeen', 1500);
+      await d.say('با «دیدم»، دفعه بعد فقط تغییرات تازه‌تر نشان داده می‌شود.', 3200);
+      await d.click('.gd-kpi-w .gd-why', 1800);
+      await d.say('روی «؟» هر عدد مهم بزنید تا به زبان ساده بگوید از کجا آمده: جمله، فرمول، اجزا و آخرین اسنادی که آن را ساخته‌اند. این اعتماد می‌سازد.', 7500);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+      await page.keyboard.press('Control+k');
+      await page.waitForTimeout(800);
+      await d.say('فرمان سریع: Ctrl و K در هر صفحه. با چند کلمه هر چیزی را پیدا کنید.', 3600);
+      await page.keyboard.type('رضا', { delay: 120 });
+      await page.waitForTimeout(1600);
+      await d.say('مشتری، کد رهگیری سند، سریال شمش، نام هر ابزار یا یک پاسخ از راهنما. با Enter باز می‌شود.', 5000);
+      await page.keyboard.press('Escape');
+      await d.go('/books/control', 2400);
+      await d.say('و این «کنترل» است: نبض و تغییرات، به‌علاوه همه ابزارهای کنترلی با یک توضیح یک‌خطی و فیلم هر کدام.', 6000);
+      await d.scroll(700, 1400);
+    },
+  },
+  {
+    n: 14, slug: 'simulate', title: 'شبیه‌ساز معامله و محاسبه فروش امن', sub: 'قبل از ثبت ببینید نقد، موجودی و بدهی چه می‌شود',
+    steps: ['کنترل ← «شبیه‌ساز و فروش امن».', 'مشتری، جهت، کالا، وزن، عیار، مظنه و پرداخت را مثل میز معامله وارد کنید؛ هیچ چیزی ثبت نمی‌شود.', 'حکم «امن / با احتیاط / ثبت نکنید» با احتمال‌ها و دلایل: موجودی، زیر بها، حاشیه سود، فاصله از تابلو، نقد فردا، سقف اعتبار، روز و ماه قفل.', 'جدول «الان / پس از معامله / تغییر» برای نقد، بانک، طلا، سکه و مانده مشتری.', 'سود تقریبی همان فروش از روی سری‌های خرید (اولین‌ورود).'],
+    async run(page, d) {
+      await d.go('/books/control?t=simulate', 2200);
+      await d.say('قبل از هر معامله بزرگ بپرسید: «اگه این‌قدر بفروشم یا بخرم، نقد و موجودی و بدهی چی می‌شه؟» این‌جا جوابش را می‌گیرید و هیچ سندی ثبت نمی‌شود.', 7000);
+      await d.type('#simF [name=pq]', 'رضا');
+      await page.waitForSelector('#simPicks [data-pid]', { timeout: 8000 });
+      await d.click('#simPicks [data-pid]', 900);
+      await d.type('#simF [name=weight]', '8');
+      await d.say('مثال: ۸ گرم آبشده ۷۵۰ به رضا تهرانی، با مظنه تابلو، روی حساب.', 3600);
+      await d.click('#simF [data-act=run]', 2200);
+      await d.point('.ctl-verdict');
+      await d.say('حکم «نوع‌دار» با احتمال سه حالت. پایینش همه دلایل: موجودی کافی است؟ زیر بها نیست؟ حاشیه سود؟ فاصله از تابلو؟ نقد فردا؟ سقف اعتبار مشتری؟', 7500);
+      await d.scroll(520, 1400);
+      await d.say('و جدول «الان، پس از معامله، تغییر»: نقد، بانک، طلا و مانده مشتری؛ با همان موتوری که سند را ثبت می‌کند.', 5500);
+      await d.scroll(-520, 900);
+      await d.type('#simF [name=weight]', '900');
+      await d.say('حالا ۹۰۰ گرم؛ بیش از موجودی گاوصندوق.', 2600);
+      await d.click('#simF [data-act=run]', 2200);
+      await d.point('.ctl-verdict');
+      await d.say('«ثبت نکنید»: موجودی کافی نیست. این یعنی «محاسبه فروش امن»؛ قبل از اشتباه، نه بعد از آن.', 5500);
+    },
+  },
+  {
+    n: 15, slug: 'exceptions', title: 'مرکز استثناها، موتور تأیید و کنترل چهار چشم', sub: 'فقط چیزهای عجیب و خطرناک؛ کارهای حساس با تأیید مدیر دیگر',
+    steps: ['کنترل ← «استثناها»: موجودی یا صندوق منفی، فروش زیر بها، تخفیف غیرعادی، نقد کلان گرد، چند معامله هم‌روز یک مشتری، سند با تاریخ گذشته، ویرایش پس از چاپ، ابطال، عبور از سقف اعتبار، اختلاف دفتر با اسناد.', 'کنار هر مورد احتمال «واقعاً مشکل است»؛ با «واقعی بود / هشدار کاذب» داوری کنید.', 'با ۲۰ داوری، کالیبراسیون (روش typesafe): اول AUC و ECE سنجیده می‌شوند و اصلاح فقط اگر روی نیمه آزمون بهتر شد اعمال می‌شود.', '«تأییدها»: مالک قواعد را روشن می‌کند (ابطال، فروش زیر بها، تخفیف بالا، باز کردن دوره).', 'کنترل چهار چشم: درخواست‌کننده نمی‌تواند خودش تأیید کند؛ پس از تأیید مدیر دیگر، همان کار دوباره انجام می‌شود.'],
+    async run(page, d) {
+      await d.go('/books/control?t=exceptions', 2400);
+      await d.say('مرکز استثناها: صاحب طلافروشی لازم نیست در همه‌چیز غرق شود؛ فقط این‌ها را ببیند.', 5000);
+      await d.point('.ctl-exc li');
+      await d.say('کنار هر مورد احتمال «واقعاً مشکل است» آمده. شرحش سند و مبلغ را می‌گوید و «باز کردن» مستقیم به همان سند می‌رود.', 6000);
+      await d.click('.ctl-exc li [data-label="1"]', 1200);
+      await d.say('با «واقعی بود» یا «هشدار کاذب» داوری کنید. همین داوری‌ها احتمال‌ها را با خود فروشگاه شما کالیبره می‌کنند.', 5500);
+      await d.click('.ctl-cal summary', 1200);
+      await d.say('روش کالیبراسیون از پروژه typesafe آمده: اول قدرت تمایز (AUC) و خطای مقیاس (ECE) سنجیده می‌شود؛ اصلاح دوعددی فقط اگر روی داده آزمون بهتر شد، اعمال می‌شود.', 7500);
+      await d.go('/books/control?t=approvals', 1800);
+      await d.say('موتور تأیید: مالک مشخص می‌کند کدام کارها تأیید مدیر دیگر را لازم دارد.', 4200);
+      await d.click('#apR [name=enabled]', 600);
+      await d.click('#apR button.btn', 1400);
+      await d.say('روشن شد: ابطال سند، فروش زیر بها، تخفیف بالاتر از حد و باز کردن دوره قفل.', 4200);
+      // the manager tries to void a document
+      await page.evaluate((t) => localStorage.setItem('beatris.token', t), S.managerToken);
+      await d.go(`/books/doc/${S.voidDoc}`, 2000);
+      await d.say('حالا سارا، مدیر فروشگاه، می‌خواهد یک سند را باطل کند.', 3400);
+      await d.click('[data-act=void]', 900);
+      await d.type('.modal [name=reason]', 'ثبت تکراری');
+      await d.click('.modal [data-ok]', 2200);
+      await d.say('ابطال انجام نشد؛ درخواست تأیید ثبت شد. سارا خودش نمی‌تواند آن را تأیید کند: کنترل چهار چشم.', 5500);
+      await page.evaluate((t) => localStorage.setItem('beatris.token', t), S.token);
+      await d.go('/books/control?t=approvals', 2000);
+      await d.say('مالک درخواست را با خلاصه‌اش می‌بیند و تأیید یا با دلیل رد می‌کند.', 3800);
+      await d.click('.ctl-ap [data-ap=approve]', 1600);
+      await page.evaluate((t) => localStorage.setItem('beatris.token', t), S.managerToken);
+      await d.go(`/books/doc/${S.voidDoc}`, 1800);
+      await d.click('[data-act=void]', 900);
+      await d.type('.modal [name=reason]', 'ثبت تکراری');
+      await d.click('.modal [data-ok]', 2400);
+      await d.say('پس از تأیید، سارا همان ابطال را دوباره می‌زند و انجام می‌شود. تأیید فقط یک بار و فقط برای همان محتوا معتبر است.', 6000);
+      await page.evaluate((t) => localStorage.setItem('beatris.token', t), S.token);
+      await d.go('/books/control?t=approvals', 1400);
+      await d.click('#apR [name=enabled]', 500);
+      await d.click('#apR button.btn', 1000);
+    },
+  },
+  {
+    n: 16, slug: 'twin', title: 'دوقلوی دیجیتال، ماشین زمان، سری‌ها و تایم‌لاین', sub: 'وضعیت هر روز، مسیر هر گرم و داستان هر مشتری',
+    steps: ['کنترل ← «دوقلو و ماشین زمان»: وضعیت زنده فروشگاه یا دقیقاً پایان هر روز گذشته، با مقایسه دو روز.', 'نقد، بانک، طلای فیزیکی، طلای خالص، موقعیت خالص، مطالبات و بدهی، ارزش خالص و سود همان روز؛ هر کدام «؟» دارد.', '«سری‌ها»: هر خرید یک سری با کد رهگیری؛ مانده، بها و سود هر سری و اینکه هر گرم به کدام فروش رفت.', '«تایم‌لاین»: داستان مشتری در یک جمله (سابقه، روش پرداخت، زمان تسویه، بدهی فعلی) و همه فاکتورها، تحویل‌ها، پرداخت‌ها و اصلاحیه‌ها به ترتیب.', 'تایم‌لاین کالا: هر ورود و خروج طلای آبشده یا هر سکه با مانده بعد از آن.'],
+    async run(page, d) {
+      await d.go('/books/control?t=twin', 2200);
+      await d.say('دوقلوی دیجیتال: کل فروشگاه زنده مدل می‌شود، نه فقط گزارش. همه عددها از همان دفاتر می‌آیند.', 5500);
+      await d.type('#twF [name=day]', S.pastDayFa);
+      await d.type('#twF [name=cmp]', S.pastDay2Fa);
+      await d.click('#twF button.btn:not(.ghost)', 2200);
+      await d.say('ماشین زمان: وضعیت دقیق پایان آن روز، و تغییر هر عدد نسبت به روز دیگر.', 5000);
+      await d.click('.ctl-tw .ctl-why', 1800);
+      await d.say('و باز هم «؟»: این عدد از کجا آمده.', 3000);
+      await page.keyboard.press('Escape');
+      await d.go('/books/control?t=lots', 2000);
+      await d.say('سری طلاها: هر خرید یک سری با کد رهگیری همان ردیف. مانده هر سری و سودش را می‌بینید.', 5000);
+      await d.click('.ctl-lots details summary', 1500);
+      await d.say('ردیابی هر گرم: این سری به کدام فروش‌ها رفت، به چه مبلغ و با چه سودی.', 4500);
+      await d.go('/books/control?t=story', 1600);
+      await d.type('#stF [name=pq]', 'رضا');
+      await page.waitForSelector('#stPicks [data-pid]', { timeout: 8000 });
+      await d.click('#stPicks [data-pid]', 2200);
+      await d.say('تایم‌لاین هوشمند مشتری: نه فقط فهرست فاکتور؛ داستان رابطه در یک جمله، عادت پرداخت، زمان تسویه و بدهی فعلی.', 6500);
+      await d.scroll(500, 1400);
+      await d.say('و همه رویدادها به ترتیب: فاکتور، تحویل، پرداخت، چک، اصلاحیه و ابطال، هر کدام با کد رهگیری.', 5000);
+    },
+  },
+  {
+    n: 17, slug: 'accounting-control', title: 'تراز دوتایی، پیش‌بینی ۱۰ روزه، قفل دوره، بستن خودکار و تبدیل عیار', sub: 'کنترل‌های حسابداری که معمولاً نیست',
+    steps: ['«تراز دوتایی»: هر حساب دو بعد جدا دارد: وزنی (گرم ۷۵۰ و خالص) و ریالی؛ هرگز قاطی نمی‌شوند.', '«پیش‌بینی ۱۰ روزه»: نقد و طلا روز به روز با چک‌های سررسید و بازه ۸۰٪.', '«قفل دوره»: پس از بستن ماه، ثبت، ویرایش یا ابطال با تاریخ آن ماه ممنوع است؛ فقط سند اصلاحی در تاریخ باز. باز کردن فقط با مالک و دلیل.', '«بستن خودکار»: هر شب حساب‌ها خودکار تطبیق داده می‌شوند و فقط مغایرت‌ها نشان داده می‌شوند؛ اگر پاک بود، روز با امضای فروشگاه بسته می‌شود.', '«تبدیل عیار»: هر وزن و عیار (۷۵۰، ۱۸k، ۰٫۷۵…) به خالص، ۷۵۰، مثقال ۷۰۵ و ارزش با مظنه.'],
+    async run(page, d) {
+      await d.go('/books/control?t=trial', 2200);
+      await d.say('تراز دوتایی: ستون‌های طلایی وزن‌اند (گرم ۷۵۰ و خالص)، ستون آبی ریال. هیچ‌وقت با هم جمع نمی‌شوند.', 6000);
+      await d.go('/books/control?t=forecast', 2400);
+      await d.say('پیش‌بینی ساده ۱۰ روزه: با سررسیدهای فعلی و میانگین جریان روزانه، ۱۰ روز دیگر تقریباً چقدر نقد و طلا دارید؛ نوار روشن بازه ۸۰٪ است.', 7000);
+      await d.scroll(520, 1400);
+      await d.say('چک‌های سررسید همین ۱۰ روز هم فهرست شده‌اند.', 3000);
+      await d.go('/books/control?t=periods', 1800);
+      await d.say('قفل دوره مالی: ماه تمام‌شده را قفل کنید. از آن به بعد تغییر مستقیم ممنوع است؛ فقط سند اصلاحی.', 5500);
+      await d.click('.ctl-months [data-lock]', 1000);
+      await d.click('.modal [data-ok]', 1600);
+      await d.say('قفل شد. هر ثبت یا ابطالی با تاریخ این ماه رد می‌شود. باز کردن فقط با مالک و با نوشتن دلیل است.', 5500);
+      await d.go('/books/control?t=close', 1800);
+      await d.say('بستن خودکار روز مالی: شب که می‌بندید، برنامه خودش حساب‌ها را تطبیق می‌دهد و فقط مغایرت‌ها را نشان می‌دهد.', 6000);
+      await d.click('[data-act=recon]', 2200);
+      await d.say('نتیجه تطبیق: مغایرت‌ها با پیوند مستقیم. اگر هیچ مغایرتی نبود و بستن خودکار روشن بود، روز با امضای دیجیتال فروشگاه بسته می‌شود.', 7000);
+      await d.go('/books/control?t=karat', 1600);
+      await d.type('#kF [name=w]', '12.5');
+      await d.type('#kF [name=f]', '18k');
+      await d.say('موتور تبدیل عیار: ۱۲٫۵ گرم ۱۸ عیار؛ خالص، معادل ۷۵۰ به قاعده دفتر، مثقال ۷۰۵ و قیراط، همه در یک نگاه.', 6000);
+    },
+  },
 ];
 
 try {
@@ -435,12 +606,16 @@ try {
   }
   const browser = await chromium.launch();
   const out = [];
+  const last = only.length ? Math.max(...only) : Infinity;
   for (const ch of CHAPTERS) {
-    if (only.length && !only.includes(ch.n)) continue;
+    if (ch.n > last) break;
+    const rec = !only.length || only.includes(ch.n);
+    pace = rec ? 1 : 0.25;
+    if (ch.n === 13) await prepControl();
     const vp = ch.viewport ?? { width: 1280, height: 720 };
     const dir = path.join(rawDir, String(ch.n));
     mkdirSync(dir, { recursive: true });
-    const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: 1, recordVideo: { dir, size: vp }, ...(ch.viewport ? { isMobile: true, hasTouch: true } : {}) });
+    const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: 1, ...(rec ? { recordVideo: { dir, size: vp } } : {}), ...(ch.viewport ? { isMobile: true, hasTouch: true } : {}) });
     await ctx.addInitScript(OVERLAY);
     await ctx.addInitScript((t) => {
       try {
@@ -449,16 +624,27 @@ try {
       } catch {
         /* no storage */
       }
-    }, ch.n >= 3 && ch.n < 12 ? S.token : null);
+    }, ch.n >= 3 && ch.n !== 12 ? S.token : null);
     const page = await ctx.newPage();
+    page.setDefaultTimeout(30000);
     const errs = [];
     page.on('pageerror', (e) => errs.push(e.message));
-    await page.goto(base + (ch.n >= 3 && ch.n < 12 ? '/books/pulse' : '/login'));
+    await page.goto(base + (ch.n >= 3 && ch.n !== 12 ? '/books/pulse' : '/login'));
     await page.evaluate(([n, t, s]) => window.__tt.title(n, t, s), [ch.n, ch.title, ch.sub]);
-    await wait(3400);
+    await wait(rec ? 3400 : 300);
     const d = director(page, `فصل ${ch.n} · ${ch.title}`);
     const t0 = Date.now();
-    await ch.run(page, d);
+    try {
+      await ch.run(page, d);
+    } catch (e) {
+      await page.screenshot({ path: path.join(tmpdir(), `tut-fail-${ch.n}.png`) }).catch(() => {});
+      throw new Error(`chapter ${ch.n}: ${e.message.split('\n')[0]}`);
+    }
+    if (!rec) {
+      await ctx.close();
+      console.log(`chapter ${ch.n}: run (not recorded)${errs.length ? ` — page errors: ${errs.join(' | ')}` : ''}`);
+      continue;
+    }
     await page.evaluate(() => window.__tt.say('', ''));
     await wait(600);
     const dur = Math.round((Date.now() - t0) / 1000 + 4);

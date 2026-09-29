@@ -280,7 +280,7 @@ export async function docPage(root, { id }) {
         toast('سند باطل شد.', 'ok');
         navigate(location.pathname, { replace: true });
       } catch (err) {
-        toast(err.message, 'error');
+        toast(err.message, err.status === 428 ? 'info' : 'error'); // approval requested: void again once it is approved
       }
     } else if (act === 'finalize') {
       busy(b, true);

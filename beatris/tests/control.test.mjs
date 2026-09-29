@@ -288,7 +288,8 @@ test('approvals + four eyes: a void needs another manager; the requester cannot 
   await ok('POST', `/api/books/control/approvals/${id}/approve`, { note: 'درست است' }, O);
   // someone else cannot use it
   assert.equal((await call('POST', `/api/books/docs/${cash.id}/void`, { reason: 'ثبت اشتباه', approval: id }, O)).status, 403);
-  const v = await ok('POST', `/api/books/docs/${cash.id}/void`, { reason: 'ثبت اشتباه', approval: id }, M);
+  // after approval, simply doing the same thing again goes through (no id to carry around in the screens)
+  const v = await ok('POST', `/api/books/docs/${cash.id}/void`, { reason: 'ثبت اشتباه' }, M);
   assert.equal(v.status, 'void');
   const list = await ok('GET', '/api/books/control/approvals', null, O);
   assert.equal(list.items.find((a) => a.id === id).status, 'used');
