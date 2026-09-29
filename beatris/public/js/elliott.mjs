@@ -127,14 +127,14 @@ function scenariosOf(c, bars, fib, ctx) {
     const z = zoneAhead(-s) ?? bandOf(lvl(0.382), lvl(0.618));
     const A = (z.hi + z.lo) / 2, C = s > 0 ? z.lo : z.hi;
     primary = {
-      title: s > 0 ? 'اصلاح A-B-C پس از پنج موج صعودی' : 'برگشت A-B-C پس از پنج موج نزولی',
+      title: s > 0 ? 'اصلاح A-B-C پس از پنج موج صعودی' : 'برگشت A-B-C پس از پنج موج نزولی', endLabel: 'C',
       dir: -s, band: z, path: abcPath(A, A + (cl - A) * 0.5, C),
       lines: [`پایان موج (V) در ${ctx.f(p[5])}`, `اصلاح تا محدوده ${ctx.f(z.lo)} – ${ctx.f(z.hi)} (فیبوناچی ${z.levels ? z.levels.map(fmtR).join(' و ') : '۰٫۳۸۲ تا ۰٫۶۱۸'})`, `تأیید: ${s > 0 ? 'شکست کف' : 'عبور از سقف'} موج (IV) در ${ctx.f(p[4])}`],
       trigger: p[4],
     };
     const ext = p[5] + s * 0.618 * Math.abs(p[5] - p[4]);
     alternative = {
-      title: 'امتداد موج (V)', dir: s, band: bandOf(p[5], ext), path: walk(ext),
+      title: 'امتداد موج (V)', endLabel: 'V', dir: s, band: bandOf(p[5], ext), path: walk(ext),
       lines: [`${s > 0 ? 'عبور از سقف' : 'شکست کف'} ${ctx.f(p[5])} یعنی موج (V) تمام نشده`, `هدف امتداد تا ${ctx.f(ext)} (۰٫۶۱۸ × موج (IV)→(V))`],
       trigger: p[5],
     };
@@ -143,13 +143,13 @@ function scenariosOf(c, bars, fib, ctx) {
     const band = bandOf(Math.min(...ts), Math.max(...ts));
     const T5 = s > 0 ? band.hi : band.lo;
     primary = {
-      title: `شروع موج (V) ${s > 0 ? 'صعودی' : 'نزولی'}`, dir: s, band, path: walk(T5),
+      title: `شروع موج (V) ${s > 0 ? 'صعودی' : 'نزولی'}`, endLabel: 'V', dir: s, band, path: walk(T5),
       lines: [`تکمیل موج (IV) در ${ctx.f(p[4])}`, `هدف موج (V): ${ctx.f(band.lo)} – ${ctx.f(band.hi)}`, `${s > 0 ? 'عبور از سقف' : 'شکست کف'} موج (III) در ${ctx.f(p[3])} تأیید است`],
       trigger: p[3],
     };
     const deep = bandOf(lvl(0.618), lvl(0.786));
     alternative = {
-      title: 'اصلاح عمیق‌تر (شمارش باطل)', dir: -s, band: deep, path: abcPath((cl + (s > 0 ? deep.hi : deep.lo)) / 2, cl - (cl - (s > 0 ? deep.hi : deep.lo)) * 0.25, s > 0 ? deep.lo : deep.hi),
+      title: 'اصلاح عمیق‌تر (شمارش باطل)', endLabel: 'A', dir: -s, band: deep, path: abcPath((cl + (s > 0 ? deep.hi : deep.lo)) / 2, cl - (cl - (s > 0 ? deep.hi : deep.lo)) * 0.25, s > 0 ? deep.lo : deep.hi),
       lines: [`${s > 0 ? 'شکست' : 'عبور از'} ${ctx.f(c.invalid)} (سقف/کف موج (I)) شمارش را باطل می‌کند`, `اصلاح تا ${ctx.f(deep.lo)} – ${ctx.f(deep.hi)} (فیبوناچی ۰٫۶۱۸ تا ۰٫۷۸۶)`],
       trigger: c.invalid,
     };
@@ -157,7 +157,7 @@ function scenariosOf(c, bars, fib, ctx) {
     const ts = c.targets.map((t) => t.price).filter(fin).slice(0, 2);
     const band = bandOf(ts[0], ts[1]);
     primary = {
-      title: `موج (III) ${s > 0 ? 'صعودی' : 'نزولی'} — معمولاً قوی‌ترین`, dir: s, band, path: walk(s > 0 ? band.hi : band.lo),
+      title: `موج (III) ${s > 0 ? 'صعودی' : 'نزولی'} — معمولاً قوی‌ترین`, endLabel: 'III', dir: s, band, path: walk(s > 0 ? band.hi : band.lo),
       lines: [`تکمیل موج (II) در ${ctx.f(p[2])}`, `هدف موج (III): ${ctx.f(band.lo)} – ${ctx.f(band.hi)} (۱ تا ۱٫۶۱۸ × موج (I))`, `${s > 0 ? 'عبور از سقف' : 'شکست کف'} موج (I) در ${ctx.f(p[1])} تأیید است`],
       trigger: p[1],
     };
@@ -172,13 +172,13 @@ function scenariosOf(c, bars, fib, ctx) {
     const ts = c.targets.map((t) => t.price).filter(fin);
     const band = bandOf(ts[1], ts[2]);
     primary = {
-      title: 'پایان اصلاح و آغاز روند تازه', dir: -s, band, path: walk(s > 0 ? band.lo : band.hi),
+      title: 'پایان اصلاح و آغاز روند تازه', endLabel: 'I', dir: -s, band, path: walk(s > 0 ? band.lo : band.hi),
       lines: [`تکمیل موج (C) در ${ctx.f(p[3])}`, `برگشت تا ${ctx.f(band.lo)} – ${ctx.f(band.hi)} (۰٫۶۱۸ تا ۱ از کل اصلاح)`, `${s > 0 ? 'شکست کف' : 'عبور از سقف'} موج (B) در ${ctx.f(p[2])} تأیید است`],
       trigger: p[2],
     };
     const ext = p[2] + s * 1.618 * Math.abs(p[1] - p[0]);
     alternative = {
-      title: 'امتداد موج (C)', dir: s, band: bandOf(p[3], ext), path: walk(ext, { pull: 0.3 }),
+      title: 'امتداد موج (C)', endLabel: 'C', dir: s, band: bandOf(p[3], ext), path: walk(ext, { pull: 0.3 }),
       lines: [`${s > 0 ? 'عبور از سقف' : 'شکست کف'} ${ctx.f(p[3])} یعنی اصلاح ادامه دارد`, `موج (C) = ۱٫۶۱۸ × (A) تا ${ctx.f(ext)}`],
       trigger: p[3],
     };

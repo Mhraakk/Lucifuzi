@@ -2,6 +2,7 @@
 // accounts, daybook, customers, vault and products, bank, dashboard, audit, smart tools, phone). Chapters, posters and
 // written steps come from /media/tutorial/chapters.json, written by scripts/tutorial.mjs next to the videos.
 import { html, fa, $, $$ } from '../core.mjs';
+import { install } from '../install.mjs';
 
 const KEY = 'beatris.help';
 const load = () => {
@@ -38,7 +39,7 @@ export async function helpPage(root, { ch } = {}) {
   const total = list.reduce((a, c) => a + c.seconds, 0);
 
   root.innerHTML = String(html`<section class="hlp">
-    <header class="hlp-head"><div><h1>راهنمای تصویری از صفر تا صد</h1><p class="small">${fa(list.length)} فصل · ${clock(total)} دقیقه · هر فصل با نمونه واقعی ثبت می‌شود؛ هر جا خواستید مکث کنید و همان کار را در برنامه انجام دهید.</p><p class="small"><a href="/downloads/Beatris-Setup-x64.exe" download>دانلود نسخه ویندوز ۱۱ (۶۴ بیت)</a>: پنجره مستقل، آیکن روی دسکتاپ و منوی استارت، بدون نیاز به مدیر سیستم.</p></div><div class="hlp-prog" id="hpProg"></div></header>
+    <header class="hlp-head"><div><h1>راهنمای تصویری از صفر تا صد</h1><p class="small">${fa(list.length)} فصل · ${clock(total)} دقیقه · هر فصل با نمونه واقعی ثبت می‌شود؛ هر جا خواستید مکث کنید و همان کار را در برنامه انجام دهید.</p><p class="small"><button type="button" class="linkish" id="hpInstall">نصب وب‌اپ روی همین دستگاه</button> (گوشی، تبلت، کامپیوتر) · <a href="/downloads/Beatris-Setup-x64.exe" download>نصب‌کننده ویندوز ۱۱ (۶۴ بیت)</a></p></div><div class="hlp-prog" id="hpProg"></div></header>
     <div class="hlp-grid">
       <div class="hlp-main">
         <div class="hlp-stage" id="hpStage"><video id="hpVideo" controls playsinline preload="metadata"><source id="hpMp4" type="video/mp4; codecs=avc1.64001F"><source id="hpWebm" type="video/webm; codecs=vp9"></video></div>
@@ -47,6 +48,7 @@ export async function helpPage(root, { ch } = {}) {
       </div>
       <ol class="hlp-list" id="hpList">${list.map((c) => html`<li><button data-ch="${c.n}"><img src="${c.poster}" alt="" loading="lazy" width="112" height="${c.vertical ? 112 : 63}"><span><b>${fa(c.n)}. ${c.title}</b><small>${c.sub}</small><em>${clock(c.seconds)}</em></span><i class="hlp-tick" aria-hidden="true"></i></button></li>`)}</ol>
     </div></section>`);
+  $('#hpInstall', root)?.addEventListener('click', () => install());
 
   const video = $('#hpVideo', root);
   const rate = () => Number(state.rate) || 1;

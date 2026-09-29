@@ -55,7 +55,7 @@ export function createElliottView(host, { label = 'نمودار امواج ال�
   function fullView() {
     const n = S.bars.length;
     const start = S.map?.major ? Math.max(0, S.map.major.points[0].i - Math.round(n * 0.04)) : Math.max(0, n - 260);
-    const fut = Math.max(horizon() + 4, Math.round((n - start) * 0.06));
+    const fut = Math.max(horizon() + Math.max(6, Math.round((n - start) * 0.07)), Math.round((n - start) * 0.06));
     // leave room on the left for the legend card when it is open
     const span = n - 1 + fut - start, room = L ? clamp(S.inset / L.plotW, 0, 0.5) : 0;
     return { from: start - (span * room) / (1 - room), to: n - 1 + fut };
@@ -78,7 +78,9 @@ export function createElliottView(host, { label = 'نمودار امواج ال�
     if (sc) for (const p of [...sc.primary.path, ...sc.alternative.path]) if (p.i >= view.from && p.i <= view.to + 1) extra.push(p.price);
     for (const z of S.map?.zones ?? []) extra.push(z.lo, z.hi);
     for (const v of extra) if (fin(v) && v > lo - span * 0.9 && v < hi + span * 0.9) ((lo = Math.min(lo, v)), (hi = Math.max(hi, v)));
-    const pad = (hi - lo) * 0.07 || hi * 0.01;
+    // headroom for the labels drawn beyond the extremes (wave labels, target tags, projected wave names)
+    const room = sc ? 62 : 40;
+    const pad = Math.max((hi - lo) * 0.07, ((hi - lo) * room) / Math.max(120, L.price.h - 2 * room)) || hi * 0.01;
     return [lo - pad, hi + pad];
   }
 
@@ -296,9 +298,10 @@ export function createElliottView(host, { label = 'نمودار امواج ال�
       g.closePath();
       g.fill();
     };
-    const tag = (x, y, t, color, below) => {
+    const tag = (x0, y, t, color, below) => {
       g.font = FONT(12, 700);
       const tw = g.measureText(t).width;
+      const x = clamp(x0, tw / 2 + 9, L.plotW - tw / 2 - 9);
       const yy = below ? y + 16 : y - 16;
       g.fillStyle = 'rgba(10,15,28,0.9)';
       g.strokeStyle = color;
@@ -317,6 +320,15 @@ export function createElliottView(host, { label = 'نمودار امواج ال�
       for (const [s, color] of [[sc.alternative, C.red], [sc.primary, C.green]]) {
         const z = s.path.at(-1);
         tag(xOf(z.i), yOf(z.price), `${S.format(s.band.lo)} – ${S.format(s.band.hi)}`, color, s.dir < 0);
+        if (s.endLabel) {
+          // the wave the path completes, in the large degree's notation (projected, so drawn lighter)
+          g.font = FONT(16, 800);
+          g.fillStyle = 'rgba(251,146,60,0.85)';
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.direction = 'ltr';
+          g.fillText(`(${s.endLabel})`, clamp(xOf(z.i), 20, L.plotW - 24), yOf(z.price) + (s.dir < 0 ? 44 : -44));
+        }
         for (const p of s.path.slice(1, -1)) if (p.tag) tag(xOf(p.i), yOf(p.price), `${typeof p.tag === 'string' ? `${p.tag} ` : ''}${S.format(p.price)}`, color, p.price < s.path[0].price);
       }
     }

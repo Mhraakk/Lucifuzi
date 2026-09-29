@@ -1,5 +1,6 @@
 import { html, api, auth, store, navigate, $, busy, fa, actions } from '../core.mjs';
 import { brandMark } from '../ui.mjs';
+import { install, canInstall } from '../install.mjs';
 import { ROLE_FA } from '../core.mjs';
 
 export async function loginPage(root) {
@@ -24,7 +25,7 @@ export async function loginPage(root) {
         <button class="btn block" type="submit">ورود</button>
       </form>
       <p class="small">نام کاربری و رمز را فقط ارائه‌دهنده نرم‌افزار صادر می‌کند. با همین حساب روی گوشی، تبلت و کامپیوتر وارد شوید. برای رمز فراموش‌شده با ارائه‌دهنده تماس بگیرید.</p>
-      <p class="small"><a href="/intro" data-link>آشنایی با بئاتریس برای فروشگاه شما</a> · <a href="/downloads/Beatris-Setup-x64.exe" download>نسخه ویندوز ۱۱ (۶۴ بیت)</a></p>
+      <p class="small"><a href="/intro" data-link>آشنایی با بئاتریس برای فروشگاه شما</a> · <a href="/downloads/Beatris-Setup-x64.exe" download>نسخه ویندوز ۱۱ (۶۴ بیت)</a>${canInstall() ? html` · <button type="button" class="linkish" data-act="install">نصب وب‌اپ روی همین دستگاه</button>` : ''}</p>
       ${cfg.demo && cfg.demoAccounts.length
         ? html`<div class="demo tray"><h3>حساب‌های نمایشی</h3><p class="small">رمز همه: ۱۲۳۴</p>
             <ul class="rows">${cfg.demoAccounts.map((a) => html`<li><button class="row btn ghost small" style="border:0;border-radius:0" data-act="demo" data-phone="${a.phone}">
@@ -67,6 +68,7 @@ export async function loginPage(root) {
       el.textContent = on ? 'پنهان' : 'نمایش';
       el.setAttribute('aria-pressed', String(on));
     },
+    install: () => install(),
     demo: (el) => {
       form.login.value = fa(el.dataset.phone);
       form.password.value = '1234';

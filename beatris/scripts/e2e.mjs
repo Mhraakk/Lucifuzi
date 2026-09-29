@@ -1050,6 +1050,27 @@ async function loginUI(page) {
     check('control: twin numbers explain themselves', (await text(page, '.xp-s')).length > 10);
     await page.keyboard.press('Escape');
   });
+  await step('web app: installable PWA (manifest, service worker, shortcuts, screenshots) and the install guide', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const p = await ctx.newPage();
+    const host = base.replace('127.0.0.1', 'localhost'); // a secure context for the service worker
+    await p.goto(host + '/login');
+    await p.waitForTimeout(2000);
+    await p.reload();
+    await p.waitForTimeout(1200);
+    const cdp = await ctx.newCDPSession(p);
+    const man = await cdp.send('Page.getAppManifest');
+    const inst = await cdp.send('Page.getInstallabilityErrors');
+    check('web app: manifest parses without errors', man.errors.length === 0, JSON.stringify(man.errors));
+    check('web app: Chromium finds it installable', inst.installabilityErrors.length === 0, JSON.stringify(inst.installabilityErrors));
+    check('web app: the service worker controls the page', await p.evaluate(() => !!navigator.serviceWorker.controller));
+    const m = JSON.parse(man.data);
+    check('web app: shortcuts and wide + narrow screenshots', m.shortcuts?.length >= 3 && m.screenshots?.some((x) => x.form_factor === 'wide') && m.screenshots?.some((x) => x.form_factor === 'narrow'));
+    await p.click('[data-act=install]');
+    check('web app: install guide opens', await p.waitForSelector('.ins', { timeout: 5000 }).then(() => true, () => false));
+    check('web app: Windows installer is downloadable', (await fetch(`${base}/downloads/Beatris-Setup-x64.exe`, { method: 'HEAD' })).headers.get('content-type')?.includes('portable-executable'));
+    await ctx.close();
+  });
   await step('elliott studio: multi-degree count, fib, scenarios, panes, cards (books and market)', async () => {
     await go(page, '/books/elliott', 2500);
     await page.waitForSelector('.ew-cv');

@@ -4,6 +4,7 @@ import { SHOP_NAME } from './crown.mjs';
 import { startHarness } from './harness.mjs';
 import { initPalette, openPalette } from './palette.mjs';
 import { initExplain } from './explain.mjs';
+import { initInstall, install, canInstall } from './install.mjs';
 
 /* ---------- پوسته: آرام (default), روز, کلاسیک — remembered per device ---------- */
 const THEMES = ['calm', 'day', 'classic'];
@@ -113,8 +114,9 @@ setShell((opts) => {
   if (u) startHarness();
   top.hidden = false;
   const shop = store.me?.brand?.shopName || SHOP_NAME;
-  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><button class="theme-btn" id="palBtn" title="فرمان سریع (Ctrl+K)" aria-label="فرمان سریع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a><button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
+  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><button class="theme-btn" id="palBtn" title="فرمان سریع (Ctrl+K)" aria-label="فرمان سریع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a>${canInstall() ? html`<button class="theme-btn" id="insBtn" title="نصب اپ روی همین دستگاه" aria-label="نصب اپ روی همین دستگاه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg></button>` : ''}<button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
   $('#palBtn', top)?.addEventListener('click', () => openPalette());
+  $('#insBtn', top)?.addEventListener('click', () => install());
   $('#themeBtn', top)?.addEventListener('click', (e) => {
     const next = THEMES[(THEMES.indexOf(theme()) + 1) % THEMES.length];
     setTheme(next);
@@ -139,6 +141,7 @@ setShell((opts) => {
 });
 
 initPalette();
+initInstall();
 initExplain();
 render();
 
