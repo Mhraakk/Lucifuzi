@@ -6,12 +6,12 @@ import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../public/js/coins.mjs';
 import { jalaliOf } from '../public/js/ta.mjs';
+import { tehranHour } from './tz.mjs';
 
 const SYS = { id: null, role: 'owner', name: 'داشبورد' };
 const DAY = 864e5;
 const addDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
 const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / DAY);
-const tehranHour = (iso) => Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Tehran' }).format(new Date(iso))) % 24;
 export const AGING_BUCKETS = [
   ['d0', '۰ تا ۷ روز', 0, 7],
   ['d8', '۸ تا ۳۰ روز', 8, 30],
@@ -20,9 +20,12 @@ export const AGING_BUCKETS = [
   ['d90', 'بیش از ۹۰ روز', 91, Infinity],
 ];
 
-export function makeDashboard({ db, call, tehranDay, livePrices, market, audit }) {
+export function makeDashboard({ db, call, core = null, tehranDay, livePrices, market, audit }) {
+  // the one core (spec 0004): shared per ledger revision
+  const memo = (name, key, fn) => (core ? core.memo(`dash.${name}`, key, fn) : fn());
   // eq-750 grams of every sealed bar ever booked (its latest recorded weight and fineness)
-  function barGrams() {
+  const barGrams = () => memo('bars', '', barGramsOf);
+  function barGramsOf() {
     const m = new Map();
     for (const r of db.all("SELECT type, data_json FROM bk_docs WHERE status='final' AND ((type='trade' AND data_json LIKE '%\"kind\":\"bar\"%') OR (type IN ('opening','adjust') AND data_json LIKE '%\"acct\":\"bar:%')) ORDER BY date, created_at")) {
       const d = JSON.parse(r.data_json);
@@ -39,7 +42,7 @@ export function makeDashboard({ db, call, tehranDay, livePrices, market, audit }
    */
   function positionSeries(points, mode) {
     const bars = barGrams();
-    const rows = db.all("SELECT p.acct, p.unit, p.amt, p.date, COALESCE(d.issued_at, d.created_at, p.date || 'T08:30:00Z') AS ts FROM bk_postings p LEFT JOIN bk_docs d ON d.id=p.src WHERE p.acct='gold' OR p.acct LIKE 'bar:%' OR (p.acct LIKE 'party:%' AND (p.unit IN ('G750','IRR') OR p.unit LIKE 'BAR:%')) ORDER BY p.date, ts");
+    const rows = memo('rows', '', () => db.all("SELECT p.acct, p.unit, p.amt, p.date, COALESCE(d.issued_at, d.created_at, p.date || 'T08:30:00Z') AS ts FROM bk_postings p LEFT JOIN bk_docs d ON d.id=p.src WHERE p.acct='gold' OR p.acct LIKE 'bar:%' OR (p.acct LIKE 'party:%' AND (p.unit IN ('G750','IRR') OR p.unit LIKE 'BAR:%')) ORDER BY p.date, ts"));
     const today = tehranDay();
     const keyOf = (r) => (mode === 'hour' ? (r.date < today ? '' : String(tehranHour(r.ts)).padStart(2, '0')) : r.date);
     const partyG = new Map(), partyI = new Map();
@@ -141,6 +144,10 @@ export function makeDashboard({ db, call, tehranDay, livePrices, market, audit }
   }
 
   function build({ range = '7', from, to } = {}) {
+    const hour = range === 'today' ? tehranHour(new Date().toISOString()) : '';
+    return memo('build', `${range}|${from ?? ''}|${to ?? ''}|${tehranDay()}|${hour}|${core?.priceKey?.() ?? ''}`, () => buildOf({ range, from, to }));
+  }
+  function buildOf({ range = '7', from, to } = {}) {
     const today = tehranDay();
     const lp = livePrices();
     const p750 = lp.price.G750;
@@ -224,7 +231,7 @@ export function makeDashboard({ db, call, tehranDay, livePrices, market, audit }
         net: { grams: now.netGoldPosition, value: Math.round(now.netGoldPosition * p750), change: pct(now.netGoldPosition, ago.netGoldPosition), spark: s30.map((x) => x.netGoldPosition) },
       },
       series, p750,
-      aging: aging(today),
+      aging: memo('aging', today, () => aging(today)),
       allocation: {
         market: alloc(marketPhys, bal.coinsValue),
         book: alloc(bookGold != null ? bookGold + Math.round(barG * p750) : marketPhys, bookCoins),

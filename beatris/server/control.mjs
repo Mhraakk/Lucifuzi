@@ -14,6 +14,7 @@ import { jalaliOf } from '../public/js/ta.mjs';
 import { replayLedger } from './replay.mjs';
 import { knowledge } from './rag.mjs';
 import { createHash, randomUUID } from 'node:crypto';
+import { tehranDayOf, tehranTime as tehranTimeNow } from './tz.mjs';
 
 const createHashHex = (s) => createHash('sha256').update(s).digest('hex');
 const randomId = () => randomUUID();
@@ -46,7 +47,6 @@ const pf = (x, digits = 1) => fa(Number(x).toFixed(digits)).replace('.', '٫');
 const R = (v) => B.fmtMoney(Math.round(v), 'rial');
 const G = (v) => `${B.fmtG(r3(v))} گرم`;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-const tehranDayOf = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(new Date(iso));
 const median = (xs) => {
   const s = [...xs].sort((a, b) => a - b);
   return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0;
@@ -58,9 +58,25 @@ const quantile = (xs, q) => {
 const unitName = (u) => (u === 'IRR' ? 'ریال' : u === 'G750' ? 'گرم ۷۵۰' : u.startsWith('COIN:') ? `سکه ${COIN_TYPES[u.slice(5)]?.short ?? u.slice(5)}` : u.startsWith('FX:') ? (TR.FX_CODES[u.slice(3)] ?? u) : u.startsWith('BAR:') ? `شمش ${fa(u.slice(4))}` : u);
 const amtText = (u, v) => (u === 'IRR' ? R(v) : u === 'G750' ? `${G(v)} ۷۵۰` : u.startsWith('COIN:') ? `${fa(v)} ${unitName(u)}` : u.startsWith('BAR:') ? unitName(u) : `${fa(v)} ${unitName(u)}`);
 
-export function makeControl({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, partyRow, market, dashboard, audit, risk, shopId, closeSystem = null }) {
+export function makeControl({ db, on, call, core, auditShared = null, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, partyRow, market, dashboard, audit, risk, shopId, closeSystem = null }) {
   db.raw.exec(CONTROL_SCHEMA);
   const SYS = { id: null, role: 'owner', name: 'سامانه' };
+  // the one core (spec 0004): derived state is computed once per ledger revision and shared by every screen
+  const memo = (name, key, fn) => core.memo(`ctl.${name}`, key, fn);
+  const priceKey = () => core.priceKey();
+  const lotsAt = (day) => memo('lots', day, () => buildLots(finalEvents(day)));
+  const positionsAt = (day) => core.positions(day);
+  // the replay hunts hand-edited rows, not today's writes (those are consistent by construction): it runs at most every
+  // ten minutes on the exceptions path, incrementally; the explicit replay and the nightly recon always run in full
+  const replayCache = new Map();
+  let replayLast = null;
+  const replayNow = () => {
+    if (!replayLast || Date.now() - replayLast.at > 10 * 60 * 1000) replayLast = { at: Date.now(), r: replayLedger(db, replayCache) };
+    return replayLast.r;
+  };
+  const auditNow = () => (auditShared ? auditShared.run() : audit.run(SYS));
+  const forecastNow = () => memo('forecast', tehranDay(), () => call('GET', '/api/books/forecast', SYS));
+  const riskNow = () => memo('risk', `${tehranDay()}|${priceKey()}`, () => risk());
   const forbid = (m) => new HttpError(403, m);
   const track = (d) => B.trackCode(d.type, d.fy, d.no);
   const partyLabel = (id) => {
@@ -116,8 +132,9 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     return { price, mazaneh: last.mesghal ?? null, sample: sample || !last.mesghal, day };
   }
   const accountTitles = () => Object.fromEntries(db.all('SELECT id, kind, title FROM bk_accounts').map((a) => [`${a.kind}:${a.id}`, a.title]));
-  /** The digital twin: the whole shop as it stood at the end of `day`. */
-  function twin(day) {
+  /** The digital twin: the whole shop as it stood at the end of `day`. Shared, so callers never modify it. */
+  const twin = (day) => memo('twin', `${day}|${day >= tehranDay() ? priceKey() : market?.rev?.() ?? 0}`, () => twinOf(day));
+  function twinOf(day) {
     const bal = balancesAt(day);
     const cards = barCards();
     const titles = accountTitles();
@@ -167,8 +184,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
       goodsPayable: Math.round(goodsVal(t.payable)),
     };
     t.value.net = t.value.physical + t.value.coins + t.value.cash + t.value.receivableIrr - t.value.payableIrr + t.value.goodsReceivable - t.value.goodsPayable;
-    const events = finalEvents(day);
-    const pr = TR.positionReport(events);
+    const pr = positionsAt(day);
     t.realizedToDate = Object.values(pr.positions).reduce((s, x) => s + x.realized, 0);
     t.realizedThatDay = pr.byDay[day] ?? 0;
     t.docsThatDay = db.get("SELECT COUNT(*) AS n FROM bk_docs WHERE status='final' AND date=?", day).n;
@@ -176,10 +192,8 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     t.closed = close && !close.reopened_at ? { at: close.created_at, by: close.signer_name } : null;
     return t;
   }
-  function finalEvents(upto = '9999-12-31', from = '0000-01-01') {
-    return db.all("SELECT id, type, fy, no, date, party_id, data_json, calc_json FROM bk_docs WHERE status='final' AND date<=? AND date>=? ORDER BY date, COALESCE(issued_at, created_at)", upto, from)
-      .map((r) => ({ id: r.id, track: track(r), type: r.type, date: r.date, party: r.party_id ? partyLabel(r.party_id) : null, partyId: r.party_id, data: JSON.parse(r.data_json), calc: JSON.parse(r.calc_json) }));
-  }
+  /** Final documents in booking order, from the one core (parsed once, shared). */
+  const finalEvents = (upto = '9999-12-31', from = '0000-01-01') => core.events(upto, from);
 
   on('GET', '/api/books/control/twin', 'auth', ({ user, url }) => {
     guardAdmin(user);
@@ -196,7 +210,8 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     const c = getSetting('excCalibration', null);
     return c && c.rules === RULES_VERSION ? c : null; // a calibration fitted on other rules is refused, never applied
   };
-  function exceptionsRaw() {
+  const exceptionsRaw = () => memo('exc', `${tehranDay()}|${priceKey()}`, () => exceptionsRawOf());
+  function exceptionsRawOf() {
     const today = tehranDay();
     const since = addDays(today, -30);
     const out = [];
@@ -211,7 +226,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     }
     const docs = finalEvents(today, since);
     // 2. sold below cost (FIFO lots over all history, sales of the last 30 days)
-    const lots = buildLots(finalEvents(today));
+    const lots = lotsAt(today);
     for (const s of lots.sales) {
       if (s.date < since || s.shortage) continue;
       const cost = s.alloc.reduce((a, x) => a + x.cost, 0), profit = s.alloc.reduce((a, x) => a + x.profit, 0);
@@ -272,14 +287,14 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     }
     // 10. the books disagree with their own documents
     try {
-      const rp = replayLedger(db);
+      const rp = replayNow();
       for (const x of rp.diffs.slice(0, 20)) push({ key: `replay:${x.doc}:${x.acct}:${x.unit}`, rule: 'replay', title: 'اختلاف دفتر با اسناد', detail: `${x.track ?? x.doc}: ثبت ${x.acct} در دفتر ${fa(x.stored)} است ولی از سند ${fa(x.expected)} درمی‌آید.`, raw: 4, href: x.track ? `/books/trace?q=${encodeURIComponent(x.track)}` : '/books/log' });
     } catch {
       /* replay is optional */
     }
     // 11. what the auditor already calls serious
     try {
-      for (const f of audit.run(SYS).findings.filter((f) => f.sev === 'high').slice(0, 15)) push({ key: `audit:${f.key ?? f.title}:${f.ref ?? f.detail ?? ''}`.slice(0, 200), rule: 'audit', title: `ممیز: ${f.title}`, detail: f.detail ?? '', raw: 2.6, href: '/books/audit' });
+      for (const f of auditNow().findings.filter((f) => f.sev === 'high').slice(0, 15)) push({ key: `audit:${f.key ?? f.title}:${f.ref ?? f.detail ?? ''}`.slice(0, 200), rule: 'audit', title: `ممیز: ${f.title}`, detail: f.detail ?? '', raw: 2.6, href: '/books/audit' });
     } catch {
       /* the auditor is optional */
     }
@@ -359,7 +374,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     sig('exceptions', 3, true, ex.count.high * 0.35 + Math.min(0.45, ex.count.mid * 0.08), ex.count.high ? `${fa(ex.count.high)} استثنای جدی باز است` : ex.count.mid ? `${fa(ex.count.mid)} مورد نیاز به نگاه دارد` : 'استثنای جدی نیست', '/books/control?t=exceptions');
     let fc = null;
     try {
-      fc = call('GET', '/api/books/forecast', SYS);
+      fc = forecastNow();
     } catch {
       /* no forecast */
     }
@@ -369,7 +384,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     sig('custody', 2, owedGold > 0 || t.physicalG750 !== 0, owedGold > 0 ? Math.max(0, (owedGold - t.physicalG750) / owedGold) * 1.3 : t.physicalG750 < 0 ? 1 : 0, owedGold > t.physicalG750 ? `تعهد طلایی به مشتریان (${G(owedGold)}) از طلای موجود (${G(t.physicalG750)}) بیشتر است` : `طلای موجود (${G(t.physicalG750)}) تعهدات طلایی را پوشش می‌دهد`, '/books/vault');
     let rk = null;
     try {
-      rk = risk();
+      rk = riskNow();
     } catch {
       /* optional */
     }
@@ -417,7 +432,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
       add(1 + Math.min(2, docs.length / 20), 'doc', `${fa(docs.length)} سند تازه`, `جمع گردش ${R(net)}`, '/books/day');
     }
     // the biggest trades, measured against the last 90 days
-    const hist = db.all("SELECT calc_json FROM bk_docs WHERE status='final' AND type='trade' AND date>=?", addDays(tehranDay(), -90)).map((r) => Math.abs(JSON.parse(r.calc_json).net ?? 0) + Math.abs(JSON.parse(r.calc_json).buys ?? 0));
+    const hist = memo('bigHist', tehranDay(), () => finalEvents(tehranDay(), addDays(tehranDay(), -90)).filter((e) => e.type === 'trade').map((e) => Math.abs(e.calc.net ?? 0) + Math.abs(e.calc.buys ?? 0)));
     const big = Math.max(quantile(hist, 0.9), 1);
     for (const d of docs.filter((x) => x.type === 'trade' && x.status === 'final')) {
       const c = JSON.parse(d.calc_json);
@@ -426,7 +441,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     }
     for (const v of db.all("SELECT v.doc_id, v.version, v.status, v.reason, v.at, d.type, d.fy, d.no FROM bk_versions v JOIN bk_docs d ON d.id=v.doc_id WHERE v.at>=? AND v.version>1 AND v.reason<>'قطعی شد'", since)) add(v.status === 'void' ? 3 : 2, v.status === 'void' ? 'void' : 'edit', v.status === 'void' ? 'ابطال سند' : 'ویرایش سند', `${track(v)}: «${v.reason || 'بی‌دلیل'}»`, `/books/doc/${v.doc_id}`);
     // cash and gold moved by what was booked since
-    const moved = db.get("SELECT SUM(CASE WHEN p.acct LIKE 'cash:%' THEN p.amt ELSE 0 END) AS cash, SUM(CASE WHEN p.acct='gold' THEN p.amt ELSE 0 END) AS gold FROM bk_postings p JOIN bk_docs d ON d.id=p.src WHERE d.updated_at>=?", since);
+    const moved = db.get("SELECT SUM(CASE WHEN p.acct LIKE 'cash:%' THEN p.amt ELSE 0 END) AS cash, SUM(CASE WHEN p.acct='gold' THEN p.amt ELSE 0 END) AS gold FROM bk_postings p WHERE p.src IN (SELECT id FROM bk_docs WHERE updated_at>=?)", since);
     if (Math.abs(moved.cash ?? 0) >= 1) add(1.5, 'cash', `نقد ${moved.cash > 0 ? 'افزایش' : 'کاهش'} یافت`, `${moved.cash > 0 ? '+' : '−'}${R(Math.abs(moved.cash))} در صندوق‌ها`, '/books/cash');
     if (Math.abs(moved.gold ?? 0) >= 0.001) add(1.5, 'gold', `طلای آبشده ${moved.gold > 0 ? 'افزایش' : 'کاهش'} یافت`, `${moved.gold > 0 ? '+' : '−'}${G(Math.abs(moved.gold))} ۷۵۰`, '/books/vault');
     // price since then
@@ -500,7 +515,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     const cashNeg = [...after].filter(([k, u]) => k.startsWith('cash:') && (u.IRR ?? 0) < -1 && (u.IRR ?? 0) < (before.get(k)?.IRR ?? 0));
     check('cash', 'stop', !cashNeg.length, cashNeg.length ? `صندوق نقد منفی می‌شود (${R(cashNeg[0][1].IRR)})؛ از بانک پرداخت کنید یا کمتر بپردازید` : 'این معامله صندوق نقد را منفی نمی‌کند');
     // 3. selling below cost and margin (next lots out, FIFO)
-    const lots = buildLots(finalEvents(today));
+    const lots = lotsAt(today);
     const openByUnit = {};
     for (const l of lots.lots) if (l.remaining > 1e-9) (openByUnit[l.unit] ??= []).push(l);
     const minMargin = (settings().minMarginPct ?? 0.5) / 100;
@@ -548,7 +563,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     // 5. cash for tomorrow
     let fc = null;
     try {
-      fc = call('GET', '/api/books/forecast', SYS);
+      fc = forecastNow();
     } catch {
       /* none */
     }
@@ -587,7 +602,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
   /* ------------------------------------------------------------------ سری‌ها و ردیابی هر گرم */
   on('GET', '/api/books/control/lots', 'auth', ({ user, url }) => {
     guardAdmin(user);
-    const r = buildLots(finalEvents(tehranDay()));
+    const r = lotsAt(tehranDay());
     const unit = url.searchParams.get('unit');
     const q = String(url.searchParams.get('q') ?? '').trim().toUpperCase().replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
     let lots = r.lots;
@@ -795,7 +810,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
         return { metric, title: 'موقعیت خالص طلا', value: t.netGold, unit: 'G750', sentence: `${G(t.netGold)} = ${G(t.physicalG750)} طلای فیزیکی + ${G(rec)} طلبی که مشتریان به طلا بدهکارند − ${G(pay)} طلایی که به مشتریان بدهکاریم (امانت و تعهد). اگر مظنه ۱٪ بالا برود، ارزش این موقعیت حدود ${R(Math.abs(t.netGold * p750 * 0.01))} ${t.netGold >= 0 ? 'بیشتر' : 'کمتر'} می‌شود.`, formula: 'فیزیکی + طلب طلایی − تعهد طلایی (گرم ۷۵۰)', parts: [{ label: 'طلای فیزیکی', value: t.physicalG750 }, { label: 'طلب طلایی از مشتریان', value: rec }, { label: 'تعهد طلایی به مشتریان', value: -pay }], recent: [] };
       }
       case 'pnl': {
-        const pr = TR.positionReport(finalEvents(day));
+        const pr = positionsAt(day);
         return { metric, title: 'سود و زیان تحقق‌یافته روز', value: pr.byDay[day] ?? 0, unit: 'IRR', sentence: `سود ${jd(day)} ${R(pr.byDay[day] ?? 0)} است: برای هر فروش، مبلغ فروش منهای میانگین موزون بهای همان کالا در لحظه فروش. خرید سود نمی‌سازد؛ فقط بهای میانگین را عوض می‌کند.`, formula: 'Σ (مبلغ فروش − مقدار × میانگین موزون بها)', parts: Object.entries(pr.positions).map(([k, x]) => ({ label: `${unitName(k)} · میانگین بها ${R(x.qty ? x.cost / x.qty : 0)}`, value: x.realized })), recent: [] };
       }
       case 'networth':
@@ -1058,7 +1073,7 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     db.run('INSERT INTO ctl_recon(day,data_json,issues,closed,at) VALUES (?,?,?,?,?) ON CONFLICT(day) DO UPDATE SET data_json=excluded.data_json, issues=excluded.issues, closed=excluded.closed, at=excluded.at', day, JSON.stringify(r), r.issues.length, closed ? 1 : 0, r.at);
     return { ...r, closed };
   }
-  const tehranTime = () => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+  const tehranTime = tehranTimeNow;
   /** Called by the job queue every few minutes, for every shop. */
   function autoTick() {
     const rules = autoRules();
@@ -1067,7 +1082,11 @@ export function makeControl({ db, on, call, settings, getSetting, saveSetting, l
     if (tehranTime() < rules.at) return null;
     const done = db.get('SELECT data_json FROM ctl_recon WHERE day=?', day);
     if (done && JSON.parse(done.data_json).auto) return null; // tonight's automatic run already happened
-    return runRecon(day, { close: true, auto: true });
+    try {
+      return runRecon(day, { close: true, auto: true });
+    } finally {
+      core?.bump(); // the nightly job writes outside any route
+    }
   }
   on('GET', '/api/books/control/autoclose', 'auth', ({ user }) => {
     guardAdmin(user);

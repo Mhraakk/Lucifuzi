@@ -8,6 +8,7 @@
 // measures how often the learned habit would have predicted what actually happened next.
 import { randomUUID } from 'node:crypto';
 import * as TR from '../public/js/trade.mjs';
+import { tehranHour } from './tz.mjs';
 
 export const LEARN_SCHEMA = `
 CREATE TABLE IF NOT EXISTS bk_events (seq INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, user_id TEXT, kind TEXT NOT NULL, path TEXT NOT NULL DEFAULT '', ref TEXT NOT NULL DEFAULT '', data_json TEXT NOT NULL DEFAULT '{}');
@@ -106,7 +107,7 @@ export function makeLearn({ db, now, log, isAdmin }) {
       const o = by.get(r.user_id) ?? { id: r.user_id, name: r.name ?? '—', events: 0, saves: 0, errors: {}, hours: Array(24).fill(0), durations: [], open: null, actions: {} };
       o.events++;
       const d = JSON.parse(r.data_json || '{}');
-      const hr = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Tehran' }).format(new Date(r.at))) % 24;
+      const hr = tehranHour(r.at);
       o.hours[hr]++;
       if (r.kind === 'desk.open') o.open = Date.parse(r.at);
       if (r.kind === 'desk.save') {

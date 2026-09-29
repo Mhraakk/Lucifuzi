@@ -4,6 +4,7 @@
 import { SYMBOLS, isSymbol, badBar, roundQuote, sampleMarket, DAY_RE } from '../public/js/market.mjs';
 import { isoDay } from '../public/js/ta.mjs';
 import { parseNum, MAZANEH_TO_G750 } from '../public/js/calc.mjs';
+import { tehranDay } from './tz.mjs';
 
 export const FEED_MODES = ['off', 'owner', 'tgju', 'json'];
 export const FEED_LABEL = { off: 'ورود دستی مدیر', owner: 'کانال آب‌شده (@abshdh)، چنده و goldprice.org',  tgju: 'tgju.org (نقطه دسترسی عمومی و غیررسمی)', json: 'فید اختصاصی (JSON)', sample: 'داده نمونه آموزشی' };
@@ -11,7 +12,6 @@ export const DEFAULT_FEED = { mode: 'off', url: '', token: '', syncPrice: true, 
 const TGJU_LIVE = 'https://call4.tgju.org/ajax.json';
 const TGJU_HISTORY = (key) => `https://api.tgju.org/v1/market/indicator/summary-table-data/${encodeURIComponent(key)}`;
 const MAX_JUMP = 0.3; // a live quote more than 30 % away from the last close is treated as a data error
-const tehranDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(d);
 const clean = (v) => Number(String(v ?? '').replace(/<[^>]*>/g, '').replace(/[,\s]/g, ''));
 
 /* ---------------- source formats ---------------- */
@@ -244,9 +244,11 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
   const config = () => ({ ...DEFAULT_FEED, mode: FEED_MODES.includes(envMode) ? envMode : defaultMode, ...(setting('market') ?? {}) });
   let status = setting('marketStatus');
 
+  let revision = 0; // moves whenever a stored price changes; screens that value the books at market prices key on it
   function upsert(id, bars, src, { force = false } = {}) {
     const at = iso();
     let n = 0;
+    revision++;
     db.tx(() => {
       for (const b of bars) {
         const r = db.run(
@@ -397,5 +399,5 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
   }
   const stop = () => (clearInterval(timer), (timer = null));
 
-  return { config, stored: () => setting('market') ?? {}, save, status: () => status, upsert, applyQuote, series, board, sync, poll, everyMs, start, stop, hasReal, today };
+  return { config, rev: () => revision, stored: () => setting('market') ?? {}, save, status: () => status, upsert, applyQuote, series, board, sync, poll, everyMs, start, stop, hasReal, today };
 }

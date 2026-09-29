@@ -13,6 +13,7 @@ import { jalaliOf } from '../public/js/ta.mjs';
 import { createGateway } from './gateway.mjs';
 import { redact, redactDeep, injectionSigns, cleanOutput, GUARD_NOTE } from './guardrails.mjs';
 import { knowledge } from './rag.mjs';
+import { typedChoice } from '../public/js/typed.mjs';
 
 const SYS = { id: null, role: 'owner', name: 'دستیار' };
 const R = (v) => B.fmtMoney(v, 'rial');
@@ -121,20 +122,94 @@ export function makeAssistant({ db, call, audit, settings, tehranDay, livePrices
 
   /* ---------------- engine 3: answers straight from the books ---------------- */
   const HELP = 'می‌توانم بی‌واسطه از دفاتر جواب بدهم؛ مثلاً:\n• «مانده مهران رضایی» یا «ته حساب ۱۰۰۱»\n• «بدهکاران» / «طلبکاران»\n• «روزنگار امروز» یا «روزنگار دیروز»\n• «گاوصندوق» · «سود و زیان» · «مظنه»\n• «ممیز» یا «مشکلات امروز»\n• «سریال ۳۳۰۷۰۲۱»\n• «یادت باشه مهران رضایی همیشه با کارت ملت می‌پردازد» · «چی یادته درباره مهران رضایی»\n• «محاسبه ۲ گرم عیار ۷۴۰ مظنه ۴۰۰۰۰۰۰۰۰» یا «۳ تمام امامی به ۹۸۵۰۰۰۰۰۰»';
+  /* ---------------- the question as a typed decision (typesafe «Jev», spec 0004) ----------------
+   * The built-in engine used to answer with the first pattern that matched, so «مانده بانک ملت» or «سود مهران» could
+   * land on the wrong screen. Now every question is one of a fixed set of intents, each with a probability from the
+   * evidence in its words (and a customer name found in the books), a confidence, and a coverage — the share of the
+   * question's words any intent explains. Two close intents → a clarifying question instead of a guess. */
+  const RE_REMEMBER = /^(?:یادت باشه|یادت بمونه|یادت بماند|به خاطر بسپار|یادداشت کن)\s*[:،,]?\s*(.+)$/s;
+  const EVIDENCE = {
+    help: [[/^(سلام|راهنما|کمک|help|\?)$/, 5], [/^(سلام|راهنما|کمک|help|\?)/, 2.2]],
+    remember: [[/^(?:یادت باشه|یادت بمونه|یادت بماند|به خاطر بسپار|یادداشت کن)/, 7]],
+    recall: [[/چی یادته|چه یادته|یادت هست|چی می‌دونی|چی میدونی/, 4], [/حافظه/, 3]],
+    bar: [[/سریال/, 3.5], [/شمش\s*\d/, 3.5]],
+    calc: [[/محاسبه|حساب کن|چقدر میشه|چند میشه/, 3.5], [/گرم/, 1], [/عیار/, 1.3]],
+    audit: [[/ممیز|حسابرس/, 3.5], [/مشکل|هشدار|خطا|ایراد/, 2], [/بررسی/, 1.2]],
+    debtors: [[/بدهکاران|مطالبات|طلب ما|کی بدهکار/, 3.5]],
+    creditors: [[/طلبکاران|بستانکاران|بدهی ما|تعهدات/, 3.5], [/امانت/, 1.6]],
+    daybook: [[/روزنگار|روزنامه|گزارش روز/, 3.5], [/امروز|دیروز/, 1.3]],
+    vault: [[/گاوصندوق|موجودی/, 3], [/صندوق|بانک/, 1.8]],
+    pnl: [[/سود|زیان/, 3]],
+    price: [[/مظنه|تابلو/, 3], [/قیمت|نرخ/, 1.8]],
+    party: [[/مانده|ته حساب|ریز حساب|وضعیت حساب/, 1.6]],
+  };
+  const INTENTS = [...Object.keys(EVIDENCE), 'knowledge'];
+  const INTENT_FA = { help: 'راهنما', remember: 'به خاطر سپردن', recall: 'یادداشت‌ها', bar: 'شمش', calc: 'محاسبه', audit: 'ممیز', debtors: 'بدهکاران', creditors: 'طلبکاران', daybook: 'روزنگار', vault: 'گاوصندوق', pnl: 'سود و زیان', price: 'مظنه و قیمت', party: 'حساب مشتری', knowledge: 'راهنمای برنامه' };
+  const STOP = new Set(['مانده', 'ته', 'ریز', 'حساب', 'بدهکار', 'بستانکار', 'طلبکار', 'وضعیت', 'چقدر', 'است', 'هست', 'چی', 'چیه', 'را', 'رو', 'بگو', 'نشان', 'بده', 'آقای', 'اقای', 'خانم', 'از', 'به', 'در', 'مشتری']);
+  function intentOf(t) {
+    const score = Object.fromEntries(INTENTS.map((k) => [k, 0]));
+    const explained = new Set();
+    const words = t.replace(/[?؟!.،,:]/g, ' ').split(/\s+/).filter(Boolean);
+    for (const [k, rules] of Object.entries(EVIDENCE))
+      for (const [re, w] of rules) {
+        const m = t.match(re);
+        if (!m) continue;
+        score[k] += w;
+        for (const x of words) if (m[0].includes(x) || x.includes(m[0])) explained.add(x);
+      }
+    // a customer the books know, named in the question: a full name (or «کد …») inside the text first, then a search
+    // with the words no other intent explains
+    let found = [];
+    const named = partyIn(t);
+    if (named && !named.many) found = [{ id: named.id, code: named.code, label: TR.partyLabel(named) }];
+    else if (named?.many) found = named.many.map((x) => ({ id: x.id, code: x.code, label: TR.partyLabel(x) }));
+    else {
+      const q2 = words.filter((w) => !STOP.has(w) && !explained.has(w)).join(' ').trim();
+      if (q2.length >= 2) found = TOOLS.find_parties.fn(null, { q: q2 });
+    }
+    if (found.length === 1) {
+      score.party += 3.2;
+      const label = norm(found[0].label ?? '');
+      for (const x of words) if (label.includes(x)) explained.add(x);
+    } else if (found.length > 1) score.party += 1.5;
+    if (/\d/.test(t)) for (const x of words) if (/\d/.test(x) && (score.calc || score.bar)) explained.add(x);
+    score.knowledge = 0.6; // the fallback: the manual
+    const content = words.filter((w) => !STOP.has(w));
+    const coverage = content.length ? Math.min(1, [...explained].filter((w) => !STOP.has(w)).length / content.length) : 0;
+    const d = typedChoice(INTENTS, INTENTS.map((k) => score[k] * 1.6), { coverage });
+    const ranked = INTENTS.map((k) => [k, d.probabilities[k]]).sort((a, b) => b[1] - a[1]);
+    return { ...d, ranked, found, score };
+  }
+
   function local(user, q) {
+    return localTyped(user, q).answer;
+  }
+  function localTyped(user, q) {
     const t = norm(q).trim();
     const has = (re) => re.test(t);
     const n = nums(t);
+    if (!t) return { answer: HELP, intent: null };
+    const it = intentOf(t);
+    const [[top, p1], [second, p2]] = it.ranked;
+    const intent = { choice: it.choice, confidence: it.confidence, coverage: it.coverage, probabilities: Object.fromEntries(it.ranked.slice(0, 3)) };
+    // two intents nearly tied, both with real evidence: ask, never guess
+    if (it.score[top] - it.score[second] < 0.6 && it.score[top] >= 1.5 && it.score[second] >= 1.5 && top !== 'knowledge' && second !== 'knowledge')
+      return { intent, answer: `منظورتان کدام است؟\n• «${INTENT_FA[top]}» (${B.faNum(Math.round(p1 * 100))}٪)\n• «${INTENT_FA[second]}» (${B.faNum(Math.round(p2 * 100))}٪)\nیک کلمه روشن‌تر بنویسید؛ مثلاً «${top === 'party' || second === 'party' ? 'مانده ' : ''}${INTENT_FA[top === 'party' ? second : top]}».` };
     try {
-      if (!t || has(/^(سلام|راهنما|کمک|help|\?)/)) return HELP;
-      const rem = t.match(/^(?:یادت باشه|یادت بمونه|یادت بماند|به خاطر بسپار|یادداشت کن)\s*[:،,]?\s*(.+)$/s);
-      if (rem && learn) {
+      const H = {
+        help: () => HELP,
+        remember: () => {
+      const rem = t.match(RE_REMEMBER);
+      if (!rem || !learn) return HELP;
+      {
         const p = partyIn(rem[1]);
         if (p?.many) return `چند مشتری با این نام هست؛ «کد …» را هم بنویسید:\n${p.many.map((x) => `• ${TR.partyLabel(x)} · کد ${B.faNum(x.code)}`).join('\n')}`;
         const m = learn.remember(user, p ? { scope: 'party', ref: p.id, text: q.replace(/^\s*(?:یادت باشه|یادت بمونه|یادت بماند|به خاطر بسپار|یادداشت کن)\s*[:،,]?\s*/, '') } : { scope: 'shop', text: q.replace(/^\s*(?:یادت باشه|یادت بمونه|یادت بماند|به خاطر بسپار|یادداشت کن)\s*[:،,]?\s*/, '') });
         return `✓ به خاطر سپردم${p ? ` (در پرونده ${TR.partyLabel(p)})` : ' (یادداشت مغازه)'}: «${m.text}»\nاز این به بعد هر بار این مشتری در میز معامله انتخاب شود، این یادداشت دیده می‌شود. پاک کردن: صفحه «حافظه».`;
       }
-      if (has(/چی یادته|چه یادته|یادت هست|چی می‌دونی|چی میدونی|حافظه/) && learn) {
+        },
+        recall: () => {
+      if (!learn) return HELP;
         const p = partyIn(t);
         if (p?.many) return `چند مشتری با این نام هست؛ «کد …» را هم بنویسید.`;
         if (p) {
@@ -143,15 +218,15 @@ export function makeAssistant({ db, call, audit, settings, tehranDay, livePrices
         }
         const shop = learn.memories('shop', '');
         return shop.length ? memWords(shop) : 'هنوز یادداشتی برای مغازه ندارم؛ بنویسید «یادت باشه …».';
-      }
-      if (has(/سریال|شمش\s*\d/)) {
+        },
+        bar: () => {
         const serial = t.match(/\d{3,}/)?.[0];
         if (!serial) return 'سریال شمش را بنویسید.';
         const items = TOOLS.bar.fn(user, { serial });
         if (!items.length) return `شمشی با سریال ${B.faNum(serial)} در دفتر نیست.`;
         return items.map((b) => `شمش ${B.faNum(b.serial)} ${b.brand} ${b.weight != null ? `${B.fmtG(b.weight)} گرم عیار ${B.faNum(b.fineness)}` : ''}: ${b.inVault ? 'در گاوصندوق' : b.custodyOf ? `امانت ${b.custodyOf}` : 'خارج شده'}\n${b.history.map((h) => `  ${jd(h.date)} · ${h.dir === 'in' ? (h.priced ? 'خرید از' : 'امانی از') : h.priced ? 'فروش به' : 'تحویل به'} ${h.party ?? 'گذری'} · سند ${B.faNum(h.no)}`).join('\n')}`).join('\n\n');
-      }
-      if (has(/محاسبه|حساب کن|چقدر میشه|چند میشه/) || (has(/گرم/) && has(/عیار/))) {
+        },
+        calc: () => {
         const coinId = Object.keys(COIN_TYPES).find((k) => t.includes(norm(COIN_TYPES[k].short)));
         if (coinId && !has(/گرم/)) {
           const count = n[0] ?? 1, price = n[1] ?? livePrices().price[`COIN:${coinId}`];
@@ -164,59 +239,60 @@ export function makeAssistant({ db, call, audit, settings, tehranDay, livePrices
         const c = TOOLS.calc_trade.fn(user, { lines: [{ kind: 'melt', dir: has(/فروش|میفروشیم/) ? 'out' : 'in', weight: w, fineness: f, mazaneh: maz }] });
         const l = c.lines[0];
         return `${B.fmtG(w)} گرم عیار ${B.faNum(f)} روی مظنه ${R(maz)}:\nمعادل ۷۵۰: ${B.fmtG(l.eq750)} · مثقال: ${B.fmtG(l.mesghal)}\nمبلغ: ${R(l.value)} (${B.fmtMoney(Math.round(l.value / 10), 'rial', { unit: false })} تومان)\nفقط محاسبه است؛ چیزی ثبت نشد.`;
-      }
-      if (has(/ممیز|حسابرس|مشکل|هشدار|خطا|بررسی|ایراد/)) {
+        },
+        audit: () => {
         const a = TOOLS.run_audit.fn(user);
         const top = a.findings.filter((f) => f.sev !== 'info').slice(0, 8);
         return `امتیاز سلامت دفاتر: ${B.faNum(a.score)} از ۱۰۰ (فوری ${B.faNum(a.count.high)} · مهم ${B.faNum(a.count.mid)} · جزئی ${B.faNum(a.count.low)})\n${top.length ? top.map((f) => `${f.sev === 'high' ? '⛔' : f.sev === 'mid' ? '⚠️' : '•'} ${f.title} — ${f.detail}`).join('\n') : '✓ مورد قابل‌توجهی نیست.'}`;
-      }
-      if (has(/بدهکاران|مطالبات|طلب ما|کی بدهکار/)) {
+        },
+        debtors: () => {
         const r = list(1);
         return r.length ? `بدهکاران (مطالبه ما):\n${r.slice(0, 15).map((x, i) => `${B.faNum(i + 1)}. ${x.label}: ${Object.entries(x.units).map(([u, v]) => (u.startsWith('BAR:') ? unitAmt(u) : unitAmt(u, v))).join(' + ')}`).join('\n')}` : 'هیچ مشتری بدهکاری نیست.';
-      }
-      if (has(/طلبکاران|بستانکاران|بدهی ما|تعهدات|امانت/)) {
+        },
+        creditors: () => {
         const r = list(-1);
         return r.length ? `طلبکاران (تعهد ما):\n${r.slice(0, 15).map((x, i) => `${B.faNum(i + 1)}. ${x.label}: ${Object.entries(x.units).map(([u, v]) => (u.startsWith('BAR:') ? unitAmt(u) : unitAmt(u, -v))).join(' + ')}`).join('\n')}` : 'مغازه به هیچ مشتری بدهکار نیست.';
-      }
-      if (has(/روزنگار|روزنامه|امروز|دیروز|گزارش روز/)) {
+        },
+        daybook: () => {
         const day = has(/دیروز/) ? new Date(Date.parse(`${tehranDay()}T00:00:00Z`) - 86400000).toISOString().slice(0, 10) : tehranDay();
         const r = TOOLS.daybook.fn(user, { day });
         const T = r.totals;
         const money = Object.entries(T.money).map(([k, v]) => `${B.payMethod(k.split(':')[0])?.label} ${k.endsWith(':in') ? 'دریافت' : 'پرداخت'} ${R(v)}`).join(' · ');
         return `روزنگار ${jd(day)}: ${B.faNum(T.docs)} سند قطعی\nخرید از مشتریان ${R(T.buys)} · فروش ${R(T.sells)}\nآبشده ورود ${G(T.goldIn)} · خروج ${G(T.goldOut)}${Object.keys(T.coins).length ? `\nسکه: ${Object.entries(T.coins).map(([k, v]) => `${COIN_TYPES[k]?.short} ${v > 0 ? 'ورود' : 'خروج'} ${B.faNum(Math.abs(v))}`).join('، ')}` : ''}${money ? `\n${money}` : ''}${isAdmin(user) ? `\nسود/زیان تحقق‌یافته: ${R(T.realized)}` : ''}\n${r.entries.slice(0, 12).map((e) => `• ${e.doc} ${e.party ?? 'گذری'}${e.credit ? ` · مانده ${R(Math.abs(e.credit))} ${e.credit > 0 ? 'به بدهی' : 'به طلب'}` : ''}`).join('\n')}`;
-      }
-      if (has(/گاوصندوق|موجودی|صندوق|بانک/)) {
+        },
+        vault: () => {
         const v = TOOLS.vault.fn(user);
         const cash = Object.values(v.cash).reduce((s, x) => s + x, 0), bank = Object.values(v.bank).reduce((s, x) => s + x, 0);
         return `گاوصندوق: طلا ${G(v.gold)}${Object.keys(v.coins).length ? ` · ${Object.entries(v.coins).map(([k, x]) => `${COIN_TYPES[k]?.short} ${B.faNum(x)}`).join('، ')}` : ''} · شمش ${B.faNum(v.bars.length)}${Object.keys(v.fx).length ? ` · ${Object.entries(v.fx).map(([k, x]) => `${TR.FX_CODES[k]} ${B.faNum(x)}`).join('، ')}` : ''}\nنقد ${R(cash)} · بانک ${R(bank)}\nامانت طلای مشتریان نزد ما: ${G(v.custody.G750?.owedByShop ?? 0)} · طلب طلایی ما: ${G(v.custody.G750?.owedToShop ?? 0)}`;
-      }
-      if (has(/سود|زیان/)) {
+        },
+        pnl: () => {
         if (!isAdmin(user)) return 'گزارش سود و زیان مخصوص مدیر است.';
         const r = TOOLS.pnl.fn(user, {});
         return `سود/زیان تحقق‌یافته: ${R(r.realizedTotal)}\n${r.positions.map((p) => `${p.key === 'G750' ? 'طلا' : unitAmt(p.key, 1).replace(/^۱ عدد /, '')}: موجودی ${p.key === 'G750' ? B.fmtG(p.qty) : B.faNum(p.qty)} · میانگین ${R(p.avg)}${p.unrealized != null ? ` · تحقق‌نیافته ${R(p.unrealized)}` : ''}`).join('\n')}${r.missingCost ? '\n(بهای تمام‌شده بخشی از موجودی افتتاحیه ثبت نشده)' : ''}`;
-      }
-      if (has(/مظنه|قیمت|نرخ|تابلو/)) {
+        },
+        price: () => {
         const p = livePrices();
         return `${p.sample ? '(داده نمونه — قیمت زنده وصل نیست)\n' : ''}مظنه نقدی: ${p.mazaneh ? R(p.mazaneh) : '—'} · حواله: ${p.mazanehFwd ? R(p.mazanehFwd) : '—'}\nگرم ۷۵۰: ${R(p.price.G750)}\n${Object.keys(COIN_TYPES).filter((k) => p.price[`COIN:${k}`]).map((k) => `${COIN_TYPES[k].short}: ${R(p.price[`COIN:${k}`])}`).join(' · ')}${p.price['FX:USD'] ? `\nدلار: ${R(p.price['FX:USD'])}` : ''}`;
-      }
-      // a customer: «مانده X», «ته حساب X», «ریز حساب X», or just a name / code
-      // drop whole filler words only («را» inside «مهران» must survive)
-      const STOP = new Set(['مانده', 'ته', 'ریز', 'حساب', 'بدهکار', 'بستانکار', 'طلبکار', 'وضعیت', 'چقدر', 'است', 'هست', 'چی', 'چیه', 'را', 'رو', 'بگو', 'نشان', 'بده', 'آقای', 'اقای', 'خانم', 'از', 'به', 'در', 'مشتری']);
-      const q2 = t.replace(/[?؟!.،,:]/g, ' ').split(/\s+/).filter((w) => w && !STOP.has(w)).join(' ').trim();
-      if (q2.length >= 2) {
-        const found = TOOLS.find_parties.fn(user, { q: q2 });
-        if (found.length === 1 || (found.length && /^\d+$/.test(q2) && found[0].code === Number(q2))) {
-          const r = TOOLS.party_account.fn(user, { id: found[0].id });
-          const pr = learn?.partyProfile(found[0].id);
-          return `${r.words}${pr ? [habitWords(pr), memWords(pr.memory)].filter(Boolean).map((x) => `\n${x}`).join('') : ''}\nآخرین گردش‌ها:\n${r.statement.slice(-6).map((x) => `  ${jd(x.date)} ${x.doc ?? ''}: ${x.amt > 0 ? 'بدهکار' : 'بستانکار'} ${x.unit.startsWith('BAR:') ? unitAmt(x.unit) : unitAmt(x.unit, Math.abs(x.amt))}`).join('\n')}`;
-        }
-        if (found.length > 1) return `چند مشتری پیدا شد؛ دقیق‌تر بنویسید (لقب، نام پدر، شهر یا کد):\n${found.map((p) => `• ${p.label} · کد ${B.faNum(p.code)}`).join('\n')}`;
-      }
+        },
+        party: () => {
+          const found = it.found;
+          if (found.length === 1) {
+            const r = TOOLS.party_account.fn(user, { id: found[0].id });
+            const pr = learn?.partyProfile(found[0].id);
+            return `${r.words}${pr ? [habitWords(pr), memWords(pr.memory)].filter(Boolean).map((x) => `\n${x}`).join('') : ''}\nآخرین گردش‌ها:\n${r.statement.slice(-6).map((x) => `  ${jd(x.date)} ${x.doc ?? ''}: ${x.amt > 0 ? 'بدهکار' : 'بستانکار'} ${x.unit.startsWith('BAR:') ? unitAmt(x.unit) : unitAmt(x.unit, Math.abs(x.amt))}`).join('\n')}`;
+          }
+          if (found.length > 1) return `چند مشتری پیدا شد؛ دقیق‌تر بنویسید (لقب، نام پدر، شهر یا کد):\n${found.map((p) => `• ${p.label} · کد ${B.faNum(p.code)}`).join('\n')}`;
+          return H.knowledge();
+        },
+        knowledge: () => {
       const kb = flag('ai.knowledge') ? knowledge().search(q, 3) : [];
       if (kb.length) return `از راهنمای برنامه:\n${kb.map((h) => `• ${h.kind} «${h.title}»: ${h.snippet}\n  ${h.url}`).join('\n')}`;
       return `متوجه نشدم.\n${HELP}`;
+        },
+      };
+      return { intent, answer: H[top]() };
     } catch (e) {
-      return `نشد: ${e.message}`;
+      return { intent, answer: `نشد: ${e.message}` };
     }
   }
 
@@ -321,7 +397,11 @@ export function makeAssistant({ db, call, audit, settings, tehranDay, livePrices
         for (const f of flags) onEvent('guard.flag', f);
         return { ...r, answer: out.text, trace: { ms: Date.now() - t0, tools: run?.tools ?? [], flags: [...flags], redacted: !!run && external(run.cfg) } };
       };
-      if (body.engine === 'books') return done({ engine: 'books', answer: local(user, q) });
+      const books = () => {
+        const r = localTyped(user, q);
+        return { engine: 'books', answer: r.answer, intent: r.intent };
+      };
+      if (body.engine === 'books') return done(books());
       const failed = [];
       for (const cfg of chain()) {
         const run = { cfg, tools: [], flags };
@@ -335,9 +415,11 @@ export function makeAssistant({ db, call, audit, settings, tehranDay, livePrices
           failed.push(`${cfg.label}: ${e.name === 'AbortError' ? 'پاسخ نداد (زمان تمام شد)' : e.message}`);
         }
       }
-      return done({ engine: 'books', ...(failed.length ? { fallback: failed.join(' · ') } : {}), answer: local(user, q) });
+      return done({ ...books(), ...(failed.length ? { fallback: failed.join(' · ') } : {}) });
     },
     local,
+    localTyped,
+    intentOf: (q) => intentOf(norm(q).trim()),
     tools: TOOLS,
   };
 }

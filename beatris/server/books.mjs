@@ -16,6 +16,7 @@ import { makeSetup } from './setup.mjs';
 import { makeIdeas } from './ideas.mjs';
 import { PROVIDERS, checkBaseUrl, keyHint } from './providers.mjs';
 import * as TR from '../public/js/trade.mjs';
+import { tehranDay } from './tz.mjs';
 
 export const BOOKS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS bk_parties (
@@ -46,6 +47,8 @@ CREATE TABLE IF NOT EXISTS bk_docs (
 );
 CREATE INDEX IF NOT EXISTS idx_bkd_date ON bk_docs(date);
 CREATE INDEX IF NOT EXISTS idx_bkd_party ON bk_docs(party_id);
+CREATE INDEX IF NOT EXISTS idx_bkd_created ON bk_docs(created_at);
+CREATE INDEX IF NOT EXISTS idx_bkd_updated ON bk_docs(updated_at);
 CREATE TABLE IF NOT EXISTS bk_versions (
   doc_id TEXT NOT NULL, version INTEGER NOT NULL, status TEXT NOT NULL, data_json TEXT NOT NULL, calc_json TEXT NOT NULL, hash TEXT NOT NULL,
   by TEXT, at TEXT NOT NULL, reason TEXT NOT NULL DEFAULT '', PRIMARY KEY (doc_id, version)
@@ -66,7 +69,6 @@ CREATE TABLE IF NOT EXISTS bk_log (
 `;
 
 const now = () => new Date().toISOString();
-const tehranDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(d);
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const txt = (v, max = 200) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
@@ -85,9 +87,83 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   const handlers = new Map();
   let ideas = null; // the seven tools hook into saving (locked quotes, closed days); set once they are registered
   let control = null; // کنترل hooks into saving too (period locks, approvals)
+  // the one core (spec 0004, typesafe's «encode once, ask many»): every screen asks questions of the same ledger
+  // state, so derived state (parsed documents, lots, replay, auditor, exceptions, twin…) is computed once per ledger
+  // revision and shared. Any write through a books route moves the revision; nothing stale can be served.
+  let rev = 0;
+  const memoStore = new Map();
+  const PROFILE = process.env.CORE_PROFILE === '1';
+  const WARM = process.env.BEATRIS_WARM ? process.env.BEATRIS_WARM === '1' : !process.env.NODE_TEST_CONTEXT && process.env.NODE_ENV !== 'test';
+  let warmTimer = null;
+  const core = {
+    rev: () => rev,
+    bump() {
+      rev++;
+      memoStore.clear();
+      core.warmSoon();
+    },
+    // after a burst of writes, the owner's screens are rebuilt in the background so the next look is instant
+    warmSoon(delay = 1500) {
+      if (!WARM || !core.warm) return;
+      clearTimeout(warmTimer);
+      warmTimer = setTimeout(() => {
+        try {
+          core.warm();
+        } catch {
+          /* warming is best effort; the request path computes on demand */
+        }
+      }, delay);
+      warmTimer.unref?.();
+    },
+    memo(name, key, fn) {
+      const k = `${name}|${key}`;
+      if (memoStore.has(k)) return memoStore.get(k);
+      const t0 = PROFILE ? performance.now() : 0;
+      const v = fn();
+      if (PROFILE) console.error(`[core] ${name} ${key} ${Math.round(performance.now() - t0)} ms`);
+      if (memoStore.size > 400) memoStore.clear();
+      memoStore.set(k, v);
+      return v;
+    },
+  };
+  // final documents parsed once: a new revision re-reads only rows whose version or time changed
+  const parsedDocs = new Map();
+  core.partyLabels = () => core.memo('partyLabels', '', () => new Map(db.all('SELECT id, name, alias, father, city, mobile FROM bk_parties').map((p) => [p.id, TR.partyLabel(p)])));
+  /** Final documents with date in [from, upto], in booking order: { id, track, type, date, partyId, party, data, calc }. Shared: never modify. */
+  core.events = (upto = '9999-12-31', from = '0000-01-01') => core.memo('events', `${upto}|${from}`, () => {
+    const rows = db.all("SELECT id, version, updated_at FROM bk_docs WHERE status='final' AND date<=? AND date>=? ORDER BY date, COALESCE(issued_at, created_at)", upto, from);
+    const stale = rows.filter((r) => parsedDocs.get(r.id)?.v !== `${r.version}|${r.updated_at}`);
+    for (let i = 0; i < stale.length; i += 400) {
+      const ids = stale.slice(i, i + 400).map((r) => r.id);
+      for (const r of db.all(`SELECT id, type, fy, no, date, party_id, version, updated_at, data_json, calc_json FROM bk_docs WHERE id IN (${ids.map(() => '?').join(',')})`, ...ids))
+        parsedDocs.set(r.id, { v: `${r.version}|${r.updated_at}`, ev: { id: r.id, track: B.trackCode(r.type, r.fy, r.no), type: r.type, date: r.date, partyId: r.party_id, data: JSON.parse(r.data_json), calc: JSON.parse(r.calc_json) } });
+    }
+    const labels = core.partyLabels();
+    return rows.map((r) => {
+      const ev = parsedDocs.get(r.id).ev;
+      return { ...ev, party: ev.partyId ? labels.get(ev.partyId) ?? null : null };
+    });
+  });
+  /** Average-cost positions and realized result up to a day (the P&L engine), shared. */
+  core.positions = (upto) => core.memo('positions', upto, () => TR.positionReport(core.events(upto)));
+  // writes that never touch the ledger or its checks do not move the revision
+  const NO_LEDGER = new Set(['POST /api/books/events', 'POST /api/books/memory', 'DELETE /api/books/memory/:id', 'POST /api/books/control/changes/seen', 'POST /api/books/preview', 'POST /api/books/control/simulate', 'POST /api/books/assistant']);
   const on = (method, path, guard, fn) => {
-    handlers.set(`${method} ${path}`, fn);
-    onRoute(method, path, guard, fn);
+    const key = `${method} ${path}`;
+    const f = method === 'GET' || NO_LEDGER.has(key) ? fn : (ctx) => {
+      let r;
+      try {
+        r = fn(ctx);
+      } catch (e) {
+        core.bump(); // a failed write may have written part of its work before throwing
+        throw e;
+      }
+      if (r && typeof r.then === 'function') return r.finally(() => core.bump());
+      core.bump();
+      return r;
+    };
+    handlers.set(key, f);
+    onRoute(method, path, guard, f);
   };
   const call = (method, path, user, { params = {}, query = {}, body = {} } = {}) => {
     const fn = handlers.get(`${method} ${path}`);
@@ -126,14 +202,24 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const hash = sha(prev + B.canonical(body));
     db.run('INSERT INTO bk_log(at,user_id,action,ref,detail_json,prev,hash) VALUES (?,?,?,?,?,?,?)', at, user?.id ?? null, action, ref, JSON.stringify(detail), prev, hash);
   }
-  function verifyLog() {
-    let prev = 'GENESIS', n = 0;
-    for (const r of db.all('SELECT * FROM bk_log ORDER BY seq')) {
+  // the chain is append-only: between full checks (at least every ten minutes, and on every explicit request) only
+  // the rows added since the last verified head are hashed, after confirming that head is still in place
+  let chainOk = null;
+  function verifyLog({ full = false } = {}) {
+    let fresh = full || !chainOk || Date.now() - chainOk.fullAt > 10 * 60 * 1000;
+    if (!fresh && chainOk.seq && db.get('SELECT hash FROM bk_log WHERE seq=?', chainOk.seq)?.hash !== chainOk.hash) fresh = true;
+    let prev = fresh ? 'GENESIS' : chainOk.hash, n = fresh ? 0 : chainOk.n, seq = fresh ? 0 : chainOk.seq;
+    for (const r of db.all('SELECT * FROM bk_log WHERE seq>? ORDER BY seq', seq)) {
       const body = { at: r.at, user: r.user_id, action: r.action, ref: r.ref, detail: JSON.parse(r.detail_json) };
-      if (r.prev !== prev || sha(prev + B.canonical(body)) !== r.hash) return { ok: false, brokenAt: r.seq, checked: n };
+      if (r.prev !== prev || sha(prev + B.canonical(body)) !== r.hash) {
+        chainOk = null;
+        return { ok: false, brokenAt: r.seq, checked: n };
+      }
       prev = r.hash;
+      seq = r.seq;
       n++;
     }
+    chainOk = { seq, hash: prev, n, fullAt: fresh ? Date.now() : chainOk.fullAt };
     return { ok: true, checked: n, head: prev };
   }
 
@@ -1270,12 +1356,10 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     });
     T.goldIn = B.r3(T.goldIn);
     T.goldOut = B.r3(T.goldOut);
-    const pnl = TR.positionReport(finalEvents(day)).byDay[day] ?? 0;
+    const pnl = core.positions(day).byDay[day] ?? 0;
     return { day, entries, totals: { ...T, realized: pnl } };
   });
-  function finalEvents(upto = '9999-12-31') {
-    return db.all("SELECT type, date, data_json, calc_json FROM bk_docs WHERE status='final' AND date<=? ORDER BY date, COALESCE(issued_at, created_at)", upto).map((r) => ({ type: r.type, date: r.date, data: JSON.parse(r.data_json), calc: JSON.parse(r.calc_json) }));
-  }
+  const finalEvents = (upto = '9999-12-31') => core.events(upto);
   const livePrices = () => {
     const p750 = pricing().p750 * 10; // rial per gram of 750
     const board = {};
@@ -1300,7 +1384,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     guardAdmin(user);
     const from = DAY_RE.test(url.searchParams.get('from') ?? '') ? url.searchParams.get('from') : '0000-01-01';
     const to = DAY_RE.test(url.searchParams.get('to') ?? '') ? url.searchParams.get('to') : tehranDay();
-    const r = TR.positionReport(finalEvents(to));
+    const r = core.positions(to);
     const { price } = livePrices();
     const positions = Object.entries(r.positions).map(([key, p]) => {
       const mark = price[key];
@@ -1438,7 +1522,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     guardAdmin(user);
     const ref = url.searchParams.get('ref');
     const rows = ref ? db.all('SELECT l.*, u.name FROM bk_log l LEFT JOIN users u ON u.id=l.user_id WHERE ref=? ORDER BY seq DESC LIMIT 500', ref) : db.all('SELECT l.*, u.name FROM bk_log l LEFT JOIN users u ON u.id=l.user_id ORDER BY seq DESC LIMIT 500');
-    return { items: rows.map((r) => ({ seq: r.seq, at: r.at, user: r.name, action: r.action, ref: r.ref, detail: JSON.parse(r.detail_json), hash: r.hash })), chain: verifyLog() };
+    return { items: rows.map((r) => ({ seq: r.seq, at: r.at, user: r.name, action: r.action, ref: r.ref, detail: JSON.parse(r.detail_json), hash: r.hash })), chain: verifyLog({ full: true }) };
   });
   // replay (spec 0001 #17): rebuild postings from the documents and compare; read-only
   on('GET', '/api/books/replay', 'auth', ({ user }) => {
@@ -1450,7 +1534,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     guardAdmin(user);
     log(user, 'export', 'all', {});
     const T = (t) => db.all(`SELECT * FROM ${t}`);
-    return { app: 'beatris-books', version: 1, at: now(), settings: settings(), parties: T('bk_parties'), accounts: T('bk_accounts'), items: T('bk_items'), docs: T('bk_docs'), versions: T('bk_versions'), cheques: T('bk_cheques'), log: T('bk_log'), chain: verifyLog() };
+    return { app: 'beatris-books', version: 1, at: now(), settings: settings(), parties: T('bk_parties'), accounts: T('bk_accounts'), items: T('bk_items'), docs: T('bk_docs'), versions: T('bk_versions'), cheques: T('bk_cheques'), log: T('bk_log'), chain: verifyLog({ full: true }) };
   });
   on('GET', '/api/verify/:code', 'public', ({ params }) => {
     const code = String(params.code).toLowerCase().replace(/[^0-9a-f]/g, '');
@@ -1497,7 +1581,19 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   on('DELETE', '/api/books/memory/:id', 'auth', ({ user, params }) => wrap(() => learn.forget(user, params.id)));
 
   /* ---------------- داشبورد مدیریت (read-only aggregates) ---------------- */
-  const dashboard = makeDashboard({ db, call, tehranDay, livePrices, market, audit: { run: (u) => audit.run(u) } });
+  const priceKey = () => {
+    const lp = livePrices();
+    return `${lp.price.G750}|${lp.mazaneh}|${lp.price['COIN:emami']}|${market?.rev?.() ?? 0}`;
+  };
+  core.priceKey = priceKey;
+  // the auditor as the system sees it, shared by the dashboard, the pulse and the exceptions centre
+  const auditShared = { run: () => core.memo('audit', `${tehranDay()}|${priceKey()}`, () => audit.run({ id: null, role: 'owner', name: 'سامانه' })) };
+  const dashboard = makeDashboard({ db, call, core, tehranDay, livePrices, market, audit: auditShared });
+  core.warm = () => {
+    control?.pulse();
+    dashboard.build({ range: '7' });
+  };
+  core.warmSoon(4000); // the first look after a restart
   on('GET', '/api/books/dashboard', 'auth', ({ user, url }) => {
     guardAdmin(user);
     const range = ['today', '7', '30', '90', 'custom'].includes(url.searchParams.get('range')) ? url.searchParams.get('range') : '7';
@@ -1604,7 +1700,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   /* ---------------- the seven tools: locked quotes, price-move risk, bar cards, counts, shared statements, forecast, day close ---------------- */
   ideas = makeIdeas({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, sealer, shopId, partyRow, verifyLog });
   // کنترل: pulse, changes, exceptions, simulator, twin, lots, story, dual trial, forecast, explain (spec 0002)
-  control = makeControl({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, partyRow, market, dashboard, audit: { run: (u) => audit.run(u) }, risk: () => ideas.risk(), shopId, closeSystem: (day, recon) => ideas.closeSystem(day, recon) });
+  control = makeControl({ db, on, call, core, auditShared, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, partyRow, market, dashboard, audit: { run: (u) => audit.run(u) }, risk: () => ideas.risk(), shopId, closeSystem: (day, recon) => ideas.closeSystem(day, recon) });
 
   /* ---------------- راه‌اندازی فروشگاه: the real opening state of a new shop in one step ---------------- */
   const setup = makeSetup({ db, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, HttpError, isAdmin });

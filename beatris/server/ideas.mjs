@@ -13,6 +13,7 @@ import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
 import { TRADE_COINS as COIN_TYPES } from '../public/js/coins.mjs';
 import { verifyPin } from './auth.mjs';
+import { tehranHour } from './tz.mjs';
 
 export const IDEAS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS bk_quotes (id TEXT PRIMARY KEY, no INTEGER NOT NULL, party_id TEXT, spec_json TEXT NOT NULL, created_by TEXT, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', doc_id TEXT, note TEXT NOT NULL DEFAULT '');
@@ -31,7 +32,6 @@ const addDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY).t
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const txt = (v, max = 200) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 const canon = (o) => JSON.stringify(o, Object.keys(o).sort());
-const tehranHour = (iso) => Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Tehran' }).format(new Date(iso))) % 24;
 const weekdayOf = (iso) => new Date(`${iso}T12:00:00Z`).getUTCDay();
 const WD = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'];
 
@@ -396,10 +396,11 @@ export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, liv
     for (const s of steps) (run += pick(s)), (low = Math.min(low, run));
     return -low;
   };
-  function forecastFor(target, weeks = 12) {
+  function forecastFor(target, weeks = 12, shared = null) {
     const wd = weekdayOf(target);
     const from = addDays(target, -weeks * 7);
-    const flows = dayFlows(from, addDays(target, -1));
+    // only days before the target are looked up, so a wider shared map gives the same answer
+    const flows = shared ?? dayFlows(from, addDays(target, -1));
     const samples = [];
     for (let k = 1; k <= weeks; k++) {
       const day = addDays(target, -7 * k);
@@ -427,16 +428,18 @@ export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, liv
   on('GET', '/api/books/forecast', 'auth', ({ user, url }) => {
     guardAdmin(user);
     const target = /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get('day') ?? '') ? url.searchParams.get('day') : addDays(tehranDay(), 1);
-    const f = forecastFor(target);
+    // the documents of all seven forecasts (today's and six back-tests) are read once
+    const flowsAll = dayFlows(addDays(target, -7 * 6 - 12 * 7), target);
+    const f = forecastFor(target, 12, flowsAll);
     const v = call('GET', '/api/books/vault', SYS);
     const cashNow = Object.values(v.cash).reduce((s, x) => s + x, 0);
     // back-test: the same forecast for each of the last six same weekdays, against what actually happened
     const tests = [];
     for (let k = 1; k <= 6; k++) {
       const day = addDays(target, -7 * k);
-      const fc = forecastFor(day);
+      const fc = forecastFor(day, 12, flowsAll);
       if (fc.activeSamples < 2) continue;
-      const actual = dayFlows(day, day).get(day);
+      const actual = flowsAll.get(day);
       const real = actual ? drawdown(actual.steps, (s) => s.cash) : 0;
       tests.push({ day, p50: fc.cash.p50, p90: fc.cash.p90, actual: Math.round(real), covered: real <= fc.cash.p90 });
     }

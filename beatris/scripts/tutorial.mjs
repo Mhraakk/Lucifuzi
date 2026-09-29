@@ -4,7 +4,7 @@
 //   FFMPEG=/path/to/ffmpeg node scripts/tutorial.mjs [--only 3,4]
 // Output: public/media/tutorial/NN.mp4, NN.jpg (poster) and chapters.json
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readdirSync, renameSync, statSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -637,6 +637,19 @@ const CHAPTERS = [
   },
 ];
 
+// keep chapters generated earlier when only some are rebuilt
+function saveList(out) {
+  const listFile = path.join(OUT, 'chapters.json');
+  let prev = [];
+  try {
+    prev = JSON.parse(readFileSync(listFile, 'utf8')).chapters ?? [];
+  } catch {
+    /* first run */
+  }
+  const merged = [...prev.filter((c) => !out.some((o) => o.n === c.n)), ...out].sort((a, b) => a.n - b.n);
+  writeFileSync(listFile, JSON.stringify({ made: new Date().toISOString(), chapters: merged }, null, 1));
+}
+
 try {
   for (let i = 0; i < 80; i++) {
     if (await fetch(`${base}/api/health`).then((r) => r.ok).catch(() => false)) break;
@@ -659,7 +672,11 @@ try {
     await ctx.addInitScript(OVERLAY);
     await ctx.addInitScript((t) => {
       try {
-        if (t) localStorage.setItem('beatris.token', t);
+        // once per tab: chapters that switch users (four eyes) must not be switched back on the next navigation
+        if (t && !sessionStorage.getItem('tt-tok')) {
+          localStorage.setItem('beatris.token', t);
+          sessionStorage.setItem('tt-tok', '1');
+        }
         localStorage.setItem('beatris.theme', 'calm');
       } catch {
         /* no storage */
@@ -698,19 +715,10 @@ try {
     // a VP9 copy for browsers built without H.264 (Chromium builds, some Linux Firefox): the page offers both
     execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', mp4, '-c:v', 'libvpx-vp9', '-crf', '40', '-b:v', '0', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '4', '-an', mp4.replace(/\.mp4$/, '.webm')]);
     out.push({ n: ch.n, slug: ch.slug, title: ch.title, sub: ch.sub, steps: ch.steps, file: `/media/tutorial/${path.basename(mp4)}`, webm: `/media/tutorial/${path.basename(mp4, '.mp4')}.webm`, poster: `/media/tutorial/${path.basename(jpg)}`, seconds: dur, vertical: !!ch.viewport, bytes: statSync(mp4).size });
+    saveList(out); // after every chapter, so a later failure never loses finished ones
     console.log(`chapter ${ch.n} ${ch.title}: ${dur}s, ${(statSync(mp4).size / 1e6).toFixed(1)} MB${errs.length ? ` — page errors: ${errs.join(' | ')}` : ''}`);
   }
   await browser.close();
-  // keep chapters generated earlier when only some were rebuilt
-  const listFile = path.join(OUT, 'chapters.json');
-  let prev = [];
-  try {
-    prev = JSON.parse((await import('node:fs')).readFileSync(listFile, 'utf8')).chapters ?? [];
-  } catch {
-    /* first run */
-  }
-  const merged = [...prev.filter((c) => !out.some((o) => o.n === c.n)), ...out].sort((a, b) => a.n - b.n);
-  writeFileSync(listFile, JSON.stringify({ made: new Date().toISOString(), chapters: merged }, null, 1));
 } finally {
   server.kill();
   rmSync(dataDir, { recursive: true, force: true });

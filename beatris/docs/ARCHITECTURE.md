@@ -61,6 +61,13 @@
 - `public/js/elliott-view.mjs`: canvas ترمینالی (DPR ≤ ۳، کشیدن، چرخ، دو انگشت، دوبار کلیک، کلیدها، `inset` برای کارت راهنما).
 - `pages/elliott.mjs`: مسیرهای `/books/elliott` (با منوی حساب) و `/market/elliott`؛ پوسته تیره ثابت با توکن‌های `--ew-*`؛ حجم رسم نمی‌شود چون داده‌اش نیست. فیلم فصل ۱۸.
 
+## هسته واحد و کیفیت (spec `docs/specs/0004-quality-core.md`)
+- `core` در `server/books.mjs`: `rev/bump/memo`؛ هر مسیر نوشتنی books (جز `NO_LEDGER`) پس از اجرا `bump`؛ `core.events(upto, from)` اسناد قطعی پارس‌شده افزایشی (بر اساس `version|updated_at`)، `core.positions(day)`، `core.partyLabels()`، `core.priceKey()` (قیمت‌ها + `market.rev()`). اشیای مشترک را تغییر ندهید.
+- مصرف‌کننده‌ها: `control.mjs` (`ctl.*`)، `dashboard.mjs` (`dash.*`)، ممیز سیستمی مشترک (`auditShared`). گرم‌کردن پس از نوشتن (۱٫۵ ثانیه، `BEATRIS_WARM`، در تست خاموش).
+- `server/tz.mjs`: قالب‌بندهای تاریخ تهران یک بار ساخته می‌شوند. `replayLedger(db, cache)` افزایشی؛ `verifyLog({ full })`.
+- دستیار: `intentOf` → `typedChoice` روی `INTENTS`؛ `localTyped` پاسخ و `intent` را می‌دهد.
+- ابزار: `tests/fuzz.test.mjs` (مدل مستقل)، `scripts/bench.mjs` (بنچمارک ۲۰k سند).
+
 ## استقرار (Railway — سرور دائمی، نه serverless)
 - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.

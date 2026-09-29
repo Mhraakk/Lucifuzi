@@ -173,3 +173,24 @@ test('حافظه: رفتار مشتری از اسناد یاد گرفته می�
   const log = await ok('GET', '/api/books/log', null, M);
   assert.ok(log.items.some((x) => x.action === 'memory.forget') && log.chain.ok);
 });
+
+test('typed routing (spec 0004): every question is one intent with probabilities, confidence and coverage; close calls ask back', async () => {
+  const full = async (question) => ok('POST', '/api/books/assistant', { question }, M);
+  const r = await full('مانده مهران رضایی');
+  assert.equal(r.intent.choice, 'party');
+  const ps = Object.values(r.intent.probabilities);
+  assert.ok(ps.every((p) => p >= 0 && p <= 1) && r.intent.confidence >= 0 && r.intent.confidence <= 1);
+  assert.ok(r.intent.coverage > 0.5, JSON.stringify(r.intent));
+  // «بانک» used to be caught by the first pattern that matched; with no customer of that name it is the vault
+  assert.equal((await full('موجودی بانک')).intent.choice, 'vault');
+  // profit of one customer: two real intents nearly tied — the engine asks instead of guessing
+  const both = await full('سود مهران رضایی');
+  assert.match(both.answer, /منظورتان کدام است؟/);
+  assert.deepEqual(Object.keys(both.intent.probabilities).slice(0, 2).sort(), ['party', 'pnl']);
+  // nothing in the words: the manual, with zero coverage
+  const none = await full('هوا امروز چطوره عزیزم');
+  assert.ok(['knowledge', 'daybook'].includes(none.intent.choice));
+  assert.ok(none.intent.coverage <= 0.34, JSON.stringify(none.intent));
+  // a remembered note always wins its prefix
+  assert.equal((await full('یادت باشه مغازه شنبه‌ها تا ۲ باز است')).intent.choice, 'remember');
+});

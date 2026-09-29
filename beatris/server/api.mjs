@@ -15,13 +15,13 @@ import { createMcp, hashToken, newToken, tokenMatches } from './mcp.mjs';
 import { registerBooks } from './books.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { setCoinCatalogue } from '../public/js/coins.mjs';
+import { tehranDay } from './tz.mjs';
 
 // each request sees its own shop's product list (custom coins, order, names), even across awaits
 const SHOP = new AsyncLocalStorage();
 setCoinCatalogue(() => SHOP.getStore()?.coins ?? null);
 
 const now = () => new Date().toISOString();
-const tehranDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(d);
 const DAY = 86400000;
 const CARD_INTERVAL_DAYS = [0, 0, 1, 2, 4, 8, 16, 32]; // index = box (1..7)
 const NEW_CARDS_PER_DAY = 12;

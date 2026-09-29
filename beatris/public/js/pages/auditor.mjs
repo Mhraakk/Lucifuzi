@@ -3,6 +3,8 @@
 import { html, raw, fa, api, store, toast, $, $$ } from '../core.mjs';
 import { booksPrefs, jd, timeFa } from '../bk.mjs';
 import { booksNav } from './books.mjs';
+// the books engine answers a typed decision (spec 0004): which kind of question it took this to be
+const INTENT = { help: 'راهنما', remember: 'به خاطر سپردن', recall: 'یادداشت‌ها', bar: 'شمش', calc: 'محاسبه', audit: 'ممیز', debtors: 'بدهکاران', creditors: 'طلبکاران', daybook: 'روزنگار', vault: 'گاوصندوق', pnl: 'سود و زیان', price: 'مظنه', party: 'حساب مشتری', knowledge: 'راهنمای برنامه' };
 
 const SEV = { high: ['فوری', '⛔'], mid: ['مهم', '⚠'], low: ['جزئی', '•'], info: ['اطلاع', 'ℹ'] };
 const ENGINE = { books: 'موتور دفاتر (بدون مدل، روی همین سرور)', 'local-llm': 'مدل هوش مصنوعی روی سیستم خود مغازه', claude: 'Claude' };
@@ -48,7 +50,7 @@ export async function auditPage(root) {
   }
   const drawMsgs = () => {
     const box = $('#msgs', root);
-    box.innerHTML = hist.length ? hist.map((m) => String(html`<div class="au-m ${m.role}"><pre>${m.text}</pre>${m.engine ? html`<small>${m.provider ? `${m.provider} · ${m.model}` : ENGINE[m.engine] ?? m.engine}${m.fallback ? ' (سرویس‌های هوش مصنوعی در دسترس نبودند؛ پاسخ از دفاتر)' : ''}</small>` : ''}</div>`)).join('') : String(html`<p class="small">سلام؛ از دفاتر بپرسید. من فقط می‌خوانم و حساب می‌کنم، هیچ سندی را ثبت یا تغییر نمی‌دهم.</p>`);
+    box.innerHTML = hist.length ? hist.map((m) => String(html`<div class="au-m ${m.role}"><pre>${m.text}</pre>${m.engine ? html`<small>${m.provider ? `${m.provider} · ${m.model}` : ENGINE[m.engine] ?? m.engine}${m.fallback ? ' (سرویس‌های هوش مصنوعی در دسترس نبودند؛ پاسخ از دفاتر)' : ''}${m.intent ? ` · برداشت: ${m.intent.l} (اطمینان ${fa(Math.round(m.intent.c * 100))}٪ · پوشش ${fa(Math.round(m.intent.v * 100))}٪)` : ''}</small>` : ''}</div>`)).join('') : String(html`<p class="small">سلام؛ از دفاتر بپرسید. من فقط می‌خوانم و حساب می‌کنم، هیچ سندی را ثبت یا تغییر نمی‌دهم.</p>`);
     box.scrollTop = box.scrollHeight;
   };
   async function send(q) {
@@ -59,7 +61,7 @@ export async function auditPage(root) {
     $('#msgs', root).insertAdjacentHTML('beforeend', '<div class="au-m assistant typing"><i></i><i></i><i></i></div>');
     try {
       const r = await api('/api/books/assistant', { method: 'POST', body: { question: q, history: hist.slice(-9, -1).map(({ role, text }) => ({ role, text })) } });
-      hist.push({ role: 'assistant', text: r.answer, engine: r.engine, provider: r.provider, model: r.model, fallback: !!r.fallback });
+      hist.push({ role: 'assistant', text: r.answer, engine: r.engine, provider: r.provider, model: r.model, fallback: !!r.fallback, intent: r.intent ? { l: INTENT[r.intent.choice] ?? r.intent.choice, c: r.intent.confidence, v: r.intent.coverage } : null });
     } catch (e) {
       hist.push({ role: 'assistant', text: e.message });
     }
