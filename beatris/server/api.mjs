@@ -29,9 +29,11 @@ const NEW_CARDS_PER_DAY = 12;
 export const DEFAULT_PRICING = { p750: 24000000, profitPct: 7, vatPct: 10, buybackDeductPct: 0, passPct: 70, priceNote: 'قیمت اولیه تا رسیدن قیمت زنده بازار یا ورود مدیر.' };
 
 export class HttpError extends Error {
-  constructor(status, message) {
+  /** extra: fields added to the JSON error body (e.g. the id of an approval request). */
+  constructor(status, message, extra = null) {
     super(message);
     this.status = status;
+    this.extra = extra;
   }
 }
 const bad = (m) => new HttpError(400, m);

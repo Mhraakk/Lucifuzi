@@ -1,6 +1,7 @@
 // Shop books on the server: customers, stock, documents with full version history, cheques, cash and bank
 // accounts, derived postings, reports and a hash-chained event log. The arithmetic lives in public/js/books.mjs;
 // this module only stores, validates against the database, and derives.
+import { makeControl } from './control.mjs';
 import { replayLedger } from './replay.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import * as B from '../public/js/books.mjs';
@@ -83,6 +84,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   // every handler is also kept by name, so the auditor and the assistant reuse exactly the logic (and the checks) of the API
   const handlers = new Map();
   let ideas = null; // the seven tools hook into saving (locked quotes, closed days); set once they are registered
+  let control = null; // کنترل hooks into saving too (period locks, approvals)
   const on = (method, path, guard, fn) => {
     handlers.set(`${method} ${path}`, fn);
     onRoute(method, path, guard, fn);
@@ -802,6 +804,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const prev = prevRow ? docOut(prevRow) : null;
     const { doc, calc, warn } = prepare(user, body, prev);
     const usedQuotes = ideas ? ideas.hooks.check(user, doc, calc, prev) : [];
+    const approval = control ? control.hooks.check(user, doc, calc, prev, body) : null;
     const wantStatus = body.status === 'draft' || doc.type === 'proforma' ? (doc.type === 'proforma' ? 'final' : 'draft') : 'final';
     if (prev?.status === 'final' && wantStatus === 'draft') throw bad('سند قطعی را نمی‌توان به پیش‌نویس برگرداند؛ ویرایش کنید یا باطل کنید.');
     if (prev?.status === 'void') throw bad('سند باطل‌شده ویرایش نمی‌شود.');
@@ -829,6 +832,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       db.run('INSERT INTO bk_versions(doc_id,version,status,data_json,calc_json,hash,by,at,reason) VALUES (?,?,?,?,?,?,?,?,?)', id, version, wantStatus, data, cj, hash, user.id, t, txt(reason, 300));
       writePostings(id, doc, calc, doc.type === 'proforma' ? 'draft' : wantStatus);
       if (usedQuotes.length && wantStatus === 'final') ideas.hooks.commit(id, usedQuotes);
+      if (approval) control.hooks.commit(approval, id);
       log(user, prev ? 'doc.update' : 'doc.create', id, { type: doc.type, fy, no, version, status: wantStatus, net: calc.net, hash, reason: txt(reason, 300) || undefined });
       return docOut(db.get('SELECT * FROM bk_docs WHERE id=?', id), { warnings: warn });
     });
@@ -847,10 +851,11 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     if (cur.status === 'final' && String(body.reason ?? '').trim().length < 3) throw bad('دلیل ویرایش را بنویسید؛ در تاریخچه سند می‌ماند.');
     return save(user, body, cur, body.reason);
   });
-  function voidDoc(user, id, reason) {
+  function voidDoc(user, id, reason, approvalId = null) {
     const cur = db.get('SELECT * FROM bk_docs WHERE id=?', id);
     if (!cur) throw notFound('سند پیدا نشد.');
     ideas?.hooks.voiding(user, cur);
+    control?.hooks.voiding(user, cur, { reason, approval: approvalId });
     if (cur.status === 'void') throw bad('این سند قبلاً باطل شده است.');
     if (String(reason ?? '').trim().length < 3) throw bad('دلیل ابطال را بنویسید.');
     const d = docOut(cur);
@@ -867,7 +872,10 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   }
   on('POST', '/api/books/docs/:id/void', 'auth', ({ user, params, body }) => {
     guardAdmin(user);
-    db.tx(() => voidDoc(user, params.id, body.reason));
+    // the approval request must be stored even though the void stops: ask before the transaction starts
+    const cur = db.get('SELECT * FROM bk_docs WHERE id=?', params.id);
+    if (cur && cur.status !== 'void' && String(body.reason ?? '').trim().length >= 3) control?.hooks.voiding(user, cur, { reason: body.reason, approval: body.approval ?? null, dryRun: true });
+    db.tx(() => voidDoc(user, params.id, body.reason, body.approval ?? null));
     return docOut(db.get('SELECT * FROM bk_docs WHERE id=?', params.id));
   });
   on('POST', '/api/books/docs/:id/finalize', 'auth', ({ user, params }) => {
@@ -1595,6 +1603,8 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
 
   /* ---------------- the seven tools: locked quotes, price-move risk, bar cards, counts, shared statements, forecast, day close ---------------- */
   ideas = makeIdeas({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, sealer, shopId, partyRow, verifyLog });
+  // کنترل: pulse, changes, exceptions, simulator, twin, lots, story, dual trial, forecast, explain (spec 0002)
+  control = makeControl({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, partyRow, market, dashboard, audit: { run: (u) => audit.run(u) }, risk: () => ideas.risk(), shopId, closeSystem: (day, recon) => ideas.closeSystem(day, recon) });
 
   /* ---------------- راه‌اندازی فروشگاه: the real opening state of a new shop in one step ---------------- */
   const setup = makeSetup({ db, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, HttpError, isAdmin });
@@ -1602,5 +1612,5 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   on('POST', '/api/books/setup', 'auth', ({ user, body }) => setup.run(user, body));
   on('POST', '/api/books/setup/skip', 'auth', ({ user }) => setup.skip(user));
 
-  return { verifyLog, settings, audit, assistant, learn, catalogue, partyView: (id) => call('GET', '/api/books/parties/:id', { id: null, role: 'owner', name: 'سامانه' }, { params: { id } }) };
+  return { verifyLog, settings, audit, assistant, learn, catalogue, autoClose: () => control?.autoTick(), partyView: (id) => call('GET', '/api/books/parties/:id', { id: null, role: 'owner', name: 'سامانه' }, { params: { id } }) };
 }

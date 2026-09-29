@@ -84,6 +84,18 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     return lastBackup;
   };
   bus.handle('ops.backup', () => void runBackup());
+  // بستن خودکار روز: every shop that switched it on is reconciled (and closed when clean) after its chosen hour
+  bus.handle('books.autoclose', () => {
+    for (const [id, h] of platform.all()) {
+      try {
+        const r = h.books?.autoClose?.();
+        if (r) metrics.inc(r.closed ? 'autoclose.closed' : 'autoclose.issues');
+      } catch (e) {
+        metrics.inc('autoclose.errors');
+        if (!quiet) console.error('[beatris] autoclose', id, e?.message);
+      }
+    }
+  });
   /** Deep health: the database answers, the price feed is fresh, the queue has no dead jobs, a recent backup exists. */
   function health() {
     const out = { ok: true, time: new Date().toISOString(), db: 'ok' };
@@ -347,7 +359,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       try {
         return marketStream(req, res);
       } catch (e) {
-        if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message, requestId: rid });
+        if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message, requestId: rid, ...(e.extra ?? {}) });
         throw e;
       }
     }
@@ -396,7 +408,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       }
       send(200, out);
     } catch (e) {
-      if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message, requestId: rid });
+      if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message, requestId: rid, ...(e.extra ?? {}) });
       if (!quiet) console.error('[beatris]', rid, req.method, url.pathname, e);
       send(500, { error: 'خطای داخلی سرور. دوباره تلاش کنید.', requestId: rid });
     }
@@ -410,6 +422,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
   server.startWorkers = () => {
     bus.every('market', 60000, 'market.poll', {}, { maxAttempts: 1 });
     if (backupDir) bus.every('backup', 24 * 3600 * 1000, 'ops.backup', {}, { maxAttempts: 3 });
+    bus.every('autoclose', 5 * 60 * 1000, 'books.autoclose', {}, { maxAttempts: 1 });
     bus.start(1000);
   };
   server.platform = platform;

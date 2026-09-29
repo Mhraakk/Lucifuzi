@@ -566,5 +566,21 @@ export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, liv
     return { ok: true };
   });
 
-  return { hooks, risk };
+  /** بستن خودکار: the nightly reconciliation found nothing open, so the day is closed with the shop's key. */
+  function closeSystem(day, recon) {
+    const cur = db.get('SELECT * FROM bk_closes WHERE day=?', day);
+    if (cur && !cur.reopened_at) return { ok: false, already: true };
+    const view = closeView(day);
+    const prev = db.get('SELECT hash FROM bk_closes WHERE day<? ORDER BY day DESC LIMIT 1', day);
+    const data = { day, totals: view.totals, entries: view.entries, cash: view.cash, count: view.counts[0]?.lines ?? null, checks: view.checks.map((c) => ({ key: c.key, ok: c.ok, warn: c.warn })), acknowledged: [], note: 'بستن خودکار شبانه: تطبیق بدون مغایرت', recon, signer: { id: null, name: 'بستن خودکار', role: 'system' }, at: now(), shop: shopId, auto: true };
+    const hash = sha(`${prev?.hash ?? ''}|${canon(data)}`);
+    const signature = edSign(null, Buffer.from(hash), createPrivateKey(shopKey().priv)).toString('base64');
+    db.tx(() => {
+      db.run('DELETE FROM bk_closes WHERE day=?', day);
+      db.run('INSERT INTO bk_closes(day,data_json,hash,prev_hash,signature,signer,signer_name,created_at) VALUES (?,?,?,?,?,?,?,?)', day, JSON.stringify(data), hash, prev?.hash ?? null, signature, 'system', 'بستن خودکار', data.at);
+      log(SYS, 'day.close', day, { hash, auto: true });
+    });
+    return { ok: true, day, hash };
+  }
+  return { hooks, risk, closeSystem, closeView };
 }
