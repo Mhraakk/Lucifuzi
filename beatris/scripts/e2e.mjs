@@ -53,6 +53,8 @@ const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--ena
 
 async function session(viewport) {
   const ctx = await browser.newContext({ viewport, acceptDownloads: true });
+  // CI runners draw WebGL in software on 2 shared cores: the 3D labs need more than Playwright's 30 s per action there
+  ctx.setDefaultTimeout(process.env.CI ? 120000 : 30000);
   const page = await ctx.newPage();
   const label = `${viewport.width}px`;
   page.on('pageerror', (e) => errors.push(`[${label}] ${page.url()} pageerror: ${e.message}`));
