@@ -2499,3 +2499,31 @@ html[data-theme='day'] .tb-card { background: #fff; border-color: var(--hair-2);
 .pe-code-in { text-transform: uppercase; letter-spacing: 0.1em; font-size: 18px; }
 @media (max-width: 720px) { .pe-cols { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 480px) { .help-btn { display: none; } }
+
+/* ---------- عملیات (/ops) ---------- */
+.ops { display: grid; gap: 16px; }
+.ops-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+.ops-head h1 { margin: 0 0 6px; }
+.ops-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.ops-card { display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--hair); background: var(--surface); border-inline-start: 3px solid var(--hair-2); }
+.ops-card small { color: var(--dust); font-size: 12px; }
+.ops-card b { font-size: 16px; }
+.ops-card em { font-style: normal; font-size: 12px; color: var(--dust); }
+.ops-card.good { border-inline-start-color: var(--turq); }
+.ops-card.bad { border-inline-start-color: var(--carn); }
+.ops-card.warn { border-inline-start-color: var(--gold); }
+.ops-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.ops-grid > * { min-width: 0; }
+.ops-grid h2 { margin: 0 0 10px; font-size: 16px; }
+.ops-t td, .ops-flags td, .ops-flags th { white-space: nowrap; }
+.ops-t tr.bad td { background: rgba(var(--bad-rgb), 0.06); }
+.ops-t .ltr { direction: ltr; text-align: left; font-size: 12px; }
+.ops-kv { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ops-kv li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 8px; border-radius: 8px; background: var(--surface-muted); font-size: 13px; }
+.ops-kv .ltr { direction: ltr; }
+.ops-dead { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ops-dead li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13px; }
+.ops-dead small { color: var(--carn); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 900px) { .ops-grid { grid-template-columns: minmax(0, 1fr); } }
+.ops-flags select.input { width: auto; min-width: 96px; min-height: 34px; padding-block: 4px; }
+.ops-flags th { font-size: 12px; font-weight: 600; white-space: normal; min-width: 110px; }

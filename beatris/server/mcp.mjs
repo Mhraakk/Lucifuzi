@@ -2,6 +2,7 @@
 // gold arithmetic, market desk and fraud calculator. Streamable HTTP transport answered with plain JSON (no
 // server-initiated stream), stateless, protocol versions 2025-06-18 / 2025-03-26 / 2024-11-05. Access needs a
 // bearer token the owner creates in the app (stored hashed). No staff, customer or login data is reachable.
+import { backtest } from '../public/js/backtest.mjs';
 import { knowledge } from './rag.mjs';
 import { createHash, timingSafeEqual, randomBytes } from 'node:crypto';
 import { invoice, buyback, MAZANEH_TO_G750, MESGHAL_G } from '../public/js/calc.mjs';
@@ -89,6 +90,17 @@ function toolset({ market, pricing, courses }) {
       inputSchema: { type: 'object', properties: { q: { type: 'string', description: 'the question or keywords (Persian or English)', maxLength: 200 }, k: num('how many results (1-10)', { minimum: 1, maximum: 10 }) }, required: ['q'] },
       annotations: { readOnlyHint: true },
       run: ({ q, k }) => ({ results: knowledge().search(q, k ?? 5) }),
+    },
+    {
+      name: 'strategy_backtest',
+      title: 'بک‌تست راهبرد روی سابقه روزانه',
+      description: 'Backtest a long-only strategy on the stored daily history of a symbol: sma (fast/slow crossover) or rsi (buy below lo, sell above hi). Signals on a close execute at the next open; the fee is paid on entry and exit. Returns total return vs holding, max drawdown, trades and win rate (fractions). Educational, not advice.',
+      inputSchema: { type: 'object', properties: { symbol: { type: 'string', enum: SYMBOLS.map((s) => s.id) }, strategy: { type: 'string', enum: ['sma', 'rsi'] }, fast: num('sma fast period', { minimum: 1, maximum: 200 }), slow: num('sma slow period', { minimum: 2, maximum: 400 }), n: num('rsi period', { minimum: 2, maximum: 100 }), lo: num('rsi buy level', { minimum: 1, maximum: 99 }), hi: num('rsi sell level', { minimum: 1, maximum: 99 }), fee: num('fee per side as a fraction (0.002 = 0.2%)', { minimum: 0, maximum: 0.05 }) }, required: ['symbol', 'strategy'] },
+      annotations: { readOnlyHint: true },
+      run: ({ symbol, strategy, ...p }) => {
+        const r = backtest(series(symbol), { strategy, ...p });
+        return { symbol, ...r, equity: undefined, list: r.list.slice(-10) };
+      },
     },
     {
       name: 'gold_value',

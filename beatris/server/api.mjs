@@ -1,4 +1,6 @@
 import { randomUUID, randomBytes } from 'node:crypto';
+import { capsOf } from './rbac.mjs';
+import { backtest } from '../public/js/backtest.mjs';
 import path from 'node:path';
 import * as C from '../content/index.mjs';
 import { checkNumeric, RECORD_KINDS } from '../public/js/calc.mjs';
@@ -51,7 +53,7 @@ function grade(q, answer) {
 }
 const reveal = (q) => (q.o ? { answer: q.a, answerText: q.o[q.a] } : { answer: q.n, unit: q.unit });
 
-export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media'), marketOpts = {}, tenant = null, sharedMarket = null, sealer = null, onEvent = () => {} }) {
+export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media'), marketOpts = {}, tenant = null, sharedMarket = null, sealer = null, onEvent = () => {}, flags = () => ({}) }) {
   // one handler per shop: the main shop (tenant null) owns the price feed, the registry and the vendor console;
   // every other shop runs on its own database, reads the shared price feed and has its accounts issued by the vendor
   let T = tenant;
@@ -183,6 +185,8 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
       tenant: { id: tenantId, main: isMain, name: isMain ? brand().shopName : T.name, plan: isMain ? 'full' : T.plan, expiresAt: isMain ? null : T.expires_at, allowPasswordChange: isMain || !!T.allow_pw_change },
       vendor: isMain && user.role === 'owner',
       setupDone: !!getSetting('setup', { done: false }).done || isMain,
+      caps: capsOf(user.role, { main: isMain }),
+      flags: flags(),
     };
   });
 
@@ -589,6 +593,20 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     if (from && !DAY_RE.test(from)) throw bad('تاریخ شروع نامعتبر است.');
     return market.series(ids, from);
   });
+  // strategy backtest on the stored daily bars (spec 0001 #17): next-open execution, fees, versus holding
+  on('GET', '/api/market/backtest', 'auth', ({ url }) => {
+    const id = String(url.searchParams.get('symbol') ?? '');
+    if (!isSymbol(id)) throw bad('نماد نامعتبر است.');
+    const strategy = String(url.searchParams.get('strategy') ?? 'sma');
+    const num = (k) => (url.searchParams.has(k) ? Number(url.searchParams.get(k)) : undefined);
+    const r = market.series([id]);
+    const bars = r.series[id].map(([d, o, h, l, c]) => ({ d, o, h, l, c }));
+    try {
+      return { symbol: id, sample: r.sample, ...backtest(bars, { strategy, fast: num('fast'), slow: num('slow'), n: num('n'), lo: num('lo'), hi: num('hi'), fee: Math.min(0.05, Math.max(0, num('fee') ?? 0.002)) }) };
+    } catch (e) {
+      throw bad(e.message);
+    }
+  });
   on('POST', '/api/market/bars', 'admin', ({ user, body }) => {
     const id = String(body.symbol ?? '');
     if (!isSymbol(id)) throw bad('نماد نامعتبر است.');
@@ -694,7 +712,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   /* ---------------- shop books (accounting) ---------------- */
   const saveSetting = (key, value, by) =>
     db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', key, JSON.stringify(value), now(), by);
-  const books = registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin: (u) => ADMIN_ROLES.has(u.role), market, sealer, shopId: tenantId, onEvent });
+  const books = registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin: (u) => ADMIN_ROLES.has(u.role), market, sealer, shopId: tenantId, onEvent, flag: (k) => flags()[k] !== false });
 
   /* ---------------- dispatcher ---------------- */
   function authenticate(req) {

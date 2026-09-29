@@ -1,6 +1,7 @@
 // Shop books on the server: customers, stock, documents with full version history, cheques, cash and bank
 // accounts, derived postings, reports and a hash-chained event log. The arithmetic lives in public/js/books.mjs;
 // this module only stores, validates against the database, and derives.
+import { replayLedger } from './replay.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import * as B from '../public/js/books.mjs';
 import { jalaliOf } from '../public/js/ta.mjs';
@@ -78,7 +79,7 @@ export const DEFAULT_BOOKS = {
   edition: 'full', money: 'rial', tradeRound: 10000, spreadBuy: 0, spreadSell: 0, coinSpreadBuy: 0, coinSpreadSell: 0, groups: {},
 };
 
-export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market, sealer = null, shopId = 'main', onEvent = () => {} }) {
+export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market, sealer = null, shopId = 'main', onEvent = () => {}, flag = () => true }) {
   // every handler is also kept by name, so the auditor and the assistant reuse exactly the logic (and the checks) of the API
   const handlers = new Map();
   let ideas = null; // the seven tools hook into saving (locked quotes, closed days); set once they are registered
@@ -1431,6 +1432,12 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const rows = ref ? db.all('SELECT l.*, u.name FROM bk_log l LEFT JOIN users u ON u.id=l.user_id WHERE ref=? ORDER BY seq DESC LIMIT 500', ref) : db.all('SELECT l.*, u.name FROM bk_log l LEFT JOIN users u ON u.id=l.user_id ORDER BY seq DESC LIMIT 500');
     return { items: rows.map((r) => ({ seq: r.seq, at: r.at, user: r.name, action: r.action, ref: r.ref, detail: JSON.parse(r.detail_json), hash: r.hash })), chain: verifyLog() };
   });
+  // replay (spec 0001 #17): rebuild postings from the documents and compare; read-only
+  on('GET', '/api/books/replay', 'auth', ({ user }) => {
+    guardAdmin(user);
+    if (!flag('books.replay')) throw new HttpError(403, 'این قابلیت برای این فروشگاه خاموش است.');
+    return replayLedger(db);
+  });
   on('GET', '/api/books/export', 'auth', ({ user }) => {
     guardAdmin(user);
     log(user, 'export', 'all', {});
@@ -1496,7 +1503,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   const aiStore = () => ({ providers: [], ...getSetting('ai', {}) });
   const aiOpen = (p) => ({ ...p, label: p.label || PROVIDERS[p.kind]?.label || p.kind, dialect: PROVIDERS[p.kind]?.dialect ?? 'openai', base: p.base || PROVIDERS[p.kind]?.base || '', key: sealer && p.keySealed ? sealer.open(p.keySealed, `ai:${shopId}:${p.id}`) ?? '' : '' });
   const aiProviders = () => aiStore().providers.filter((p) => p.enabled !== false && p.keySealed).sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map(aiOpen).filter((p) => p.key && p.base && p.model);
-  const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin, learn, providers: aiProviders, useEnv: shopId === 'main', onEvent });
+  const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin, learn, providers: () => (flag('ai.external') ? aiProviders() : []), useEnv: shopId === 'main', onEvent, flag });
   const aiOut = (p) => ({ id: p.id, kind: p.kind, label: p.label || PROVIDERS[p.kind]?.label, base: p.base || PROVIDERS[p.kind]?.base, model: p.model, enabled: p.enabled !== false, priority: p.priority ?? 0, hasKey: !!p.keySealed, keyHint: p.keyHint ?? '', lastTest: p.lastTest ?? null });
   function aiClean(body, cur = {}) {
     const kind = body.kind ?? cur.kind;

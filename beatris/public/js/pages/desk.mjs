@@ -3,6 +3,7 @@
 // (the مظنه comes from the live board with the shop's spread), take money any way it comes, save. Everything is
 // in rial and computed by the same engine the server books with, so the receipt, the day book and the customer's
 // statement agree to the last rial.
+import { liveBoard } from '../stream.mjs';
 import { html, raw, esc, fa, api, store, toast, navigate, $, $$, busy } from '../core.mjs';
 import * as B from '../books.mjs';
 import * as TR from '../trade.mjs';
@@ -798,6 +799,13 @@ export async function deskPage(root) {
     board = (await api('/api/market').catch(() => null)) ?? board;
     drawPrices();
   }, 60000);
+  // …and at once when the feed ticks (live stream; the minute poll stays as the fallback)
+  const stopLive = liveBoard((b) => {
+    if (b?.items) {
+      board = b;
+      drawPrices();
+    }
+  });
   drawPrices();
   drawParty();
   drawForm();
@@ -811,6 +819,7 @@ export async function deskPage(root) {
   if (pre) await pickParty({ id: pre }).catch(() => toast('این مشتری پیدا نشد.', 'error'));
   return () => {
     clearInterval(timer);
+    stopLive();
     document.removeEventListener('keydown', onKey);
   };
 }

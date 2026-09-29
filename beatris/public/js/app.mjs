@@ -78,6 +78,7 @@ route('/books/reports', lazy('./pages/bookmgmt.mjs', 'reportsPage'), { tab: 'boo
 route('/books/settings', lazy('./pages/bookmgmt.mjs', 'settingsPage'), { tab: 'books', tone: 'wide' });
 route('/help', lazy('./pages/help.mjs', 'helpPage'), { tab: 'books', tone: 'wide' });
 route('/setup', lazy('./pages/setup.mjs', 'setupPage'), { tab: 'books', tone: 'wide', setup: true });
+route('/ops', lazy('./pages/ops.mjs', 'opsPage'), { tab: 'team', tone: 'wide', vendor: true });
 route('/vendor', lazy('./pages/vendor.mjs', 'vendorPage'), { tab: 'team', tone: 'wide', vendor: true });
 route('/s/:token', lazy('./pages/statement.mjs', 'statementPage'), { public: true, bare: true, tone: 'full' });
 route('/verify/:code', lazy('./pages/books.mjs', 'verifyPage'), { public: true, bare: true });

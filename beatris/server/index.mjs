@@ -16,6 +16,8 @@ import { performance } from 'node:perf_hooks';
 import { createBus } from './bus.mjs';
 import { createMetrics } from './metrics.mjs';
 import { backupAll, listBackups } from './backup.mjs';
+import { createFlags } from './flags.mjs';
+import { can } from './rbac.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8' };
@@ -52,16 +54,17 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
   const sealer = makeSealer(secret);
   const metrics = createMetrics();
   const onEvent = (name) => metrics.inc(`ai.${name}`); // model gateway and guardrail events, all shops together
-  const handle = createApi({ db, signer, demo, mediaDir, marketOpts, sealer, onEvent });
+  const flags = createFlags({ db });
+  const handle = createApi({ db, signer, demo, mediaDir, marketOpts, sealer, onEvent, flags: () => flags.forShop(MAIN) });
   // every other shop: its own database file under tenants/, the shared price feed of the main shop
   const platform = createPlatform({
     mainDb: db,
     signer,
     mainHandle: handle,
-    openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market, sealer, onEvent }),
+    openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market, sealer, onEvent, flags: () => flags.forShop(row.id) }),
   });
 
-  const peers = createPeers({ mainDb: db, platform });
+  const peers = createPeers({ mainDb: db, platform, enabled: (tn) => flags.on(tn, 'peers') });
 
   /* ---------- operations: metrics, event bus + job queue, persistent market worker, backups (spec 0001 #8 #18 #20) ---------- */
   const bus = createBus({ db, onError: (e, ctx) => (metrics.inc('bus.errors'), quiet || console.error('[beatris] bus', JSON.stringify(ctx), e?.message)) });
@@ -99,15 +102,55 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     out.backup = b ? { stamp: b.stamp, files: b.files } : null;
     return out;
   }
-  function ops(method, pathname, req) {
+  const mainDb = db;
+  function ops(method, pathname, req, body = {}) {
     const user = handle.authenticate(req);
     if (!user) throw new HttpError(401, 'ورود لازم است.');
-    if (!platform.isVendor(user)) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
+    if (!platform.isVendor(user) || !can(user, 'ops.view', { main: true })) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
     if (method === 'GET' && pathname === '/api/ops/metrics') return { health: health(), metrics: metrics.snapshot(), bus: bus.stats(), backups: backupDir ? listBackups(backupDir).slice(0, 14) : [], lastBackup, market: handle.market.status() };
     if (method === 'POST' && pathname === '/api/ops/backup') return runBackup();
+    const flagView = () => {
+      const l = flags.list();
+      return { flags: l.flags, all: l.all, overrides: l.shops, shops: mainDb.all('SELECT id, name FROM tenants ORDER BY created_at') };
+    };
+    if (method === 'GET' && pathname === '/api/ops/flags') return flagView();
+    if (method === 'PUT' && pathname === '/api/ops/flags') {
+      const scope = String(body.scope ?? 'all');
+      if (scope !== 'all' && scope !== MAIN && !platform.tenantRow(scope)) throw new HttpError(400, 'فروشگاه پیدا نشد.');
+      try {
+        flags.set(scope, String(body.key ?? ''), body.value ?? null, user.id);
+      } catch (e) {
+        throw new HttpError(400, e.message);
+      }
+      return flagView();
+    }
     const m = /^\/api\/ops\/jobs\/([0-9a-f-]{36})\/retry$/.exec(pathname);
     if (method === 'POST' && m) return { ok: bus.retry(m[1]) };
     throw new HttpError(404, 'مسیر API وجود ندارد.');
+  }
+  /* real-time market data (spec 0001 #6): one Server-Sent Events stream per open page, fed by market.tick */
+  const streams = new Set();
+  function marketStream(req, res, send) {
+    const auth = String(req.headers.authorization ?? '');
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const tn = (token && platform.tenantOfToken(token)) || MAIN;
+    const user = platform.handleFor(tn).authenticate(req);
+    if (!user) throw new HttpError(401, 'ورود لازم است.');
+    if (!flags.on(tn, 'market.stream')) throw new HttpError(403, 'قیمت زنده برای این فروشگاه خاموش است.');
+    if (streams.size >= 500) throw new HttpError(503, 'اتصال‌های زنده پر است؛ صفحه قیمت‌ها را عادی باز کنید.');
+    res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no', ...SECURITY });
+    const write = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    write('board', handle.market.board());
+    const off = bus.subscribe('market.tick', (d) => write('board', d.board));
+    const beat = setInterval(() => res.write(': ping\n\n'), 25000);
+    beat.unref?.();
+    streams.add(res);
+    metrics.inc('stream.opened');
+    req.on('close', () => {
+      off();
+      clearInterval(beat);
+      streams.delete(res);
+    });
   }
   const perIp = new Map();
   const overLimit = (ip) => {
@@ -300,6 +343,14 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       const h = health();
       return send(h.ok ? 200 : 503, h);
     }
+    if (url.pathname === '/api/market/stream' && req.method === 'GET') {
+      try {
+        return marketStream(req, res);
+      } catch (e) {
+        if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message, requestId: rid });
+        throw e;
+      }
+    }
     try {
       const limit = url.pathname === '/api/designs' || url.pathname === '/api/market/bars' ? 2.5 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : /^\/api\/books\/bars\/[^/]+\/card$/.test(url.pathname) ? 1.5 * 1024 * 1024 : undefined;
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, limit) : {};
@@ -309,7 +360,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       if (url.pathname === '/api/auth/login' && req.method === 'POST') out = platform.login(body, ip, req.headers['user-agent']);
       else if (url.pathname.startsWith('/api/ops/')) {
         if (token && platform.tenantOfToken(token) && platform.tenantOfToken(token) !== MAIN) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
-        out = ops(req.method, url.pathname, req);
+        out = ops(req.method, url.pathname, req, body);
       }
       else if (url.pathname.startsWith('/api/vendor/')) {
         if (token && platform.tenantOfToken(token) && platform.tenantOfToken(token) !== MAIN) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
@@ -354,6 +405,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
   server.bus = bus;
   server.metrics = metrics;
   server.health = health;
+  server.streams = streams;
   /** The persistent workers: the market feed every minute (it polls when its own period is due) and a daily backup. */
   server.startWorkers = () => {
     bus.every('market', 60000, 'market.poll', {}, { maxAttempts: 1 });

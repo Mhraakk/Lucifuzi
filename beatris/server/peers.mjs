@@ -5,7 +5,7 @@
 // document that is missing on one side. Read-only: nothing here books anything in either shop.
 // The registry lives in the main database; each side sees only the account the two shops keep for each other.
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ADMIN_ROLES } from './auth.mjs';
+import { can } from './rbac.mjs';
 import { PlatformError, MAIN } from './platform.mjs';
 import { SHOP_NAME } from '../public/js/crown.mjs';
 
@@ -63,7 +63,7 @@ export function comparePeer(mine, theirs, { windowDays = 3 } = {}) {
 }
 
 /** platform: { handleFor, tenantRow }. */
-export function createPeers({ mainDb, platform }) {
+export function createPeers({ mainDb, platform, enabled = () => true }) {
   mainDb.raw.exec(PEERS_SCHEMA);
   const shopName = (tn) => {
     const h = platform.handleFor(tn);
@@ -112,7 +112,8 @@ export function createPeers({ mainDb, platform }) {
   /** method, path (after /api/peers), body, user, tn (the caller's shop). */
   function route(method, path, body, user, tn) {
     if (!user) throw new PlatformError(401, 'ورود لازم است.');
-    if (!ADMIN_ROLES.has(user.role)) throw new PlatformError(403, 'تطبیق با همکار مخصوص مدیر و مالک است.');
+    if (!can(user, 'peers.manage')) throw new PlatformError(403, 'تطبیق با همکار مخصوص مدیر و مالک است.');
+    if (!enabled(tn)) throw new PlatformError(403, 'تطبیق با همکار برای این فروشگاه خاموش است.');
     if (method === 'GET' && path === '') {
       const links = mainDb.all('SELECT * FROM peer_links WHERE ended_at IS NULL AND (a_tenant=? OR b_tenant=?) ORDER BY created_at DESC', tn, tn);
       const pending = mainDb.all('SELECT party_id, expires_at FROM peer_invites WHERE tenant_id=? AND used_at IS NULL AND expires_at>? ORDER BY created_at DESC', tn, now());

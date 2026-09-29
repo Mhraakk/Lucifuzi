@@ -12,7 +12,7 @@ export async function vendorPage(root) {
   const S = { items: [], open: null, users: {} };
   root.innerHTML = String(html`<div class="vd">
     <header class="bk-head"><div><h1>کنسول ارائه‌دهنده</h1><p class="small">فروشگاه‌های خریدار، حساب‌های کاربری و اشتراک‌ها. نام کاربری و رمز فقط از همین‌جا صادر می‌شود.</p></div>
-      <button class="btn" data-act="new">+ فروشگاه تازه</button></header>
+      <div class="actions"><a class="btn ghost" href="/ops" data-link>عملیات و سلامت سرور</a><button class="btn" data-act="new">+ فروشگاه تازه</button></div></header>
     <section class="vd-kpis" id="vdK"></section>
     <section class="vd-list" id="vdL"><div class="loading"><span></span></div></section></div>`);
 

@@ -53,7 +53,7 @@ test('MCP: initialize، اعلان‌ها ۲۰۲، فهرست ابزارها و 
   assert.equal(odd.body.result.protocolVersion, '2025-06-18');
   assert.equal((await rpc({ jsonrpc: '2.0', method: 'notifications/initialized' })).status, 202);
   const list = (await rpc({ jsonrpc: '2.0', id: 3, method: 'tools/list' })).body.result.tools;
-  assert.equal(list.length, 12);
+  assert.equal(list.length, 13);
   assert.ok(list.some((t) => t.name === 'search_knowledge'));
   for (const t of list) assert.ok(t.name && t.description && t.inputSchema?.type === 'object' && !('run' in t), t.name);
   assert.equal((await rpc({ jsonrpc: '2.0', id: 4, method: 'resources/list' })).body.error.code, -32601);
@@ -69,6 +69,9 @@ test('MCP: ابزارها همان موتور برنامه را اجرا می‌
   const kb = await tool('search_knowledge', { q: 'مظنه چیست', k: 3 });
   assert.equal(kb.structuredContent.results.length, 3);
   assert.ok(kb.structuredContent.results.some((r) => r.title === 'مظنه'));
+  const bt = await tool('strategy_backtest', { symbol: 'mesghal', strategy: 'sma', fast: 5, slow: 20 });
+  assert.equal(bt.structuredContent.strategy, 'sma');
+  assert.equal(typeof bt.structuredContent.maxDrawdown, 'number');
   const g = await tool('gold_value', { weight: 20, fineness: 740, mazaneh: 40000000 });
   assert.equal(g.structuredContent.value, MELT.ledgerValue(20, 740, 40e6));
   assert.equal(g.structuredContent.eq750, 19.733);

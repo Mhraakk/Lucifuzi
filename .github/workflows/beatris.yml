@@ -1,0 +1,42 @@
+# Release gates for Beatris (spec 0001 #19). Railway deploys the connected branch on push; these checks show on
+# every push and pull request so a red gate is visible before anyone relies on the deploy.
+name: beatris
+on:
+  push:
+    paths: ['beatris/**', '.github/workflows/beatris.yml']
+  pull_request:
+    paths: ['beatris/**', '.github/workflows/beatris.yml']
+permissions:
+  contents: read
+concurrency:
+  group: beatris-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    working-directory: beatris
+jobs:
+  gate:
+    name: gate (check + unit + evals)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - run: npm run gate
+  e2e:
+    name: e2e (browser)
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - name: Install Playwright (test tool only, not a runtime dependency)
+        run: |
+          npm i -g playwright@1.56
+          npx playwright install --with-deps chromium
+      - run: PLAYWRIGHT_MODULE="$(npm root -g)/playwright/index.mjs" npm run e2e
