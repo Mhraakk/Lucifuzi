@@ -78,7 +78,7 @@ export const DEFAULT_BOOKS = {
   edition: 'full', money: 'rial', tradeRound: 10000, spreadBuy: 0, spreadSell: 0, coinSpreadBuy: 0, coinSpreadSell: 0, groups: {},
 };
 
-export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market, sealer = null, shopId = 'main' }) {
+export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market, sealer = null, shopId = 'main', onEvent = () => {} }) {
   // every handler is also kept by name, so the auditor and the assistant reuse exactly the logic (and the checks) of the API
   const handlers = new Map();
   let ideas = null; // the seven tools hook into saving (locked quotes, closed days); set once they are registered
@@ -1496,7 +1496,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   const aiStore = () => ({ providers: [], ...getSetting('ai', {}) });
   const aiOpen = (p) => ({ ...p, label: p.label || PROVIDERS[p.kind]?.label || p.kind, dialect: PROVIDERS[p.kind]?.dialect ?? 'openai', base: p.base || PROVIDERS[p.kind]?.base || '', key: sealer && p.keySealed ? sealer.open(p.keySealed, `ai:${shopId}:${p.id}`) ?? '' : '' });
   const aiProviders = () => aiStore().providers.filter((p) => p.enabled !== false && p.keySealed).sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map(aiOpen).filter((p) => p.key && p.base && p.model);
-  const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin, learn, providers: aiProviders, useEnv: shopId === 'main' });
+  const assistant = makeAssistant({ db, call, audit, settings, tehranDay, livePrices, isAdmin, learn, providers: aiProviders, useEnv: shopId === 'main', onEvent });
   const aiOut = (p) => ({ id: p.id, kind: p.kind, label: p.label || PROVIDERS[p.kind]?.label, base: p.base || PROVIDERS[p.kind]?.base, model: p.model, enabled: p.enabled !== false, priority: p.priority ?? 0, hasKey: !!p.keySealed, keyHint: p.keyHint ?? '', lastTest: p.lastTest ?? null });
   function aiClean(body, cur = {}) {
     const kind = body.kind ?? cur.kind;

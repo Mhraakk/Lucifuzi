@@ -50,19 +50,20 @@ export function parseRange(h, size) {
 export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts, tenantsDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'tenants') : ':memory:', backupDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'backups') : null, rateLimit = 1500, accessLog = process.env.BEATRIS_ACCESS_LOG === '1' }) {
   const signer = makeSigner(secret);
   const sealer = makeSealer(secret);
-  const handle = createApi({ db, signer, demo, mediaDir, marketOpts, sealer });
+  const metrics = createMetrics();
+  const onEvent = (name) => metrics.inc(`ai.${name}`); // model gateway and guardrail events, all shops together
+  const handle = createApi({ db, signer, demo, mediaDir, marketOpts, sealer, onEvent });
   // every other shop: its own database file under tenants/, the shared price feed of the main shop
   const platform = createPlatform({
     mainDb: db,
     signer,
     mainHandle: handle,
-    openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market, sealer }),
+    openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market, sealer, onEvent }),
   });
 
   const peers = createPeers({ mainDb: db, platform });
 
   /* ---------- operations: metrics, event bus + job queue, persistent market worker, backups (spec 0001 #8 #18 #20) ---------- */
-  const metrics = createMetrics();
   const bus = createBus({ db, onError: (e, ctx) => (metrics.inc('bus.errors'), quiet || console.error('[beatris] bus', JSON.stringify(ctx), e?.message)) });
   let lastBackup = null;
   bus.handle('market.poll', async () => {

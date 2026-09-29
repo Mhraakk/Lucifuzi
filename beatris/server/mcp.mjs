@@ -2,6 +2,7 @@
 // gold arithmetic, market desk and fraud calculator. Streamable HTTP transport answered with plain JSON (no
 // server-initiated stream), stateless, protocol versions 2025-06-18 / 2025-03-26 / 2024-11-05. Access needs a
 // bearer token the owner creates in the app (stored hashed). No staff, customer or login data is reachable.
+import { knowledge } from './rag.mjs';
 import { createHash, timingSafeEqual, randomBytes } from 'node:crypto';
 import { invoice, buyback, MAZANEH_TO_G750, MESGHAL_G } from '../public/js/calc.mjs';
 import * as MELT from '../public/js/melt.mjs';
@@ -81,6 +82,14 @@ function toolset({ market, pricing, courses }) {
     return { mazaneh: m.price, source: m.sample ? 'sample market data (synthetic)' : `market ${m.day} (${m.source})`, day: m.day };
   };
   return [
+    {
+      name: 'search_knowledge',
+      title: 'جستجو در راهنما و آموزش',
+      description: 'Search the built-in knowledge of the app (lessons, SOPs, glossary, video-guide steps) with Persian-aware BM25. Returns titles, app links and the most relevant sentence. Use it before answering how-to or terminology questions.',
+      inputSchema: { type: 'object', properties: { q: { type: 'string', description: 'the question or keywords (Persian or English)', maxLength: 200 }, k: num('how many results (1-10)', { minimum: 1, maximum: 10 }) }, required: ['q'] },
+      annotations: { readOnlyHint: true },
+      run: ({ q, k }) => ({ results: knowledge().search(q, k ?? 5) }),
+    },
     {
       name: 'gold_value',
       title: 'ارزش طلای آب‌شده به قاعده دفتر',

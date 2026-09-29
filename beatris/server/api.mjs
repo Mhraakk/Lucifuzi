@@ -51,7 +51,7 @@ function grade(q, answer) {
 }
 const reveal = (q) => (q.o ? { answer: q.a, answerText: q.o[q.a] } : { answer: q.n, unit: q.unit });
 
-export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media'), marketOpts = {}, tenant = null, sharedMarket = null, sealer = null }) {
+export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media'), marketOpts = {}, tenant = null, sharedMarket = null, sealer = null, onEvent = () => {} }) {
   // one handler per shop: the main shop (tenant null) owns the price feed, the registry and the vendor console;
   // every other shop runs on its own database, reads the shared price feed and has its accounts issued by the vendor
   let T = tenant;
@@ -694,7 +694,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   /* ---------------- shop books (accounting) ---------------- */
   const saveSetting = (key, value, by) =>
     db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', key, JSON.stringify(value), now(), by);
-  const books = registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin: (u) => ADMIN_ROLES.has(u.role), market, sealer, shopId: tenantId });
+  const books = registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin: (u) => ADMIN_ROLES.has(u.role), market, sealer, shopId: tenantId, onEvent });
 
   /* ---------------- dispatcher ---------------- */
   function authenticate(req) {
