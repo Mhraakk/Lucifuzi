@@ -76,6 +76,8 @@ test('bridge: approved SEP purchase returns RRN, card and terminal; the messages
   assert.equal(j.rrn, '863583063456');
   assert.equal(j.card, '1234');
   assert.equal(j.terminal, '12345678');
+  // the result is final as soon as the approval arrives; the closing 17 and Dispose follow
+  for (let i = 0; i < 100 && term.received.at(-1)?.[3] !== '000001'; i++) await new Promise((r) => setTimeout(r, 50));
   const sent = term.received.slice(-3);
   assert.deepEqual(sent.map((m) => m[3]), ['000000', '000004', '000001']); // purchase, ACK, dispose
   assert.ok(sent.every((m) => m.macOk));
