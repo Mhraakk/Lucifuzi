@@ -762,6 +762,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   handle.market = market;
   handle.db = db;
   handle.authenticate = authenticate;
+  handle.shopName = () => brand().shopName;
   handle.setTenant = (row) => {
     if (!isMain && row) T = row;
   };

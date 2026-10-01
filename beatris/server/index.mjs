@@ -401,6 +401,11 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
         const user = handle.authenticate(req);
         if (!user) throw new HttpError(401, 'ورود لازم است.');
         out = platform.vendor(req.method, url.pathname, body, user);
+      } else if (url.pathname.startsWith('/api/access/')) {
+        // account requests (spec 0011): public from the sign-in page, approved by the shop's owner or manager
+        const tn = (token && platform.tenantOfToken(token)) || MAIN;
+        const user = token ? platform.handleFor(tn).authenticate(req) : null;
+        out = platform.access(req.method, url.pathname, body, { ip, user, tn, query: url.searchParams });
       } else if (url.pathname === '/api/peers' || url.pathname.startsWith('/api/peers/')) {
         // تطبیق با همکار spans two shops: the registry is in the main database, each side's books in its own
         const tn = (token && platform.tenantOfToken(token)) || MAIN;

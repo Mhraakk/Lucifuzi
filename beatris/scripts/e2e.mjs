@@ -643,6 +643,51 @@ async function loginUI(page) {
     check('owner marks the request as contacted', (await page.$eval('[data-status="contacted"]', (b) => b.getAttribute('aria-pressed'))) === 'true');
   });
 
+  await step('account request: sign-in page → manager approves in the app → same device gets username and password', async () => {
+    await go(page, '/staff', 1200);
+    check('team page links to account requests', !!(await page.$('a[href="/staff/access"]')));
+    await go(page, '/staff/access', 1200);
+    const code = (await text(page, '#acCode')).trim();
+    check('access: invite code with link and QR', /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code) && !!(await page.$('.ac-qr svg')), code);
+    const pub = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const p3 = await pub.newPage();
+    p3.on('pageerror', (e) => errors.push(`[join] pageerror: ${e.message}`));
+    await p3.goto(base + '/login');
+    await p3.waitForTimeout(1000);
+    await p3.click('a[href="/join"]');
+    await p3.waitForTimeout(800);
+    await p3.fill('#jf input[name=code]', code.toLowerCase().replace('-', ''));
+    await p3.waitForTimeout(900);
+    check('join: the shop name appears for a right code', /فروشگاه:/.test(await text(p3, '#jshop')), await text(p3, '#jshop'));
+    await p3.fill('#jf input[name=name]', 'ترانه آزمون');
+    await p3.fill('#jf input[name=phone]', '۰۹۱۳۵۵۵۱۲۱۲');
+    await p3.selectOption('#jf select[name=role]', 'trainer');
+    await p3.fill('#jf input[name=username]', 'taraneh.test');
+    await p3.click('#jf button[type=submit]');
+    await p3.waitForTimeout(1200);
+    check('join: request waits for the manager on this device', /در انتظار تأیید/.test(await text(p3, 'h1')));
+    check('join: no sideways scroll on a phone', await p3.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await go(page, '/staff/access', 1200);
+    const req = page.locator('.ac-req', { hasText: 'ترانه آزمون' });
+    check('access: the request is listed with the wished username', (await req.locator('input[name=username]').inputValue()) === 'taraneh.test');
+    await req.locator('button[type=submit]').click();
+    await page.waitForTimeout(1200);
+    check('access: approved, waiting for pickup on their device', /منتظر دریافت روی دستگاه/.test(await text(page, '#main')));
+    await p3.click('[data-j=check]');
+    await p3.waitForTimeout(1200);
+    const pw = (await text(p3, '.vd-pw')).trim();
+    check('join: the same device shows username and a fresh password once', /taraneh\.test/.test(await text(p3, '.join-cred')) && pw.length === 10, pw);
+    await p3.click('[data-j=login]');
+    await p3.waitForTimeout(1200);
+    check('login form filled from the approved request', (await p3.inputValue('input[name=login]')) === 'taraneh.test' && (await p3.inputValue('input[name=password]')) === pw);
+    await p3.click('button[type=submit]');
+    await p3.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 }).catch(() => {});
+    check('the new colleague signs in with that account', !new URL(p3.url()).pathname.startsWith('/login'), p3.url());
+    await pub.close();
+    await go(page, '/staff/access', 1200);
+    check('access: shows the password was delivered', /تحویل شد/.test(await text(page, '#main')));
+  });
+
   await step('coin inspection report: flags a light, magnetic coin and prints for the customer', async () => {
     await go(page, '/tools/inspect', 1200);
     await page.fill('#ins input[name=weight]', '۸٫۱۲۰');

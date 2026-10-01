@@ -8,6 +8,32 @@ const PLAN_FA = { base: 'نسخه پایه (سکه، آبشده، شمش، ار�
 const daysLeft = (iso) => (iso ? Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${today()}T00:00:00Z`)) / 864e5) : null);
 const loginUrl = () => `${location.origin}/login`;
 
+/** Credentials are shown once, ready to copy or print for the customer. */
+export function credentials(title, shop, user, password) {
+  const text = `${shop}\nنشانی ورود: ${loginUrl()}\nنام کاربری: ${user}\nرمز: ${password}`;
+  modal(
+    String(html`<h3 class="bk-h">${title}</h3><p class="small">این رمز فقط همین یک بار نمایش داده می‌شود. آن را به صاحب حساب بدهید؛ با همین نام کاربری و رمز روی گوشی و کامپیوتر وارد می‌شود.</p>
+      <div class="vd-cred" id="cred"><div><small>فروشگاه</small><b>${shop}</b></div><div><small>نشانی ورود</small><b class="ltr-num">${loginUrl()}</b></div><div><small>نام کاربری</small><b class="ltr-num">${user}</b></div><div><small>رمز</small><b class="ltr-num vd-pw">${password}</b></div></div>
+      <div class="actions"><button class="btn" data-copy>کپی</button><button class="btn ghost" data-print>چاپ برگه تحویل</button><button class="btn ghost" data-close>بستن</button></div>`),
+    (m) => {
+      m.querySelector('[data-copy]').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          toast('کپی شد.', 'ok');
+        } catch {
+          toast('کپی انجام نشد؛ متن را دستی بردارید.', 'error');
+        }
+      });
+      m.querySelector('[data-print]').addEventListener('click', () => {
+        const w = window.open('', '_blank', 'width=720,height=900');
+        if (!w) return toast('پنجره چاپ باز نشد.', 'error');
+        w.document.write(`<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>برگه تحویل حساب</title><style>body{font:16px/2 Tahoma,sans-serif;padding:40px;color:#111}h1{font-size:22px}table{border-collapse:collapse;width:100%}td{border:1px solid #999;padding:8px 12px}td:first-child{width:30%;background:#f4f1ea}.l{direction:ltr;text-align:left;font-family:monospace;font-size:18px}</style><h1>برگه تحویل حساب نرم‌افزار</h1><table><tr><td>فروشگاه</td><td>${html`${shop}`}</td></tr><tr><td>نشانی ورود</td><td class="l">${loginUrl()}</td></tr><tr><td>نام کاربری</td><td class="l">${html`${user}`}</td></tr><tr><td>رمز</td><td class="l">${html`${password}`}</td></tr><tr><td>تاریخ</td><td>${jd(today())}</td></tr></table><p>با همین حساب روی گوشی، تبلت و کامپیوتر وارد شوید. رمز را به کسی ندهید.</p><script>print()</script>`);
+        w.document.close();
+      });
+    },
+  );
+}
+
 export async function vendorPage(root) {
   const S = { items: [], open: null, users: {} };
   root.innerHTML = String(html`<div class="vd">
@@ -52,31 +78,6 @@ export async function vendorPage(root) {
         <td class="vd-uact"><button class="chip" data-act="reset" data-t="${id}" data-u="${u.id}">رمز تازه</button>${u.username ? '' : html`<button class="chip" data-act="uname" data-t="${id}" data-u="${u.id}">نام کاربری</button>`}<button class="chip" data-act="out" data-t="${id}" data-u="${u.id}">خروج از همه دستگاه‌ها</button><button class="chip ${u.active ? 'danger' : ''}" data-act="uact" data-t="${id}" data-u="${u.id}" data-on="${u.active ? 0 : 1}">${u.active ? 'غیرفعال' : 'فعال'}</button></td></tr>`,
     )}</tbody></table></div>
       <form class="vd-add" data-t="${id}"><b>کاربر تازه</b><input class="input" name="name" placeholder="نام و نام خانوادگی" required><input class="input ltr" name="username" placeholder="username" autocapitalize="none" required><select class="input" name="role">${['employee', 'manager', 'owner', 'trainer'].map((r) => html`<option value="${r}">${ROLE_FA[r]}</option>`)}</select><input class="input ltr" name="password" placeholder="رمز (خالی = ساخت خودکار)" autocomplete="new-password"><button class="btn small">ساخت حساب</button></form>`);
-  }
-  /** Credentials are shown once, ready to copy or print for the customer. */
-  function credentials(title, shop, user, password) {
-    const text = `${shop}\nنشانی ورود: ${loginUrl()}\nنام کاربری: ${user}\nرمز: ${password}`;
-    modal(
-      String(html`<h3 class="bk-h">${title}</h3><p class="small">این رمز فقط همین یک بار نمایش داده می‌شود. آن را به صاحب حساب بدهید؛ با همین نام کاربری و رمز روی گوشی و کامپیوتر وارد می‌شود.</p>
-        <div class="vd-cred" id="cred"><div><small>فروشگاه</small><b>${shop}</b></div><div><small>نشانی ورود</small><b class="ltr-num">${loginUrl()}</b></div><div><small>نام کاربری</small><b class="ltr-num">${user}</b></div><div><small>رمز</small><b class="ltr-num vd-pw">${password}</b></div></div>
-        <div class="actions"><button class="btn" data-copy>کپی</button><button class="btn ghost" data-print>چاپ برگه تحویل</button><button class="btn ghost" data-close>بستن</button></div>`),
-      (m) => {
-        m.querySelector('[data-copy]').addEventListener('click', async () => {
-          try {
-            await navigator.clipboard.writeText(text);
-            toast('کپی شد.', 'ok');
-          } catch {
-            toast('کپی انجام نشد؛ متن را دستی بردارید.', 'error');
-          }
-        });
-        m.querySelector('[data-print]').addEventListener('click', () => {
-          const w = window.open('', '_blank', 'width=720,height=900');
-          if (!w) return toast('پنجره چاپ باز نشد.', 'error');
-          w.document.write(`<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>برگه تحویل حساب</title><style>body{font:16px/2 Tahoma,sans-serif;padding:40px;color:#111}h1{font-size:22px}table{border-collapse:collapse;width:100%}td{border:1px solid #999;padding:8px 12px}td:first-child{width:30%;background:#f4f1ea}.l{direction:ltr;text-align:left;font-family:monospace;font-size:18px}</style><h1>برگه تحویل حساب نرم‌افزار</h1><table><tr><td>فروشگاه</td><td>${html`${shop}`}</td></tr><tr><td>نشانی ورود</td><td class="l">${loginUrl()}</td></tr><tr><td>نام کاربری</td><td class="l">${html`${user}`}</td></tr><tr><td>رمز</td><td class="l">${html`${password}`}</td></tr><tr><td>تاریخ</td><td>${jd(today())}</td></tr></table><p>با همین حساب روی گوشی، تبلت و کامپیوتر وارد شوید. رمز را به کسی ندهید.</p><script>print()</script>`);
-          w.document.close();
-        });
-      },
-    );
   }
   function shopForm(t = null) {
     modal(

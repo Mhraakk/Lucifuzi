@@ -36,6 +36,7 @@ setTheme(theme());
 const lazy = (mod, fn) => async (root, params) => (await import(mod))[fn](root, params);
 
 route('/login', lazy('./pages/login.mjs', 'loginPage'), { public: true, bare: true, tone: 'full' });
+route('/join', lazy('./pages/join.mjs', 'joinPage'), { public: true, bare: true, tone: 'full' });
 route('/intro', lazy('./pages/intro.mjs', 'introPage'), { public: true, bare: true, tone: 'full' });
 route('/intro/:tab', lazy('./pages/intro.mjs', 'introPage'), { public: true, bare: true, tone: 'full' });
 route('/', lazy('./pages/home.mjs', 'homePage'), { tab: 'home', tone: 'full' });
@@ -100,6 +101,7 @@ route('/staff', lazy('./pages/team.mjs', 'teamPage'), { tab: 'team', staff: true
 route('/staff/queue', lazy('./pages/team.mjs', 'queuePage'), { tab: 'team', staff: true });
 route('/staff/settings', lazy('./pages/team.mjs', 'settingsPage'), { tab: 'team', staff: true });
 route('/staff/leads', lazy('./pages/team.mjs', 'leadsPage'), { tab: 'team', staff: true });
+route('/staff/access', lazy('./pages/access.mjs', 'accessPage'), { tab: 'team', staff: true });
 route('/staff/:id', lazy('./pages/team.mjs', 'memberPage'), { tab: 'team', staff: true, tone: 'wide' });
 
 setShell((opts) => {

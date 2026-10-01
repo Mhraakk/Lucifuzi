@@ -2,8 +2,8 @@
 // account (username + password) from the vendor console, and the same account signs in on a phone and on a desktop.
 // The main database keeps the registry: shops (tenants) and the username → shop map. Nothing here touches the books of
 // any shop; it only opens them, signs sessions for them, and routes each request to its shop.
-import { randomUUID, randomBytes } from 'node:crypto';
-import { hashPin, verifyPin, normalizePhone, validPhone, digits, ROLES, makeLimiter } from './auth.mjs';
+import { randomUUID, randomBytes, createHash } from 'node:crypto';
+import { hashPin, verifyPin, normalizePhone, validPhone, digits, ROLES, ADMIN_ROLES, makeLimiter } from './auth.mjs';
 
 export const PLATFORM_SCHEMA = `
 CREATE TABLE IF NOT EXISTS tenants (
@@ -26,6 +26,31 @@ CREATE TABLE IF NOT EXISTS logins (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_logins_tenant ON logins(tenant_id);
+CREATE TABLE IF NOT EXISTS join_codes (
+  tenant_id TEXT PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS access_requests (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  role TEXT NOT NULL,
+  username TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  ticket_hash TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  user_id TEXT,
+  granted_username TEXT,
+  decided_by TEXT,
+  decided_at TEXT,
+  picked_at TEXT,
+  ip TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_access_tenant ON access_requests(tenant_id, status);
 `;
 export const MAIN = 'main';
 const now = () => new Date().toISOString();
@@ -146,7 +171,7 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant }) {
     if (mainDb.get('SELECT 1 FROM logins WHERE username=?', u)) throw new PlatformError(409, 'این نام کاربری قبلاً گرفته شده است.');
     return u;
   };
-  function addUser(tn, { name, username, password, role = 'employee', phone }, by) {
+  function addUser(tn, { name, username, password, role = 'employee', phone }, by, action = 'vendor.user.create') {
     const h = tn === MAIN ? mainHandle : handleFor(tn);
     const nm = String(name ?? '').trim();
     if (nm.length < 2) throw bad('نام را کامل وارد کنید.');
@@ -161,7 +186,7 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant }) {
     const id = randomUUID();
     h.db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,created_at,username) VALUES (?,?,?,?,?,?,?,?)', id, nm, ph, role, '', hashPin(pw), now(), uname);
     mainDb.run('INSERT INTO logins(username,tenant_id,user_id,created_at) VALUES (?,?,?,?)', uname, tn, id, now());
-    audit(by, 'vendor.user.create', { tenant: tn, id, username: uname, role });
+    audit(by, action, { tenant: tn, id, username: uname, role });
     return { user: userOut(h.db.get('SELECT * FROM users WHERE id=?', id), tn), password: pw };
   }
   const audit = (by, action, detail) => mainDb.run('INSERT INTO audit(user_id,action,detail_json,created_at) VALUES (?,?,?,?)', by, action, JSON.stringify(detail), now());
@@ -258,6 +283,162 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant }) {
     return { user: userOut(db.get('SELECT * FROM users WHERE id=?', u.id), params.id), ...(password ? { password } : {}) };
   });
 
+  /* ---------------- account requests (spec 0011) ----------------
+   * A colleague asks from the sign-in page with the shop's invite code; the shop's owner or manager approves inside the
+   * app. No password is ever stored: the requester's device holds a random ticket (the server keeps its hash) and the
+   * password is minted at the moment that device picks it up — once. */
+  const CODE_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const newCode = () => Array.from(randomBytes(8), (x) => CODE_ABC[x % CODE_ABC.length]).join('');
+  const normCode = (s) => digits(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const showCode = (c) => `${c.slice(0, 4)}-${c.slice(4)}`;
+  const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
+  const reqByIp = makeLimiter(6, 60 * 60 * 1000); // requests sent, per hour
+  const guessByIp = makeLimiter(20, 10 * 60 * 1000); // wrong codes and tickets
+  const PICKUP_MS = 7 * 864e5;
+  const REQ_ROLES = ['employee', 'trainer', 'manager'];
+  const ROLE_NAME = { employee: 'فروشنده', trainer: 'مربی', manager: 'مدیر', owner: 'مالک' };
+  const txt = (v, max) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
+  const codeRow = (tn) => {
+    let r = mainDb.get('SELECT * FROM join_codes WHERE tenant_id=?', tn);
+    if (!r) {
+      mainDb.run('INSERT INTO join_codes(tenant_id,code,enabled,created_at) VALUES (?,?,1,?)', tn, newCode(), now());
+      r = mainDb.get('SELECT * FROM join_codes WHERE tenant_id=?', tn);
+    }
+    return r;
+  };
+  /** The shop behind an invite code, or a plain error (counted against the caller's address). */
+  function shopOfCode(raw, ip) {
+    if (guessByIp.blocked(ip)) throw new PlatformError(429, 'تلاش‌های نادرست زیاد بود. ده دقیقه دیگر دوباره امتحان کنید.');
+    const r = mainDb.get('SELECT * FROM join_codes WHERE code=?', normCode(raw));
+    if (!r) {
+      guessByIp.fail(ip);
+      throw bad('کد فروشگاه درست نیست. کد را از مدیر فروشگاه بگیرید.');
+    }
+    if (!r.enabled) throw new PlatformError(403, 'درخواست حساب در این فروشگاه فعلاً بسته است؛ با مدیر فروشگاه هماهنگ کنید.');
+    let h;
+    try {
+      h = handleFor(r.tenant_id);
+    } catch {
+      throw new PlatformError(403, 'درخواست حساب برای این فروشگاه فعلاً ممکن نیست.');
+    }
+    return { tn: r.tenant_id, shop: h.shopName?.() ?? '' };
+  }
+  const freeUsername = (u) => USERNAME_RE.test(u) && !mainDb.get('SELECT 1 FROM logins WHERE username=?', u);
+  function suggestUsername(r) {
+    if (r.username && freeUsername(r.username)) return r.username;
+    const base = `u${r.phone.slice(-7)}`;
+    if (freeUsername(base)) return base;
+    for (let i = 0; i < 20; i++) {
+      const u = `${base}${randomBytes(1)[0] % 100}`;
+      if (freeUsername(u)) return u;
+    }
+    return `u${randomBytes(5).toString('hex')}`;
+  }
+  const existsIn = (tn, phone) => !!dbOf(tn).get('SELECT 1 FROM users WHERE phone=?', phone);
+  const reqOut = (r, tn) => ({
+    id: r.id, name: r.name, phone: r.phone, role: r.role, roleName: ROLE_NAME[r.role], username: r.username, note: r.note, status: r.status, createdAt: r.created_at, decidedAt: r.decided_at,
+    grantedUsername: r.granted_username, picked: !!r.picked_at, suggested: r.status === 'pending' ? suggestUsername(r) : null, hasAccount: r.status === 'pending' && existsIn(tn, r.phone),
+  });
+  function mintPassword(r) {
+    const db = dbOf(r.tenant_id);
+    const pw = newPassword();
+    db.run('UPDATE users SET pin_hash=?, token_version=token_version+1 WHERE id=?', hashPin(pw), r.user_id);
+    mainDb.run('UPDATE access_requests SET picked_at=? WHERE id=?', now(), r.id);
+    return pw;
+  }
+
+  function access(method, pathname, body, { ip, user, tn, query }) {
+    // ----- public: the sign-in page -----
+    if (method === 'GET' && pathname === '/api/access/shop') return { shop: shopOfCode(query.get('code') ?? '', ip).shop };
+    if (method === 'POST' && pathname === '/api/access/requests') {
+      if (reqByIp.blocked(ip)) throw new PlatformError(429, 'درخواست‌های زیادی از این دستگاه ثبت شده است؛ یک ساعت دیگر دوباره امتحان کنید.');
+      const { tn: shopTn, shop } = shopOfCode(body.code, ip);
+      if (txt(body.website, 10)) return { ok: true, ticket: randomBytes(24).toString('base64url'), shop }; // honeypot
+      const name = txt(body.name, 60), note = txt(body.note, 300);
+      const phone = normalizePhone(body.phone);
+      const role = REQ_ROLES.includes(body.role) ? body.role : 'employee';
+      const username = normUser(body.username ?? '');
+      if (name.length < 2) throw bad('نام و نام خانوادگی را بنویسید.');
+      if (!validPhone(phone)) throw bad('شماره موبایل باید ۱۱ رقم و با ۰۹ باشد.');
+      if (username && !USERNAME_RE.test(username)) throw bad('نام کاربری: ۳ تا ۳۲ حرف لاتین کوچک، رقم، نقطه، خط تیره یا زیرخط؛ با حرف شروع شود.');
+      if (mainDb.get("SELECT 1 FROM access_requests WHERE tenant_id=? AND phone=? AND status='pending'", shopTn, phone)) throw new PlatformError(409, 'برای این شماره درخواستی در انتظار تأیید هست؛ از مدیر فروشگاه بخواهید آن را بررسی کند.');
+      if (mainDb.get("SELECT COUNT(*) AS n FROM access_requests WHERE tenant_id=? AND status='pending'", shopTn).n >= 30) throw new PlatformError(429, 'درخواست‌های بررسی‌نشده این فروشگاه زیاد است؛ کمی بعد دوباره امتحان کنید.');
+      reqByIp.fail(ip);
+      const ticket = randomBytes(24).toString('base64url');
+      mainDb.run('INSERT INTO access_requests(id,tenant_id,name,phone,role,username,note,ticket_hash,ip,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)', randomUUID(), shopTn, name, phone, role, username, note, sha(ticket), String(ip).slice(0, 60), now());
+      return { ok: true, ticket, shop };
+    }
+    if (method === 'POST' && pathname === '/api/access/status') {
+      if (guessByIp.blocked(ip)) throw new PlatformError(429, 'تلاش‌های نادرست زیاد بود. ده دقیقه دیگر دوباره امتحان کنید.');
+      const r = mainDb.get('SELECT * FROM access_requests WHERE ticket_hash=?', sha(String(body.ticket ?? '')));
+      if (!r) {
+        guessByIp.fail(ip);
+        throw new PlatformError(404, 'این درخواست پیدا نشد.');
+      }
+      let shop = '';
+      try {
+        shop = handleFor(r.tenant_id).shopName?.() ?? '';
+      } catch {
+        /* suspended shop: the status still shows */
+      }
+      const out = { status: r.status, shop, name: r.name, createdAt: r.created_at };
+      if (r.status !== 'approved') return out;
+      out.username = r.granted_username;
+      const fresh = !r.picked_at && Date.now() - Date.parse(r.decided_at) < PICKUP_MS && dbOf(r.tenant_id).get('SELECT active FROM users WHERE id=?', r.user_id)?.active;
+      if (fresh) {
+        out.password = mintPassword(r);
+        audit(r.user_id, 'access.pickup', { tenant: r.tenant_id, id: r.id });
+      } else out.handedToManager = true;
+      return out;
+    }
+
+    // ----- the shop's owner or manager -----
+    if (!user) throw new PlatformError(401, 'ورود لازم است.');
+    if (!ADMIN_ROLES.has(user.role) || user.active === 0) throw new PlatformError(403, 'تأیید درخواست حساب مخصوص مالک و مدیر فروشگاه است.');
+    if (method === 'GET' && pathname === '/api/access/admin') {
+      const c = codeRow(tn);
+      const items = mainDb.all("SELECT * FROM access_requests WHERE tenant_id=? ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 60", tn).map((r) => reqOut(r, tn));
+      return { code: showCode(c.code), enabled: !!c.enabled, pending: items.filter((r) => r.status === 'pending').length, items };
+    }
+    if (method === 'POST' && pathname === '/api/access/admin/code') {
+      const c = codeRow(tn);
+      if (body.regenerate) mainDb.run('UPDATE join_codes SET code=?, created_at=? WHERE tenant_id=?', newCode(), now(), tn);
+      if (body.enabled !== undefined) mainDb.run('UPDATE join_codes SET enabled=? WHERE tenant_id=?', body.enabled ? 1 : 0, tn);
+      audit(user.id, 'access.code', { tenant: tn, regenerate: !!body.regenerate, enabled: body.enabled });
+      const n = mainDb.get('SELECT * FROM join_codes WHERE tenant_id=?', c.tenant_id);
+      return { code: showCode(n.code), enabled: !!n.enabled };
+    }
+    const m = /^\/api\/access\/admin\/requests\/([^/]+)$/.exec(pathname);
+    if (method === 'POST' && m) {
+      const r = mainDb.get('SELECT * FROM access_requests WHERE id=? AND tenant_id=?', decodeURIComponent(m[1]), tn);
+      if (!r) throw new PlatformError(404, 'این درخواست پیدا نشد.');
+      if (body.action === 'reject') {
+        if (r.status !== 'pending') throw new PlatformError(409, 'این درخواست قبلاً بررسی شده است.');
+        mainDb.run("UPDATE access_requests SET status='rejected', decided_by=?, decided_at=? WHERE id=?", user.id, now(), r.id);
+        audit(user.id, 'access.reject', { tenant: tn, id: r.id });
+        return { request: reqOut(mainDb.get('SELECT * FROM access_requests WHERE id=?', r.id), tn) };
+      }
+      if (body.action === 'approve') {
+        if (r.status !== 'pending') throw new PlatformError(409, 'این درخواست قبلاً بررسی شده است.');
+        const role = ROLES.includes(body.role) ? body.role : r.role;
+        if (role === 'owner' && user.role !== 'owner') throw new PlatformError(403, 'فقط مالک می‌تواند نقش مالک بدهد.');
+        const made = addUser(tn, { name: r.name, username: body.username ? body.username : suggestUsername(r), role, phone: r.phone }, user.id, 'access.approve');
+        // the password addUser made is thrown away: the requester's device mints its own at pickup
+        mainDb.run("UPDATE access_requests SET status='approved', user_id=?, granted_username=?, decided_by=?, decided_at=? WHERE id=?", made.user.id, made.user.username, user.id, now(), r.id);
+        return { request: reqOut(mainDb.get('SELECT * FROM access_requests WHERE id=?', r.id), tn), user: made.user };
+      }
+      if (body.action === 'password') {
+        if (r.status !== 'approved') throw new PlatformError(409, 'این درخواست هنوز تأیید نشده است.');
+        if (!dbOf(tn).get('SELECT 1 FROM users WHERE id=? AND active=1', r.user_id)) throw new PlatformError(409, 'این حساب غیرفعال است.');
+        const password = mintPassword(r);
+        audit(user.id, 'access.password', { tenant: tn, id: r.id });
+        return { username: r.granted_username, password, shop: handleFor(tn).shopName?.() ?? '' };
+      }
+      throw bad('عمل نامعتبر است.');
+    }
+    throw new PlatformError(404, 'مسیر API وجود ندارد.');
+  }
+
   function vendor(method, pathname, body, user) {
     if (!isVendor(user)) throw new PlatformError(403, 'این بخش مخصوص ارائه‌دهنده (مالک فروشگاه اصلی) است.');
     for (const r of vendorRoutes) {
@@ -268,7 +449,7 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant }) {
     throw new PlatformError(404, 'مسیر API وجود ندارد.');
   }
 
-  return { login, handleFor, tenantOfToken, all, vendor, isVendor, tenantRow };
+  return { login, handleFor, tenantOfToken, all, vendor, isVendor, tenantRow, access };
 }
 
 /** «Chrome on Android» style label for the last device an account signed in from. */

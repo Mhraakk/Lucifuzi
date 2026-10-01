@@ -6,7 +6,7 @@ import { statusStamp } from './learn.mjs';
 const ROLE_ORDER = { owner: 0, manager: 1, trainer: 2, employee: 3 };
 
 export async function teamPage(root) {
-  const { members, pendingFloor } = await api('/api/team');
+  const [{ members, pendingFloor }, access] = await Promise.all([api('/api/team'), store.isAdmin() ? api('/api/access/admin').catch(() => null) : null]);
   const list = members.sort((a, b) => b.active - a.active || ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.name.localeCompare(b.name, 'fa'));
   const active = list.filter((m) => m.active);
   const present = active.filter((m) => m.today?.inAt && !m.today?.outAt).length;
@@ -21,6 +21,7 @@ export async function teamPage(root) {
     </div>
     <div class="actions">
       <a class="btn ${pendingFloor ? '' : 'ghost'}" href="/staff/queue" data-link>بررسی کارهای عملی${pendingFloor ? ` (${fa(pendingFloor)})` : ''}</a>
+      ${access ? html`<a class="btn ${access.pending ? '' : 'ghost'}" href="/staff/access" data-link>درخواست‌های حساب${access.pending ? ` (${fa(access.pending)})` : ''}</a>` : ''}
       ${store.me?.vendor ? html`<a class="btn" href="/vendor" data-link>کنسول ارائه‌دهنده (فروشگاه‌ها و حساب‌ها)</a>` : ''}
       ${store.isAdmin() && store.me?.tenant?.main !== false ? html`<a class="btn ghost" href="/staff/settings" data-link>قیمت مرجع و تنظیمات</a><a class="btn ghost" href="/staff/leads" data-link>درخواست‌های نمایش</a>` : ''}
     </div>
@@ -36,7 +37,7 @@ export async function teamPage(root) {
         <td>${m.sopMissing ? html`<span class="stamp red">${fa(m.sopMissing)}</span>` : html`<span class="stamp jade">کامل</span>`}</td>
         <td class="small">${m.today?.inAt ? html`<span class="dot on"></span>${faTime(m.today.inAt)}${m.today.outAt ? ` تا ${faTime(m.today.outAt)}` : ''}` : html`<span class="dot"></span>—`}</td></tr>`)}</tbody></table></div>
 
-    ${store.isAdmin() && store.me?.tenant?.main === false ? html`<p class="small tray">حساب همکار تازه (نام کاربری و رمز) را ارائه‌دهنده نرم‌افزار صادر می‌کند. برای افزودن همکار با او تماس بگیرید.</p>` : ''}
+    ${store.isAdmin() && store.me?.tenant?.main === false ? html`<p class="small tray">همکار تازه: کد یا لینک <a href="/staff/access" data-link>درخواست حساب</a> را به او بدهید؛ در صفحه ورود درخواست می‌دهد، شما تأیید می‌کنید و نام کاربری و رمز روی دستگاه خودش ساخته می‌شود.</p>` : ''}
     ${store.isAdmin() && store.me?.tenant?.main !== false ? html`<h2>افزودن همکار</h2>
       <form class="tray form cols" id="add">
         <label class="field">نام و نام خانوادگی<input class="input" name="name" required></label>

@@ -2,6 +2,7 @@ import { html, api, auth, store, navigate, $, busy, fa, actions } from '../core.
 import { brandMark } from '../ui.mjs';
 import { install, canInstall } from '../install.mjs';
 import { ROLE_FA } from '../core.mjs';
+import { joinTicket } from './join.mjs';
 
 export async function loginPage(root) {
   if (auth.token) return navigate('/', { replace: true });
@@ -24,7 +25,8 @@ export async function loginPage(root) {
         <p class="err" id="err" role="alert"></p>
         <button class="btn block" type="submit">ورود</button>
       </form>
-      <p class="small">نام کاربری و رمز را فقط ارائه‌دهنده نرم‌افزار صادر می‌کند. با همین حساب روی گوشی، تبلت و کامپیوتر وارد شوید. برای رمز فراموش‌شده با ارائه‌دهنده تماس بگیرید.</p>
+      ${joinTicket.get()?.ticket ? html`<a class="join-pill" href="/join" data-link><span class="join-pulse" aria-hidden="true"></span>درخواست حساب شما برای ${joinTicket.get().shop || 'فروشگاه'} — بررسی وضعیت</a>` : ''}
+      <p class="small join-ask">حساب ندارید؟ <a href="/join" data-link><b>درخواست حساب</b></a> — با کد فروشگاه درخواست دهید؛ پس از تأیید مدیر، نام کاربری و رمز همین‌جا ساخته می‌شود. با همین حساب روی گوشی، تبلت و کامپیوتر وارد شوید. برای رمز فراموش‌شده با مدیر فروشگاه یا ارائه‌دهنده تماس بگیرید.</p>
       <p class="small"><a href="/intro" data-link>آشنایی با بئاتریس برای فروشگاه شما</a> · <a href="/downloads/Beatris-Setup-x64.exe" download>نسخه ویندوز ۱۱ (۶۴ بیت)</a>${canInstall() ? html` · <button type="button" class="linkish" data-act="install">نصب وب‌اپ روی همین دستگاه</button>` : ''}</p>
       ${cfg.demo && cfg.demoAccounts.length
         ? html`<div class="demo tray"><h3>حساب‌های نمایشی</h3><p class="small">رمز همه: ۱۲۳۴</p>
@@ -35,6 +37,12 @@ export async function loginPage(root) {
     </div>`);
 
   const form = $('#f', root);
+  // straight from an approved account request: the username and the one-time password are already here
+  if (store.joinHandoff) {
+    form.login.value = store.joinHandoff.login;
+    form.password.value = store.joinHandoff.password;
+    delete store.joinHandoff;
+  }
   const cleanupArt = await coinArt($('#art', root));
   const submit = async (login, password) => {
     const btn = $('button[type=submit]', form);
