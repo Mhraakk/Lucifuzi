@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS bk_versions (
   by TEXT, at TEXT NOT NULL, reason TEXT NOT NULL DEFAULT '', PRIMARY KEY (doc_id, version)
 );
 CREATE TABLE IF NOT EXISTS bk_postings (src TEXT NOT NULL, acct TEXT NOT NULL, unit TEXT NOT NULL, amt REAL NOT NULL, date TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS bk_client_keys (key TEXT PRIMARY KEY, doc_id TEXT NOT NULL, user_id TEXT, at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_bkpo_src ON bk_postings(src);
 CREATE INDEX IF NOT EXISTS idx_bkpo_acct ON bk_postings(acct, date);
 CREATE TABLE IF NOT EXISTS bk_cheques (
@@ -888,9 +889,11 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     return { id: r.id, type: r.type, fy: r.fy, no: r.no, track: B.trackCode(r.type, r.fy, r.no), status: r.status, version: r.version, date: r.date, partyId: r.party_id, partyName: r.party_name ?? null, sales: c.sales, tradeIn: c.tradeIn, net: c.net, vat: c.vat, credit: c.credit, paidIn: c.paidIn, paidOut: c.paidOut, tax: JSON.parse(r.tax_json).status ?? null, updatedAt: r.updated_at, createdBy: r.created_by_name ?? null };
   };
 
-  function save(user, body, prevRow = null, reason = '') {
+  function save(user, body, prevRow = null, reason = '', { amends = null } = {}) {
     const prev = prevRow ? docOut(prevRow) : null;
     const { doc, calc, warn } = prepare(user, body, prev);
+    if (amends) doc.amends = amends;
+    else if (prev?.amends) doc.amends = prev.amends;
     const usedQuotes = ideas ? ideas.hooks.check(user, doc, calc, prev) : [];
     const approval = control ? control.hooks.check(user, doc, calc, prev, body) : null;
     const wantStatus = body.status === 'draft' || doc.type === 'proforma' ? (doc.type === 'proforma' ? 'final' : 'draft') : 'final';
@@ -930,15 +933,72 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const { calc } = prepare(user, { ...body, date: body.date ?? tehranDay() });
     return { calc };
   });
-  on('POST', '/api/books/docs', 'auth', ({ user, body }) => save(user, body));
+  // صف ارسال (spec 0013): a document sent again with the same client key is the same document, never a second one
+  const CLIENT_KEY = /^[A-Za-z0-9_-]{8,64}$/;
+  on('POST', '/api/books/docs', 'auth', ({ user, body }) => {
+    const key = typeof body.clientKey === 'string' && CLIENT_KEY.test(body.clientKey) ? body.clientKey : null;
+    if (!key) return save(user, body);
+    const seen = db.get('SELECT doc_id FROM bk_client_keys WHERE key=?', key);
+    if (seen) {
+      const r = db.get('SELECT * FROM bk_docs WHERE id=?', seen.doc_id);
+      if (r) return docOut(r, { replayed: true });
+    }
+    return db.tx(() => {
+      const d = save(user, body);
+      db.run('INSERT OR REPLACE INTO bk_client_keys(key,doc_id,user_id,at) VALUES (?,?,?,?)', key, d.id, user.id, now());
+      return d;
+    });
+  });
   on('PUT', '/api/books/docs/:id', 'auth', ({ user, params, body }) => {
     const cur = db.get('SELECT * FROM bk_docs WHERE id=?', params.id);
     if (!cur) throw notFound('سند پیدا نشد.');
     const s = settings();
     if (cur.status === 'final' && !isAdmin(user) && !(s.staffCanEditFinal && cur.created_by === user.id && cur.date === tehranDay())) throw forbid('ویرایش سند قطعی مخصوص مدیر است.');
     if (cur.status === 'final' && String(body.reason ?? '').trim().length < 3) throw bad('دلیل ویرایش را بنویسید؛ در تاریخچه سند می‌ماند.');
+    if (cur.status === 'void') throw bad(JSON.parse(cur.tax_json).supersededBy ? 'این سند با اصلاحیه جایگزین شده است؛ اصلاحیه را ویرایش کنید.' : 'سند باطل‌شده ویرایش نمی‌شود.');
+    if (cur.status === 'final' && cur.type !== 'proforma') return amend(user, cur, body, body.reason);
     return save(user, body, cur, body.reason);
   });
+  /**
+   * اصلاحیه (spec 0013): a final document is never changed in place. Its correction is a new document (own number)
+   * that names the original; the original keeps its number, figures and history, is marked as superseded and its
+   * effect leaves the ledger — all in one transaction. A tax invoice already sent goes as «اصلاحی» to the original.
+   */
+  function amend(user, cur, body, reason) {
+    const why = txt(reason, 300);
+    return db.tx(() => {
+      const curDoc = docOut(cur);
+      // locked months are checked for the original's date here, and for the amendment's date by save()
+      control?.hooks.check(user, null, null, curDoc, { status: 'draft' });
+      supersede(user, cur, `اصلاح با سند جدید: ${why}`);
+      const next = save(user, { ...body, type: cur.type, status: 'final' }, null, why, { amends: cur.id });
+      const oldTax = JSON.parse(db.get('SELECT tax_json FROM bk_docs WHERE id=?', cur.id).tax_json);
+      oldTax.supersededBy = next.id;
+      const sent = oldTax.status === 'sent' || oldTax.status === 'accepted';
+      if (sent) oldTax.pending = 'superseded'; // the correction replaces it at the tax system: no separate cancel
+      db.run('UPDATE bk_docs SET tax_json=? WHERE id=?', JSON.stringify(oldTax), cur.id);
+      if (sent && oldTax.taxId) {
+        const t = JSON.parse(db.get('SELECT tax_json FROM bk_docs WHERE id=?', next.id).tax_json);
+        Object.assign(t, { pending: 'correction', refTaxId: oldTax.taxId });
+        db.run('UPDATE bk_docs SET tax_json=? WHERE id=?', JSON.stringify(t), next.id);
+      }
+      log(user, 'doc.amend', cur.id, { by: next.id, type: cur.type, fy: cur.fy, no: cur.no, reason: why });
+      return docOut(db.get('SELECT * FROM bk_docs WHERE id=?', next.id), { amended: cur.id, warnings: next.warnings });
+    });
+  }
+  /** The ledger side of an amendment: like a void (items back, cheques withdrawn, postings out), with its own reason. */
+  function supersede(user, cur, reason) {
+    if (cur.status !== 'final') throw bad('فقط سند قطعی اصلاحیه می‌گیرد.');
+    ideas?.hooks.voiding(user, cur);
+    const d = docOut(cur);
+    const t = now();
+    releaseItems(cur.id, d);
+    syncCheques(cur.id, { ...d, payments: [] }, d);
+    db.run('DELETE FROM bk_postings WHERE src=?', cur.id);
+    const version = cur.version + 1;
+    db.run("UPDATE bk_docs SET status='void', version=?, updated_by=?, updated_at=? WHERE id=?", version, user.id, t, cur.id);
+    db.run('INSERT INTO bk_versions(doc_id,version,status,data_json,calc_json,hash,by,at,reason) VALUES (?,?,?,?,?,?,?,?,?)', cur.id, version, 'void', cur.data_json, cur.calc_json, cur.hash, user.id, t, txt(reason, 300));
+  }
   function voidDoc(user, id, reason, approvalId = null) {
     const cur = db.get('SELECT * FROM bk_docs WHERE id=?', id);
     if (!cur) throw notFound('سند پیدا نشد.');
@@ -1033,7 +1093,9 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
           const d = docOut(cur);
           const patch = op === 'party' ? { partyId: body.value || null } : op === 'seller' ? { seller: body.value } : op === 'note' ? { note: body.value } : { date: body.value };
           if (String(body.reason ?? '').trim().length < 3 && cur.status === 'final') throw bad('دلیل ویرایش گروهی را بنویسید.');
-          save(user, { ...d, ...patch }, cur, body.reason || 'ویرایش گروهی');
+          // customer and date move money and goods: on a final document they go through an amendment (spec 0013)
+          if (cur.status === 'final' && cur.type !== 'proforma' && (op === 'party' || op === 'date')) amend(user, cur, { ...d, ...patch }, body.reason);
+          else save(user, { ...d, ...patch }, cur, body.reason || 'ویرایش گروهی');
         } else if (op === 'tax') {
           if (!['sent', 'accepted', 'rejected', 'none'].includes(body.value)) throw bad('وضعیت مالیاتی نامعتبر است.');
           const tax = JSON.parse(cur.tax_json);
@@ -1057,7 +1119,9 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const party = r.party_id ? db.get('SELECT * FROM bk_parties WHERE id=?', r.party_id) : null;
     let invoices;
     try {
-      invoices = B.moadianInvoices({ ...d, serial: r.serial, issuedAt: r.issued_at, corrects: d.tax.pending === 'correction', refTaxId: d.tax.pending ? d.tax.taxId : d.type === 'return' && d.ref ? JSON.parse(db.get('SELECT tax_json FROM bk_docs WHERE id=?', d.ref)?.tax_json ?? '{}').taxId ?? null : null }, d.calc, s, party);
+      // an amendment refers to the original's tax id; an in-place correction (legacy) to its own; a return to its sale
+      const refTaxId = d.tax.refTaxId ?? (d.tax.pending ? d.tax.taxId : d.type === 'return' && d.ref ? JSON.parse(db.get('SELECT tax_json FROM bk_docs WHERE id=?', d.ref)?.tax_json ?? '{}').taxId ?? null : null);
+      invoices = B.moadianInvoices({ ...d, serial: r.serial, issuedAt: r.issued_at, corrects: d.tax.pending === 'correction', refTaxId }, d.calc, s, party);
     } catch (e) {
       if (e instanceof B.BookError) throw bad(e.message);
       throw e;

@@ -193,10 +193,13 @@ test(`fuzz: ${N} random operations through the API equal an independent model`, 
       body.lines[i].weight = Math.round((0.1 + rnd() * 50) * 1000) / 1000;
       const r = await call('PUT', `/api/books/docs/${id}`, { ...body, reason: 'اصلاح وزن در آزمون' });
       assert.ok(r.status < 300, `edit ${id}: ${r.status} ${JSON.stringify(r.body)}`);
+      // spec 0013: the correction is a new document (amendment); the original leaves the ledger
+      assert.equal(r.body.amended, id, 'an edit of a final document is an amendment');
       apply(d.effect, -1);
       const effect = effectOf(body);
       apply(effect, 1);
-      docs.set(id, { body, effect });
+      docs.delete(id);
+      docs.set(r.body.id, { body, effect });
       trace.push(`edit ${id} ${JSON.stringify(effect.e.barsIn)} ${JSON.stringify(effect.e.barsOut)}`);
       edited++;
     } else if (roll < 0.3) {

@@ -3,8 +3,8 @@
 // - Fonts, the three.js bundle and icons: stale-while-revalidate (instant load, refreshed in the background).
 // - App code and pages: network-first with a cache fallback, so online users always get the latest deploy
 //   and the app still opens on a flaky connection.
-const CACHE = 'beatris-v24';
-const PRECACHE = ['/', '/app.css', '/js/app.mjs', '/js/core.mjs', '/js/light.mjs', '/js/ui.mjs', '/js/crown.mjs', '/js/calc.mjs', '/icon.svg', '/manifest.webmanifest', '/fonts/estedad-arabic-var.woff2', '/fonts/estedad-latin-var.woff2', '/fonts/naskh-arabic-var.woff2'];
+const CACHE = 'beatris-v25';
+const PRECACHE = ['/', '/app.css', '/js/app.mjs', '/js/core.mjs', '/js/light.mjs', '/js/outbox.mjs', '/js/ui.mjs', '/js/crown.mjs', '/js/calc.mjs', '/icon.svg', '/manifest.webmanifest', '/fonts/estedad-arabic-var.woff2', '/fonts/estedad-latin-var.woff2', '/fonts/naskh-arabic-var.woff2'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));

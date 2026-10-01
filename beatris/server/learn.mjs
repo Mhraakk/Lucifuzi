@@ -75,11 +75,37 @@ export function makeLearn({ db, now, log, isAdmin }) {
       const [method, account] = h.pay.value.split('|');
       return { method, account: account || null, accountTitle: acc[account] ?? '', n: h.pay.n, of: h.pay.of };
     })() : null;
+    const lastT = trades.at(-1);
     return {
-      trades: trades.length, last: trades.at(-1)?.date ?? null, everyDays: h.everyDays,
+      trades: trades.length, last: lastT?.date ?? null, everyDays: h.everyDays,
       pay, fineness: h.fineness && { value: h.fineness.value, n: h.fineness.n, of: h.fineness.of }, coin: h.coin && { value: h.coin.value, n: h.coin.n, of: h.coin.of },
       kind: h.kind && { value: h.kind.value, n: h.kind.n, of: h.kind.of }, weight: h.weight,
+      // spec 0013: defaults per trade direction (what this customer usually brings in / takes out, and how money moves)
+      byDir: { in: sideHabits(trades, 'in', acc), out: sideHabits(trades, 'out', acc) },
+      // «مثل معامله قبلی»: the last trade as it was typed (prices are taken fresh at the desk)
+      lastTrade: lastT ? { id: lastT.id, date: lastT.date, lines: (lastT.data.lines ?? []).map(({ quote, ...l }) => l), payments: (lastT.data.payments ?? []).map((p) => ({ method: p.method, dir: p.dir ?? 'in', account: p.account ?? null })) } : null,
       memory: memories('party', pid),
+    };
+  }
+  /** Habits of one direction: lines going that way and the money moving the other way. */
+  function sideHabits(trades, dir, acc) {
+    const rows = trades.flatMap((t) => (t.data.lines ?? []).map((l, i) => ({ l, c: t.calc.lines[i] })).filter(({ l }) => (l.dir ?? 'in') === dir));
+    const priced = rows.filter(({ l }) => l.priced !== false);
+    const moneyDir = dir === 'in' ? 'out' : 'in';
+    const pays = trades.filter((t) => (t.data.lines ?? []).some((l) => (l.dir ?? 'in') === dir)).flatMap((t) => (t.data.payments ?? []).filter((p) => (p.dir ?? 'in') === moneyDir).map(payKey));
+    const p = mode(pays);
+    const pick = (m) => m && { value: m.value, n: m.n, of: m.of };
+    return {
+      n: rows.length,
+      kind: pick(mode(rows.map(({ l }) => l.kind))),
+      priced: rows.length ? Math.round((priced.length / rows.length) * 100) / 100 : null,
+      basis: pick(mode(priced.map(({ l }) => l.basis))),
+      fineness: pick(mode(rows.filter(({ l }) => l.kind === 'melt').map(({ c }) => c?.fineness ?? Number(l.fineness)))),
+      coin: pick(mode(rows.filter(({ l }) => l.kind === 'coin').map(({ l }) => l.coin))),
+      pay: p && (() => {
+        const [method, account] = p.value.split('|');
+        return { method, account: account || null, accountTitle: acc[account] ?? '', n: p.n, of: p.of };
+      })(),
     };
   }
   // replay: at every trade, would the habit learned from the trades before it have named what was actually used?

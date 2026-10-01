@@ -77,6 +77,15 @@ const go = async (page, p, wait = 1200) => {
   await page.waitForTimeout(wait);
 };
 const text = (page, sel) => page.$eval(sel, (e) => e.innerText).catch(() => '');
+/** The trade desk keeps unfinished work by itself (spec 0013); a step that needs an empty desk clears it first. */
+const freshDesk = async (page) => {
+  await go(page, '/books/desk', 1500);
+  const f = await page.$('[data-act=fresh]');
+  if (f) {
+    await f.click();
+    await page.waitForTimeout(300);
+  }
+};
 const noBadNumbers = (s) => !/NaN|undefined|Infinity/.test(s);
 
 async function loginUI(page) {
@@ -984,7 +993,7 @@ async function loginUI(page) {
   if (!live)
     await step('base edition: trade desk, receipt, day book, bars, vault, P&L, bank reconciliation', async () => {
       const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);
-      await go(page, '/books/desk', 1500);
+      await freshDesk(page);
       // a new customer from the desk
       await page.click('[data-act=pnew]');
       await page.fill('#np [name=name]', 'مهران رضایی');
@@ -1508,6 +1517,107 @@ async function loginUI(page) {
     await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
   });
 
+  if (!live)
+    await step('operator desk (spec 0013): one-line entry, quick undo to the field, restore, repeat, macro, amendment, offline queue', async () => {
+      const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);
+      await auth('/api/books/parties', { method: 'POST', body: JSON.stringify({ name: 'کاظم اپراتوری' }) });
+      await freshDesk(page);
+      await page.keyboard.press('F3');
+      check('operator: F3 lands in the one-line box', await page.evaluate(() => document.activeElement?.id === 'dkLine'));
+      await page.keyboard.type('خرید - کاظم اپراتوری - دوازده ممیز چهل و پنج گرم - عیار هفتصد و پنجاه - نقد');
+      await page.waitForTimeout(300);
+      check('operator: the line is understood before it is applied', /۱۲٫۴۵ گرم/.test(await text(page, '#dkLineOut')) && !(await page.$('.dk-part.unknown')), await text(page, '#dkLineOut'));
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(1500);
+      const one = await page.evaluate(() => ({ lines: document.querySelectorAll('.dk-line').length, pays: document.querySelectorAll('.bk-pay').length, who: document.querySelector('.dk-who b')?.textContent ?? '', s: document.querySelector('#dkSentence')?.textContent ?? '' }));
+      check('operator: one line becomes customer + line + payment', one.lines === 1 && one.pays === 1 && one.who.includes('کاظم') && /۱۲٫۴۵۰ گرم آبشده ۷۵۰/.test(one.s), JSON.stringify(one));
+      // a slip of the finger, taken back at once with the cursor on the same field
+      await page.fill('[data-f=weight]', '3');
+      await page.waitForTimeout(1400);
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(300);
+      const u1 = await page.evaluate(() => ({ w: document.querySelector('[data-f=weight]')?.value, focus: document.activeElement?.dataset?.f ?? '' }));
+      check('operator: Ctrl+Z takes the weight back and the cursor lands on it', u1.w === '' && u1.focus === 'weight', JSON.stringify(u1));
+      await page.click('.ud-back');
+      await page.waitForTimeout(400);
+      check('operator: the fixed back button takes the whole one-line entry back', (await page.$$('.dk-line')).length === 0);
+      await page.keyboard.press('Control+Shift+z');
+      await page.waitForTimeout(400);
+      check('operator: Ctrl+Shift+Z brings it forward again', (await page.$$('.dk-line')).length === 1);
+      // nothing is lost on a refresh
+      await page.reload();
+      await page.waitForTimeout(2200);
+      check('operator: after a refresh the unfinished work is back by itself', (await page.$$('.dk-line')).length === 1 && /کار ناتمام/.test(await text(page, '.dk-draft')));
+      await page.keyboard.press('Control+Enter');
+      await page.waitForSelector('.dk-receipt', { timeout: 15000 });
+      const track1 = (await text(page, '.dk-r-track b')).trim();
+      check('operator: Ctrl+Enter books it; receipt beside the work, desk empty for the next call', /^M\d{4}-\d{5}$/.test(track1) && (await page.$$('.dk-line')).length === 0, track1);
+      // «مثل معامله قبلی» for the same customer, with today's price
+      await page.keyboard.press('Alt+KeyR');
+      await page.waitForTimeout(700);
+      check('operator: Alt+R repeats the customer\'s last trade', (await page.$$('.dk-line')).length === 1 && /۱۲٫۴۵۰/.test(await text(page, '#lines')));
+      await page.click('[data-act=fresh]');
+      await page.waitForTimeout(300);
+      // a macro: sell coins, made from the current setup, run by its number in the one-line box
+      await page.keyboard.press('Alt+Digit2');
+      await page.keyboard.press('Alt+Digit6');
+      await page.waitForTimeout(300);
+      await page.click('[data-act=macro-new]');
+      await page.fill('#dkMacroName', 'فروش سکه');
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(300);
+      check('operator: a macro chip is made from the current setup', /فروش سکه/.test(await text(page, '#dkQuick')));
+      await page.keyboard.press('Alt+Digit1');
+      await page.keyboard.press('Alt+Digit5');
+      await page.keyboard.press('F3');
+      await page.keyboard.type('1');
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(400);
+      check('operator: «1» + Enter runs the macro (sell, coins)', (await page.$eval('[data-mode=sell]', (b) => b.getAttribute('aria-checked'))) === 'true' && (await page.$eval('[data-kind=coin]', (b) => b.getAttribute('aria-selected'))) === 'true');
+      await page.click('[data-macro-del="0"]');
+      const fr = await page.$('[data-act=fresh]'); // only shown when there is something to clear
+      if (fr) await fr.click();
+      // an amendment: the saved document is corrected by a new one; the original keeps its number and figures
+      await page.click('[data-act=amend-last]');
+      await page.waitForSelector('.dk-amend', { timeout: 8000 });
+      await page.click('[data-del="0"]');
+      await page.click('[data-mode=buy]');
+      await page.click('[data-kind=melt]');
+      await page.fill('[data-f=weight]', '10');
+      await page.fill('[data-f=fineness]', '750');
+      await page.click('[data-act=add]');
+      await page.click('[data-fill="0"]');
+      await page.fill('#dkAmendReason', 'وزن اشتباه خوانده شد');
+      await page.keyboard.press('Control+Enter');
+      await page.waitForSelector('.dk-receipt', { timeout: 15000 });
+      const rp = await text(page, '#dkReceipt');
+      const docs = (await auth('/api/books/docs?limit=20')).items;
+      const orig = docs.find((d) => d.track === track1);
+      check('operator: the correction is an amendment; the original is superseded, not changed', /اصلاحیه ثبت شد/.test(rp) && orig?.status === 'void', `${rp.slice(0, 60)} ${orig?.status}`);
+      await page.keyboard.press('Escape');
+      // the network goes away: the document waits on this device and is booked once when it comes back
+      const n0 = (await auth('/api/books/docs?limit=200')).items.length;
+      offline = true; // the failed requests while the network is away are the point of this check
+      await ctx.setOffline(true);
+      await page.keyboard.press('F3');
+      await page.keyboard.type('خرید ۲ گرم عیار ۷۴۰ نقد');
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(600);
+      await page.keyboard.press('Control+Enter');
+      await page.waitForSelector('.dk-queued', { timeout: 10000 });
+      check('operator: offline, the document waits in the queue with a provisional slip', /در صف ارسال/.test(await text(page, '#dkReceipt')) && /صف ارسال/.test(await text(page, '#netPill')));
+      await ctx.setOffline(false);
+      await page.waitForSelector('.dk-receipt', { timeout: 20000 });
+      await page.waitForTimeout(800);
+      offline = false;
+      const n1 = (await auth('/api/books/docs?limit=200')).items.length;
+      check('operator: back online, it is booked exactly once and the slip becomes the receipt', n1 === n0 + 1 && /^M\d{4}-\d{5}$/.test((await text(page, '.dk-r-track b')).trim()), `${n0} → ${n1}`);
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('F1');
+      check('operator: the shortcut sheet opens in place (no window)', !(await page.$('#dkHelp[hidden]')) && /Ctrl\+Z/.test(await text(page, '#dkHelp')));
+      await page.keyboard.press('Escape');
+    });
+
   if (!live) await step('desk products: template builder, search, pick, edit, delete', async () => {
     await go(page, '/books/desk', 1500);
     await page.click('[data-kind=coin]');
@@ -1605,7 +1715,7 @@ async function loginUI(page) {
       await page.click('[data-pos=test]');
       await page.waitForFunction(() => /آماده/.test(document.querySelector('#posOut')?.textContent ?? ''));
       check('pos settings: connection test reports the terminal', (await text(page, '#posOut')).includes('12345678'));
-      await go(page, '/books/desk', 1500);
+      await freshDesk(page);
       await page.click('[data-act=pnew]');
       await page.fill('#np [name=name]', 'سارا کارتخوانی');
       await page.fill('#np [name=mobile]', '09121119988');

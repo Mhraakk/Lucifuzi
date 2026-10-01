@@ -6,6 +6,8 @@ import { MAZANEH_TO_G750 } from '../calc.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { T, TU, G, jd, jdInput, parseDay, today, modal, balText, balClass, EX, unitName, moneyWords, K, booksPrefs, prefs } from '../bk.mjs';
 import { booksNav } from './books.mjs';
+import { createHistory, mountDock } from '../undo.mjs';
+import { drafts, submit } from '../outbox.mjs';
 
 const EXPENSES = ['اجاره', 'حقوق و دستمزد', 'قبوض و شارژ', 'تعمیر و نگهداری', 'حمل و پیک', 'تبلیغات', 'کارمزد بانکی', 'مالیات و عوارض', 'بیمه', 'پذیرایی', 'سایر'];
 const IN_TYPES = new Set(['sale', 'receipt']);
@@ -72,20 +74,24 @@ export async function docEditorPage(root, params) {
     if (p) Object.assign(S, { partyId: p.party.id, party: { ...p.party, balance: p.balance } });
   }
   if (!editing && type === 'transfer') S.payments = [{ method: 'cash', dir: 'out', account: cash[0]?.id, amount: '' }, { method: 'havale', dir: 'in', account: banks[0]?.id, amount: '' }];
-  const draft = !editing && !qs.get('ref') ? store_.get(DRAFT_KEY(type)) : null;
+  // spec 0013: no document exists before the final save — the work is kept on this device (and comes back by itself)
+  const legacyDraft = !editing && !qs.get('ref') ? store_.get(DRAFT_KEY(type)) : null;
+  const draft = !editing && !qs.get('ref') ? (await drafts.get(`doc:${type}`)) ?? (legacyDraft ? { S: legacyDraft.S, at: legacyDraft.at } : null) : null;
+  store_.set(DRAFT_KEY(type), null);
 
   const t = B.DOC_TYPES[type];
   const hasLines = ['sale', 'buy', 'return', 'proforma'].includes(type);
   const hasPays = !['proforma', 'opening'].includes(type);
   root.innerHTML = String(html`${booksNav('new')}
-    <div class="bk-head"><h1>${editing ? html`ویرایش ${t.label} شماره ${fa(editing.no)}` : t.label}</h1>
+    <div class="bk-head"><h1>${editing ? (editing.status === 'final' && type !== 'proforma' ? html`اصلاحیه ${t.label} شماره ${fa(editing.no)}` : html`ویرایش ${t.label} شماره ${fa(editing.no)}`) : t.label}</h1>
       <div class="bk-head-f">
         <label class="field sm">تاریخ<input class="input ltr" name="date" value="${jdInput(S.date)}" inputmode="numeric" ${!admin && !settings.staffBackdate ? 'readonly' : ''}></label>
         ${type !== 'transfer' && type !== 'expense' && type !== 'opening' ? html`<div class="field sm bk-party"><span>طرف حساب</span><div class="bk-party-box" id="partyBox"></div></div>` : ''}
         ${type === 'expense' ? html`<label class="field sm">نوع هزینه<select class="input" name="category">${EXPENSES.map((c) => html`<option ${S.category === c ? 'selected' : ''}>${c}</option>`)}</select></label>` : ''}
       </div>
     </div>
-    ${draft ? html`<div class="notice bk-draft">فاکتور ذخیره‌نشده‌ای از ${fa(new Date(draft.at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }))} مانده است. <button class="chip" data-act="restore">ادامه همان</button><button class="chip" data-act="drop">دور بریز</button></div>` : ''}
+    ${draft?.S ? html`<div class="notice bk-draft" role="status">کار ناتمام از ساعت ${fa(new Date(draft.at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }))} همان‌طور که بود برگشت. <button class="chip" data-act="drop">شروع تازه</button></div>` : ''}
+    ${editing?.status === 'final' && type !== 'proforma' ? html`<p class="notice">ثبت، <b>اصلاحیه</b> می‌سازد: سند تازه‌ای با شماره خودش که جای این سند را می‌گیرد؛ این سند با همان شماره و ارقام در تاریخچه می‌ماند.</p>` : ''}
     <div class="bk-editor">
       <div class="bk-main">
         ${hasLines
@@ -104,12 +110,12 @@ export async function docEditorPage(root, params) {
             </section>`
           : ''}
         <section class="tray bk-sec"><label class="field">یادداشت روی سند<textarea class="input" name="note" rows="2" maxlength="600">${S.note}</textarea></label>
-          ${editing?.status === 'final' ? html`<label class="field">دلیل ویرایش (اجباری؛ در تاریخچه می‌ماند)<input class="input" name="reason" maxlength="300"></label>` : ''}</section>
+          ${editing?.status === 'final' ? html`<label class="field">دلیل اصلاح (اجباری؛ در تاریخچه هر دو سند می‌ماند)<input class="input" name="reason" maxlength="300"></label>` : ''}</section>
       </div>
       <aside class="bk-side"><div class="tray bk-totals" id="totals" aria-live="polite"></div>
         <div class="bk-save">
-          <button class="btn block" data-act="save">${type === 'proforma' ? 'ثبت پیش‌فاکتور' : editing?.status === 'final' ? 'ثبت ویرایش (نسخه جدید)' : 'ثبت قطعی'} <kbd>Ctrl+Enter</kbd></button>
-          ${!editing || editing.status === 'draft' ? (type !== 'proforma' ? html`<button class="btn ghost block" data-act="draft">ذخیره پیش‌نویس</button>` : '') : ''}
+          <button class="btn block" data-act="save">${type === 'proforma' ? 'ثبت پیش‌فاکتور' : editing?.status === 'final' ? 'ثبت اصلاحیه' : 'ثبت قطعی'} <kbd>Ctrl+Enter</kbd></button>
+          <p class="small bk-autosave">بدون دکمه ذخیره: هر تغییر همین لحظه روی این دستگاه می‌ماند و با <kbd>Ctrl+Z</kbd> برمی‌گردد.</p>
         </div>
       </aside>
     </div>`);
@@ -152,6 +158,7 @@ export async function docEditorPage(root, params) {
             close();
             drawParty();
             recalc();
+            commit(`طرف حساب: ${p.name}`, { focus: '#pq' });
           } catch (err) {
             $('#nperr', m).textContent = err.message;
           }
@@ -218,6 +225,7 @@ export async function docEditorPage(root, params) {
       S.lines.push({ kind: 'jewel', itemId: it.id, code: it.code, tpl: it.tpl, title: it.title, weight: it.weight, fineness: it.fineness, p750: p750Live, ojratMode: it.ojratMode, ojrat: it.ojrat, profitPct: it.profitPct, stones: it.stones || '', bros: '', discount: '' });
       drawLines();
       recalc();
+      commit(`کالا: ${it.title}`, { focus: '#scan' });
       toast(`${it.title} · ${G(it.weight)} گرم افزوده شد.`, 'ok');
     } catch (e) {
       toast(e.message, 'error');
@@ -240,6 +248,7 @@ export async function docEditorPage(root, params) {
           close();
           drawLines();
           recalc();
+          commit(`ردیف: ${tpl.label}`);
           $(`[data-l="${S.lines.length - 1}"][data-k="${tpl.kind === 'coin' ? 'count' : tpl.kind === 'service' ? 'amount' : 'weight'}"]`, root)?.focus();
         });
       },
@@ -367,7 +376,6 @@ export async function docEditorPage(root, params) {
         : ''}
       ${type === 'sale' && calc.sales % 10000 && S.lines.some((l) => l.kind === 'jewel') ? html`<button class="chip" data-act="round">گرد کردن به هزار ${unitName()} (تخفیف از سود)</button>` : ''}
       ${type === 'sale' && calc.sales ? html`<p class="small">مبلغ به حروف: ${moneyWords(calc.sales)}</p>` : ''}`);
-    store_.set(DRAFT_KEY(type), editing ? null : S.lines.length || S.payments.length ? { at: Date.now(), S } : null);
     return calc;
   }
 
@@ -387,9 +395,20 @@ export async function docEditorPage(root, params) {
     if (error) return toast(error, 'error');
     busy(btn, true);
     try {
-      const doc = editing ? await api(`/api/books/docs/${editing.id}`, { method: 'PUT', body }) : await api('/api/books/docs', { method: 'POST', body });
-      store_.set(DRAFT_KEY(type), null);
-      toast(`${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} ثبت شد.`, 'ok');
+      let doc;
+      if (editing) doc = await api(`/api/books/docs/${editing.id}`, { method: 'PUT', body });
+      else {
+        const r = await submit({ url: '/api/books/docs', body, label: `${B.DOC_TYPES[type].label}` });
+        if (r.queued) {
+          drafts.set(`doc:${type}`, null);
+          hist.reset();
+          toast('اتصال برقرار نیست؛ سند روی همین دستگاه در صف ماند و به‌محض وصل شدن خودکار ثبت می‌شود (دو بار ثبت نمی‌شود).', 'info');
+          return navigate('/books');
+        }
+        doc = r.doc;
+      }
+      drafts.set(`doc:${type}`, null);
+      toast(doc.amends ? `اصلاحیه ثبت شد: ${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} جای سند قبلی را گرفت.` : `${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} ثبت شد.`, 'ok');
       for (const w of doc.warnings ?? []) toast(w);
       navigate(`/books/doc/${doc.id}${doc.status === 'final' && ['sale', 'buy', 'return', 'proforma', 'receipt', 'payment'].includes(doc.type) ? '?print=1' : ''}`);
     } catch (e) {
@@ -398,7 +417,7 @@ export async function docEditorPage(root, params) {
         if (confirm('سقف اعتبار رد شود و سند ثبت شود؟')) {
           try {
             const doc = await api('/api/books/docs', { method: 'POST', body: { ...body, force: true } });
-            store_.set(DRAFT_KEY(type), null);
+            drafts.set(`doc:${type}`, null);
             navigate(`/books/doc/${doc.id}?print=1`);
           } catch (e2) {
             toast(e2.message, 'error');
@@ -486,6 +505,7 @@ export async function docEditorPage(root, params) {
       Object.assign(S, { partyId: p.id, party: p });
       drawParty();
       recalc();
+      commit(`طرف حساب: ${p.name}`, { focus: '#pq' });
       return;
     }
     if (b.dataset.delLine !== undefined) {
@@ -570,15 +590,14 @@ export async function docEditorPage(root, params) {
       recalc();
       toast(`تخفیف ${TU(B.rnd(d * 10))} روی «${src.title}» نشست؛ جمع گرد شد.`, 'ok');
     } else if (act === 'save') save('final', b);
-    else if (act === 'draft') save('draft', b);
-    else if (act === 'restore') {
-      Object.assign(S, draft.S, { type });
+    else if (act === 'drop') {
+      Object.assign(S, { partyId: null, party: null, lines: [], payments: [], note: '', balances: [], ref: null });
       $('.bk-draft', root)?.remove();
       drawAll();
-    } else if (act === 'drop') {
-      store_.set(DRAFT_KEY(type), null);
-      $('.bk-draft', root)?.remove();
+      commit('شروع تازه (کار قبلی با Ctrl+Z برمی‌گردد)');
     }
+    // every click that changed the document is one step back
+    else if (b.dataset.addPay || b.dataset.delPay !== undefined || b.dataset.delLine !== undefined || b.dataset.fill !== undefined || b.dataset.cu || b.dataset.delBal !== undefined || ['add-used', 'party-clear', 'add-bal', 'bulk-apply', 'bulk-live', 'bulk-del', 'round'].includes(act)) commit(STEP_FA[act] ?? (b.dataset.addPay ? `پرداخت: ${B.payMethod(b.dataset.addPay)?.label}` : b.dataset.delPay !== undefined ? 'حذف پرداخت' : b.dataset.delLine !== undefined ? 'حذف ردیف' : b.dataset.fill !== undefined ? 'باقی‌مانده در پرداخت' : b.dataset.cu ? 'واحد مانده' : 'تغییر'));
   });
   function drawAll() {
     drawParty();
@@ -589,9 +608,31 @@ export async function docEditorPage(root, params) {
     const d = $('[name=date]', root);
     if (d) d.value = jdInput(S.date);
   }
+  // برگشت سریع (spec 0013) for every document form
+  const STEP_FA = { 'add-used': 'طلای مستعمل (تعویض)', 'party-clear': 'طرف حساب برداشته شد', 'add-bal': 'ردیف مانده', 'bulk-apply': 'اعمال روی ردیف‌های انتخابی', 'bulk-live': 'قیمت روز روی همه', 'bulk-del': 'حذف ردیف‌های انتخابی', round: 'گرد کردن جمع' };
+  const KEY_FA = { weight: 'وزن', fineness: 'عیار', p750: 'قیمت گرم ۱۸', ojratMode: 'نوع اجرت', ojrat: 'اجرت', profitPct: 'سود', stones: 'سنگ', bros: 'حق‌العمل', discount: 'تخفیف', coin: 'سکه', count: 'تعداد', price: 'قیمت', mazaneh: 'مظنه', stoneWeight: 'وزن سنگ', deductPct: 'کسر', amount: 'مبلغ', qty: 'تعداد', vatPct: 'مالیات', title: 'شرح', account: 'حساب', ref: 'پیگیری', card: 'کارت', dir: 'جهت', method: 'روش', chequeNo: 'شماره چک', sayad: 'صیادی', bank: 'بانک', dueJ: 'سررسید', owner: 'صاحب حساب', fxCode: 'ارز', fxAmount: 'مقدار ارز', fxRate: 'نرخ', acct: 'حساب' };
+  const hist = createHistory({ get: () => ({ ...S }), set: (v) => (Object.assign(S, v), drawAll()) });
+  const commit = (label, opts) => hist.commit(label, opts);
+  if (!editing) hist.on(() => drafts.set(`doc:${type}`, S.lines.length || S.payments.length || S.partyId || S.balances.length ? { S: { ...S }, at: Date.now() } : null));
+  const stopDock = mountDock(hist, { root });
+  root.addEventListener('input', (e) => {
+    const el = e.target;
+    const k = el.dataset.k;
+    if (el.dataset.l !== undefined) commit(`ردیف ${fa(Number(el.dataset.l) + 1)} — ${KEY_FA[k] ?? k}: ${fa(el.value || '—')}`, { key: `l${el.dataset.l}.${k}`, focus: `[data-l="${el.dataset.l}"][data-k="${k}"]` });
+    else if (el.dataset.p !== undefined) commit(`${B.payMethod(S.payments[Number(el.dataset.p)]?.method)?.label ?? 'پرداخت'} — ${KEY_FA[k] ?? k}: ${fa(el.value || '—')}`, { key: `p${el.dataset.p}.${k}`, focus: `[data-p="${el.dataset.p}"][data-k="${k}"]` });
+    else if (el.dataset.b !== undefined) commit(`مانده — ${KEY_FA[k] ?? k}`, { key: `b${el.dataset.b}.${k}`, focus: `[data-b="${el.dataset.b}"][data-k="${k}"]` });
+    else if (el.name === 'note') commit('یادداشت سند', { key: 'note', focus: '[name=note]' });
+    else if (el.name === 'date') commit(`تاریخ ${fa(el.value)}`, { key: 'date', focus: '[name=date]' });
+    else if (el.dataset.cp !== undefined) commit('قیمت تبدیل مانده طلایی', { key: 'cp', focus: '[data-cp]' });
+  });
+  if (draft?.S) Object.assign(S, draft.S, { type });
   drawAll();
+  hist.reset();
   if (hasLines) $('#scan', root)?.focus();
   else $('#pq', root)?.focus();
   if (S.party && !S.party.balance && S.partyId) api(`/api/books/parties/${S.partyId}`).then((r) => ((S.party = { ...S.party, balance: r.balance }), drawParty())).catch(() => {});
-  return () => document.removeEventListener('keydown', onKey);
+  return () => {
+    document.removeEventListener('keydown', onKey);
+    stopDock();
+  };
 }

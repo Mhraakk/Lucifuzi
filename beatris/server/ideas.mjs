@@ -137,7 +137,8 @@ export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, liv
       const q = db.get('SELECT * FROM bk_quotes WHERE id=?', l.quote);
       if (!q) throw bad('قیمت قفل‌شده این ردیف پیدا نشد.');
       const o = quoteOut(q);
-      const already = q.doc_id && q.doc_id === prev?.id;
+      // the same promise carried by an edit, or by the amendment (spec 0013) that replaces the document that used it
+      const already = q.doc_id && (q.doc_id === prev?.id || q.doc_id === doc.amends);
       if (!already) {
         if (o.status === 'expired') throw new HttpError(409, `قیمت قفل‌شده ${o.code} منقضی شده است؛ قیمت تازه بگیرید.`);
         if (o.status !== 'open') throw new HttpError(409, `قیمت قفل‌شده ${o.code} ${o.status === 'used' ? 'قبلاً در سند دیگری استفاده شده' : 'لغو شده'} است.`);

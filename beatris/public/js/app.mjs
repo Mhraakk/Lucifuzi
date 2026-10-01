@@ -6,6 +6,7 @@ import { initPalette, openPalette } from './palette.mjs';
 import { initExplain } from './explain.mjs';
 import { initInstall, install, canInstall } from './install.mjs';
 import { sunrise } from './light.mjs';
+import { pending, onOutbox } from './outbox.mjs';
 
 /* ---------- پوسته: آرام (default), روز, کلاسیک — remembered per device ---------- */
 const THEMES = ['calm', 'day', 'classic'];
@@ -35,6 +36,20 @@ function applyTheme(t) {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'day' ? '#f4f1ea' : t === 'classic' ? '#0d0b08' : '#13171c');
 }
 applyTheme(theme());
+
+/** وضعیت اتصال و صف ارسال (spec 0013): always in view, so nobody wonders whether a document went through. */
+async function netPill() {
+  const el = document.getElementById('netPill');
+  if (!el) return;
+  const n = (await pending().catch(() => [])).length;
+  const off = typeof navigator !== 'undefined' && navigator.onLine === false;
+  el.hidden = !n && !off;
+  el.className = `net-pill ${off ? 'off' : n ? 'queued' : ''}`;
+  el.innerHTML = `<i aria-hidden="true"></i>${off ? 'بدون اینترنت' : ''}${off && n ? ' · ' : ''}${n ? `${String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d])} سند در صف ارسال` : off ? ' — کار روی همین دستگاه ذخیره می‌شود' : ''}`;
+}
+onOutbox(() => netPill());
+addEventListener('online', netPill);
+addEventListener('offline', netPill);
 
 const lazy = (mod, fn) => async (root, params) => (await import(mod))[fn](root, params);
 
@@ -120,7 +135,8 @@ setShell((opts) => {
   if (u) startHarness();
   top.hidden = false;
   const shop = store.me?.brand?.shopName || SHOP_NAME;
-  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><button class="theme-btn" id="palBtn" title="فرمان سریع (Ctrl+K)" aria-label="فرمان سریع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a>${canInstall() ? html`<button class="theme-btn" id="insBtn" title="نصب اپ روی همین دستگاه" aria-label="نصب اپ روی همین دستگاه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg></button>` : ''}<button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
+  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><span class="net-pill" id="netPill" hidden role="status" aria-live="polite"></span><button class="theme-btn" id="palBtn" title="فرمان سریع (Ctrl+K)" aria-label="فرمان سریع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a>${canInstall() ? html`<button class="theme-btn" id="insBtn" title="نصب اپ روی همین دستگاه" aria-label="نصب اپ روی همین دستگاه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg></button>` : ''}<button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
+  netPill();
   $('#palBtn', top)?.addEventListener('click', () => openPalette());
   $('#insBtn', top)?.addEventListener('click', () => install());
   $('#themeBtn', top)?.addEventListener('click', (e) => {

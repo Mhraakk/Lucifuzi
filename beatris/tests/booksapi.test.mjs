@@ -150,21 +150,35 @@ test('چک: واگذاری و وصول به حساب بانک؛ برگشت و ب
   assert.equal(list.items[0].history.length, 5);
 });
 
-test('ویرایش سند قطعی: فروشنده ۴۰۳، مدیر با دلیل؛ نسخه‌ها، اسناد و مانده‌ها بازسازی می‌شوند', async () => {
+test('اصلاح سند قطعی (spec 0013): فروشنده ۴۰۳، مدیر با دلیل؛ اصلاحیه سند تازه است و اصل دست‌نخورده می‌ماند', async () => {
   const d = await ok('GET', `/api/books/docs/${sale1.id}`, null, M);
   assert.equal((await call('PUT', `/api/books/docs/${sale1.id}`, { ...d, lines: d.lines }, E)).status, 403);
   assert.equal((await call('PUT', `/api/books/docs/${sale1.id}`, { ...d }, M)).status, 400); // no reason
   const ring = items.find((i) => i.code === '100001');
-  const v2 = await ok('PUT', `/api/books/docs/${sale1.id}`, { ...d, lines: [line(ring, { discount: 1000000 })], payments: d.payments, reason: 'تخفیف فراموش شده' }, M);
-  assert.equal(v2.version, 2);
-  assert.ok(v2.calc.sales < d.calc.sales);
-  assert.equal((await bal(ali.id)).IRR, sale2.calc.credit - (d.calc.sales - v2.calc.sales)); // paid more than the new total → credit to him
-  const full = await ok('GET', `/api/books/docs/${sale1.id}`, null, M);
-  assert.deepEqual(full.versions.map((v) => v.version), [2, 1]);
-  assert.equal(full.versions[0].reason, 'تخفیف فراموش شده');
+  const fix = await ok('PUT', `/api/books/docs/${sale1.id}`, { ...d, lines: [line(ring, { discount: 1000000 })], payments: d.payments, reason: 'تخفیف فراموش شده' }, M);
+  // a new document with its own number, naming the original
+  assert.notEqual(fix.id, sale1.id);
+  assert.equal(fix.amended, sale1.id);
+  assert.equal(fix.amends, sale1.id);
+  assert.equal(fix.version, 1);
+  assert.equal(fix.status, 'final');
+  assert.notEqual(fix.no, sale1.no);
+  assert.ok(fix.calc.sales < d.calc.sales);
+  assert.equal((await bal(ali.id)).IRR, sale2.calc.credit - (d.calc.sales - fix.calc.sales)); // paid more than the new total → credit to him
+  assert.equal((await ok('GET', '/api/books/items/code/100001', null, M)).status, 'sold'); // the ring moved to the amendment
+  // the original: same number and figures, marked superseded, out of the ledger, its history kept
+  const orig = await ok('GET', `/api/books/docs/${sale1.id}`, null, M);
+  assert.equal(orig.status, 'void');
+  assert.equal(orig.no, sale1.no);
+  assert.equal(orig.calc.sales, 557265653);
+  assert.equal(orig.tax.supersededBy, fix.id);
+  assert.deepEqual(orig.versions.map((v) => v.version), [2, 1]);
+  assert.match(orig.versions[0].reason, /تخفیف فراموش شده/);
   const old = await ok('GET', `/api/books/docs/${sale1.id}/versions/1`, null, M);
   assert.equal(old.calc.sales, 557265653);
-  assert.notEqual(full.hash, old.hash);
+  // a superseded document is not amended twice; the amendment itself can be amended
+  assert.equal((await call('PUT', `/api/books/docs/${sale1.id}`, { ...d, reason: 'دوباره' }, M)).status, 400);
+  sale1 = fix;
 });
 
 test('برگشت از فروش: کالا به انبار، مالیات منفی؛ ابطال برگشت، کالا دوباره فروخته', async () => {

@@ -239,7 +239,7 @@ export async function docPage(root, { id }) {
           <div class="seg" role="group" aria-label="قالب چاپ">${[['std', 'قالب استاندارد رسمی'], ['a4', 'A4 نفیس'], ['a5', 'A5'], ['r80', 'رول ۸۰ میلی‌متری']].map(([k, l]) => html`<button data-fmt="${k}" aria-pressed="${format === k}">${l}</button>`)}</div>
           <div class="seg" role="group" aria-label="طرح فاکتور">${THEMES.map(([k, l]) => html`<button data-theme="${k}" aria-pressed="${theme === k}">${l}</button>`)}</div>
           <button class="btn small" data-act="print">چاپ / PDF</button>
-          ${d.status !== 'void' && (admin || d.status === 'draft') ? html`<a class="btn small ghost" href="/books/doc/${d.id}/edit" data-link>ویرایش</a>` : ''}
+          ${d.status !== 'void' && (admin || d.status === 'draft') ? (d.status === 'final' && d.type !== 'proforma' ? html`<a class="btn small ghost" href="${d.type === 'trade' ? `/books/desk?amend=${d.id}` : `/books/doc/${d.id}/edit`}" data-link title="سند تازه‌ای می‌سازد که جای این سند را می‌گیرد؛ این سند با همان شماره در تاریخچه می‌ماند">اصلاح (اصلاحیه)</a>` : html`<a class="btn small ghost" href="/books/doc/${d.id}/edit" data-link>ویرایش</a>`) : ''}
           ${d.status === 'draft' ? html`<button class="btn small ghost" data-act="finalize">قطعی کن</button>` : ''}
           ${d.type === 'proforma' && d.status === 'final' && !d.tax?.convertedTo ? html`<button class="btn small ghost" data-act="finalize">تبدیل به فاکتور فروش</button>` : ''}
           ${d.type === 'sale' && d.status === 'final' ? html`<a class="btn small ghost" href="/books/new/return?ref=${d.id}" data-link>برگشت از فروش</a>` : ''}
@@ -247,7 +247,9 @@ export async function docPage(root, { id }) {
           <button class="btn small ghost" data-act="json">JSON سند</button>
           ${admin && d.status !== 'void' ? html`<button class="btn small danger" data-act="void">ابطال</button>` : ''}
         </div></div>
-      ${d.tax?.pending ? html`<p class="notice noprint">این فاکتور پیش‌تر به سامانه مودیان رفته و ${d.tax.pending === 'cancel' ? 'باطل شده؛ صورتحساب «ابطالی»' : 'تغییر کرده؛ صورتحساب «اصلاحی»'} باید ارسال شود.</p>` : ''}
+      ${d.tax?.supersededBy ? html`<p class="notice noprint">این سند با <a href="/books/doc/${d.tax.supersededBy}" data-link>اصلاحیه</a> جایگزین شده است؛ ارقامش دست‌نخورده در تاریخچه می‌ماند و اثرش از حساب‌ها برداشته شده است.</p>` : ''}
+      ${d.amends ? html`<p class="notice noprint">این سند <b>اصلاحیهٔ</b> <a href="/books/doc/${d.amends}" data-link>سند قبلی</a> است.</p>` : ''}
+      ${d.tax?.pending && d.tax.pending !== 'superseded' ? html`<p class="notice noprint">این فاکتور ${d.tax.pending === 'cancel' ? 'پیش‌تر به سامانه مودیان رفته و باطل شده؛ صورتحساب «ابطالی»' : d.tax.refTaxId ? 'اصلاحیهٔ صورتحسابی است که به سامانه مودیان رفته؛ صورتحساب «اصلاحی» با ارجاع به شماره مالیاتی اصل' : 'پیش‌تر به سامانه مودیان رفته و تغییر کرده؛ صورتحساب «اصلاحی»'} باید ارسال شود.</p>` : ''}
       ${d.tax?.convertedTo ? html`<p class="notice noprint">به <a href="/books/doc/${d.tax.convertedTo}" data-link>فاکتور فروش</a> تبدیل شده است.</p>` : ''}
       ${d.returns?.length ? html`<p class="notice noprint">برگشت‌ها: ${d.returns.map((r) => html`<a href="/books/doc/${r.id}" data-link>${fa(r.no)}</a>${r.status === 'void' ? ' (باطل)' : ''} `)}</p>` : ''}
       ${paper()}
