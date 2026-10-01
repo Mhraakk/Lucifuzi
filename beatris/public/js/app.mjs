@@ -37,6 +37,7 @@ const lazy = (mod, fn) => async (root, params) => (await import(mod))[fn](root, 
 
 route('/login', lazy('./pages/login.mjs', 'loginPage'), { public: true, bare: true, tone: 'full' });
 route('/intro', lazy('./pages/intro.mjs', 'introPage'), { public: true, bare: true, tone: 'full' });
+route('/intro/:tab', lazy('./pages/intro.mjs', 'introPage'), { public: true, bare: true, tone: 'full' });
 route('/', lazy('./pages/home.mjs', 'homePage'), { tab: 'home', tone: 'full' });
 route('/learn', lazy('./pages/learn.mjs', 'learnPage'), { tab: 'learn' });
 route('/learn/:id', lazy('./pages/learn.mjs', 'coursePage'), { tab: 'learn' });

@@ -667,9 +667,13 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     if (leadLimit.blocked(ip)) throw new HttpError(429, 'درخواست‌های زیادی ثبت شده است؛ یک ساعت دیگر دوباره امتحان کنید.');
     if (String(body.website ?? '')) return { ok: true }; // honeypot: bots fill every field
     const txt = (v, max) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
-    const name = txt(body.name, 60), shop = txt(body.shop, 80), city = txt(body.city, 40), message = txt(body.message, 600);
+    const PACKS = ['راه‌اندازی شعبه', 'حرفه‌ای', 'زنجیره‌ای'];
+    const pack = PACKS.includes(txt(body.pack, 40)) ? txt(body.pack, 40) : '';
+    const name = txt(body.name, 60), shop = txt(body.shop, 80), city = txt(body.city, 40);
+    const note = txt(body.message, 600), message = pack ? `بسته: ${pack}${note ? ` · ${note}` : ''}` : note;
     const phone = normalizePhone(body.phone);
-    const branches = Math.min(500, Math.max(1, Math.round(Number(body.branches) || 1)));
+    const digits = String(body.branches ?? '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+    const branches = Math.min(500, Math.max(1, Math.round(Number(digits) || 1)));
     if (name.length < 2) throw bad('نام را بنویسید.');
     if (shop.length < 2) throw bad('نام فروشگاه را بنویسید.');
     if (!validPhone(phone)) throw bad('شماره موبایل باید ۱۱ رقم و با ۰۹ باشد.');

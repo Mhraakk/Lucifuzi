@@ -159,7 +159,8 @@ export async function render() {
     cleanup = (await r.handler(page, m.groups ?? {})) ?? null;
     reveal(page);
     const h1 = $('h1', page);
-    document.title = h1 ? `${h1.textContent} · بئاتریس` : 'بئاتریس';
+    const t = h1?.textContent.trim();
+    document.title = t && t !== BRAND ? `${t} · ${BRAND}` : BRAND;
   } catch (e) {
     if (e.status === 401) return;
     main.innerHTML = String(html`<section class="empty"><h1>بارگذاری انجام نشد</h1><p>${e.message}</p><button class="btn" data-act="retry">تلاش دوباره</button></section>`);
@@ -180,6 +181,42 @@ window.addEventListener('popstate', () => render());
 
 /* ---------- motion: staggered reveal on scroll + pointer light ---------- */
 const io = 'IntersectionObserver' in window ? new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && (e.target.classList.add('in'), io.unobserve(e.target))), { rootMargin: '0px 0px -6% 0px' }) : null;
+/* ---------- brand legibility ---------- */
+// At small sizes the hamza of «ئ» reads as the dot of «ن» («بناتریس»). Every visible occurrence of the brand
+// is wrapped in .bn (app.css: never smaller than 15 px, bold), whichever page, dialog or toast renders it.
+export const BRAND = 'بئاتریس';
+const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'TITLE', 'NOSCRIPT', 'OPTION', 'CANVAS']);
+function brandify(node) {
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
+    acceptNode: (t) => (t.data.includes(BRAND) && !t.parentElement?.closest('.bn, svg') && !SKIP.has(t.parentElement?.tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+  });
+  const hits = [];
+  while (walker.nextNode()) hits.push(walker.currentNode);
+  for (const t of hits) {
+    const parts = t.data.split(BRAND), frag = document.createDocumentFragment();
+    parts.forEach((p, i) => {
+      if (p) frag.append(p);
+      if (i < parts.length - 1) {
+        const b = document.createElement('span');
+        b.className = 'bn';
+        b.textContent = BRAND;
+        frag.append(b);
+      }
+    });
+    t.replaceWith(frag);
+  }
+}
+if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+  const start = () => {
+    brandify(document.body);
+    new MutationObserver((list) => {
+      for (const m of list) for (const n of m.addedNodes) if (n.nodeType === 1 || n.nodeType === 3) brandify(n.nodeType === 1 ? n : n.parentNode ?? n);
+    }).observe(document.body, { childList: true, subtree: true });
+  };
+  if (document.body) start();
+  else addEventListener('DOMContentLoaded', start, { once: true });
+}
+
 export function reveal(root) {
   if (!io || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const els = $$(':scope > *:not(.home-hero):not(.studio3d):not(.paper):not(.printable), .rows > li, .grid2 > *, .bento > *, .tool-grid > *, .stats > div, .era-item', root);

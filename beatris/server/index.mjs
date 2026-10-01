@@ -244,6 +244,8 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     res.end(req.method === 'HEAD' ? undefined : useGz ? entry.gz : entry.buf);
   }
 
+  /** A plain HTML form post (application/x-www-form-urlencoded); accepted only where a route opts in. */
+  const isFormPost = (req) => /^application\/x-www-form-urlencoded\b/i.test(String(req.headers['content-type'] ?? ''));
   function readBody(req, limit = 128 * 1024) {
     return new Promise((resolve, reject) => {
       let size = 0;
@@ -257,6 +259,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       });
       req.on('end', () => {
         if (!chunks.length) return resolve({});
+        if (isFormPost(req)) return resolve(Object.fromEntries(new URLSearchParams(Buffer.concat(chunks).toString('utf8'))));
         try {
           resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
         } catch {
@@ -370,7 +373,21 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     }
     try {
       const limit = url.pathname === '/api/designs' || url.pathname === '/api/market/bars' ? 2.5 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : /^\/api\/books\/bars\/[^/]+\/card$/.test(url.pathname) ? 1.5 * 1024 * 1024 : undefined;
+      const formPost = req.method === 'POST' && isFormPost(req);
+      if (formPost && url.pathname !== '/api/leads') throw new HttpError(415, 'این درخواست باید JSON باشد.');
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, limit) : {};
+      if (formPost) {
+        // the demo form works without JavaScript too: POST, then back to the page (Post/Redirect/Get)
+        let to = '/intro/demo?lead=ok';
+        try {
+          await handle(req, url, body, ip);
+        } catch (e) {
+          if (!(e instanceof HttpError)) throw e;
+          to = `/intro/demo?lead=error&msg=${encodeURIComponent(e.message)}`;
+        }
+        res.writeHead(303, { ...SECURITY, Location: to, 'Cache-Control': 'no-store' });
+        return res.end();
+      }
       const auth = String(req.headers.authorization ?? '');
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
       let out;
