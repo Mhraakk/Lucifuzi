@@ -14,6 +14,7 @@ import { crown } from '../invoice.mjs';
 import { track } from '../harness.mjs';
 import { barcodeSvg } from '../barcode.mjs';
 import { qrSvg } from '../qr.mjs';
+import { posConfig, posProblem, startCharge, newChargeId, logCharge, linkCharge, STATE_TEXT, chargeLine } from '../pos.mjs';
 
 const MODES = [
   ['buy', 'خرید از مشتری', 'مشتری می‌فروشد · ما پول می‌دهیم', 'in', true],
@@ -91,6 +92,7 @@ export async function deskPage(root) {
 
   root.innerHTML = String(html`${booksNav('desk')}
     <section class="dk-prices" id="prices" aria-label="قیمت‌های زنده"></section>
+    <div id="posOrphans"></div>
     ${cond.items.length ? html`<button class="notice dk-cond" data-act="cond">⚖ ${fa(cond.items.length)} آبشده شرطی منتظر عیار آزمایشگاه است — ثبت عیار</button>` : ''}
     ${draft?.lines?.length || draft?.payments?.length ? html`<div class="notice dk-draft">سند ناتمامی از ${fa(new Date(draft.at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }))} مانده است. <button class="chip" data-act="restore">ادامه</button><button class="chip" data-act="drop">دور بریز</button></div>` : ''}
     <div class="dk">
@@ -430,7 +432,24 @@ export async function deskPage(root) {
     if (c.credit && !S.party) return toast('برای ماندن مبلغ روی حساب، مشتری را انتخاب کنید یا کامل تسویه کنید.', 'error');
     busy(btn, true);
     try {
+      // کارتخوان (spec 0005): each card-reader receipt without a reference goes to the terminal first; the document is
+      // booked only when every one is approved (an approved one keeps its RRN, so a retry never charges twice)
+      const pc = posConfig();
+      if (pc.on) {
+        for (const [i, p] of S.payments.entries()) {
+          if (p.posId && p.posAmount !== c.payments[i].value) return toast(`مبلغ ردیف کارتخوان با مبلغی که از کارت کم شد (${R(p.posAmount)}) فرق دارد؛ همان مبلغ را بنویسید و مابقی را ردیف جدا کنید.`, 'error');
+          if (p.method !== 'pos' || p.dir === 'out' || String(p.ref ?? '').trim()) continue;
+          const bad = posProblem(pc);
+          if (bad) return toast(bad, 'error');
+          const j = await chargeModal(pc, c.payments[i].value);
+          if (!j) return;
+          Object.assign(S.payments[i], { ref: j.rrn, card: j.card || undefined, terminal: j.terminal || undefined, posId: j.id, posAmount: c.payments[i].value });
+          drawPays();
+          recalc(); // keeps the draft (with the RRN) in this browser until the document is booked
+        }
+      }
       const doc = await api('/api/books/docs', { method: 'POST', body: body() });
+      Promise.all(S.payments.filter((p) => p.posId).map((p) => linkCharge(p.posId, doc.id))).then(orphans);
       track('desk.save', { lines: S.lines.length, pays: S.payments.length, party: !!S.party }, doc.track);
       ls.set(null);
       const [party, check] = await Promise.all([S.party ? api(`/api/books/parties/${S.party.id}`) : null, api(`/api/books/audit?doc=${doc.id}`).catch(() => ({ findings: [] }))]);
@@ -454,6 +473,84 @@ export async function deskPage(root) {
       busy(btn, false);
     }
   }
+  /** The card-reader window: follows one charge; resolves the approved charge, or null (declined, cancelled, closed). */
+  function chargeModal(pc, amount) {
+    return new Promise((resolve) => {
+      const id = newChargeId();
+      let run = null, result = null, retrying = false, last = { id, amount, driver: pc.driver, state: 'connecting' };
+      const close = modal(
+        String(html`<div class="pos-box" role="status"><h3 class="bk-h">کارتخوان</h3><div class="pos-amt">${R(amount)}</div>
+          <div class="pos-st connecting" id="posSt" aria-live="assertive"><i class="pos-dot"></i><span>${STATE_TEXT.connecting}</span></div>
+          <p class="small pos-msg" id="posMsg">${pc.driver === 'sim' ? 'شبیه‌ساز: پولی جابه‌جا نمی‌شود.' : ''}</p>
+          <div class="pos-manual" id="posManual" hidden><label class="field">شماره پیگیری روی رسید کارتخوان<input class="input ltr" id="posRrn" inputmode="numeric" maxlength="20"></label></div>
+          <div class="actions" id="posAct"><button class="btn ghost" data-pos="cancel">انصراف</button></div></div>`),
+        (m) =>
+          m.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-pos]');
+            if (!b) return;
+            const a = b.dataset.pos;
+            if (a === 'cancel') {
+              if (run && !result) {
+                run.cancel();
+                show({ ...last, state: last.state }, 'در حال لغو… اگر کارت کشیده شده، صبر کنید.');
+              } else close();
+            } else if (a === 'retry') {
+              retrying = true;
+              close();
+              chargeModal(pc, amount).then(resolve);
+            } else if (a === 'manual') {
+              const rrn = $('#posRrn', m).value.replace(/[^\d۰-۹]/g, '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+              if (rrn.length < 6) return toast('شماره پیگیری رسید کارتخوان را کامل وارد کنید.', 'error');
+              result = { ...last, state: 'approved', rrn, message: 'ثبت دستی از روی رسید کارتخوان' };
+              logCharge(result);
+              close();
+            }
+          }),
+        () => {
+          if (run && !result && !['declined', 'cancelled', 'error', 'unknown'].includes(last.state)) run.cancel();
+          if (!retrying) resolve(result?.state === 'approved' ? result : null);
+        },
+      );
+      const show = (j, extra) => {
+        const st = document.getElementById('posSt');
+        if (!st) return;
+        st.className = `pos-st ${j.state}`;
+        st.innerHTML = `<i class="pos-dot"></i><span>${String(chargeLine(j))}</span>`;
+        document.getElementById('posMsg').textContent = extra ?? (j.state === 'approved' ? '' : j.message || '');
+        const act = document.getElementById('posAct');
+        if (['declined', 'cancelled', 'error'].includes(j.state)) act.innerHTML = String(html`<button class="btn" data-pos="retry">دوباره بفرست</button><button class="btn ghost" data-close>بستن</button>`);
+        if (j.state === 'unknown') {
+          document.getElementById('posManual').hidden = false;
+          act.innerHTML = String(html`<button class="btn" data-pos="manual">پرداخت شده؛ ثبت با این شماره</button><button class="btn ghost" data-pos="retry">دوباره بفرست</button><button class="btn ghost" data-close>بستن</button>`);
+        }
+      };
+      run = startCharge(pc, { id, amount }, (j) => {
+        last = j;
+        show(j);
+      });
+      run.done
+        .then((j) => {
+          last = j;
+          show(j);
+          logCharge(j);
+          if (j.state === 'approved') {
+            result = j;
+            setTimeout(close, 900);
+          }
+        })
+        .catch((e) => {
+          last = { ...last, state: 'error', message: e.message };
+          show(last);
+        });
+    });
+  }
+  async function orphans() {
+    const r = await api('/api/books/pos').catch(() => null);
+    const box = $('#posOrphans', root);
+    if (!box || !r?.orphans?.length) return box && (box.innerHTML = '');
+    box.innerHTML = String(html`<div class="notice pos-orphan" role="alert"><b>پرداخت کارتخوانِ تأییدشده بدون سند:</b> ${r.orphans.map((o) => html`<span class="chip">${R(o.amount)} · پیگیری <b class="ltr-num">${fa(o.rrn)}</b> · ${timeFa(o.at)}</span>`)}<small>پول از کارت مشتری کم شده است؛ سندش را با همین شماره پیگیری ثبت کنید (روی ردیف کارتخوان بنویسید) تا این هشدار برود.</small></div>`);
+  }
+
   // one receipt for every kind of base-edition document: tracking code with barcode, authenticity QR, each line and
   // payment with its own code, the balance after; printing and sharing are written to the document's history
   function receipt(doc, party, warn = [], extra = []) {
@@ -813,6 +910,7 @@ export async function deskPage(root) {
   drawLines();
   drawPays();
   recalc();
+  if (posConfig().on) orphans();
   $('#pq', root)?.focus();
   // «معامله در میز» from a customer's page arrives with ?party=
   track('desk.open');

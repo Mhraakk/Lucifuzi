@@ -6,6 +6,7 @@ import { barcodeSvg } from '../barcode.mjs';
 import { T, TU, G, jd, jdInput, parseDay, today, addDays, modal, confirmBox, exportButtons, wireExport, download, balText, balClass, unitAmt, EX, unitName, moneyWords, K, booksPrefs, prefs, unitLabel, unitVal, balChips, balUnits, R, balBoard, balSentence, sideWord, lineVerb, describeLine, timeFa } from '../bk.mjs';
 import { TRADE_KINDS as TR_KINDS } from '../trade.mjs';
 import { booksNav } from './books.mjs';
+import { DRIVERS, posConfig, savePosConfig, posProblem, bridgeStatus, testTerminal, STATE_TEXT } from '../pos.mjs';
 
 /* ---------------- customers ---------------- */
 const partyForm = (p = {}) => html`<form class="form" id="pf">
@@ -639,4 +640,69 @@ export async function settingsPage(root) {
   });
   root.addEventListener('click', (e) => e.target.closest('[data-gdel]')?.closest('tr').remove());
   $('#tall', root).addEventListener('change', (e) => $$('[data-tsel]', root).forEach((c) => (c.checked = e.target.checked)));
+  posSettings(root);
+}
+
+/* ---------------- کارتخوان این رایانه (spec 0005) ---------------- */
+function posSettings(root) {
+  const c = posConfig();
+  root.insertAdjacentHTML('beforeend', String(html`<section class="tray bk-sec" id="posSec"><div class="bk-head"><h3 class="bk-h">کارتخوان این رایانه</h3><span class="chip" id="posBridge">پل: …</span></div>
+    <p class="small">با روشن بودن، «ثبت» در میز معامله مبلغ ردیف «کارتخوان» را خودکار به دستگاه می‌فرستد و سند فقط پس از تأیید بانک ثبت می‌شود؛ شماره پیگیری و ۴ رقم آخر کارت خودکار می‌نشیند. این تنظیم فقط برای همین رایانه است (هر پیشخوان کارتخوان خودش را دارد).</p>
+    <form class="form" id="posF">
+      <label class="segopt"><input type="checkbox" name="on" ${c.on ? 'checked' : ''}><span>ارسال خودکار مبلغ به کارتخوان</span></label>
+      <div class="form cols"><label class="field">نوع کارتخوان<select class="input" name="driver">${DRIVERS.map(([v, l]) => html`<option value="${v}" ${c.driver === v ? 'selected' : ''}>${l}</option>`)}</select></label>
+        <label class="field">IP کارتخوان<input class="input ltr" name="host" value="${c.host}" placeholder="192.168.1.50"></label>
+        <label class="field">پورت کارتخوان<input class="input ltr" name="port" value="${c.port}" inputmode="numeric"></label>
+        <label class="field">پورت پل روی این رایانه<input class="input ltr" name="bridge" value="${c.bridge}" inputmode="numeric"></label></div>
+      <div class="actions"><button class="btn">ذخیره برای این رایانه</button><button class="btn ghost" type="button" data-pos="test">آزمون اتصال</button><a class="btn ghost" href="/downloads/Beatris-Setup-x64.exe" download>نصب‌کننده ویندوز (همراه پل)</a><a class="btn ghost" href="/downloads/beatris-pos-bridge.ps1" download>فقط پل کارتخوان</a></div>
+      <p class="small" id="posOut" aria-live="polite"></p>
+      <details class="small"><summary>راه‌اندازی یک‌باره</summary><ol>
+        <li><b>سامان (SEP):</b> از پشتیبانی سامان بخواهید «PC-POS / اتصال به رایانه» را روی پایانه فعال کند؛ کارتخوان را با کابل شبکه به مودم فروشگاه وصل کنید و IP آن را از منوی شبکه دستگاه بخوانید (بهتر است IP ثابت شود). پورت پیش‌فرض ۱۱۹۷ است.</li>
+        <li><b>سداد:</b> پروتکل سداد عمومی نیست؛ «نرم‌افزار/DLL اتصال PC-POS» را از پشتیبانی سداد بگیرید و حالت PCTOPOS (شبکه) را روی دستگاه فعال کنید. برنامه رابط در <code>%LOCALAPPDATA%\\Beatris\\pos.json</code> با کلید <code>command</code> معرفی می‌شود و باید یک JSON مثل <code>{"approved":true,"rrn":"…","card":"1234"}</code> برگرداند.</li>
+        <li>بئاتریس ویندوز را نصب کنید؛ پل کارتخوان همراهش نصب و با ورود به ویندوز اجرا می‌شود. اگر مرورگر اجازه «دسترسی به دستگاه‌های شبکه محلی» خواست، اجازه دهید.</li>
+        <li>«آزمون اتصال» بزنید، سپس یک خرید ۱۰٬۰۰۰ ریالی آزمایشی انجام دهید.</li></ol></details>
+    </form>
+    <div id="posLog"></div></section>`));
+  const f = $('#posF', root);
+  const read = () => ({ on: f.elements.on.checked, driver: f.elements.driver.value, host: f.elements.host.value, port: f.elements.port.value, bridge: f.elements.bridge.value });
+  const out = (t, cls = '') => {
+    const o = $('#posOut', root);
+    o.className = `small ${cls}`;
+    o.textContent = t;
+  };
+  const ping = () =>
+    !posConfig().on ? ($('#posBridge', root).textContent = 'خاموش') :
+    bridgeStatus(posConfig())
+      .then((s) => ($('#posBridge', root).textContent = `پل: فعال · نسخه ${fa(s.version)}`))
+      .catch(() => ($('#posBridge', root).textContent = 'پل: پیدا نشد'));
+  f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = savePosConfig(read());
+    const bad = v.on && posProblem(v);
+    out(bad || 'ذخیره شد.', bad ? 'err' : 'ok');
+    ping();
+  });
+  f.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-pos=test]')) {
+      const v = { ...posConfig(), ...read(), port: Number(read().port) || 1197, bridge: Number(read().bridge) || 8765 };
+      const bad = posProblem(v);
+      if (bad) return out(bad, 'err');
+      out('در حال آزمون…');
+      try {
+        const r = await testTerminal(v);
+        out(`${r.ok ? '✓' : '✕'} ${r.message}${r.terminal ? ` · پایانه ${r.terminal}` : ''}`, r.ok ? 'ok' : 'err');
+      } catch (err) {
+        out(err.message, 'err');
+      }
+    }
+  });
+  ping();
+  api(`/api/books/pos?day=${today()}`)
+    .then((r) => {
+      if (!r.items.length && !r.orphans.length) return;
+      $('#posLog', root).innerHTML = String(html`<h4 class="bk-h">تراکنش‌های امروز کارتخوان · تأییدشده ${R(r.approved)}</h4>
+        ${r.orphans.length ? html`<p class="err small">⚠ ${fa(r.orphans.length)} پرداخت تأییدشده هنوز سند ندارد.</p>` : ''}
+        <div class="scrollx"><table class="table-plain bk-table"><thead><tr><th>ساعت</th><th>مبلغ</th><th>وضعیت</th><th>پیگیری</th><th>کارت</th><th>پایانه</th><th>سند</th></tr></thead><tbody>${r.items.map((x) => html`<tr class="${x.orphan ? 'warn' : ''}"><td>${timeFa(x.at)}</td><td class="num">${R(x.amount)}</td><td>${STATE_TEXT[x.state] ?? x.state}${x.code && x.state !== 'approved' ? html` <small>(${fa(x.code)})</small>` : ''}</td><td class="ltr-num">${fa(x.rrn)}</td><td class="ltr-num">${x.card ? `****${fa(x.card)}` : ''}</td><td class="ltr-num">${x.terminal}</td><td>${x.docId ? html`<a href="/books/doc/${x.docId}" data-link>سند</a>` : x.orphan ? 'بی‌سند' : '—'}</td></tr>`)}</tbody></table></div>`);
+    })
+    .catch(() => {});
 }

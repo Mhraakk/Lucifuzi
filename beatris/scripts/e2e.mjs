@@ -1050,6 +1050,87 @@ async function loginUI(page) {
     check('control: twin numbers explain themselves', (await text(page, '.xp-s')).length > 10);
     await page.keyboard.press('Escape');
   });
+  if (!live) await step('pos: card reader charge before booking (mock bridge), decline, settings, reconciliation', async () => {
+    const auth = (path) => page.evaluate(async (p) => (await fetch(p, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), path);
+    // a stand-in for desktop/windows/pos-bridge.ps1 (the real bridge is tested against a simulated terminal in tests/pos.test.mjs)
+    const { createServer } = await import('node:http');
+    const jobs = new Map();
+    const origin = new URL(base).origin;
+    const mock = createServer((req, res) => {
+      const send = (code, obj) => {
+        res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': origin, 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-allow-private-network': 'true' });
+        res.end(obj ? JSON.stringify(obj) : '');
+      };
+      if (req.method === 'OPTIONS') return send(204);
+      let body = '';
+      req.on('data', (c) => (body += c));
+      req.on('end', () => {
+        const b = body ? JSON.parse(body) : {};
+        if (req.url === '/status') return send(200, { ok: true, app: 'beatris-pos', version: '1.0.0', busy: false });
+        if (req.url === '/test') return send(200, { ok: true, terminal: '12345678', message: 'کارتخوان آماده است.' });
+        if (req.url === '/charge') {
+          if (!jobs.has(b.id)) jobs.set(b.id, { id: b.id, amount: b.amount, driver: b.driver, state: 'connecting', polls: 0 });
+          return send(202, jobs.get(b.id));
+        }
+        const m = req.url.match(/^\/charge\/([\w-]+)/);
+        const j = m && jobs.get(m[1]);
+        if (!j) return send(404, { error: 'not found' });
+        if (++j.polls === 1) j.state = 'waiting';
+        else if (j.polls >= 3 && j.state === 'waiting') {
+          if (j.amount === 999000) Object.assign(j, { state: 'declined', code: '51', message: 'موجودی کافی نیست' });
+          else Object.assign(j, { state: 'approved', code: '00', rrn: '863583063456', stan: '801912', card: '1234', terminal: '12345678', message: 'تراکنش موفق' });
+        }
+        send(200, j);
+      });
+    });
+    await new Promise((r) => mock.listen(0, '127.0.0.1', r));
+    const bport = mock.address().port;
+    try {
+      await go(page, '/books/settings', 1500);
+      await page.check('#posF [name=on]');
+      await page.selectOption('#posF [name=driver]', 'sep');
+      await page.fill('#posF [name=host]', '192.168.1.50');
+      await page.fill('#posF [name=bridge]', String(bport));
+      await page.click('#posF button:not([type])');
+      await page.waitForTimeout(500);
+      check('pos settings: saved for this computer and the bridge is found', (await text(page, '#posBridge')).includes('فعال'), await text(page, '#posBridge'));
+      await page.click('[data-pos=test]');
+      await page.waitForFunction(() => /آماده/.test(document.querySelector('#posOut')?.textContent ?? ''));
+      check('pos settings: connection test reports the terminal', (await text(page, '#posOut')).includes('12345678'));
+      await go(page, '/books/desk', 1500);
+      await page.click('[data-act=pnew]');
+      await page.fill('#np [name=name]', 'سارا کارتخوانی');
+      await page.fill('#np [name=mobile]', '09121119988');
+      await page.click('#np button:not([type])');
+      await page.waitForSelector('.dk-who');
+      await page.click('[data-pm=pos]');
+      await page.fill('[data-p="0"][data-k=amount]', '25000000');
+      await page.click('.dk-save [data-act=save]');
+      await page.waitForSelector('.pos-box');
+      check('pos desk: the amount goes to the card reader before booking', (await text(page, '.pos-box')).includes('۲۵٬۰۰۰٬۰۰۰'));
+      await page.waitForSelector('.dk-receipt', { timeout: 15000 });
+      const rc = await text(page, '.dk-receipt');
+      check('pos desk: approved → document booked with the terminal RRN', rc.includes('۸۶۳۵۸۳۰۶۳۴۵۶'), rc.replace(/\s+/g, ' ').slice(0, 160));
+      await page.keyboard.press('Escape');
+      // a declined card books nothing
+      const before = (await auth('/api/books/docs?limit=5')).items?.length ?? 0;
+      await page.click('[data-pm=pos]');
+      await page.fill('[data-p="0"][data-k=amount]', '999000');
+      await page.click('.dk-save [data-act=save]');
+      await page.waitForSelector('.pos-st.declined', { timeout: 15000 });
+      check('pos desk: decline is shown with the bank reason', (await text(page, '.pos-box')).includes('موجودی'));
+      await page.click('.pos-box [data-close]');
+      await page.waitForTimeout(400);
+      check('pos desk: a declined card books no document', !(await page.$('.dk-receipt')) && ((await auth('/api/books/docs?limit=5')).items?.length ?? 0) === before);
+      const log = await auth('/api/books/pos');
+      const ok = log.items.find((x) => x.state === 'approved');
+      check('pos log: approval linked to its document, decline recorded, no orphans', !!ok?.docId && ok.card === '1234' && log.items.some((x) => x.state === 'declined' && x.code === '51') && log.orphans.length === 0, JSON.stringify(log.items.map((x) => [x.state, !!x.docId])));
+    } finally {
+      await page.evaluate(() => localStorage.removeItem('beatris.pos'));
+      mock.close();
+    }
+  });
+
   await step('web app: installable PWA (manifest, service worker, shortcuts, screenshots) and the install guide', async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const p = await ctx.newPage();

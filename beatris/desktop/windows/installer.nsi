@@ -75,15 +75,15 @@ Section "Beatris" SecMain
   SetOutPath "$INSTDIR"
   File "beatris.ico"
   File "Beatris.cmd"
+  ; card-reader bridge (spec 0005): local HTTP on 127.0.0.1 for the app's origin only; starts with Windows
+  File "pos-bridge.ps1"
   Call FindBrowser
-  StrCmp $Browser "" 0 +3
-    MessageBox MB_ICONEXCLAMATION "مرورگر Edge یا Chrome پیدا نشد؛ بئاتریس در مرورگر پیش‌فرض باز می‌شود."
-    Goto shortcuts
-  ; the launcher reads its settings from here (so the server address can change without reinstalling)
+  ; the launcher and the card-reader bridge read their settings from here (the server address can change without reinstalling)
   FileOpen $0 "$INSTDIR\beatris.ini" w
   FileWrite $0 "browser=$Browser$\r$\nurl=${URL}$\r$\n"
   FileClose $0
-  shortcuts:
+  StrCmp $Browser "" 0 +2
+    MessageBox MB_ICONEXCLAMATION "مرورگر Edge یا Chrome پیدا نشد؛ بئاتریس در مرورگر پیش‌فرض باز می‌شود."
   CreateDirectory "$LOCALAPPDATA\Beatris\profile"
   ; shortcuts start the browser directly in app mode (no console window, own taskbar icon)
   StrCmp $Browser "" 0 +4
@@ -93,6 +93,8 @@ Section "Beatris" SecMain
   CreateShortcut "$SMPROGRAMS\${NAME_FA}.lnk" "$Browser" '--app=${URL}/ --user-data-dir="$LOCALAPPDATA\Beatris\profile" --no-first-run --no-default-browser-check --window-size=1440,900 --lang=fa' "$INSTDIR\beatris.ico" 0 SW_SHOWMAXIMIZED "" "${NAME_FA} — حسابداری طلا، سکه و شمش"
   CreateShortcut "$DESKTOP\${NAME_FA}.lnk" "$Browser" '--app=${URL}/ --user-data-dir="$LOCALAPPDATA\Beatris\profile" --no-first-run --no-default-browser-check --window-size=1440,900 --lang=fa' "$INSTDIR\beatris.ico" 0 SW_SHOWMAXIMIZED "" "${NAME_FA} — حسابداری طلا، سکه و شمش"
   reg:
+  CreateShortcut "$SMSTARTUP\Beatris POS.lnk" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$INSTDIR\pos-bridge.ps1"' "$INSTDIR\beatris.ico" 0 SW_SHOWMINIMIZED "" "پل کارتخوان بئاتریس"
+  ExecShell "open" "$SMSTARTUP\Beatris POS.lnk" "" SW_HIDE
   WriteRegStr HKCU "Software\Beatris" "InstallDir" "$INSTDIR"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "${REGKEY}" "DisplayName" "${NAME_FA} (${NAME})"
@@ -116,6 +118,8 @@ Section "Uninstall"
   Delete "$DESKTOP\${NAME_FA}.lnk"
   Delete "$INSTDIR\beatris.ico"
   Delete "$INSTDIR\Beatris.cmd"
+  Delete "$INSTDIR\pos-bridge.ps1"
+  Delete "$SMSTARTUP\Beatris POS.lnk"
   Delete "$INSTDIR\beatris.ini"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"

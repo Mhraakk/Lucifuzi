@@ -20,9 +20,9 @@ import { createFlags } from './flags.mjs';
 import { can } from './rbac.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8', '.exe': 'application/vnd.microsoft.portable-executable' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8', '.exe': 'application/vnd.microsoft.portable-executable', '.ps1': 'text/plain; charset=utf-8' };
 const SECURITY = {
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: data: http://127.0.0.1:* http://localhost:*; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'same-origin',
   'X-Frame-Options': 'DENY',
@@ -234,7 +234,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       entry = { etag, buf, gz: buf.length > 1024 && !COMPRESSED.has(path.extname(file)) ? gzipSync(buf) : null };
       fileCache.set(file, entry);
     }
-    const headers = { 'Content-Type': MIME[path.extname(file)] ?? 'application/octet-stream', ETag: etag, 'Cache-Control': 'no-cache', ...(path.extname(file) === '.exe' ? { 'Content-Disposition': `attachment; filename="${path.basename(file)}"` } : {}), ...SECURITY };
+    const headers = { 'Content-Type': MIME[path.extname(file)] ?? 'application/octet-stream', ETag: etag, 'Cache-Control': 'no-cache', ...(['.exe', '.ps1'].includes(path.extname(file)) ? { 'Content-Disposition': `attachment; filename="${path.basename(file)}"` } : {}), ...SECURITY };
     const useGz = entry.gz && /\bgzip\b/.test(req.headers['accept-encoding'] ?? '');
     if (useGz) headers['Content-Encoding'] = 'gzip';
     res.writeHead(200, headers);

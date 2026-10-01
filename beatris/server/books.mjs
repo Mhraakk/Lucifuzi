@@ -17,6 +17,7 @@ import { makeIdeas } from './ideas.mjs';
 import { PROVIDERS, checkBaseUrl, keyHint } from './providers.mjs';
 import * as TR from '../public/js/trade.mjs';
 import { tehranDay } from './tz.mjs';
+import { makePos } from './pos.mjs';
 
 export const BOOKS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS bk_parties (
@@ -1701,6 +1702,9 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   ideas = makeIdeas({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, sealer, shopId, partyRow, verifyLog });
   // کنترل: pulse, changes, exceptions, simulator, twin, lots, story, dual trial, forecast, explain (spec 0002)
   control = makeControl({ db, on, call, core, auditShared, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, partyRow, market, dashboard, audit: { run: (u) => audit.run(u) }, risk: () => ideas.risk(), shopId, closeSystem: (day, recon) => ideas.closeSystem(day, recon) });
+
+  // کارتخوان: what the card reader answered for each desk charge, and the document it landed on (spec 0005)
+  makePos({ db, on, bad, notFound, tehranDay, log });
 
   /* ---------------- راه‌اندازی فروشگاه: the real opening state of a new shop in one step ---------------- */
   const setup = makeSetup({ db, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, HttpError, isAdmin });

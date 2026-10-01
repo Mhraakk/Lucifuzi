@@ -2836,3 +2836,22 @@ html[data-theme='day'] .tb-card { background: #fff; border-color: var(--hair-2);
 .linkish { background: none; border: 0; padding: 0; font: inherit; color: var(--gold, #e3b862); text-decoration: underline; cursor: pointer; }
 .ins ol { margin: 10px 0; padding-inline-start: 20px; display: grid; gap: 6px; line-height: 1.9; }
 @media (max-width: 480px) { #insBtn { display: none; } }
+
+/* کارتخوان (spec 0005): the card-reader window on the desk */
+.pos-box { text-align: center; min-width: min(360px, 82vw); }
+.pos-amt { font: 800 30px/1.4 var(--display); color: var(--accent-foreground); margin: 6px 0 10px; }
+.pos-st { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-muted); border: 1px solid var(--border-subtle); font-weight: 600; }
+.pos-dot { inline-size: 12px; block-size: 12px; border-radius: 50%; background: var(--accent); flex: none; }
+.pos-st.connecting .pos-dot, .pos-st.waiting .pos-dot { animation: posPulse 1.1s var(--ease) infinite; }
+.pos-st.approved { border-color: var(--positive); color: var(--positive); }
+.pos-st.approved .pos-dot { background: var(--positive); }
+.pos-st.declined, .pos-st.cancelled, .pos-st.error { border-color: var(--negative); }
+.pos-st.declined .pos-dot, .pos-st.cancelled .pos-dot, .pos-st.error .pos-dot { background: var(--negative); }
+.pos-st.unknown { border-color: var(--warning); }
+.pos-st.unknown .pos-dot { background: var(--warning); }
+.pos-msg { min-block-size: 1.6em; margin: 8px 0; }
+.pos-box .actions { justify-content: center; }
+.pos-orphan { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border-color: var(--warning); }
+.pos-orphan small { flex-basis: 100%; }
+@keyframes posPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .pos-st .pos-dot { animation: none !important; } }

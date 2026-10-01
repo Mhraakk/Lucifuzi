@@ -68,6 +68,12 @@
 - دستیار: `intentOf` → `typedChoice` روی `INTENTS`؛ `localTyped` پاسخ و `intent` را می‌دهد.
 - ابزار: `tests/fuzz.test.mjs` (مدل مستقل)، `scripts/bench.mjs` (بنچمارک ۲۰k سند).
 
+## کارتخوان / PC-POS (spec `docs/specs/0005-pos-bridge.md`)
+- **پل محلی** `desktop/windows/pos-bridge.ps1` (PowerShell 5.1 داخلی ویندوز): HTTP روی `127.0.0.1:8765`، فقط origin اپ (از `beatris.ini`) و Host محلی؛ هر تراکنش در runspace جدا، `pos-journal.jsonl` در `%LOCALAPPDATA%\Beatris`؛ شناسه تکراری = همان تراکنش. راه‌اندازها: `sep` (SSP1126 سامان، TCP ۱۱۹۷، ISO-8583 + MAC DES-CBC)، `command` (سداد/PSP دیگر با برنامه رابط رسمی)، `sim`.
+- **مرورگر** `public/js/pos.mjs`: تنظیم هر رایانه در localStorage؛ میز (`desk.mjs` → `chargeModal`) پیش از ثبت، ردیف «کارتخوان» بی‌پیگیری را می‌فرستد؛ تأیید → RRN/کارت/پایانه روی پرداخت، سپس ثبت سند و اتصال تراکنش. وضعیت نامعلوم → ورود دستی شماره پیگیری از رسید.
+- **سرور** `server/pos.mjs`: `bk_pos` و `GET/POST /api/books/pos` برای تطبیق؛ تأییدشده بی‌سند = هشدار در میز؛ سند با همان RRN خودکار وصل می‌شود. منطق حسابداری دست نخورده.
+- آزمون: `tests/pos.test.mjs` (فریم واقعی سامان، پل واقعی با `pwsh` در برابر پایانه شبیه‌سازی‌شده `tests/helpers/ssp1126.mjs`)، e2e مرحله `pos`.
+
 ## استقرار (Railway — سرور دائمی، نه serverless)
 - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.

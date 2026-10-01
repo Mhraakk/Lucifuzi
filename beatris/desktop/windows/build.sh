@@ -12,4 +12,5 @@ node make-ico.mjs beatris.ico "$tmp"/i256.png "$tmp"/i64.png "$tmp"/i48.png "$tm
 mkdir -p ../../public/downloads
 makensis -V2 -DURL="$URL" -DVERSION="$VER" -DOUTFILE="$(pwd)/../../public/downloads/Beatris-Setup-x64.exe" installer.nsi
 rm -rf "$tmp"
-ls -la ../../public/downloads/Beatris-Setup-x64.exe
+cp pos-bridge.ps1 ../../public/downloads/beatris-pos-bridge.ps1
+ls -la ../../public/downloads/
