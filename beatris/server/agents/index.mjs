@@ -202,6 +202,11 @@ export function registerAgentRoutes({ on, sys, HttpError, can }) {
     const r = R.tools['accounting.postTrainingEntry'].run({ bookId, entry: body.entry ?? {}, key: k }, { user });
     return { posted: r, book: T.bookView(user, bookId) };
   });
+  route('POST', '/api/train/acct/practice/reconcile', 'auth', async ({ user, body }) => {
+    const bookId = T.store.practiceBook(user.id);
+    const run = runOut(await R.start('reconciliation', { user, input: { bookId, counted: body.counted ?? {} } }));
+    return { run: { id: run.id, status: run.status }, ...run.output };
+  });
   route('POST', '/api/train/acct/audit', 'auth', async ({ user, body }) => {
     const input = body.scenarioId ? { mode: 'check', scenarioId: String(body.scenarioId) } : { mode: 'check', bookId: String(body.bookId ?? T.store.practiceBook(user.id)) };
     const run = runOut(await R.start('audit', { user, input }));
@@ -302,6 +307,17 @@ export function registerAgentRoutes({ on, sys, HttpError, can }) {
       const run = runOut(await R.start('rhino-cad', { user, input, key: `${mode}:${user.id}:${k}` }));
       return { run: runBrief(run), ...(run.output ?? { waiting: true, message: 'درخواست برای تأیید مدیر فرستاده شد.' }) };
     });
+  route('POST', '/api/studio/projects/:id/ops', 'auth', async ({ user, params, body }) => {
+    ownProject(user, params.id);
+    const k = key(body.key);
+    const run = runOut(await R.start('rhino-cad', { user, input: { mode: 'modify', projectId: params.id, operations: body.operations ?? [] }, key: k ? `ops:${user.id}:${k}` : null }));
+    return { run: runBrief(run), ...run.output };
+  });
+  route('GET', '/api/studio/projects/:id/review', 'auth', async ({ user, params }) => {
+    ownProject(user, params.id);
+    const run = runOut(await R.start('studio-design', { user, input: { mode: 'review', projectId: params.id } }));
+    return run.output;
+  });
   route('POST', '/api/studio/preview', 'auth', async ({ body }) => {
     // a quick measure of parameters without saving (the same engine; nothing stored)
     const p = body.params;

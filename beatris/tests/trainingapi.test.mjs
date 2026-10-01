@@ -172,3 +172,14 @@ test('عملیات واقعی: سند پیشنهادی منتظر تأیید م�
   assert.equal(d2.run.output.posted, false);
   assert.equal((await ok('GET', `/api/books/docs?party=${party.id}`, null, E)).items.length, before + 1);
 });
+
+test('مغایرت‌گیر: شمارش با دفتر مقایسه می‌شود؛ اختلاف ثبت و حسابرس صدا زده می‌شود؛ چیزی اصلاح نمی‌شود', async () => {
+  const ok0 = await ok('POST', '/api/train/acct/practice/reconcile', { counted: {} }, E2);
+  assert.equal(ok0.matched, true);
+  const r = await ok('POST', '/api/train/acct/practice/reconcile', { counted: { 1310: { fine750: 2.5 } } }, E2);
+  assert.equal(r.matched, false);
+  assert.equal(r.rows[0].diff, 2.5);
+  assert.ok(r.audit && typeof r.audit.score === 'number');
+  const view = await ok('GET', `/api/agents/runs/${r.run.id}`, null, E2);
+  assert.ok(view.run.steps.some((s) => s.tool === 'delegate:audit'));
+});

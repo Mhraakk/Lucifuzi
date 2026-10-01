@@ -42,7 +42,7 @@ Spec 0015 had one agent runtime for accounting training. This spec turns it into
   - `tools` is the typed tool registry.
   - `agents` defines the five studio and training agents and the curriculum's studio modes.
 - **Agents**
-  - Accounting: `accounting-tutor` and `audit`.
+  - Accounting: `accounting-tutor`, `audit` and `reconciliation` (a count against the book; the kernel computes the differences; it asks the auditor when the count does not match and never adjusts a balance).
   - Studio: `studio-design`, `rhino-cad` and `manufacturing`.
   - Training: `training-tutor`, `assessment` and `curriculum`.
 - **Routines and triggers**
@@ -52,6 +52,10 @@ Spec 0015 had one agent runtime for accounting training. This spec turns it into
   - `/studio/coach`: brief, measured design, edit in a sentence, export, and exercises with hints. It uses no engine vocabulary.
   - `/agents`: the admin's view of the registry, statistics and run steps and events.
   - The team view gains a column for the other competencies.
+
+- **A trainee's own CAD steps:** `POST /api/studio/projects/:id/ops` sends typed CadOperations. `rhino-cad` runs them with `cad.modifyGeometry`, which tries them on a copy first and stores a new version only if they succeed. It then delegates to `manufacturing`, which delegates to `training-tutor` for the explanation (depth 2). `GET …/review` gives the calm summary through `studio.inspectDesign`.
+- **Events:** `agent.step.started`, `studio.geometry.modified`, `training.exercise.completed`, and `studio.project.completed` on finalisation.
+- **Wall-thickness rule:** it covers every measured metal body, not only an untouched shank. A shelled or edited body is checked the same way.
 
 ## Acceptance
 - Registry and permissions:

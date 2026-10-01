@@ -1,7 +1,7 @@
 // رجیستری عامل‌ها (spec 0016): one place that knows every agent of Beatris — its domain, its instructions, the tools
 // it may use (least privilege), which of them need approval, which memory scopes it may touch and whom it may ask.
 // A definition that names an unknown tool or agent is refused at start-up, not at the moment it would misbehave.
-export const AGENT_IDS = ['accounting-tutor', 'audit', 'curriculum', 'studio-design', 'rhino-cad', 'manufacturing', 'training-tutor', 'assessment'];
+export const AGENT_IDS = ['accounting-tutor', 'audit', 'reconciliation', 'curriculum', 'studio-design', 'rhino-cad', 'manufacturing', 'training-tutor', 'assessment'];
 const REQUIRED = ['id', 'domain', 'name', 'fa', 'instructions', 'allowedTools', 'approvalPolicy', 'memoryScopes', 'canDelegateTo', 'plan'];
 
 export function createRegistry(defs, { tools }) {

@@ -143,6 +143,26 @@ test('ماشه: سه تلاش ناموفق پیاپی در یک تمرین، م�
   assert.equal(fired[0].output.level, 2);
 });
 
+test('گام‌های CAD کارآموز: عملیات تایپ‌شده روی نسخه تازه → کارشناس ساخت → توضیح مربی؛ عملیات نامعتبر چیزی ذخیره نمی‌کند', async () => {
+  const d = await ok('POST', '/api/studio/design', { brief: 'حلقه ساده ۱۸ عیار سایز ۵۴', key: 'design-key-ops' }, E);
+  const before = (await ok('GET', `/api/studio/projects/${d.projectId}`, null, E)).models.length;
+  // a 0.3 mm shell of the band: measurably too thin — the rules must catch it
+  const r = await ok('POST', `/api/studio/projects/${d.projectId}/ops`, { operations: [{ op: 'shell', id: 'shank', target: 'shank', thickness: 0.3 }], key: 'ops-key-0001' }, E);
+  assert.equal(r.version, before + 1);
+  assert.ok(r.findings.engineering.some((f) => f.code === 'WALL_TOO_THIN'), JSON.stringify(r.findings.engineering.map((f) => f.code)));
+  assert.ok(r.explanation?.lines?.length, 'the tutor explains what the rules found');
+  const view = (await ok('GET', `/api/agents/runs/${r.run.id}`, null, E));
+  const mfg = (await ok('GET', `/api/agents/runs/${view.run.steps.find((s) => s.tool === 'delegate:manufacturing').child}`, null, E)).run;
+  assert.deepEqual(mfg.chain, ['rhino-cad', 'manufacturing']);
+  assert.ok(mfg.steps.some((s) => s.tool === 'delegate:training-tutor'));
+  assert.ok(view.events.some((e) => e.type === 'studio.geometry.modified'));
+  const bad = await call('POST', `/api/studio/projects/${d.projectId}/ops`, { operations: [{ op: 'fillet', id: 'x', target: 'ghost', radius: 1 }], key: 'ops-key-0002' }, E);
+  assert.equal(bad.status, 400);
+  assert.equal((await ok('GET', `/api/studio/projects/${d.projectId}`, null, E)).models.length, before + 1, 'the failed step stored nothing');
+  const rev = await ok('GET', `/api/studio/projects/${d.projectId}/review`, null, E);
+  assert.ok(rev.mustFix >= 1 && /اصلاح/.test(rev.message));
+});
+
 test('پیش‌نمایش پارامترها بدون ذخیره؛ پارامتر نامعتبر رد می‌شود', async () => {
   const p = { material: 'au18y', ...EXERCISE['plain-band'].start };
   const r = await ok('POST', '/api/studio/preview', { params: p }, E);
@@ -153,7 +173,7 @@ test('پیش‌نمایش پارامترها بدون ذخیره؛ پارامت�
 test('نمای مدیر سیستم: رجیستری با ابزارهای مجاز، آمار اجراها و واگذاری‌ها؛ برای کارمند بسته است', async () => {
   const r = await ok('GET', '/api/agents/registry', null, O);
   const ids = r.agents.map((a) => a.id).sort();
-  assert.deepEqual(ids, ['accounting-tutor', 'assessment', 'audit', 'curriculum', 'manufacturing', 'rhino-cad', 'studio-design', 'training-tutor']);
+  assert.deepEqual(ids, ['accounting-tutor', 'assessment', 'audit', 'curriculum', 'manufacturing', 'reconciliation', 'rhino-cad', 'studio-design', 'training-tutor']);
   assert.ok(!r.agents.find((a) => a.id === 'manufacturing').allowedTools.includes('cad.exportModel'), 'least privilege');
   assert.ok(r.stats.delegations >= 2);
   assert.ok(r.stats.tools.some((t) => t.tool === 'cad.createGeometry'));

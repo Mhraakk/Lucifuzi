@@ -106,8 +106,8 @@ test('تأیید: اجرا منتظر می‌ماند؛ درخواست‌دهن�
   assert.equal(effects.sensitive, 1);
   await assert.rejects(rt.decide(ap.id, users('mgr'), 'approved'), /قبلاً بررسی/);
   assert.deepEqual(rt.events(r.id).map((e) => e.type), [
-    'agent.run.started', 'agent.run.running', 'agent.tool.started', 'agent.tool.completed', 'agent.approval.requested', 'agent.run.waiting_for_approval',
-    'agent.approval.resolved', 'agent.run.running', 'agent.tool.started', 'agent.tool.completed', 'agent.tool.started', 'agent.tool.completed', 'agent.run.completed',
+    'agent.run.started', 'agent.run.running', 'agent.step.started', 'agent.tool.started', 'agent.tool.completed', 'agent.approval.requested', 'agent.run.waiting_for_approval',
+    'agent.approval.resolved', 'agent.run.running', 'agent.step.started', 'agent.tool.started', 'agent.tool.completed', 'agent.step.started', 'agent.tool.started', 'agent.tool.completed', 'agent.run.completed',
   ]);
   assert.ok(seen.every((e) => !('args' in (e.data ?? {}))), 'events carry no tool arguments');
 });

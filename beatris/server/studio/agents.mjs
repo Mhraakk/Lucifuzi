@@ -43,9 +43,15 @@ export const STUDIO_AGENTS = [
     approvalPolicy: [],
     memoryScopes: ['preference', 'technical'],
     canDelegateTo: ['rhino-cad', 'manufacturing'],
-    allowedTools: ['studio.createDesignIntent', 'studio.paramsFromIntent', 'studio.critique', 'studio.saveProject', 'studio.getProject', 'studio.parseInstruction', 'studio.applyEdits', 'studio.optimizeWeight', 'memory.note'],
+    allowedTools: ['studio.createDesignIntent', 'studio.paramsFromIntent', 'studio.critique', 'studio.saveProject', 'studio.getProject', 'studio.inspectDesign', 'studio.parseInstruction', 'studio.applyEdits', 'studio.optimizeWeight', 'memory.note'],
     async plan(ctx) {
       const i = ctx.input;
+      if (i.mode === 'review') {
+        const { project, model } = await ctx.tool('studio.getProject', { projectId: i.projectId });
+        if (!model) return { projectId: project.id, message: 'هنوز مدلی ساخته نشده است.' };
+        const d = await ctx.tool('studio.inspectDesign', { modelId: model.id });
+        return { projectId: project.id, ...d, message: d.mustFix ? `${fa(d.mustFix, 0)} نکته پیش از ساخت نیاز به اصلاح دارد.` : 'برای ساخت مانعی دیده نشد.' };
+      }
       if (i.mode === 'brief') {
         ctx.stage('خواندن بریف');
         const { intent, confidence, source } = await ctx.tool('studio.createDesignIntent', { brief: i.brief, useModel: i.useModel === true });
@@ -100,10 +106,19 @@ export const STUDIO_AGENTS = [
     instructions: 'Translate design parameters into a validated CadOperation program and run it through the CAD adapter (local engine; a Rhino adapter sits behind the same boundary). Measure what was built. Never send free text to the CAD engine.',
     approvalPolicy: [],
     memoryScopes: ['technical'],
-    canDelegateTo: [],
-    allowedTools: ['studio.programOf', 'cad.createGeometry', 'cad.inspectGeometry', 'cad.exportModel', 'studio.deleteModel', 'studio.overwriteModel'],
+    canDelegateTo: ['manufacturing'],
+    allowedTools: ['studio.programOf', 'cad.createGeometry', 'cad.modifyGeometry', 'cad.inspectGeometry', 'cad.exportModel', 'studio.deleteModel', 'studio.overwriteModel', 'studio.getProject'],
     async plan(ctx) {
       const i = ctx.input;
+      if (i.mode === 'modify') {
+        // a trainee's own CAD steps: typed operations on a new version, then the geometry is checked and explained
+        ctx.stage('ساخت هندسه');
+        const { project } = await ctx.tool('studio.getProject', { projectId: i.projectId });
+        const built = await ctx.tool('cad.modifyGeometry', { projectId: i.projectId, operations: i.operations });
+        ctx.stage('بررسی ساخت و وزن');
+        const mfg = await ctx.delegate('manufacturing', { modelId: built.modelId, params: project.params, intent: project.intent, explain: true });
+        return { modelId: built.modelId, version: built.version, weight: mfg.weight, findings: split(mfg.findings), explanation: mfg.explanation ?? null, summary: summaryOf({ weight: mfg.weight, findings: mfg.findings, intent: project.intent }) };
+      }
       if (i.mode === 'export') {
         const r = await ctx.tool('cad.exportModel', { modelId: i.modelId, format: i.format, production: i.production === true });
         return r?.denied ? { exported: false, message: `مدیر رد کرد: ${r.reason}` } : { exported: true, format: r.format, mime: r.mime, bytes: r.bytes, text: r.text };
@@ -133,7 +148,7 @@ export const STUDIO_AGENTS = [
     instructions: 'Check a measured model for manufacturability (wall and structural thickness, closed solid, floating parts, setting, casting, weight) with the deterministic rules; save structured findings on the model version. Rules detect; you only report.',
     approvalPolicy: [],
     memoryScopes: ['technical'],
-    canDelegateTo: [],
+    canDelegateTo: ['training-tutor'],
     allowedTools: ['cad.inspectGeometry', 'manufacturing.validate', 'studio.weightFindings', 'studio.saveFindings', 'memory.note'],
     async plan(ctx) {
       const i = ctx.input;
@@ -148,7 +163,8 @@ export const STUDIO_AGENTS = [
         const kind = f.kind === 'setting' ? 'tech_setting_error' : f.kind === 'weight' ? 'tech_overweight' : 'tech_mistake';
         await ctx.tool('memory.note', { kind, key: f.code, value: { model: i.modelId, severity: f.severity, evidence: f.measurableEvidence ?? null } });
       }
-      return { modelId: i.modelId, weight: inspection.weight.value, solids: inspection.solids, closed: inspection.closed, findings, blocking: blocking(findings).length };
+      const explanation = i.explain && blocking(findings).length ? await ctx.delegate('training-tutor', { mode: 'explain', findings: blocking(findings) }) : null;
+      return { modelId: i.modelId, weight: inspection.weight.value, solids: inspection.solids, closed: inspection.closed, findings, blocking: blocking(findings).length, ...(explanation ? { explanation } : {}) };
     },
   },
   {

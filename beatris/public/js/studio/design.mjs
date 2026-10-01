@@ -58,12 +58,15 @@ export function manufacturingFindings(insp, p, { method = 'casting' } = {}) {
   const out = [];
   if (!insp.closed) out.push(F('OPEN_MESH', 'engineering', 'critical', 'مدل بسته نیست', 'سطح مدل سوراخ یا لبه باز دارد؛ چنین مدلی نه ریخته‌گری می‌شود نه چاپ.', null, 'مدل را بسته (solid) کنید.'));
   if (insp.solids > 1) out.push(F('FLOATING_PART', 'engineering', 'critical', 'قطعه جدا از بدنه', `فلز مدل ${insp.solids} تکه جدا است؛ قطعه‌ای که به بدنه وصل نیست در ریخته‌گری جدا می‌افتد یا مونتاژ جدا می‌خواهد.`, { expected: 1, actual: insp.solids, unit: 'تکه' }, 'چنگ یا گالری را به رکاب برسانید.'));
-  const shank = insp.objects.find((o) => o.kind === 'shank');
-  if (shank?.wall) {
+  // every measured metal body, not only an untouched shank: a shelled, scaled or modelled body is checked the same way
+  const walled = insp.objects.filter((o) => o.wall).sort((a, b) => a.wall.min.value - b.wall.min.value);
+  const shank = walled[0];
+  if (shank) {
+    const ref = shank.id;
     const t = shank.wall.min.value;
-    if (t < mat.minWall) out.push(F('WALL_TOO_THIN', 'engineering', 'critical', 'ضخامت دیواره کمتر از حد ریخته‌گری', `نازک‌ترین نقطه رکاب ${r2(t)} میلی‌متر است؛ برای ${mat.fa} کمتر از ${mat.minWall} میلی‌متر فلز در قالب پر نمی‌شود.`, { expected: mat.minWall, actual: r2(t), unit: 'mm' }, 'ضخامت پایین رکاب را بیشتر کنید.', 'shank'));
-    else if (t < mat.minStructural) out.push(F('STRUCTURE_THIN', 'engineering', 'high', 'رکاب برای استفاده روزمره ضعیف است', `نازک‌ترین نقطه رکاب ${r2(t)} میلی‌متر است؛ زیر ${mat.minStructural} میلی‌متر انگشتر با فشار دست بیضی می‌شود.`, { expected: mat.minStructural, actual: r2(t), unit: 'mm' }, `ضخامت را به ${mat.minStructural} یا بیشتر برسانید.`, 'shank'));
-    if (t - 0.1 < mat.minStructural && t >= mat.minStructural) out.push(F('POLISH_ALLOWANCE', 'engineering', 'warning', 'جای پرداخت نمانده است', `پرداخت حدود ۰٫۱ میلی‌متر برمی‌دارد؛ پس از آن ضخامت ${r2(t - 0.1)} می‌شود که از حد ${mat.minStructural} کمتر است.`, { expected: r2(mat.minStructural + 0.1), actual: r2(t), unit: 'mm' }, '۰٫۱ میلی‌متر به ضخامت اضافه کنید.', 'shank'));
+    if (t < mat.minWall) out.push(F('WALL_TOO_THIN', 'engineering', 'critical', 'ضخامت دیواره کمتر از حد ریخته‌گری', `نازک‌ترین نقطه رکاب ${r2(t)} میلی‌متر است؛ برای ${mat.fa} کمتر از ${mat.minWall} میلی‌متر فلز در قالب پر نمی‌شود.`, { expected: mat.minWall, actual: r2(t), unit: 'mm' }, 'ضخامت پایین رکاب را بیشتر کنید.', ref));
+    else if (t < mat.minStructural) out.push(F('STRUCTURE_THIN', 'engineering', 'high', 'رکاب برای استفاده روزمره ضعیف است', `نازک‌ترین نقطه رکاب ${r2(t)} میلی‌متر است؛ زیر ${mat.minStructural} میلی‌متر انگشتر با فشار دست بیضی می‌شود.`, { expected: mat.minStructural, actual: r2(t), unit: 'mm' }, `ضخامت را به ${mat.minStructural} یا بیشتر برسانید.`, ref));
+    if (t - 0.1 < mat.minStructural && t >= mat.minStructural) out.push(F('POLISH_ALLOWANCE', 'engineering', 'warning', 'جای پرداخت نمانده است', `پرداخت حدود ۰٫۱ میلی‌متر برمی‌دارد؛ پس از آن ضخامت ${r2(t - 0.1)} می‌شود که از حد ${mat.minStructural} کمتر است.`, { expected: r2(mat.minStructural + 0.1), actual: r2(t), unit: 'mm' }, '۰٫۱ میلی‌متر به ضخامت اضافه کنید.', ref));
   }
   if (p) {
     if (p.thickTop / p.thickBottom > 2.5) out.push(F('THICKNESS_JUMP', 'engineering', 'warning', 'تغییر ضخامت تند است', `ضخامت بالا ${p.thickTop} و پایین ${p.thickBottom} است؛ جهش بیش از ۲٫۵ برابر در ریخته‌گری جای انقباض و تخلخل می‌سازد.`, { expected: 2.5, actual: r2(p.thickTop / p.thickBottom), unit: 'نسبت' }));

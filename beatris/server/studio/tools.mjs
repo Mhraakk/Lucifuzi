@@ -109,6 +109,33 @@ export function buildStudioTools({ store, training, provider = null, adapter = c
         return { modelId: m.id, version: m.version, objects: summary.objects };
       },
     },
+    'cad.modifyGeometry': {
+      label: 'ویرایش هندسه', input: S.obj({ projectId: ID, operations: CAD_PROGRAM }),
+      async run({ projectId, operations }, ctx) {
+        const p = own(ctx, projectId);
+        const prev = store.latestModel(projectId);
+        if (!prev) throw Object.assign(new Error('هنوز مدلی برای ویرایش نیست.'), { status: 400 });
+        await ensure(prev);
+        // the operations run on a copy first: an invalid step fails here and nothing is stored
+        const trial = createLocalAdapter({ material: prev.material });
+        await trial.createGeometry(prev.program, { id: 'try', material: prev.material });
+        await trial.modifyGeometry('try', operations);
+        const m = store.addModel(projectId, { program: [...prev.program, ...operations], params: p.params, material: prev.material });
+        const summary = await adapter.createGeometry(m.program, { id: m.id, material: m.material });
+        remember(m.id);
+        ctx.emit?.('studio.geometry.modified', { model: m.id, version: m.version, from: prev.version, ops: operations.length });
+        return { modelId: m.id, version: m.version, objects: summary.objects };
+      },
+    },
+    'studio.inspectDesign': {
+      label: 'بررسی طرح', input: S.obj({ modelId: ID }),
+      async run({ modelId }, ctx) {
+        const m = await ownModel(ctx, modelId);
+        const insp = await adapter.inspectGeometry(modelId, { samples: 120 });
+        const f = m.findings ?? [];
+        return { version: m.version, weight: insp.weight.value, solids: insp.solids, closed: insp.closed, bounds: insp.bounds, mustFix: f.filter((x) => x.kind !== 'aesthetic' && ['critical', 'high'].includes(x.severity)).length, notes: f.filter((x) => x.kind === 'aesthetic').length, checked: m.findings != null };
+      },
+    },
     'cad.inspectGeometry': {
       label: 'اندازه‌گیری هندسه', input: S.obj({ modelId: ID }), output: INSPECTION,
       async run({ modelId }, ctx) {
@@ -141,7 +168,7 @@ export function buildStudioTools({ store, training, provider = null, adapter = c
     'studio.overwriteModel': {
       label: 'جایگزینی نسخه نهایی', input: S.obj({ projectId: ID }), approver: 'books.admin',
       approval: ({ projectId }) => `نهایی کردن (جایگزینی مشخصات تولید) پروژه ${projectId}`,
-      run: ({ projectId }, ctx) => (own(ctx, projectId), store.finalize(projectId), { final: projectId }),
+      run: ({ projectId }, ctx) => (own(ctx, projectId), store.finalize(projectId), ctx.emit?.('studio.project.completed', { project: projectId }), { final: projectId }),
     },
     /* manufacturing rules (detect) */
     'manufacturing.validate': {
@@ -193,7 +220,7 @@ export function buildStudioTools({ store, training, provider = null, adapter = c
         const errs = check(ASSESSMENT, assessment, 'assessment');
         if (errs.length) throw Object.assign(new Error(errs.join(' ')), { code: 'E_SCHEMA' });
         const attemptId = store.addAttempt(exerciseRow, ctx.user.id, { key, params, assessment, weightG: insp.weight.value });
-        if (assessment.passed) ctx.emit?.('studio.project.completed', { exercise: row.exerciseId });
+        if (assessment.passed) ctx.emit?.('training.exercise.completed', { exercise: row.exerciseId });
         return { assessment, attemptId, replayed: false, weight: insp.weight.value, passed: assessment.passed, attempts: row.attempts + 1 };
       },
     },

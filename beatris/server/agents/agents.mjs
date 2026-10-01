@@ -122,6 +122,26 @@ export const ACCOUNTING_AGENTS = [
     },
   },
   {
+    id: 'reconciliation',
+    domain: 'accounting',
+    name: 'ReconciliationAgent',
+    fa: 'مغایرت‌گیر',
+    instructions: 'Compare a physical count with the book (the kernel computes every difference and its value), record a gap, and ask the auditor to check the book when the count does not match. Never adjust a balance.',
+    approvalPolicy: [],
+    memoryScopes: ['training'],
+    canDelegateTo: ['audit'],
+    allowedTools: ['accounting.getInventory', 'accounting.reconcileInventory', 'memory.note'],
+    async plan(ctx) {
+      const i = ctx.input;
+      const r = await ctx.tool('accounting.reconcileInventory', { bookId: i.bookId, counted: i.counted ?? {} });
+      if (r.matched) return { ...r, message: 'شمارش با دفتر می‌خواند.' };
+      const gaps = r.rows.filter((x) => x.diff !== 0);
+      await ctx.tool('memory.note', { kind: 'finding', key: `count:${i.bookId}`, value: { accounts: gaps.map((x) => x.account) } });
+      const audit = await ctx.delegate('audit', { mode: 'check', bookId: i.bookId });
+      return { ...r, audit: { score: audit.score, findings: audit.findings.length }, message: `${fa(gaps.length)} حساب با شمارش نمی‌خواند؛ پیش از هر اصلاح، علت را پیدا کنید.` };
+    },
+  },
+  {
     id: 'curriculum',
     domain: 'training',
     name: 'CurriculumAgent',

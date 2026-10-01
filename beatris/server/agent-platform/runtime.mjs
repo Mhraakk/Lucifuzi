@@ -208,6 +208,7 @@ export function createRuntime({ db, tools, registry, can, users, clock = () => n
             return { denied: true, reason: ap.note ?? 'رد شد' };
           }
         }
+        event(id, 'agent.step.started', { n: step, kind: 'tool' });
         event(id, 'agent.tool.started', { n: step, tool: name });
         const max = Math.max(1, Math.min(5, t.retry?.max ?? 1));
         let attempt = 0;
@@ -252,6 +253,7 @@ export function createRuntime({ db, tools, registry, can, users, clock = () => n
         if (chain.includes(agentId)) throw new AgentError('E_CYCLE', `واگذاری چرخه می‌سازد (${[...chain].reverse().join(' ← ')} ← ${agentId}).`);
         let childId = done?.child_run_id;
         if (!childId) {
+          event(id, 'agent.step.started', { n: step, kind: 'delegation' });
           event(id, 'agent.delegation.started', { n: step, to: agentId });
           const parentRow = getRun(id);
           const child = await start(agentId, { user, input, origin: 'delegation', parent: parentRow, key: `deleg:${id}:${step}` });
