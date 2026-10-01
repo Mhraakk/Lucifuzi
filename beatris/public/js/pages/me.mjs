@@ -1,6 +1,7 @@
 import { html, store, api, fa, $, actions, toast, busy, auth, navigate, ROLE_FA } from '../core.mjs';
 import { ICON, ringEl, courseTitle, faDate } from '../ui.mjs';
 import { statusStamp } from './learn.mjs';
+import { toggleSkinPicker, skinName } from '../skinpicker.mjs';
 
 export function mePage(root) {
   const { user, progress: p } = store.me;
@@ -10,6 +11,7 @@ export function mePage(root) {
     <div class="head"><div><h1>${user.name}</h1><p class="lead">${ROLE_FA[user.role]}${user.branch ? ` · ${user.branch}` : ''} · ${fa(user.phone)}</p></div>${ringEl(p.overall, 'lg')}</div>
     <ul class="rows">
       <li><a class="row" href="/library" data-link><span class="row-main"><span class="row-t">کتابخانه</span><span class="row-s">دستورالعمل‌ها، واژه‌نامه بازار، منابع معتبر</span></span>${p.sopMissing.length ? html`<span class="stamp red">${fa(p.sopMissing.length)} تأیید لازم</span>` : html`<span class="chev">${ICON.chev}</span>`}</a></li>
+      <li><button class="row" data-act="skins" data-skin-open aria-haspopup="dialog"><span class="row-main"><span class="row-t">پوسته</span><span class="row-s">${skinName()} · روشن و تیره، همراه دستگاه یا خورشید</span></span><span class="chev">${ICON.chev}</span></button></li>
       ${store.isStaff() ? html`<li><a class="row" href="/staff" data-link><span class="row-main"><span class="row-t">تیم و گزارش‌ها</span><span class="row-s">پیشرفت همکاران، تأیید کار عملی، تنظیمات</span></span><span class="chev">${ICON.chev}</span></a></li>` : ''}
     </ul>
 
@@ -52,6 +54,10 @@ export function mePage(root) {
     navigate('/login', { replace: true });
   };
   actions(root, {
+    skins: (el) => toggleSkinPicker(el, { onPick: (id, apply) => {
+      apply();
+      el.querySelector('.row-s').textContent = `${skinName(id)} · روشن و تیره، همراه دستگاه یا خورشید`;
+    } }),
     logout: out,
     logoutAll: async () => {
       if (!confirm('از همه دستگاه‌ها خارج شوید؟')) return;

@@ -1674,6 +1674,42 @@ async function loginUI(page) {
       check('studio coach: no horizontal overflow', (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
     });
 
+  await step('skins (spec 0014): live preview, Esc returns, click keeps, survives reload, clean skin, automatic mode, dashboard switch', async () => {
+    await go(page, '/', 1200);
+    const skin = () => page.evaluate(() => document.documentElement.dataset.skin);
+    const before = await skin();
+    await page.click('#themeBtn');
+    await page.waitForSelector('.sk-pop');
+    check('skins: every skin has a card with a miniature', (await page.$$eval('.sk-pop [data-pick]', (b) => b.length)) >= 15);
+    await page.hover('[data-pick=lapis]');
+    check('skins: hovering previews the whole app', (await skin()) === 'lapis');
+    await page.keyboard.press('Escape');
+    check('skins: Esc returns to the current skin and closes', (await skin()) === before && !(await page.$('.sk-pop')));
+    await page.click('#themeBtn');
+    await page.click('[data-pick=clean]');
+    await page.waitForTimeout(900);
+    check('skins: a click keeps the clean skin', (await skin()) === 'clean');
+    await page.reload();
+    await page.waitForTimeout(1200);
+    check('skins: the choice survives a reload', (await skin()) === 'clean');
+    check('skins: the clean skin is a white panel on a grey frame', await page.evaluate(() => getComputedStyle(document.body).backgroundColor === 'rgb(237, 237, 237)'));
+    check('skins: no horizontal overflow in the clean skin', (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
+    await page.click('#themeBtn');
+    await page.click('[data-mode=os]');
+    await page.click('[data-pick=cleannight]');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.waitForTimeout(300);
+    check('skins: with the device, a dark device gets the dark member of the pair', (await skin()) === 'cleannight');
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.waitForTimeout(300);
+    check('skins: and a light device the light member', (await skin()) === 'clean');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => { localStorage.setItem('beatris.theme', 'calm'); });
+    await page.reload();
+    await page.waitForTimeout(1000);
+    check('skins: the old key still means a fixed skin', (await skin()) === 'calm');
+  });
+
   if (!live) await step('desk products: template builder, search, pick, edit, delete', async () => {
     await go(page, '/books/desk', 1500);
     await page.click('[data-kind=coin]');

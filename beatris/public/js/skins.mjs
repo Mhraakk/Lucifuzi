@@ -58,6 +58,15 @@ const DARK = {
     turq: '#6fd3b6', carn: '#ff8a72', lapis: '#8fb0ff', badHi: '#ffab99', infoHi: '#b9cdff',
     inkRgb: '0, 0, 0', raiseRgb: '30, 30, 33', goldRgb: '230, 192, 110', okRgb: '111, 211, 182', badRgb: '255, 138, 114', infoRgb: '143, 176, 255', glintRgb: '255, 255, 255',
   },
+  cleannight: {
+    fa: 'تمیز شب', note: 'خاکستری خنثی، کارت‌های نرم، بنفش آرام',
+    void: '#0b0c10', vault: '#0e1014', vault2: '#16181d', vault3: '#1b1e24', vault4: '#262a32',
+    hair: 'rgba(255, 255, 255, 0.07)', hair2: 'rgba(255, 255, 255, 0.12)',
+    gold: '#ab8fff', goldHi: '#e4ddff', goldLo: '#7a62c4', goldDeep: '#4d3c85', molten: ['#ff9cc2', '#b48cff', '#8a6cf5'],
+    bone: '#e9eaee', dust: '#a3a6b0', dust2: '#7c808b',
+    turq: '#5fd38a', carn: '#ff7d62', lapis: '#7aa5ff', badHi: '#ffa08b', infoHi: '#a9c4ff',
+    inkRgb: '6, 7, 10', raiseRgb: '28, 31, 38', goldRgb: '171, 143, 255', okRgb: '95, 211, 138', badRgb: '255, 125, 98', infoRgb: '122, 165, 255', glintRgb: '235, 230, 255',
+  },
 };
 
 /* Light skins: every colour token of the «روز» layer, including its own accent family (--l-*). */
@@ -116,6 +125,17 @@ const LIGHT = {
     inkRgb: '255, 255, 255', raiseRgb: '255, 255, 255', goldRgb: '60, 110, 190', okRgb: '19, 119, 95', badRgb: '187, 58, 55', infoRgb: '11, 111, 120', glintRgb: '30, 70, 140',
     lGoldInk: '#24509e', lGoldSoft: '#eaf1fb', lGoldLine: '#bfd2ef', lGoldInk2: '#1d4386', lGoldMid: '#3d6cbf', lGoldEdge: '#9db8e3', lOnGold: '#2b1f0a', lGoldSoft2: '#edf3fc', lGoldLine2: '#c9daf2',
     lHover: '#f0f4f8', lTint: '#f8fafc', lHairStrong: '#c9d4df', lShade: '20, 50, 90',
+  },
+  clean: {
+    fa: 'تمیز', note: 'قاب خاکستری، صفحه سفید، کارت‌های گرد و بی‌صدا',
+    void: '#e4e4e4', vault: '#ededed', vault2: '#ffffff', vault3: '#f5f5f5', vault4: '#dbdbdb',
+    hair: 'rgba(57, 56, 70, 0.08)', hair2: 'rgba(57, 56, 70, 0.14)',
+    gold: '#6a44d8', goldHi: '#393846', goldLo: '#c6b6f5', goldDeep: '#4f2fb0', molten: ['#d6337f', '#6d3fe0'],
+    bone: '#393846', dust: '#62616b', dust2: '#83828b',
+    turq: '#1d7f34', carn: '#c7300c', lapis: '#2a62d6', badHi: '#a8280a', infoHi: '#2152b8',
+    inkRgb: '255, 255, 255', raiseRgb: '255, 255, 255', goldRgb: '143, 92, 247', okRgb: '29, 127, 52', badRgb: '199, 48, 12', infoRgb: '42, 98, 214', glintRgb: '120, 100, 180',
+    lGoldInk: '#6a44d8', lGoldSoft: '#f3effe', lGoldLine: '#d9cdfb', lGoldInk2: '#5634c0', lGoldMid: '#8f6cf0', lGoldEdge: '#b9a5f6', lOnGold: '#ffffff', lGoldSoft2: '#f6f3ff', lGoldLine2: '#e3daf9',
+    lHover: '#fafafa', lTint: '#fafafa', lHairStrong: '#cfcfcf', lShade: '60, 60, 80',
   },
 };
 

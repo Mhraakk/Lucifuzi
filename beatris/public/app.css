@@ -3408,3 +3408,64 @@ html[data-theme='day'] .ud-row, html[data-theme='day'] .ud-list { background: rg
 .sc-crit { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 0; margin: 8px 0 0; font-size: 14px; }
 .sc-steps { line-height: 2.1; padding-inline-start: 22px; }
 .sc-steps small { color: var(--dust); }
+
+/* انتخابگر پوسته (spec 0014) */
+button.row { width: 100%; background: none; border: 0; text-align: start; cursor: pointer; font: inherit; }
+.sk-pop { position: fixed; z-index: 120; width: min(440px, calc(100vw - 24px)); max-height: min(78dvh, 720px); overflow-y: auto; overscroll-behavior: contain; padding: 16px; border-radius: 18px; background: var(--vault-2); color: var(--bone); border: 1px solid var(--hair-2); box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.55); animation: sk-in 0.22s var(--ease) both; }
+@keyframes sk-in { from { opacity: 0; transform: translateY(-6px); } }
+.sk-pop h3 { font-size: 13px; font-weight: 600; color: var(--dust); margin: 16px 0 8px; }
+.sk-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.sk-seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--vault-3); border: 1px solid var(--hair); }
+.sk-seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; font-size: 13px; color: var(--dust); cursor: pointer; }
+.sk-seg button[aria-checked='true'] { background: var(--vault-2); color: var(--bone); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); }
+.sk-amb { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dust); cursor: pointer; }
+.sk-note { font-size: 12.5px; color: var(--dust); margin: 10px 0 0; }
+.sk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 10px; }
+.sk-card-btn { display: grid; gap: 4px; padding: 6px 6px 8px; border-radius: 14px; border: 1px solid var(--hair); background: none; color: inherit; cursor: pointer; text-align: start; transition: border-color 0.2s, transform 0.2s var(--ease); }
+.sk-card-btn:hover, .sk-card-btn:focus-visible { border-color: var(--gold); transform: translateY(-1px); }
+.sk-card-btn[aria-selected='true'] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.sk-name { font-size: 13.5px; font-weight: 600; padding: 0 4px; }
+.sk-card-btn small { font-size: 11.5px; color: var(--dust); line-height: 1.6; padding: 0 4px; }
+.sk-mini { position: relative; display: block; height: 72px; border-radius: 10px; overflow: hidden; background: var(--vault); border: 1px solid var(--hair-2); }
+.sk-mini i { position: absolute; display: block; border-radius: 3px; }
+.sk-mini .sk-bar { inset: 0 0 auto 0; height: 12px; border-radius: 0; background: var(--vault-3); }
+.sk-mini .sk-line { top: 18px; inset-inline-end: 8px; width: 46%; height: 5px; background: var(--bone); opacity: 0.85; }
+.sk-mini .sk-line.short { top: 28px; width: 30%; background: var(--dust); }
+.sk-mini .sk-card { position: absolute; inset: auto 8px 7px 8px; height: 26px; border-radius: 6px; background: var(--vault-2); border: 1px solid var(--hair-2); display: flex; align-items: center; gap: 6px; padding: 0 6px; }
+.sk-mini .sk-btn { position: static; width: 26px; height: 10px; border-radius: 4px; background: var(--molten); }
+.sk-mini b { font-size: 10px; font-weight: 700; line-height: 1; }
+.sk-mini .sk-up { color: var(--turq); }
+.sk-mini .sk-down { color: var(--carn); }
+@media (max-width: 600px) {
+  .sk-pop { inset: auto 0 0 0 !important; width: 100%; max-height: 82dvh; border-radius: 22px 22px 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom)); animation-name: sk-up; }
+  @keyframes sk-up { from { transform: translateY(24px); opacity: 0; } }
+}
+/* نور زنده (spec 0014): the room light of spec 0012 follows the real sun by day and turns into a cool moon at night;
+   the switch in the picker turns it off */
+html[data-amb='0'] body::after { display: none; }
+html[data-amb='1'] body::after { background: radial-gradient(32% 28% at var(--sun-x, 72%) var(--sun-y, 18%), rgba(var(--gold-rgb), var(--lt-amb)), transparent 70%), radial-gradient(28% 26% at 22% 82%, rgba(var(--gold-rgb), calc(var(--lt-amb) * 0.7)), transparent 70%); }
+html[data-amb='1'][data-sky='night'] body::after { background: radial-gradient(30% 26% at var(--sun-x, 72%) var(--sun-y, 18%), rgba(var(--info-rgb), calc(var(--lt-amb) * 0.8)), transparent 70%), radial-gradient(28% 26% at 22% 82%, rgba(var(--gold-rgb), calc(var(--lt-amb) * 0.5)), transparent 70%); }
+
+/* پوسته «تمیز» و «تمیز شب»: a grey frame, one large white (or graphite) panel, round quiet cards, a white pill for the
+   current section, a pink-to-violet primary — only shapes and surfaces change, the pages stay the same */
+html[data-skin^='clean'] { --r-md: 16px; --r-lg: 24px; }
+html[data-skin^='clean'] body { background: var(--vault); }
+html[data-skin^='clean'] body::before { display: none; }
+html[data-skin^='clean'] #topbar { background: var(--vault); border-bottom-color: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-skin^='clean'] .theme-btn { background: var(--vault-2); border-color: var(--hair-2); }
+@media (min-width: 960px) {
+  html[data-skin^='clean'] #main { background: var(--vault-2); border: 1px solid var(--hair); border-radius: 24px; margin-inline: var(--rail) 16px; margin-bottom: 16px; min-height: calc(100dvh - var(--top-h) - 16px); padding-inline: 8px; }
+  html[data-skin^='clean'] #tabbar { background: var(--vault) !important; border: 0 !important; box-shadow: none !important; }
+}
+html[data-skin^='clean'] #tabbar a[aria-current='page'] { background: var(--vault-2); color: var(--bone); box-shadow: inset 0 0 0 1px var(--hair-2), 0 8px 16px -6px rgba(0, 0, 0, 0.1); }
+html[data-skin^='clean'] #tabbar a[aria-current='page']::after { display: none; }
+html[data-skin^='clean'] .tray, html[data-skin^='clean'] .tile, html[data-skin^='clean'] .tool-card, html[data-skin^='clean'] .lux-card, html[data-skin^='clean'] .glass, html[data-skin^='clean'] .bk-sec, html[data-skin^='clean'] .gd-card { border-radius: 16px; border-color: var(--hair); }
+html[data-skin='clean'] .tray, html[data-skin='clean'] .tile, html[data-skin='clean'] .tool-card, html[data-skin='clean'] .lux-card, html[data-skin='clean'] .gd-card { box-shadow: 0 8px 16px -4px rgb(222, 222, 222); background: #fff; }
+html[data-skin='clean'] .tile.engraved, html[data-skin='clean'] .tile.rosette { background: #fff; }
+html[data-skin^='clean'] .btn { background: var(--molten); color: #fff; border: 0; border-radius: 12px; box-shadow: 0 6px 14px -8px rgba(var(--gold-rgb), 0.7); }
+html[data-skin^='clean'] .btn:hover { box-shadow: 0 10px 20px -10px rgba(var(--gold-rgb), 0.8); }
+html[data-skin^='clean'] .btn.ghost { background: var(--vault-2); color: var(--bone); border: 1px solid var(--hair-2); box-shadow: none; }
+html[data-skin^='clean'] .btn.danger { background: var(--vault-2); color: var(--carn); border: 1px solid rgba(var(--bad-rgb), 0.35); box-shadow: none; }
+html[data-skin^='clean'] .btn.is-busy::after { border-color: #fff; border-top-color: transparent; }
+html[data-skin^='clean'] .input, html[data-skin^='clean'] .at-in { border-radius: 12px; }
+html[data-skin='clean'] .toast { background: #393846; color: #fff; }

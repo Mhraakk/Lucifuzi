@@ -7,35 +7,11 @@ import { initExplain } from './explain.mjs';
 import { initInstall, install, canInstall } from './install.mjs';
 import { sunrise } from './light.mjs';
 import { pending, onOutbox } from './outbox.mjs';
+import { initSkins, toggleSkinPicker, skinName } from './skinpicker.mjs';
 
-/* ---------- پوسته: آرام (default), روز, کلاسیک — remembered per device ---------- */
-const THEMES = ['calm', 'day', 'classic'];
-const THEME_FA = { calm: 'شب آرام', day: 'روز', classic: 'کلاسیک طلایی' };
-const THEME_ICON = {
-  calm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>',
-  day: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
-  classic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 17h16l-1.5-9-4 4L12 6l-2.5 6-4-4Z"/><path d="M4 20h16"/></svg>',
-};
-const theme = () => {
-  try {
-    const t = localStorage.getItem('beatris.theme');
-    return THEMES.includes(t) ? t : 'calm';
-  } catch {
-    return 'calm';
-  }
-};
-function saveTheme(t) {
-  try {
-    localStorage.setItem('beatris.theme', t);
-  } catch {
-    /* storage unavailable */
-  }
-}
-function applyTheme(t) {
-  document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'day' ? '#f4f1ea' : t === 'classic' ? '#0d0b08' : '#13171c');
-}
-applyTheme(theme());
+/* ---------- پوسته‌ها (spec 0014): the chosen skin, its automatic modes and the picker — remembered per device ---------- */
+const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.6-1.6-1.8-1.6-3.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-3.9-4-7-9-7Z"/><circle cx="7.5" cy="11" r="1.1"/><circle cx="10" cy="7" r="1.1"/><circle cx="15" cy="7" r="1.1"/></svg>';
+initSkins();
 
 /** وضعیت اتصال و صف ارسال (spec 0013): always in view, so nobody wonders whether a document went through. */
 async function netPill() {
@@ -139,18 +115,20 @@ setShell((opts) => {
   if (u) startHarness();
   top.hidden = false;
   const shop = store.me?.brand?.shopName || SHOP_NAME;
-  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><span class="net-pill" id="netPill" hidden role="status" aria-live="polite"></span><button class="theme-btn" id="palBtn" title="فرمان سریع (Ctrl+K)" aria-label="فرمان سریع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a>${canInstall() ? html`<button class="theme-btn" id="insBtn" title="نصب اپ روی همین دستگاه" aria-label="نصب اپ روی همین دستگاه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg></button>` : ''}<button class="theme-btn" id="themeBtn" title="پوسته: ${THEME_FA[theme()]}" aria-label="تغییر پوسته (${THEME_FA[theme()]})">${raw(THEME_ICON[theme()])}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
+  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><span class="net-pill" id="netPill" hidden role="status" aria-live="polite"></span><button class="theme-btn" id="palBtn" title="فرمان سریع (Ctrl+K)" aria-label="فرمان سریع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a>${canInstall() ? html`<button class="theme-btn" id="insBtn" title="نصب اپ روی همین دستگاه" aria-label="نصب اپ روی همین دستگاه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg></button>` : ''}<button class="theme-btn" id="themeBtn" title="پوسته: ${skinName()}" aria-label="پوسته (${skinName()})" aria-haspopup="dialog">${raw(SKIN_ICON)}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
   netPill();
   $('#palBtn', top)?.addEventListener('click', () => openPalette());
   $('#insBtn', top)?.addEventListener('click', () => install());
   $('#themeBtn', top)?.addEventListener('click', (e) => {
-    const next = THEMES[(THEMES.indexOf(theme()) + 1) % THEMES.length];
-    const b = e.currentTarget, r = b.getBoundingClientRect();
-    saveTheme(next); // at once: a second tap during the sunrise moves on from here
-    sunrise(() => applyTheme(next), r.left + r.width / 2, r.top + r.height / 2);
-    b.innerHTML = THEME_ICON[next];
-    b.title = `پوسته: ${THEME_FA[next]}`;
-    b.setAttribute('aria-label', `تغییر پوسته (${THEME_FA[next]})`);
+    const b = e.currentTarget;
+    toggleSkinPicker(b, {
+      onPick: (id, apply) => {
+        const r = b.getBoundingClientRect();
+        sunrise(apply, r.left + r.width / 2, r.top + r.height / 2);
+        b.title = `پوسته: ${skinName(id)}`;
+        b.setAttribute('aria-label', `پوسته (${skinName(id)})`);
+      },
+    });
   });
   const tabs = [
     ['home', '/', 'خانه', ICON.home],

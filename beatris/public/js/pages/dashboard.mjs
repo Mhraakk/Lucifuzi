@@ -10,6 +10,7 @@ import { toView, money, compact, grams, pctText, weekday } from '../dash/adapter
 import { sparkSvg, positionChart, agingRows, donutSvg, cashBars, heatCalendar, returnsCalendar } from '../dash/charts.mjs';
 import { jalaliOf, toGregorian, JALALI_MONTHS } from '../ta.mjs';
 import { sunrise } from '../light.mjs';
+import { flipSkin } from '../skinpicker.mjs';
 
 const I = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`);
 const ICON = {
@@ -64,14 +65,7 @@ const SERIES = [
   { key: 'netGoldPosition', label: 'موقعیت خالص', cls: 's-pos', area: true, strong: true },
 ];
 const STATUS = { settled: ['تسویه شده', 'ok'], open: ['در انتظار تسویه', 'wait'], void: ['باطل', 'void'], goods: ['حساب جنسی', 'goods'] };
-const THEME_KEY = 'beatris.theme';
-const curTheme = () => {
-  try {
-    return localStorage.getItem(THEME_KEY) || 'calm';
-  } catch {
-    return 'calm';
-  }
-};
+const curTheme = () => (document.documentElement.dataset.tone === 'light' ? 'day' : 'calm');
 
 export async function dashboardPage(root) {
   await booksPrefs();
@@ -336,19 +330,13 @@ export async function dashboardPage(root) {
     if (tr && !e.target.closest('a')) return navigate(`/books/trace?q=${encodeURIComponent(tr.dataset.track)}`);
     if (e.target.closest('[data-retry]')) return load();
     if (e.target.closest('#gdTheme')) {
-      const next = curTheme() === 'day' ? 'calm' : 'day';
       const r = e.target.closest('#gdTheme').getBoundingClientRect();
-      try {
-        localStorage.setItem(THEME_KEY, next);
-      } catch {
-        /* storage unavailable */
-      }
-      // the charts read the theme's colours, so they are redrawn inside the switch, before the new view is shown
+      // the charts read the skin's colours, so they are redrawn inside the switch, before the new view is shown
       sunrise(() => {
-        document.documentElement.dataset.theme = next;
+        flipSkin();
         if (S.data) drawAll();
       }, r.left + r.width / 2, r.top + r.height / 2);
-      $('#gdTheme', root).innerHTML = String(next === 'day' ? ICON.sun : ICON.moon);
+      $('#gdTheme', root).innerHTML = String(curTheme() === 'day' ? ICON.moon : ICON.sun);
     }
   });
   const heatHost = $('#gdHeatHost', root);
