@@ -85,17 +85,22 @@ const watchToasts = () => {
   }).observe(t, { childList: true });
 };
 
-/* ---------- 6. sunrise: the new theme opens as a circle of light from the button that asked for it ---------- */
+/* ---------- 6. sunrise: the theme changes at once, its colours melt across in half a second and a ring of light
+ * spreads from the button that asked. Nothing is captured or blocked, so a quick second tap is never lost. ---------- */
+let melt = 0;
 export function sunrise(update, cx = innerWidth / 2, cy = 0) {
-  if (!document.startViewTransition || quiet()) return update();
-  const t = document.startViewTransition(update);
-  const r = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy));
-  t.ready
-    .then(() =>
-      root.animate({ clipPath: [`circle(0px at ${cx}px ${cy}px)`, `circle(${r}px at ${cx}px ${cy}px)`] }, { duration: 900, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' }),
-    )
-    .catch(() => {});
-  return t;
+  if (quiet()) return update();
+  root.classList.add('lt-melt');
+  update();
+  clearTimeout(melt);
+  melt = setTimeout(() => root.classList.remove('lt-melt'), 650);
+  const r = Math.ceil(Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy)));
+  const ring = Object.assign(document.createElement('div'), { className: 'lt-sun' });
+  ring.setAttribute('aria-hidden', 'true');
+  ring.style.cssText = `left:${cx - r}px;top:${cy - r}px;width:${2 * r}px;height:${2 * r}px`;
+  document.body.append(ring);
+  ring.addEventListener('animationend', () => ring.remove(), { once: true });
+  setTimeout(() => ring.remove(), 1600);
 }
 
 /* ---------- 7. a thread of light under the header while the next page is on its way ----------

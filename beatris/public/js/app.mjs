@@ -23,16 +23,18 @@ const theme = () => {
     return 'calm';
   }
 };
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'day' ? '#f4f1ea' : t === 'classic' ? '#0d0b08' : '#13171c');
+function saveTheme(t) {
   try {
     localStorage.setItem('beatris.theme', t);
   } catch {
     /* storage unavailable */
   }
 }
-setTheme(theme());
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'day' ? '#f4f1ea' : t === 'classic' ? '#0d0b08' : '#13171c');
+}
+applyTheme(theme());
 
 const lazy = (mod, fn) => async (root, params) => (await import(mod))[fn](root, params);
 
@@ -124,7 +126,8 @@ setShell((opts) => {
   $('#themeBtn', top)?.addEventListener('click', (e) => {
     const next = THEMES[(THEMES.indexOf(theme()) + 1) % THEMES.length];
     const b = e.currentTarget, r = b.getBoundingClientRect();
-    sunrise(() => setTheme(next), r.left + r.width / 2, r.top + r.height / 2);
+    saveTheme(next); // at once: a second tap during the sunrise moves on from here
+    sunrise(() => applyTheme(next), r.left + r.width / 2, r.top + r.height / 2);
     b.innerHTML = THEME_ICON[next];
     b.title = `پوسته: ${THEME_FA[next]}`;
     b.setAttribute('aria-label', `تغییر پوسته (${THEME_FA[next]})`);

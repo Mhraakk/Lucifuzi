@@ -710,11 +710,14 @@ async function loginUI(page) {
     check('light: a ripple of light appears where pressed and is gone afterwards; the label is untouched', during === 1 && (await page.$$eval('.lt-rip-box', (x) => x.length)) === 0 && (await page.$eval('[data-lt-test]', (e) => e.innerText)) === b.text, String(during));
     await page.evaluate(() => document.querySelector('[data-lt-test]')?.removeAttribute('data-lt-test'));
     const t0 = await page.evaluate(() => document.documentElement.dataset.theme);
+    const themeIs = (t) => page.waitForFunction((x) => document.documentElement.dataset.theme === x, t, { timeout: 5000 }).then(() => true, () => false);
     await page.click('#themeBtn');
-    await page.waitForTimeout(1200);
-    const t1 = await page.evaluate(() => document.documentElement.dataset.theme);
-    for (let i = 0; i < 2; i++) (await page.click('#themeBtn'), await page.waitForTimeout(1100));
-    check('light: theme switches through the sunrise and comes back', t0 === 'calm' && t1 === 'day' && (await page.evaluate(() => document.documentElement.dataset.theme)) === 'calm', `${t0} ${t1}`);
+    const t1 = await themeIs('day');
+    // two quick taps, the second during the first sunrise: the theme still moves on by two (day → classic → calm)
+    await page.click('#themeBtn');
+    await page.click('#themeBtn', { force: true });
+    const back = await themeIs('calm');
+    check('light: theme switches through the sunrise; quick taps are not lost', t0 === 'calm' && t1 && back && (await page.evaluate(() => localStorage.getItem('beatris.theme'))) === 'calm', `${t0} ${t1} ${back}`);
     // asked for less motion: nothing follows, nothing ripples
     const still = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
     const ps = await still.newPage();

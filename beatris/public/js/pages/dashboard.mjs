@@ -338,14 +338,17 @@ export async function dashboardPage(root) {
     if (e.target.closest('#gdTheme')) {
       const next = curTheme() === 'day' ? 'calm' : 'day';
       const r = e.target.closest('#gdTheme').getBoundingClientRect();
-      sunrise(() => (document.documentElement.dataset.theme = next), r.left + r.width / 2, r.top + r.height / 2);
       try {
         localStorage.setItem(THEME_KEY, next);
       } catch {
         /* storage unavailable */
       }
+      // the charts read the theme's colours, so they are redrawn inside the switch, before the new view is shown
+      sunrise(() => {
+        document.documentElement.dataset.theme = next;
+        if (S.data) drawAll();
+      }, r.left + r.width / 2, r.top + r.height / 2);
       $('#gdTheme', root).innerHTML = String(next === 'day' ? ICON.sun : ICON.moon);
-      if (S.data) drawAll();
     }
   });
   const heatHost = $('#gdHeatHost', root);

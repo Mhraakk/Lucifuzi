@@ -3193,6 +3193,11 @@ html:root .tray::after, html:root .bk-sec::after, html:root .lux-card::after, ht
 .btn:not(.ghost):not(.danger) .lt-rip { background: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.32) 50%, rgba(255, 255, 255, 0) 71%); }
 @keyframes lt-rip { 0% { transform: scale(0); opacity: 1; } 55% { opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
 
+/* 6. sunrise: the new theme's colours melt in while a ring of light spreads from the button */
+html.lt-melt body, html.lt-melt body *, html.lt-melt body *::before, html.lt-melt body *::after { transition-property: background-color, color, border-color, fill, stroke, box-shadow !important; transition-duration: 0.5s !important; transition-timing-function: ease !important; transition-delay: 0s !important; }
+.lt-sun { position: fixed; z-index: 175; border-radius: 50%; pointer-events: none; transform: scale(0.02); background: radial-gradient(circle, rgba(var(--gold-rgb), 0) 58%, rgba(var(--gold-rgb), 0.16) 66%, rgba(var(--glint-rgb), 0.32) 70%, rgba(var(--gold-rgb), 0.12) 73%, rgba(var(--gold-rgb), 0) 77%); animation: lt-sun 1s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+@keyframes lt-sun { 0% { transform: scale(0.02); opacity: 1; } 65% { opacity: 0.85; } 100% { transform: scale(1); opacity: 0; } }
+
 /* 7. a thread of light while the next page is on its way */
 .lt-thread { position: fixed; z-index: 170; inset: 0 0 auto 0; height: 2px; pointer-events: none; opacity: 0; transform: scaleX(0); transform-origin: 100% 50%; background: linear-gradient(270deg, rgba(var(--gold-rgb), 0), var(--gold-hi) 55%, var(--gold) 85%, rgba(var(--gold-rgb), 0)); box-shadow: 0 0 14px rgba(var(--gold-rgb), 0.75); }
 html.lt-going .lt-thread { opacity: 1; transform: scaleX(0.82); transition: transform 3s cubic-bezier(0.08, 0.8, 0.2, 1), opacity 0.2s; }
@@ -3218,9 +3223,9 @@ html { scrollbar-width: thin; scrollbar-color: rgba(var(--gold-rgb), 0.35) trans
 ::selection { background: rgba(var(--gold-rgb), 0.32); }
 
 /* print and stillness: none of the light */
-@media print { .lt-lamp, .lt-thread, .lt-rip-box { display: none !important; } body::after { display: none; } }
+@media print { .lt-lamp, .lt-thread, .lt-rip-box, .lt-sun { display: none !important; } body::after { display: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .lt-lamp, .lt-thread, .lt-rip-box { display: none !important; }
+  .lt-lamp, .lt-thread, .lt-rip-box, .lt-sun { display: none !important; }
   body::after { animation: none; }
   .btn:not(.ghost):not(.danger)::before { display: none; }
   .btn:active:not(:disabled), .chip:active, .seg button:active, .theme-btn:active { transform: none; }
