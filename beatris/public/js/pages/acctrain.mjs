@@ -3,6 +3,7 @@
 // what a person needs: what happened, what to write, what was right, what to practise next.
 import { html, api, fa, $, toast, busy, store } from '../core.mjs';
 import { fineCheck } from '../acct/evaluate.mjs';
+import { COMPETENCIES } from '../skillgraph.mjs';
 
 const money = (n) => (n == null || n === '' ? '' : Math.round(Number(n)).toLocaleString('fa-IR'));
 const num = (s) => Number(String(s ?? '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[٬,\s]/g, '').replace('٫', '.')) || 0;
@@ -252,8 +253,8 @@ export async function trainingTeamPage(root) {
     const [t, ap, rt] = await Promise.all([api('/api/train/acct/team'), ['manager', 'owner'].includes(store.me?.user?.role) ? api('/api/agents/approvals').catch(() => ({ approvals: [] })) : { approvals: [] }, api('/api/agents/routines')]);
     root.innerHTML = String(html`<div class="at">
       <header class="at-head"><p class="at-kicker">آموزش حسابداری</p><h1>آمادگی تیم</h1><p class="at-lead">فقط آنچه برای تصمیم لازم است.</p></header>
-      <table class="at-team"><thead><tr><th>نام</th><th>آمادگی</th><th>تسلط حسابداری</th><th>مهارت ضعیف</th><th>اشتباه تکراری</th><th>تکمیل</th><th>حسابرسی</th><th>بستن روز</th></tr></thead><tbody>
-      ${t.team.map((p) => html`<tr><td>${p.name}</td><td>${pct(p.readiness)}</td><td>${pct(p.mastery)}</td><td>${p.weak.join('، ') || '—'}</td><td>${p.repeated.map((m) => m.skillFa).join('، ') || '—'}</td><td>${p.completion == null ? '—' : pct(p.completion)}</td><td>${p.audit == null ? '—' : fa(p.audit)}</td><td>${p.closing == null ? '—' : fa(p.closing)}</td></tr>`)}
+      <table class="at-team"><thead><tr><th>نام</th><th>آمادگی</th><th>تسلط حسابداری</th><th>مهارت ضعیف</th><th>اشتباه تکراری</th><th>تکمیل</th><th>حسابرسی</th><th>بستن روز</th><th>شایستگی‌های دیگر</th></tr></thead><tbody>
+      ${t.team.map((p) => html`<tr><td>${p.name}</td><td>${pct(p.readiness)}</td><td>${pct(p.mastery)}</td><td>${p.weak.join('، ') || '—'}</td><td>${p.repeated.map((m) => m.skillFa).join('، ') || '—'}</td><td>${p.completion == null ? '—' : pct(p.completion)}</td><td>${p.audit == null ? '—' : fa(p.audit)}</td><td>${p.closing == null ? '—' : fa(p.closing)}</td><td>${Object.entries(p.competencies ?? {}).filter(([c]) => c !== 'accounting').map(([c, v]) => `${COMPETENCIES[c] ?? c} ${pct(v)}`).join(' · ') || '—'}</td></tr>`)}
       </tbody></table>
       ${ap.approvals.length ? html`<h2 class="at-h2">در انتظار تأیید شما</h2><ul class="at-list">${ap.approvals.map((a) => html`<li><span>${a.summary}</span><span class="at-actions"><button class="btn" data-ap="${a.id}" data-d="approved">تأیید</button><button class="btn ghost" data-ap="${a.id}" data-d="denied">رد</button></span></li>`)}</ul>` : ''}
       ${t.reports.length ? html`<h2 class="at-h2">گزارش‌های مربی</h2>${t.reports.slice(0, 3).map((r) => html`<details class="at-open"><summary>${r.title} <small>${new Date(r.at).toLocaleDateString('fa-IR')}</small></summary><ul class="at-list">${(r.rows ?? []).map((x) => html`<li>${x.name ?? x.skill} <small>${x.action ?? (x.people != null ? `${fa(x.people)} نفر` : `آمادگی ${pct(x.readiness)}`)}</small></li>`)}</ul></details>`)}` : ''}

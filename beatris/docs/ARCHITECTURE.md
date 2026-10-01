@@ -83,6 +83,12 @@
 - `public/js/three/jewelcad.mjs` روی `jewelry.mjs`: قطعه‌های تازه (کتدرال، سه‌نگین، رکاب پیشرفته، پاوه رکابی/سطحی، آویزگیر، مهره، طنابی، راهگاه، میل‌گرین)، تحلیل (`thickness` جزء‌به‌جزء، `stonesOf`/`collisions`، `ringSize`). `jewelry.mjs`: تراش‌های باگت/کابوشن/مروارید، ۱۰ نوع نشاندن (`SETTINGS`)، `pipeVar` (لوله با مقطع متغیر).
 - `pages/studio3d.mjs`: گروه «ابزارهای ساخت» (تکثیر، جفت، آرایه دایره‌ای/خطی، ضخامت، برخورد، راهگاه، گزارش CSV، جبران انقباض در STL).
 
+## پلتفرم عامل‌ها و استودیو (spec `docs/specs/0015-agentic-accounting-training.md` و `0016-agent-platform-studio.md`)
+- پلتفرم مشترک `server/agent-platform/`: رجیستری (ابزار مجاز، سیاست تأیید، حوزه حافظه، مقصد واگذاری؛ تعریف نادرست هنگام شروع رد می‌شود)، runtime (حالت‌های `queued…cancelled`، بازپخش گام‌ها، تأیید چهارچشم، تلاش دوباره محدود، واگذاری با عمق ۳ و بدون چرخه به‌صورت اجرای فرزند، رویدادهای `agent.*`)، provider و `structured()` (JSON معتبر، ترمیم محدود، رد).
+- عامل‌ها: `server/agents/agents.mjs` (حسابداری و curriculum)، `server/studio/agents.mjs` (studio-design، rhino-cad، manufacturing، training-tutor، assessment)؛ ترکیب و روال/ماشه در `server/agents/index.mjs`.
+- موتور استودیو قطعی در `public/js/studio/` (واحد، هندسه، آلیاژ، بریف، نگین، یافته ساخت جدا از نقد زیبایی، بهینه‌سازی وزن، مرز CAD)؛ مدل زبانی هرگز عدد نمی‌دهد. Rhino واقعی فقط خروجی `.3dm` مرورگر است؛ آداپتور RhinoCommon/Compute پیاده نشده.
+- صفحه‌ها: `/train/accounting`، `/train/team`، `/studio/coach`، `/agents` (مدیر). تست‌ها: `agents`، `studio-engine`، `studioapi`، `trainingapi`.
+
 ## استقرار (Railway — سرور دائمی، نه serverless)
 - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.

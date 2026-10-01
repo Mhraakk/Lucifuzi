@@ -1645,7 +1645,33 @@ async function loginUI(page) {
       check('trainer: the kernel grades the right entry 100% and explains it', /۱۰۰٪/.test(await text(page, '.at-score')) && /اثر روی دفتر/.test(await text(page, '.at-result')));
       check('trainer: no horizontal overflow', (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
       await go(page, '/train/team', 1500);
-      check('trainer: the manager sees seven quiet columns', (await page.$$eval('.at-team th', (t) => t.length)) === 8);
+      check('trainer: the manager sees the quiet columns and other competencies', (await page.$$eval('.at-team th', (t) => t.length)) === 9);
+    });
+
+  if (!live)
+    await step('studio coach (spec 0016): brief → measured design, sentence edit, exercise with hint and check', async () => {
+      await go(page, '/studio/coach', 1500);
+      check('studio coach: the page opens', /از بریف تا مدلی/.test(await text(page, '.at-head')));
+      await page.fill('#scBrief', 'انگشتر ۱۸ عیار مینیمال، سنگ بیضی ۸×۶، زیر ۴ گرم، مناسب ریخته‌گری');
+      await page.click('[data-act=design]');
+      await page.waitForSelector('.sc-result', { timeout: 30000 });
+      check('studio coach: a measured weight and a calm summary', /گرم/.test(await text(page, '.sc-weight')) && /وزن تخمینی/.test(await text(page, '.sc-summary')));
+      check('studio coach: making issues apart from aesthetic notes', /پیش از ساخت/.test(await text(page, '.sc-result')));
+      await page.fill('#scEdit', 'ضخامت کف ۱٫۴');
+      await page.click('[data-act=edit]');
+      await page.waitForFunction(() => /نسخه ۲/.test(document.querySelector('.sc-result .at-kicker')?.textContent ?? ''), null, { timeout: 30000 });
+      check('studio coach: a sentence makes version 2', true);
+      await page.click('[data-tab=practice]');
+      await page.selectOption('#scEx', 'thin-fix');
+      await page.click('[data-act=exNext]');
+      await page.waitForSelector('.sc-grid');
+      await page.click('[data-act=check]');
+      await page.waitForSelector('.sc-assess', { timeout: 30000 });
+      check('studio coach: the thin model is not yet accepted', /هنوز نه/.test(await text(page, '.sc-assess')));
+      await page.click('[data-act=hint]');
+      await page.waitForSelector('.sc-hint');
+      check('studio coach: a level-1 hint without numbers', !/[0-9۰-۹]/.test(await text(page, '.sc-hint')));
+      check('studio coach: no horizontal overflow', (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
     });
 
   if (!live) await step('desk products: template builder, search, pick, edit, delete', async () => {

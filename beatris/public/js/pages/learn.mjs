@@ -9,6 +9,7 @@ export async function learnPage(root) {
     <div class="head"><div><h1>آموزش</h1><p class="lead">${fa(store.content.courses.length)} دوره به ترتیب پیشنهادی برای همکار تازه. هر دوره: درس، پرسش کوتاه، کار عملی در شعبه و آزمون گواهی.</p></div></div>
     <a class="tile rosette" href="/history" data-link style="min-height:0;margin-bottom:18px"><span class="k">گنجینه</span><h3>سه هزار سال طلا</h3><p>تاریخ طلا از مصر و مارلیک تا دریک و بهار آزادی؛ هر دوره، یک درس برای ویترین.</p></a>
     <a class="row at-entry-link" href="/train/accounting" data-link><span class="row-main"><span class="row-t">حسابداری عملی با مربی</span><span class="row-s">رویدادهای واقعی پیشخوان طلا؛ شما سند می‌زنید، موتور حسابداری می‌سنجد و می‌گوید چرا.</span></span><span class="chev">${ICON.chev}</span></a>
+    <a class="row at-entry-link" href="/studio/coach" data-link><span class="row-main"><span class="row-t">استودیوی طراحی با مربی</span><span class="row-s">بریف بنویسید؛ طرح ساخته و اندازه‌گیری می‌شود؛ وزن و ایرادهای ساخت جدا از نکته‌های زیبایی.</span></span><span class="chev">${ICON.chev}</span></a>
     <ul class="rows">
       ${store.content.path.map((cid, i) => {
         const c = store.course(cid);

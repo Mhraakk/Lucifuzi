@@ -111,6 +111,8 @@ route('/vendor', lazy('./pages/vendor.mjs', 'vendorPage'), { tab: 'team', tone: 
 route('/s/:token', lazy('./pages/statement.mjs', 'statementPage'), { public: true, bare: true, tone: 'full' });
 route('/verify/:code', lazy('./pages/books.mjs', 'verifyPage'), { public: true, bare: true });
 route('/studio', lazy('./pages/studio3d.mjs', 'studioPage'), { tab: 'studio', tone: 'full' });
+route('/studio/coach', lazy('./pages/studiocoach.mjs', 'studioCoachPage'), { tab: 'studio', tone: 'wide' });
+route('/agents', lazy('./pages/studiocoach.mjs', 'agentsDebugPage'), { tab: 'team', tone: 'wide', staff: true });
 route('/coins', lazy('./pages/coinlab.mjs', 'coinLabPage'), { tab: 'tools', tone: 'full' });
 route('/coins/manage', lazy('./pages/coinphotos.mjs', 'coinPhotosPage'), { tab: 'tools', staff: true });
 route('/history', lazy('./pages/history.mjs', 'historyPage'), { tab: 'learn', tone: 'full' });
