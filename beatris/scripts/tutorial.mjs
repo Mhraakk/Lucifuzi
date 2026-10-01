@@ -1,13 +1,14 @@
 // فیلم آموزش از صفر تا صد — drives the real app on a fresh server (a new shop issued by the vendor, set up, trading,
 // accounting, reports, the smart tools), records every chapter with an on-screen Persian narration, a visible cursor
 // and highlighted clicks, and writes H.264 MP4 files plus a chapter list for the help page.
-//   FFMPEG=/path/to/ffmpeg node scripts/tutorial.mjs [--only 3,4]
+//   FFMPEG=/path/to/ffmpeg MUSIC=/path/to/nocturne.mp3 node scripts/tutorial.mjs [--only 3,4]
 // Output: public/media/tutorial/NN.mp4, NN.jpg (poster) and chapters.json
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { addMusic } from './tutorial-music.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public', 'media', 'tutorial');
@@ -714,6 +715,7 @@ try {
     execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-ss', '5', '-i', mp4, '-frames:v', '1', '-q:v', '4', jpg]);
     // a VP9 copy for browsers built without H.264 (Chromium builds, some Linux Firefox): the page offers both
     execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', mp4, '-c:v', 'libvpx-vp9', '-crf', '40', '-b:v', '0', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '4', '-an', mp4.replace(/\.mp4$/, '.webm')]);
+    if (process.env.MUSIC) addMusic(mp4); // the nocturne under the picture (scripts/tutorial-music.mjs)
     out.push({ n: ch.n, slug: ch.slug, title: ch.title, sub: ch.sub, steps: ch.steps, file: `/media/tutorial/${path.basename(mp4)}`, webm: `/media/tutorial/${path.basename(mp4, '.mp4')}.webm`, poster: `/media/tutorial/${path.basename(jpg)}`, seconds: dur, vertical: !!ch.viewport, bytes: statSync(mp4).size });
     saveList(out); // after every chapter, so a later failure never loses finished ones
     console.log(`chapter ${ch.n} ${ch.title}: ${dur}s, ${(statSync(mp4).size / 1e6).toFixed(1)} MB${errs.length ? ` — page errors: ${errs.join(' | ')}` : ''}`);

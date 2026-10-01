@@ -45,6 +45,7 @@ export async function helpPage(root, { ch } = {}) {
         <div class="hlp-stage" id="hpStage"><video id="hpVideo" controls playsinline preload="metadata"><source id="hpMp4" type="video/mp4; codecs=avc1.64001F"><source id="hpWebm" type="video/webm; codecs=vp9"></video></div>
         <div class="hlp-bar"><button class="btn ghost sm" id="hpPrev">فصل قبل</button><label class="hlp-auto"><input type="checkbox" id="hpAuto" ${state.auto !== false ? 'checked' : ''}> پخش خودکار فصل بعد</label><span class="hlp-speed" role="group" aria-label="سرعت پخش">${[1, 1.25, 1.5].map((r) => html`<button class="chip" data-rate="${r}">${fa(r)}×</button>`)}</span><button class="btn ghost sm" id="hpNext">فصل بعد</button></div>
         <article class="hlp-notes" id="hpNotes"></article>
+        <p class="small hlp-credit">موسیقی: شوپن، نوکتورن در سل ماژور، اپوس ۳۷ شماره ۲ — اجرای اولگا گورویچ (Musopen، مالکیت عمومی CC0).</p>
       </div>
       <ol class="hlp-list" id="hpList">${list.map((c) => html`<li><button data-ch="${c.n}"><img src="${c.poster}" alt="" loading="lazy" width="112" height="${c.vertical ? 112 : 63}"><span><b>${fa(c.n)}. ${c.title}</b><small>${c.sub}</small><em>${clock(c.seconds)}</em></span><i class="hlp-tick" aria-hidden="true"></i></button></li>`)}</ol>
     </div></section>`);

@@ -1,0 +1,5 @@
+Background music in every tutorial chapter:
+Frédéric Chopin — Nocturne in G major, Op. 37 No. 2, performed by Olga Gurevich.
+Source: Musopen via the Internet Archive, https://archive.org/details/parso-1c53a71e4ef6f47591ab605d801bc3780b27824a
+License: CC0 1.0 (public domain dedication), https://creativecommons.org/publicdomain/zero/1.0/
+Mixed by scripts/tutorial-music.mjs (−14 dB, 1.5 s fade in, 3 s fade out).
