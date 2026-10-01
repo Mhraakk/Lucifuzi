@@ -9,6 +9,7 @@ import { booksPrefs, prefs, jd, jdLong, parseDay, today, unitName } from '../bk.
 import { toView, money, compact, grams, pctText, weekday } from '../dash/adapters.mjs';
 import { sparkSvg, positionChart, agingRows, donutSvg, cashBars, heatCalendar, returnsCalendar } from '../dash/charts.mjs';
 import { jalaliOf, toGregorian, JALALI_MONTHS } from '../ta.mjs';
+import { sunrise } from '../light.mjs';
 
 const I = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`);
 const ICON = {
@@ -336,7 +337,8 @@ export async function dashboardPage(root) {
     if (e.target.closest('[data-retry]')) return load();
     if (e.target.closest('#gdTheme')) {
       const next = curTheme() === 'day' ? 'calm' : 'day';
-      document.documentElement.dataset.theme = next;
+      const r = e.target.closest('#gdTheme').getBoundingClientRect();
+      sunrise(() => (document.documentElement.dataset.theme = next), r.left + r.width / 2, r.top + r.height / 2);
       try {
         localStorage.setItem(THEME_KEY, next);
       } catch {

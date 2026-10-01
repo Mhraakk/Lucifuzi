@@ -130,7 +130,16 @@ export function navigate(to, { replace = false } = {}) {
   render();
 }
 
+/** Render the current route; «lt:go» / «lt:done» let the light layer draw its thread while a page loads. */
 export async function render() {
+  document.dispatchEvent(new Event('lt:go'));
+  try {
+    return await renderRoute();
+  } finally {
+    document.dispatchEvent(new Event('lt:done'));
+  }
+}
+async function renderRoute() {
   const path = location.pathname;
   const match = routes.map((r) => ({ r, m: r.re.exec(path) })).find((x) => x.m);
   const main = $('#main');
@@ -228,7 +237,7 @@ export function reveal(root) {
   });
 }
 document.addEventListener('pointermove', (e) => {
-  const el = e.target.closest?.('.tray, .tile, .tool-card');
+  const el = e.target.closest?.('.tray, .tile, .tool-card, .bk-sec, .lux-card, .gd-card');
   if (!el) return;
   const r = el.getBoundingClientRect();
   el.style.setProperty('--mx', `${e.clientX - r.left}px`);

@@ -688,6 +688,51 @@ async function loginUI(page) {
     check('access: shows the password was delivered', /تحویل شد/.test(await text(page, '#main')));
   });
 
+  await step('light layer: hand light, ripple, sunrise theme switch, stillness when asked (spec 0012)', async () => {
+    await go(page, '/books/desk', 1500);
+    await page.mouse.move(600, 400, { steps: 6 });
+    await page.mouse.move(640, 420, { steps: 6 });
+    await page.waitForTimeout(500);
+    check('light: the hand light follows a mouse', (await page.$$eval('.lt-lamp', (x) => x.length)) === 1 && (await page.evaluate(() => document.documentElement.classList.contains('lt-hand'))));
+    const b = await page.evaluate(() => {
+      const el = [...document.querySelectorAll('.btn.ghost, .chip')].find((x) => { const r = x.getBoundingClientRect(); return r.width > 30 && r.top > 80 && r.bottom < innerHeight - 20; });
+      el.dataset.ltTest = '1';
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, text: el.innerText };
+    });
+    await page.mouse.move(b.x, b.y);
+    await page.mouse.down();
+    await page.waitForTimeout(80);
+    const during = await page.$$eval('[data-lt-test] .lt-rip-box', (x) => x.length);
+    await page.mouse.move(5, 5); // release away from the control: a press, not a click (nothing opens)
+    await page.mouse.up();
+    await page.waitForTimeout(1300);
+    check('light: a ripple of light appears where pressed and is gone afterwards; the label is untouched', during === 1 && (await page.$$eval('.lt-rip-box', (x) => x.length)) === 0 && (await page.$eval('[data-lt-test]', (e) => e.innerText)) === b.text, String(during));
+    await page.evaluate(() => document.querySelector('[data-lt-test]')?.removeAttribute('data-lt-test'));
+    const t0 = await page.evaluate(() => document.documentElement.dataset.theme);
+    await page.click('#themeBtn');
+    await page.waitForTimeout(1200);
+    const t1 = await page.evaluate(() => document.documentElement.dataset.theme);
+    for (let i = 0; i < 2; i++) (await page.click('#themeBtn'), await page.waitForTimeout(1100));
+    check('light: theme switches through the sunrise and comes back', t0 === 'calm' && t1 === 'day' && (await page.evaluate(() => document.documentElement.dataset.theme)) === 'calm', `${t0} ${t1}`);
+    // asked for less motion: nothing follows, nothing ripples
+    const still = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+    const ps = await still.newPage();
+    ps.on('pageerror', (e) => errors.push(`[still] pageerror: ${e.message}`));
+    await ps.goto(base + '/login');
+    await ps.waitForTimeout(1000);
+    await ps.mouse.move(400, 300, { steps: 8 });
+    await ps.mouse.move(420, 320, { steps: 8 });
+    const sb = await (await ps.$('button[type=submit]')).boundingBox();
+    await ps.mouse.move(sb.x + 10, sb.y + 10);
+    await ps.mouse.down();
+    await ps.waitForTimeout(60);
+    const quiet = await ps.evaluate(() => ({ lamp: document.querySelectorAll('.lt-lamp').length, rip: document.querySelectorAll('.lt-rip-box').length, amb: getComputedStyle(document.body, '::after').animationName }));
+    await ps.mouse.up();
+    check('light: with reduced motion there is no hand light, no ripple, no breathing glow', quiet.lamp === 0 && quiet.rip === 0 && quiet.amb === 'none', JSON.stringify(quiet));
+    await still.close();
+  });
+
   await step('coin inspection report: flags a light, magnetic coin and prints for the customer', async () => {
     await go(page, '/tools/inspect', 1200);
     await page.fill('#ins input[name=weight]', '۸٫۱۲۰');
@@ -1690,6 +1735,7 @@ async function loginUI(page) {
     await page.waitForSelector('.gd-kpi b');
     check('light dashboard: white cards, charcoal figures', await page.$eval('.gd-kpi', (k) => getComputedStyle(k).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(k.querySelector('.gd-kpi-v b')).color === 'rgb(29, 26, 21)'));
     await page.click('#gdTheme');
+    await page.waitForFunction(() => document.documentElement.dataset.theme === 'calm', null, { timeout: 3000 }).catch(() => {}); // the switch is animated (spec 0012)
     check('light dashboard: theme toggle returns to dark and persists', await page.evaluate(() => document.documentElement.dataset.theme === 'calm' && localStorage.getItem('beatris.theme') === 'calm'));
   });
   await ctx.close();

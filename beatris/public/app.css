@@ -3156,3 +3156,73 @@ html[data-theme='day'] .dk-prices > .dk-price, html[data-theme='day'] .dk-prices
 .ac-who { display: grid; gap: 4px; align-self: center; }
 .ac-do { display: flex; gap: 8px; }
 @media (max-width: 860px) { .ac-req { grid-template-columns: 1fr 1fr; } .ac-who, .ac-do { grid-column: 1 / -1; } }
+
+/* =====================================================================================================
+   لایهٔ نور (spec 0012) — light, softness and touch on top of the calm system: a warm light that follows the
+   hand, golden rims where it passes, a sheen across primary buttons, a ripple of light where you press, a thread
+   of light while a page loads, a header that gains depth, warm focus and a slow ambient glow. Decoration only.
+   ===================================================================================================== */
+:root { --lt-spring: cubic-bezier(0.34, 1.56, 0.64, 1); --lt-soft: cubic-bezier(0.22, 1, 0.36, 1); --lt-lamp: 0.1; --lt-amb: 0.07; }
+html[data-theme='day'] { --lt-lamp: 0.06; --lt-amb: 0.05; }
+
+/* 1. the hand light */
+.lt-lamp { position: fixed; z-index: 95; left: 0; top: 0; width: 680px; height: 680px; margin: -340px 0 0 -340px; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity 1.1s var(--lt-soft); will-change: transform, opacity; background: radial-gradient(circle, rgba(var(--gold-rgb), var(--lt-lamp)) 0%, rgba(var(--gold-rgb), calc(var(--lt-lamp) * 0.45)) 32%, transparent 68%); }
+html.lt-hand .lt-lamp { opacity: 1; transition-duration: 0.4s; }
+html[data-theme='day'] .lt-lamp { mix-blend-mode: multiply; background: radial-gradient(circle, rgba(232, 196, 120, 0.22) 0%, rgba(232, 196, 120, 0.08) 34%, transparent 68%); }
+
+/* 2. golden rims: the frame lights up where the hand is */
+.tray, .bk-sec, .lux-card { position: relative; }
+html:root .tray::after, html:root .bk-sec::after, html:root .lux-card::after, html:root .gd-card::after { content: ''; display: block; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none; opacity: 0; transition: opacity 0.6s var(--lt-soft); background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), rgba(var(--gold-rgb), 0.85), rgba(var(--gold-rgb), 0.18) 45%, transparent 75%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+@media (hover: hover) and (pointer: fine) { html:root .tray:hover::after, html:root .bk-sec:hover::after, html:root .lux-card:hover::after, html:root .gd-card:hover::after { opacity: 1; } }
+
+/* 3. a sheen across primary buttons */
+.btn:not(.ghost):not(.danger)::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(105deg, transparent 28%, rgba(255, 255, 255, 0.5) 46%, rgba(255, 255, 255, 0.12) 54%, transparent 70%); transform: translateX(110%); }
+@media (hover: hover) and (pointer: fine) { .btn:not(.ghost):not(.danger):hover::before { transform: translateX(-110%); transition: transform 0.9s var(--lt-soft); } }
+.btn:not(.ghost):not(.danger) { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 8px 22px -14px rgba(var(--gold-rgb), 0.9); }
+
+/* 4. press: a spring and a ripple of light from the pressed point */
+.lt-host { position: relative; }
+.btn, .chip, .seg button, .theme-btn, #tabbar a { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.btn:active:not(:disabled), .chip:active, .seg button:active, .theme-btn:active { transform: scale(0.965); transition: transform 0.08s ease-out; }
+.btn, .chip, .seg button { transition: transform 0.45s var(--lt-spring), background-position 0.8s var(--ease), box-shadow 0.4s, border-color 0.25s, color 0.25s, background-color 0.25s; }
+#tabbar a:active svg { transform: scale(0.88); transition: transform 0.08s; }
+/* the ripple sits above the control's own background and below its label */
+.chip, .seg button, #tabbar a, .theme-btn, .lt-host { isolation: isolate; }
+.lt-rip-box { position: absolute; inset: 0; z-index: -1; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.lt-rip { position: absolute; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(var(--gold-rgb), 0.34) 0%, rgba(var(--gold-rgb), 0.2) 50%, rgba(var(--gold-rgb), 0) 71%); transform: scale(0); animation: lt-rip 0.7s var(--lt-soft) forwards; }
+.btn:not(.ghost):not(.danger) .lt-rip { background: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.32) 50%, rgba(255, 255, 255, 0) 71%); }
+@keyframes lt-rip { 0% { transform: scale(0); opacity: 1; } 55% { opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+
+/* 7. a thread of light while the next page is on its way */
+.lt-thread { position: fixed; z-index: 170; inset: 0 0 auto 0; height: 2px; pointer-events: none; opacity: 0; transform: scaleX(0); transform-origin: 100% 50%; background: linear-gradient(270deg, rgba(var(--gold-rgb), 0), var(--gold-hi) 55%, var(--gold) 85%, rgba(var(--gold-rgb), 0)); box-shadow: 0 0 14px rgba(var(--gold-rgb), 0.75); }
+html.lt-going .lt-thread { opacity: 1; transform: scaleX(0.82); transition: transform 3s cubic-bezier(0.08, 0.8, 0.2, 1), opacity 0.2s; }
+html.lt-arrived .lt-thread { opacity: 0; transform: scaleX(1); transition: transform 0.3s var(--lt-soft), opacity 0.45s 0.2s; }
+
+/* 8. the header gains depth once the page moves under it */
+#topbar { transition: box-shadow 0.5s var(--lt-soft), border-color 0.5s; }
+html.lt-scrolled #topbar { box-shadow: 0 14px 34px -22px rgba(0, 0, 0, 0.75), 0 1px 0 rgba(var(--gold-rgb), 0.16); }
+html[data-theme='day'].lt-scrolled #topbar { box-shadow: 0 10px 28px -22px rgba(60, 40, 10, 0.35), 0 1px 0 rgba(var(--gold-rgb), 0.22); }
+
+/* 9. warm focus */
+.input { transition: border-color 0.3s var(--lt-soft), box-shadow 0.4s var(--lt-soft), background-color 0.3s; }
+.input:focus { box-shadow: 0 0 0 3px rgba(var(--gold-rgb), 0.16), 0 0 26px -10px rgba(var(--gold-rgb), 0.65); }
+html[data-theme='day'] .input:focus { box-shadow: 0 0 0 3px rgba(var(--gold-rgb), 0.16), 0 6px 20px -12px rgba(var(--gold-rgb), 0.55); }
+
+/* 10. a slow ambient glow behind everything (still in the day theme) */
+body::after { content: ''; position: fixed; z-index: -1; inset: -25%; pointer-events: none; background: radial-gradient(32% 28% at 72% 18%, rgba(var(--gold-rgb), var(--lt-amb)), transparent 70%), radial-gradient(28% 26% at 22% 82%, rgba(var(--gold-rgb), calc(var(--lt-amb) * 0.7)), transparent 70%); animation: lt-breathe 46s ease-in-out infinite alternate; }
+html[data-theme='day'] body::after { animation: none; }
+@keyframes lt-breathe { from { transform: translate3d(-3%, -2%, 0) scale(1); } to { transform: translate3d(3%, 2.5%, 0) scale(1.08); } }
+
+/* 11. details: a slim golden scrollbar, the selection colour */
+html { scrollbar-width: thin; scrollbar-color: rgba(var(--gold-rgb), 0.35) transparent; }
+::selection { background: rgba(var(--gold-rgb), 0.32); }
+
+/* print and stillness: none of the light */
+@media print { .lt-lamp, .lt-thread, .lt-rip-box { display: none !important; } body::after { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .lt-lamp, .lt-thread, .lt-rip-box { display: none !important; }
+  body::after { animation: none; }
+  .btn:not(.ghost):not(.danger)::before { display: none; }
+  .btn:active:not(:disabled), .chip:active, .seg button:active, .theme-btn:active { transform: none; }
+}
+@media (hover: hover) and (pointer: fine) { .btn:not(.ghost):not(.danger):hover { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 14px 30px -14px rgba(var(--gold-rgb), 1); } }

@@ -5,6 +5,7 @@ import { startHarness } from './harness.mjs';
 import { initPalette, openPalette } from './palette.mjs';
 import { initExplain } from './explain.mjs';
 import { initInstall, install, canInstall } from './install.mjs';
+import { sunrise } from './light.mjs';
 
 /* ---------- پوسته: آرام (default), روز, کلاسیک — remembered per device ---------- */
 const THEMES = ['calm', 'day', 'classic'];
@@ -122,8 +123,8 @@ setShell((opts) => {
   $('#insBtn', top)?.addEventListener('click', () => install());
   $('#themeBtn', top)?.addEventListener('click', (e) => {
     const next = THEMES[(THEMES.indexOf(theme()) + 1) % THEMES.length];
-    setTheme(next);
-    const b = e.currentTarget;
+    const b = e.currentTarget, r = b.getBoundingClientRect();
+    sunrise(() => setTheme(next), r.left + r.width / 2, r.top + r.height / 2);
     b.innerHTML = THEME_ICON[next];
     b.title = `پوسته: ${THEME_FA[next]}`;
     b.setAttribute('aria-label', `تغییر پوسته (${THEME_FA[next]})`);
