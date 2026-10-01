@@ -43,17 +43,27 @@ export const TRAIN_MIGRATIONS = [
   );
   CREATE TABLE IF NOT EXISTS agent_triggers (id TEXT PRIMARY KEY, name TEXT NOT NULL, params_json TEXT NOT NULL DEFAULT '{}', enabled INTEGER NOT NULL DEFAULT 1);
   CREATE TABLE IF NOT EXISTS agent_trigger_fires (key TEXT PRIMARY KEY, trigger_id TEXT NOT NULL, user_id TEXT, run_id TEXT, at TEXT NOT NULL);`,
+  // spec 0016: one competency model for every domain — skills carry their domain and competency area
+  `ALTER TABLE tr_skills ADD COLUMN domain TEXT NOT NULL DEFAULT 'accounting';
+  ALTER TABLE tr_skills ADD COLUMN competency TEXT NOT NULL DEFAULT 'accounting';
+  UPDATE agent_routines SET agent = CASE agent WHEN 'tutor' THEN 'accounting-tutor' WHEN 'auditor' THEN 'audit' WHEN 'coach' THEN 'curriculum' ELSE agent END;`,
 ];
 
 /** Routines (from Open Dot's cron routines, as Tehran-time slots on the job queue). weekday: 0 = Sunday … 6 = Saturday. */
 export const ROUTINES = [
-  { id: 'daily_exercise', name: 'تمرین روزانه حسابداری', agent: 'tutor', mode: 'next', cadence: 'daily', hour: 9, scope: 'staff' },
-  { id: 'daily_closing', name: 'شبیه‌سازی بستن روز', agent: 'tutor', mode: 'closing', cadence: 'daily', hour: 19, scope: 'staff' },
-  { id: 'weekly_review', name: 'مرور هفتگی تسلط', agent: 'tutor', mode: 'review', cadence: 'weekly', weekday: 6, hour: 10, scope: 'staff' },
-  { id: 'weekly_audit', name: 'چالش هفتگی حسابرسی', agent: 'auditor', mode: 'challenge', cadence: 'weekly', weekday: 3, hour: 12, scope: 'staff' },
-  { id: 'weekly_staff_summary', name: 'خلاصه هفتگی مهارت کارکنان', agent: 'coach', mode: 'summary', cadence: 'weekly', weekday: 6, hour: 11, scope: 'manager' },
-  { id: 'weak_skill_report', name: 'گزارش مهارت‌های ضعیف', agent: 'coach', mode: 'weak', cadence: 'weekly', weekday: 6, hour: 11, scope: 'manager' },
-  { id: 'training_recommendation', name: 'پیشنهاد آموزش', agent: 'coach', mode: 'recommend', cadence: 'weekly', weekday: 6, hour: 11, scope: 'manager' },
+  { id: 'daily_exercise', name: 'تمرین روزانه حسابداری', agent: 'accounting-tutor', mode: 'next', cadence: 'daily', hour: 9, scope: 'staff' },
+  { id: 'daily_closing', name: 'شبیه‌سازی بستن روز', agent: 'accounting-tutor', mode: 'closing', cadence: 'daily', hour: 19, scope: 'staff' },
+  { id: 'weekly_review', name: 'مرور هفتگی تسلط', agent: 'accounting-tutor', mode: 'review', cadence: 'weekly', weekday: 6, hour: 10, scope: 'staff' },
+  { id: 'weekly_audit', name: 'چالش هفتگی حسابرسی', agent: 'audit', mode: 'challenge', cadence: 'weekly', weekday: 3, hour: 12, scope: 'staff' },
+  { id: 'weekly_staff_summary', name: 'خلاصه هفتگی مهارت کارکنان', agent: 'curriculum', mode: 'summary', cadence: 'weekly', weekday: 6, hour: 11, scope: 'manager' },
+  { id: 'weak_skill_report', name: 'گزارش مهارت‌های ضعیف', agent: 'curriculum', mode: 'weak', cadence: 'weekly', weekday: 6, hour: 11, scope: 'manager' },
+  { id: 'training_recommendation', name: 'پیشنهاد آموزش', agent: 'curriculum', mode: 'recommend', cadence: 'weekly', weekday: 6, hour: 11, scope: 'manager' },
+  // studio (spec 0016) — the same scheduler, the same slots
+  { id: 'studio_daily_cad', name: 'تمرین روزانه CAD', agent: 'curriculum', mode: 'studio-next', cadence: 'daily', hour: 10, scope: 'staff' },
+  { id: 'studio_weekly_design', name: 'چالش هفتگی طراحی', agent: 'curriculum', mode: 'studio-challenge', cadence: 'weekly', weekday: 1, hour: 10, scope: 'staff' },
+  { id: 'studio_weekly_review', name: 'مرور هفتگی مهارت CAD', agent: 'training-tutor', mode: 'studio-review', cadence: 'weekly', weekday: 6, hour: 12, scope: 'staff' },
+  { id: 'studio_weekly_mfg', name: 'چالش هفتگی ساخت', agent: 'curriculum', mode: 'studio-mfg', cadence: 'weekly', weekday: 3, hour: 13, scope: 'staff' },
+  { id: 'studio_unfinished', name: 'یادآوری پروژه ناتمام', agent: 'curriculum', mode: 'studio-unfinished', cadence: 'daily', hour: 18, scope: 'staff' },
 ];
 /** Triggers: a learning signal → an intervention (a remedial exercise from the tutor). */
 export const TRIGGERS = [
@@ -62,11 +72,16 @@ export const TRIGGERS = [
   { id: 'inactive', name: 'چند روز بدون تمرین', params: { days: 7 } },
   { id: 'closing_wrong', name: 'بستن روز نادرست', params: { below: 0.8 } },
   { id: 'audit_repeated', name: 'یافته حسابرسی تکراری دیده‌نشده', params: { n: 2 } },
+  { id: 'studio_geometry_failure', name: 'سه تلاش ناموفق در یک تمرین CAD', params: { n: 3 } },
+  { id: 'studio_weight_over', name: 'وزن بیش از هدف در تلاش‌های پیاپی', params: { n: 3 } },
+  { id: 'studio_mfg_repeat', name: 'یک خطای ساخت تکراری', params: { n: 2 } },
+  { id: 'studio_project_completed', name: 'پروژه استودیو کامل شد', params: {} },
+  { id: 'studio_mastery_reached', name: 'رسیدن به آستانه تسلط', params: { at: 0.8 } },
 ];
 
 const hash = (s) => parseInt(createHash('sha256').update(s).digest('hex').slice(0, 8), 16);
 
-export function createTraining({ db, clock = () => new Date(), phrase = null }) {
+export function createTraining({ db, clock = () => new Date(), phrase = null, extraSkills = [] }) {
   const store = createAcctStore({ db, clock });
   const now = () => clock().toISOString();
   const cur = Number(db.get("SELECT value FROM meta WHERE key='train_schema'")?.value ?? 0);
@@ -75,7 +90,8 @@ export function createTraining({ db, clock = () => new Date(), phrase = null }) 
       db.raw.exec(TRAIN_MIGRATIONS[i]);
       db.run("INSERT INTO meta(key,value) VALUES ('train_schema',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", String(i + 1));
     });
-  for (const s of SKILLS) db.run('INSERT INTO tr_skills(id,name,parent,needs_json) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, parent=excluded.parent, needs_json=excluded.needs_json', s.id, s.fa, s.parent, JSON.stringify(s.needs));
+  for (const s of SKILLS) db.run("INSERT INTO tr_skills(id,name,parent,needs_json,domain,competency) VALUES (?,?,?,?,'accounting','accounting') ON CONFLICT(id) DO UPDATE SET name=excluded.name, parent=excluded.parent, needs_json=excluded.needs_json", s.id, s.fa, s.parent, JSON.stringify(s.needs));
+  for (const s of extraSkills) db.run('INSERT INTO tr_skills(id,name,parent,needs_json,domain,competency) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, parent=excluded.parent, needs_json=excluded.needs_json, domain=excluded.domain, competency=excluded.competency', s.id, s.fa, s.parent, JSON.stringify(s.needs), s.domain, s.competency ?? s.domain);
   for (const r of ROUTINES) db.run('INSERT OR IGNORE INTO agent_routines(id,name,agent,mode,cadence,hour,weekday,scope) VALUES (?,?,?,?,?,?,?,?)', r.id, r.name, r.agent, r.mode, r.cadence, r.hour, r.weekday ?? null, r.scope);
   for (const t of TRIGGERS) db.run('INSERT OR IGNORE INTO agent_triggers(id,name,params_json) VALUES (?,?,?)', t.id, t.name, JSON.stringify(t.params));
 
@@ -90,7 +106,7 @@ export function createTraining({ db, clock = () => new Date(), phrase = null }) 
     return db.tx(() => {
       const out = {};
       for (const [skillId, score] of Object.entries(scores)) {
-        if (!SKILL[skillId]) continue;
+        if (!SKILL[skillId] && !db.get('SELECT 1 FROM tr_skills WHERE id=?', skillId)) continue;
         const k = `${key}:${skillId}`;
         const seen = db.get('SELECT * FROM tr_mastery_events WHERE key=?', k);
         if (seen) {
@@ -312,6 +328,17 @@ export function createTraining({ db, clock = () => new Date(), phrase = null }) 
     });
   }
   /** One row per person: readiness, accounting mastery, weak skills, repeated mistakes, completion, audit, closing. */
+  /** One competency model across domains: the mean mastery of the practised skills of each competency. */
+  function competencies(userId) {
+    const of = new Map(db.all('SELECT id, competency FROM tr_skills').map((r) => [r.id, r.competency]));
+    const acc = {};
+    for (const x of Object.values(masteries(userId))) {
+      const c = of.get(x.skillId);
+      if (!c || !x.attempts) continue;
+      (acc[c] ??= []).push(x.mastery);
+    }
+    return Object.fromEntries(Object.entries(acc).map(([c, xs]) => [c, Math.round((xs.reduce((s, v) => s + v, 0) / xs.length) * 1000) / 1000]));
+  }
   function team() {
     const people = db.all('SELECT id, name, role, branch FROM users WHERE active=1 ORDER BY name');
     return people.map((p) => {
@@ -330,9 +357,10 @@ export function createTraining({ db, clock = () => new Date(), phrase = null }) 
         audit: audit == null ? null : Math.round(audit * 100),
         closing: closing == null ? null : Math.round(closing * 100),
         last: db.get('SELECT MAX(created_at) AS t FROM tr_attempts WHERE user_id=?', p.id).t,
+        competencies: competencies(p.id),
       };
     });
   }
 
-  return { store, masteries, applyMastery, createScenario, evaluate, hint, explain, bookView, runAudit, explainFinding, progress, team, frequentMistakes, scenario: (user, id) => scenarioOut(ownScenario(user, id)), fullScenario: (id) => fullScenario(scenRow(id)), scenarioRow: scenRow, reconcile: (user, bookId, counted) => reconcileInventory(store.load(bookView(user, bookId).id), counted), findingChoices: FINDING_CHOICES };
+  return { store, masteries, competencies, applyMastery, createScenario, evaluate, hint, explain, bookView, runAudit, explainFinding, progress, team, frequentMistakes, scenario: (user, id) => scenarioOut(ownScenario(user, id)), fullScenario: (id) => fullScenario(scenRow(id)), scenarioRow: scenRow, reconcile: (user, bookId, counted) => reconcileInventory(store.load(bookView(user, bookId).id), counted), findingChoices: FINDING_CHOICES };
 }

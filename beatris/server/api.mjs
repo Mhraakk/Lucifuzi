@@ -1,6 +1,7 @@
 import { randomUUID, randomBytes } from 'node:crypto';
 import { capsOf, can } from './rbac.mjs';
 import { createAgentSystem, registerAgentRoutes } from './agents/index.mjs';
+import { providerFromAssistant } from './agent-platform/provider.mjs';
 import { backtest } from '../public/js/backtest.mjs';
 import path from 'node:path';
 import * as C from '../content/index.mjs';
@@ -722,7 +723,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   const books = registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin: (u) => ADMIN_ROLES.has(u.role), market, sealer, shopId: tenantId, onEvent, flag: (k) => flags()[k] !== false });
 
   /* ---------------- agentic accounting training (spec 0015): tutor, auditor, coach; approvals for real books ---------------- */
-  const agents = createAgentSystem({ db, books, can: (u, cap) => can(u, cap, { main: isMain }), phrase: (i, t) => books.assistant.phrase(i, t) });
+  const agents = createAgentSystem({ db, books, can: (u, cap) => can(u, cap, { main: isMain }), phrase: (i, t) => books.assistant.phrase(i, t), provider: providerFromAssistant(books.assistant), onEvent: (e) => onEvent(e.type) });
   registerAgentRoutes({ on, sys: agents, HttpError, can: (u, cap) => can(u, cap, { main: isMain }) });
 
   /* ---------------- dispatcher ---------------- */

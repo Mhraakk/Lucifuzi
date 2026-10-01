@@ -27,11 +27,17 @@ export function feedbackOf(ev) {
   return `${pct(ev.score)} درست. ${lines.slice(0, 4).join(' ')}${ev.done ? '' : ' دوباره تلاش کنید یا راهنمایی بخواهید.'}`;
 }
 
-export const AGENTS = {
-  tutor: {
+export const ACCOUNTING_AGENTS = [
+  {
+    id: 'accounting-tutor',
+    domain: 'accounting',
     name: 'AccountingTutorAgent',
     fa: 'مربی حسابداری',
-    tools: ['training.getProgress', 'training.nextExercise', 'training.createScenario', 'training.evaluateAttempt', 'training.updateMastery', 'training.explain', 'memory.note', 'accounting.parseIntent', 'accounting.proposeEntry', 'accounting.validateEntry', 'accounting.getLedger', 'accounting.getTrialBalance', 'accounting.getInventory', 'accounting.postTrainingEntry', 'books.postDocument'],
+    instructions: 'Teach the double-entry books of a gold shop: pick the next case from real mastery, grade with the kernel, explain without revealing the answer before an attempt. Never compute a figure; the kernel does.',
+    approvalPolicy: [],
+    memoryScopes: ['training'],
+    canDelegateTo: ['audit'],
+    allowedTools: ['training.getProgress', 'training.nextExercise', 'training.createScenario', 'training.evaluateAttempt', 'training.updateMastery', 'training.explain', 'memory.note', 'accounting.parseIntent', 'accounting.proposeEntry', 'accounting.validateEntry', 'accounting.getLedger', 'accounting.getTrialBalance', 'accounting.getInventory', 'accounting.postTrainingEntry', 'books.postDocument'],
     async plan(ctx) {
       const i = ctx.input;
       switch (i.mode) {
@@ -92,10 +98,16 @@ export const AGENTS = {
       }
     },
   },
-  auditor: {
+  {
+    id: 'audit',
+    domain: 'accounting',
     name: 'AuditAgent',
     fa: 'حسابرس',
-    tools: ['audit.runChecks', 'audit.explainFinding', 'memory.note', 'training.createScenario'],
+    instructions: 'Run the deterministic audit rules and explain each finding; the rules decide, the agent explains.',
+    approvalPolicy: [],
+    memoryScopes: ['training'],
+    canDelegateTo: [],
+    allowedTools: ['audit.runChecks', 'audit.explainFinding', 'memory.note', 'training.createScenario'],
     async plan(ctx) {
       const i = ctx.input;
       if (i.mode === 'challenge') {
@@ -109,10 +121,16 @@ export const AGENTS = {
       return { score: run.score, findings: explained, more: Math.max(0, run.findings.length - explained.length), message: run.findings.length ? `${fa(run.findings.length)} یافته؛ امتیاز حسابرسی ${fa(run.score)} از ۱۰۰.` : 'دفتر پاک است؛ قاعده‌ای نقض نشده.' };
     },
   },
-  coach: {
-    name: 'TrainingCoachAgent',
-    fa: 'هماهنگ‌کننده آموزش',
-    tools: ['training.teamReport', 'memory.note'],
+  {
+    id: 'curriculum',
+    domain: 'training',
+    name: 'CurriculumAgent',
+    fa: 'برنامه‌ریز آموزش',
+    instructions: 'Choose the next lesson, scenario or practical task from actual mastery data across domains; balance weak skills and progression; report to managers. Never invent progress.',
+    approvalPolicy: [],
+    memoryScopes: ['training', 'manager', 'technical'],
+    canDelegateTo: ['accounting-tutor', 'training-tutor'],
+    allowedTools: ['training.teamReport', 'memory.note', 'training.studioProgress', 'training.generateStudioExercise', 'training.openStudioWork'],
     async plan(ctx) {
       const i = ctx.input;
       const team = await ctx.tool('training.teamReport');
@@ -131,4 +149,4 @@ export const AGENTS = {
       return report;
     },
   },
-};
+];

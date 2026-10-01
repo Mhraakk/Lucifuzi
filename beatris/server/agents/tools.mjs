@@ -3,6 +3,7 @@
 // until a manager (not the requester) decides. Training tools act only on the person's own sandbox books.
 // Pattern from Open Dot's tool registry (label, describe → approval card, precheck), rebuilt on Beatris's books.
 import { S, ENTRY } from './schema.mjs';
+import { MEMORY_SCOPE } from '../agent-platform/runtime.mjs';
 import { validateEntry } from '../../public/js/acct/kernel.mjs';
 import { buildEntry, ACTION_TYPES } from '../../public/js/acct/actions.mjs';
 import { parseLine } from '../../public/js/oneline.mjs';
@@ -102,7 +103,7 @@ export function buildTools({ training, books }) {
     'training.explain': { label: 'توضیح سند', input: S.obj({ scenarioId: ID }), run: ({ scenarioId }, ctx) => T.explain(ctx.user, scenarioId) },
     'training.teamReport': { label: 'گزارش تیم', input: S.obj({}), cap: 'staff.view', run: () => T.team() },
     'memory.note': {
-      label: 'یادداشت حافظه آموزشی', input: S.obj({ kind: S.str({ enum: ['weak_skill', 'mistake', 'style', 'completed', 'progress', 'finding', 'report'] }), key: S.str({ maxLength: 80 }), value: {} }),
+      label: 'یادداشت حافظه', input: S.obj({ kind: S.str({ enum: Object.keys(MEMORY_SCOPE) }), key: S.str({ maxLength: 80 }), value: {} }),
       run: ({ kind, key, value }, ctx) => (ctx.memory.set(ctx.user.id, kind, key, value), { ok: true }),
     },
     /* ---------------- audit (rules decide; the agent explains) ---------------- */

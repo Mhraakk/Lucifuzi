@@ -153,7 +153,7 @@ test('عملیات واقعی: سند پیشنهادی منتظر تأیید م�
   const before = (await ok('GET', `/api/books/docs?party=${party.id}`, null, E)).items.length;
   const doc = { type: 'trade', partyId: party.id, lines: [{ kind: 'melt', dir: 'in', weight: 3, fineness: 750, mazaneh: 400000000 }], payments: [] };
   const r = await ok('POST', '/api/agents/real', { doc, summary: 'خرید ۳ گرم آبشده', key: 'real-op-0001' }, E);
-  assert.equal(r.run.status, 'waiting_approval');
+  assert.equal(r.run.status, 'waiting_for_approval');
   assert.equal((await ok('GET', `/api/books/docs?party=${party.id}`, null, E)).items.length, before, 'nothing in the real books before approval');
   assert.equal((await call('GET', '/api/agents/approvals', null, E)).status, 403);
   const ap = (await ok('GET', '/api/agents/approvals', null, M)).approvals.find((x) => x.runId === r.run.id);
@@ -163,7 +163,7 @@ test('عملیات واقعی: سند پیشنهادی منتظر تأیید م�
   assert.equal(done.run.status, 'completed');
   assert.equal((await ok('GET', `/api/books/docs?party=${party.id}`, null, E)).items.length, before + 1);
   const view = await ok('GET', `/api/agents/runs/${r.run.id}`, null, E);
-  assert.ok(view.events.some((e) => e.type === 'approval_decided'));
+  assert.ok(view.events.some((e) => e.type === 'agent.approval.resolved'));
   assert.equal((await call('GET', `/api/agents/runs/${r.run.id}`, null, E2)).status, 404);
   // denied: still nothing posted
   const r2 = await ok('POST', '/api/agents/real', { doc, summary: 'دوباره', key: 'real-op-0002' }, E);
