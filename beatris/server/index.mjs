@@ -27,6 +27,8 @@ const SECURITY = {
   'Referrer-Policy': 'same-origin',
   'X-Frame-Options': 'DENY',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  // production is served only over HTTPS (Railway terminates TLS): browsers must never fall back to plain HTTP
+  ...(process.env.NODE_ENV === 'production' ? { 'Strict-Transport-Security': 'max-age=31536000' } : {}),
 };
 
 const PHOTO_BODY = 48 * 1024 * 1024; // two faces × (4096 + 2048 + relief) as base64
