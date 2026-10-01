@@ -469,7 +469,30 @@ function M(geo, role, extra = {}) {
 function tubeAlong(points, r, closed = false, seg = 48, radial = 14) {
   const curve = new T.CatmullRomCurve3(points, closed, 'centripetal');
   const g = new T.TubeGeometry(curve, seg, r, radial, closed);
-  return g;
+  if (closed) return g;
+  // TubeGeometry leaves both ends open: cap them so every prong is a closed solid (weight, booleans, printing)
+  const pos = Array.from(g.attributes.position.array), nor = Array.from(g.attributes.normal.array), uv = Array.from(g.attributes.uv.array), idx = Array.from(g.index.array);
+  const ring = radial + 1;
+  for (const [i, sgn] of [[0, -1], [seg, 1]]) {
+    const c = curve.getPointAt(i / seg), t = curve.getTangentAt(i / seg).multiplyScalar(sgn), ci = pos.length / 3;
+    pos.push(c.x, c.y, c.z);
+    nor.push(t.x, t.y, t.z);
+    uv.push(0.5, 0.5);
+    for (let j = 0; j < radial; j++) {
+      const a = i * ring + j, b = i * ring + j + 1;
+      // outward: the fan faces along ±tangent
+      const pa = new T.Vector3().fromArray(pos, a * 3), pb = new T.Vector3().fromArray(pos, b * 3);
+      const n = pb.clone().sub(pa).cross(c.clone().sub(pa));
+      if (n.dot(t) > 0) idx.push(a, b, ci);
+      else idx.push(b, a, ci);
+    }
+  }
+  const out = new T.BufferGeometry();
+  out.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+  out.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
+  out.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+  out.setIndex(idx);
+  return out;
 }
 /** Pipe with a varying elliptical section [rNormal, rBinormal](t) along a smooth curve (flat petals, arches, wires). */
 export function pipeVar(points, radii, { closed = false, seg = 64, radial = 16 } = {}) {

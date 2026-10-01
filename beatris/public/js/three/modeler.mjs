@@ -689,6 +689,45 @@ export function boolean(ga, gb, op) {
   }
   return done([...keepOut, ...a.all()]);
 }
+/** Connected pieces of a mesh (a merged jewel is several overlapping closed solids: shank, head, prongs). */
+export function splitComponents(geo) {
+  const g = toIndexed(geo), I = g.index.array, P = g.attributes.position.array, n = P.length / 3;
+  const parent = Int32Array.from({ length: n }, (_, i) => i);
+  const find = (x) => {
+    while (parent[x] !== x) x = parent[x] = parent[parent[x]];
+    return x;
+  };
+  for (let i = 0; i < I.length; i += 3) {
+    const a = find(I[i]);
+    parent[find(I[i + 1])] = a;
+    parent[find(I[i + 2])] = a;
+  }
+  const groups = new Map();
+  for (let i = 0; i < I.length; i += 3) {
+    const r = find(I[i]);
+    if (!groups.has(r)) groups.set(r, []);
+    const arr = groups.get(r);
+    for (let k = 0; k < 3; k++) arr.push(P[I[i + k] * 3], P[I[i + k] * 3 + 1], P[I[i + k] * 3 + 2]);
+  }
+  return [...groups.values()].map((arr) => {
+    const out = new T.BufferGeometry();
+    out.setAttribute('position', new T.Float32BufferAttribute(arr, 3));
+    return out;
+  });
+}
+/**
+ * Difference applied piece by piece: only the closed pieces the cutter touches are cut, so overlapping
+ * pieces of a merged jewel never confuse the inside/outside test.
+ */
+export function differenceByPiece(geo, cutter) {
+  const cb = new T.Box3().setFromBufferAttribute(cutter.attributes.position);
+  return merge(
+    splitComponents(geo).map((g) => {
+      const bb = new T.Box3().setFromBufferAttribute(g.attributes.position);
+      return bb.intersectsBox(cb) ? nonIndexed(boolean(g, cutter, 'difference')) : g;
+    }).filter((g) => g.attributes.position.count),
+  );
+}
 /** Split: the parts of A inside and outside B (Rhino: BooleanSplit). */
 export const split = (ga, gb) => [boolean(ga, gb, 'difference'), boolean(ga, gb, 'intersection')];
 

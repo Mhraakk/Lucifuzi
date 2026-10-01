@@ -1137,10 +1137,13 @@ async function loginUI(page) {
       const rt = A(D.decodeGeo(D.encodeGeo(D.boolean(box, sph, 'difference'))));
       const SD = (await import('/js/three/jewelcad.mjs')).PIECES.solitaire;
       const sol = await SD.build({ ...Object.fromEntries(Object.entries(SD.params).map(([a, v]) => [a, v[0]])), ...SD.opts });
-      const metal = D.merge(sol.filter((m) => m.userData.role === 'metal').map((m) => m.geometry));
+      sol.forEach((m) => m.updateMatrixWorld(true)); // built outside the scene: world matrices must be current for the cutters
+      const metal = D.merge(sol.filter((m) => m.userData.role === 'metal').map((m) => m.geometry.clone().applyMatrix4(m.matrixWorld)));
       const cut = sol.filter((m) => m.userData.role === 'gem').flatMap((g) => D.seatCutters(g, {}));
       const t0 = performance.now();
-      const seated = A(D.boolean(metal, cut[0], 'difference'));
+      const seated = A(D.differenceByPiece(metal, cut[0]));
+      const pieces = D.splitComponents(metal);
+      if (!pieces.every((g) => A(g).closed)) bad.push('solitaire has an open piece');
       return { bad, n: COMMANDS.length, revolve: res.revolve.volume, torus: res.torus.volume, cyldiff: res.cyldiff.volume, sum: res.sphdiff.volume + res.sphint.volume, int: res.sphint.volume, uni: res.sphuni.volume, sph: A(sph).volume, rt: [rt.closed, rt.volume], seat: [A(metal).volume - seated.volume, cut.length, performance.now() - t0] };
     });
     check(`free modeller: ${r.n} commands; every primitive, sweep, loft, revolve, boolean, shell and deform is a closed manifold solid`, r.n >= 55 && r.bad.length === 0, r.bad.join(' | '));

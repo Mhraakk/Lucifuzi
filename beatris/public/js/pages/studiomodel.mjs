@@ -334,7 +334,7 @@ export function wirePalette(panel, ctx) {
       const cutters = gems.flatMap((g) => D.seatCutters(g, { clearance: v.clearance, hole: v.hole }));
       if (cutters.length > 24) throw new Error(`برای ${fa(cutters.length)} سنگ زیاد است (حداکثر ۲۴ در یک بار).`);
       let metal = worldGeo(A);
-      for (const ct of cutters) metal = D.boolean(metal, ct, 'difference');
+      for (const ct of cutters) metal = D.differenceByPiece(metal, ct); // each closed piece (shank, head, prong) on its own
       const gemPart = addSolid(D.merge(gems.map((g) => g.geometry.clone().applyMatrix4(g.matrixWorld))), A, 'سنگ‌ها', true);
       ctx.removePart(A.id);
       await ctx.addParts([addSolid(metal, A, `${ctx.J.PIECES[A.type].label} با نشیمن`), gemPart]);
