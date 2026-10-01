@@ -941,8 +941,9 @@ async function loginUI(page) {
       await page.click('[data-fmt=a4]');
       const mj = JSON.parse(await dl('[data-act=moadian]'));
       check('books: tax-system file uses the gold pattern with integer making charge', mj[0].header.inp === 3 && mj[0].body.every((r) => Number.isInteger(r.consfee) && r.tcpbs === r.consfee + r.spro + r.bros));
-      // edit with a reason → version 2; rounding lands on a round thousand toman
-      await page.click('a:has-text("ویرایش")');
+      // a final invoice is corrected by an amendment (spec 0013): a new document; rounding lands on a round thousand toman
+      const origId = await page.evaluate(() => location.pathname.split('/').pop());
+      await page.click('a:has-text("اصلاح (اصلاحیه)")');
       await page.waitForSelector('[name=reason]');
       await page.click('[data-act=round]');
       await page.click('[data-fill="0"]');
@@ -954,7 +955,8 @@ async function loginUI(page) {
         const id = location.pathname.split('/').pop();
         return (await (await fetch(`/api/books/docs/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json());
       });
-      check('books: edit makes version 2 and the total is round', v2.version === 2 && v2.calc.sales % 10000 === 0 && v2.versions[0].reason === 'گرد کردن مبلغ', `${v2.version} ${v2.calc.sales}`);
+      const orig = await page.evaluate(async (id) => (await (await fetch(`/api/books/docs/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()), origId);
+      check('books: the correction is an amendment with a round total; the original is superseded, not changed', v2.amends === origId && v2.id !== origId && v2.calc.sales % 10000 === 0 && orig.status === 'void' && orig.tax?.supersededBy === v2.id, `${v2.amends} ${v2.calc.sales} ${orig.status}`);
       // credit sale with a cheque, then the cheque is deposited
       await go(page, '/books/new/sale', 1200);
       await page.fill('#pq', 'مریم');
