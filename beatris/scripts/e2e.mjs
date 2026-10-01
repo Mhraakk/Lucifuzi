@@ -1058,6 +1058,7 @@ async function loginUI(page) {
       const J = await import('/js/three/jewelcad.mjs');
       const bad = [], counts = {};
       for (const [k, def] of Object.entries(J.PIECES)) {
+        if (def.free) continue; // free-modeller parts (spec 0008) have their own step
         const params = Object.fromEntries(Object.entries(def.params).map(([a, v]) => [a, v[0]]));
         for (const st of 'setting' in def.opts ? J.SETTINGS.map(([x]) => x) : [undefined]) {
           const ms = await def.build({ ...params, ...def.opts, ...(st ? { setting: st } : {}) });
@@ -1071,7 +1072,7 @@ async function loginUI(page) {
       for (const [c] of J.CUTS) if (!(J.signedVolume(J.gemGeo(c, 6).geo) > 0)) bad.push(`cut ${c}`);
       const band = (await J.PIECES.band.build({ size: 54, width: 4, thickness: 1.8, profile: 'flat' }))[0];
       const th = J.thickness(band, { samples: 1200 });
-      return { bad, counts, min: th.min, us7: J.ringSize.fromUS(7).iso, n: Object.keys(J.PIECES).length, settings: J.SETTINGS.length, cuts: J.CUTS.length };
+      return { bad, counts, min: th.min, us7: J.ringSize.fromUS(7).iso, n: Object.values(J.PIECES).filter((d) => !d.free).length, settings: J.SETTINGS.length, cuts: J.CUTS.length };
     });
     check(`jewel cad: ${r.n} pieces, ${r.settings} settings, ${r.cuts} cuts all build closed solids without stone overlaps`, r.bad.length === 0 && r.n >= 24 && r.settings >= 10 && r.cuts >= 11, r.bad.slice(0, 4).join(' | '));
     check('jewel cad: pavé band and pavé plate place many stones', r.counts.pave >= 20 && r.counts.pavePlate >= 40, JSON.stringify({ pave: r.counts.pave, plate: r.counts.pavePlate }));
@@ -1107,6 +1108,96 @@ async function loginUI(page) {
     const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-rp="csv"]')]);
     check('jewel cad: report downloads as CSV', dl.suggestedFilename().endsWith('.csv'));
     await page.click('[data-rp="close"]');
+    await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
+  });
+
+  await step('free modeller: curves, solids from curves, booleans, mesh tools, deforms, seats — closed solids, then in the studio UI', async () => {
+    await go(page, '/studio', 2500);
+    const r = await page.evaluate(async () => {
+      const D = await import('/js/three/modeler.mjs');
+      const { COMMANDS } = await import('/js/pages/studiomodel.mjs');
+      const A = (g) => D.analyze(g);
+      const bad = [];
+      for (const k of Object.keys(D.SOLIDS)) if (!A(D.solid(k, {})).closed) bad.push(`solid ${k}`);
+      const box = D.solid('box', { x: 10, y: 6, z: 4 }), cyl = D.solid('cylinder', { r: 2, h: 10 }), sph = D.solid('sphere', { r: 4 });
+      const res = {
+        revolve: A(D.revolve(D.curve([[3, 0], [5, 0], [5, 2], [3, 2]], true))),
+        torus: A(D.sweep1(D.CURVES.circle({ radius: 1 }), D.CURVES.circle({ radius: 10 }))),
+        loft: A(D.loft([D.CURVES.circle({ radius: 5 }), { ...D.CURVES.rectangle({ width: 6, height: 6 }), pts: D.CURVES.rectangle({ width: 6, height: 6 }).pts.map(([x, y]) => [x, y, 8]) }])),
+        sweep2: A(D.sweep2(D.curve([[0, 0], [10, 0], [10, 1], [0, 1]], true), D.CURVES.line({ length: 20 }), D.curve([[-10, 8, 0], [10, 4, 0]]))),
+        cyldiff: A(D.boolean(box, cyl, 'difference')),
+        sphdiff: A(D.boolean(box, sph, 'difference')),
+        sphint: A(D.boolean(box, sph, 'intersection')),
+        sphuni: A(D.boolean(box, sph, 'union')),
+        shell: A(D.shell(D.solid('sphere', { r: 5 }), { thickness: 0.6 })),
+        twist: A(D.DEFORMS.twist(box, { angle: 90 })),
+      };
+      for (const [k, a] of Object.entries(res)) if (!a.closed || a.nonManifold) bad.push(`${k} open ${a.naked}/${a.nonManifold}`);
+      const rt = A(D.decodeGeo(D.encodeGeo(D.boolean(box, sph, 'difference'))));
+      const SD = (await import('/js/three/jewelcad.mjs')).PIECES.solitaire;
+      const sol = await SD.build({ ...Object.fromEntries(Object.entries(SD.params).map(([a, v]) => [a, v[0]])), ...SD.opts });
+      const metal = D.merge(sol.filter((m) => m.userData.role === 'metal').map((m) => m.geometry));
+      const cut = sol.filter((m) => m.userData.role === 'gem').flatMap((g) => D.seatCutters(g, {}));
+      const t0 = performance.now();
+      const seated = A(D.boolean(metal, cut[0], 'difference'));
+      return { bad, n: COMMANDS.length, revolve: res.revolve.volume, torus: res.torus.volume, cyldiff: res.cyldiff.volume, sum: res.sphdiff.volume + res.sphint.volume, int: res.sphint.volume, uni: res.sphuni.volume, sph: A(sph).volume, rt: [rt.closed, rt.volume], seat: [A(metal).volume - seated.volume, cut.length, performance.now() - t0] };
+    });
+    check(`free modeller: ${r.n} commands; every primitive, sweep, loft, revolve, boolean, shell and deform is a closed manifold solid`, r.n >= 55 && r.bad.length === 0, r.bad.join(' | '));
+    check('free modeller: volumes are exact — revolve π(5²−3²)·2, swept torus 2π²·10·1, box − cylinder', Math.abs(r.revolve - 100.53) < 0.5 && Math.abs(r.torus - 197.4) < 2 && Math.abs(r.cyldiff - 164.6) < 0.5, JSON.stringify([r.revolve, r.torus, r.cyldiff]));
+    check('free modeller: box−sphere + box∩sphere = box, and box∪sphere = box + sphere − overlap', Math.abs(r.sum - 240) < 0.05 && Math.abs(r.uni - (240 + r.sph - r.int)) < 0.05, JSON.stringify([r.sum, r.uni, r.sph, r.int]));
+    check('free modeller: a stored solid reloads closed with the same volume', r.rt[0] && Math.abs(r.rt[1] - (r.sum - r.int)) < 0.05, JSON.stringify(r.rt));
+    check('free modeller: a gem seat cuts metal from a solitaire in seconds', r.seat[0] > 0.05 && r.seat[1] === 1 && r.seat[2] < 20000, JSON.stringify(r.seat));
+    // the UI: draw, generate, extrude, boolean, check, seat, reload
+    await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
+    await go(page, '/studio', 2500);
+    const parts = () => page.evaluate(() => JSON.parse(localStorage.getItem('beatris.studio.v1') ?? '{"parts":[]}').parts.map((x) => ({ id: x.id, type: x.type, name: x.opts.name ?? '' })));
+    const idOf = async (name) => String((await parts()).filter((x) => x.name === name).at(-1)?.id);
+    const cmd = async (id, vals = {}, sel = {}) => {
+      await page.fill('#mdlQ', id);
+      await page.click(`[data-cmd="${id}"]`);
+      await page.waitForSelector('#mdlF');
+      for (const [k, v] of Object.entries(vals)) await page.fill(`#mdlF [name="${k}"]`, String(v));
+      for (const [k, v] of Object.entries(sel)) await page.selectOption(`#mdlF [name="${k}"]`, v);
+      await page.click('#mdlF button.btn:not(.ghost)');
+      await page.waitForFunction(() => !document.querySelector('#mdlF') || /[^…]$/.test(document.querySelector('#mdlMsg')?.textContent || '…'), null, { timeout: 60000 });
+      const err = await page.$('#mdlF') ? await text(page, '#mdlMsg') : '';
+      if (err) await page.click('#mdlF [data-close]');
+      return err;
+    };
+    await page.fill('#mdlQ', 'Polyline');
+    await page.click('[data-cmd="Polyline"]');
+    const vb = await page.$eval('#vp canvas', (c) => { const r = c.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+    for (const [dx, dy] of [[-60, -20], [40, -40], [70, 40], [-30, 60]]) await page.mouse.click(vb[0] + dx, vb[1] + dy), await page.waitForTimeout(60);
+    await page.keyboard.press('c');
+    await page.waitForTimeout(800);
+    check('free modeller: clicking on the plane draws a closed polyline part', (await parts()).some((x) => x.type === 'curve'), JSON.stringify(await parts()));
+    const errs = [];
+    errs.push(await cmd('Circle', { radius: 6 }));
+    errs.push(await cmd('ExtrudeCrv', { height: 3 }));
+    errs.push(await cmd('Box', {}));
+    errs.push(await cmd('Cylinder', { r: 2, h: 10 }));
+    errs.push(await cmd('BooleanDifference', {}, { part: await idOf('مکعب'), part2: await idOf('استوانه') }));
+    check('free modeller: circle → extrude → box − cylinder run without errors', errs.every((e) => !e), errs.join(' | '));
+    const pl = await parts();
+    check('free modeller: the boolean replaced its inputs with one solid', pl.some((x) => x.name.startsWith('تفاضل')) && !pl.some((x) => x.name === 'مکعب' || x.name === 'استوانه'), JSON.stringify(pl.map((x) => x.name)));
+    await page.fill('#mdlQ', 'Check');
+    await page.click('[data-cmd="Check"]');
+    await page.waitForSelector('#mdlF');
+    await page.click('#mdlF button.btn:not(.ghost)');
+    await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('mm³')), null, { timeout: 30000 });
+    const chk = await page.evaluate(() => [...document.querySelectorAll('.toast')].find((t) => t.textContent.includes('mm³')).textContent);
+    check('free modeller: Check reports the boolean result closed (ready to print)', chk.includes('بسته'), chk);
+    check('free modeller: the readout weighs the new solid in gold', /گرم/.test(await text(page, '#readout')));
+    await page.click('[data-act=add]');
+    await page.click('[data-add=solitaire]');
+    await page.waitForTimeout(1500);
+    const seatErr = await cmd('GemSeat', {});
+    check('free modeller: GemSeat turns a solitaire into metal-with-seat + stones', !seatErr && (await parts()).some((x) => x.type === 'meshGem'), seatErr);
+    const before = (await parts()).length;
+    await page.reload();
+    await page.waitForSelector('#mdl');
+    await page.waitForTimeout(2500);
+    check('free modeller: free curves and solids survive a reload', (await page.$$('.parts li')).length === before, `${(await page.$$('.parts li')).length} vs ${before}`);
     await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
   });
 

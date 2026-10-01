@@ -337,6 +337,15 @@ function triangleGroups(geo) {
   }
   return { g, p, groups: [...groups.values()] };
 }
+/** Vertex positions of each separate closed piece of a merged geometry (Float32Array per piece). */
+export function componentPoints(geo) {
+  const { p, groups } = triangleGroups(geo);
+  return groups.map((tris) => {
+    const out = new Float32Array(tris.length * 9);
+    tris.forEach((t, i) => out.set(p.subarray(t * 9, t * 9 + 9), i * 9));
+    return out;
+  });
+}
 /** Bounding boxes of the separate closed pieces of a merged geometry. */
 export function components(geo) {
   const { p, groups } = triangleGroups(geo);

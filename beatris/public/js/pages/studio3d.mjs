@@ -1,6 +1,7 @@
 import { html, raw, fa, store, toast, api, $, $$ } from '../core.mjs';
 import { ICON } from '../ui.mjs';
 import { ALLOYS, alloyById, fmt, fmtT, pricePerGramAt, ringFromCircumference } from '../calc.mjs';
+import { paletteHtml, wirePalette } from './studiomodel.mjs';
 
 const SAVE_KEY = 'beatris.studio.v1';
 const WAX_DENSITY = 0.95; // g/cm³ — typical injection/carving wax
@@ -54,6 +55,9 @@ const PIECE_ICONS = {
   bead: '<circle cx="12" cy="12" r="7"/><path d="M12 5v14"/>',
   rope: '<circle cx="12" cy="12" r="7.5"/><path d="M6 8c2 1 2 3 4 3M14 6c1 2 3 2 4 3M17 15c-2 0-2 2-4 3M7 16c1-1 3-1 3-3"/>',
   sprue: '<path d="M12 3v11"/><path d="M8 20h8l-2-6h-4Z"/><circle cx="12" cy="3" r="1.5"/>',
+  curve: '<path d="M4 17c3-9 6-9 8-5s5 4 8-5"/><circle cx="4" cy="17" r="1.2"/><circle cx="20" cy="7" r="1.2"/>',
+  mesh: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
+  meshGem: '<path d="M7 5h10l4 5-9 10-9-10Z"/><path d="M3 10h18"/>',
 };
 const RING_TYPES = ['band', 'solitaire', 'halo', 'eternity', 'signet', 'advanced', 'cathedral', 'trilogy', 'pave', 'rope'];
 const svg = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`);
@@ -92,7 +96,7 @@ export async function studioPage(root) {
   const vp = $('#vp', root);
   const panel = $('#panel', root);
 
-  const [{ createStage, ENVS, BACKDROPS, T }, J, Mt, { FONTS }] = await Promise.all([import('../three/stage.mjs'), import('../three/jewelcad.mjs'), import('../three/materials.mjs'), import('../three/text.mjs')]);
+  const [{ createStage, ENVS, BACKDROPS, T }, J, Mt, { FONTS }, D] = await Promise.all([import('../three/stage.mjs'), import('../three/jewelcad.mjs'), import('../three/materials.mjs'), import('../three/text.mjs'), import('../three/modeler.mjs')]);
   const stage = createStage(vp, { env: 'studio', backdrop: 'vault' });
   if (!stage) return;
   const { scene, camera, controls } = stage;
@@ -166,9 +170,10 @@ export async function studioPage(root) {
     for (const [k, [dflt, lo, hi]] of Object.entries(def.params)) base.params[k] = num(raw.params?.[k], lo, hi, dflt);
     for (const k of Object.keys(def.opts)) {
       const v = raw.opts?.[k];
-      if (typeof v === 'string') base.opts[k] = v.slice(0, 40);
+      if (typeof v === 'string') base.opts[k] = k === 'data' || k === 'geo' ? (v.length < 8e6 ? v : '') : v.slice(0, 40);
       else if (typeof v === 'boolean') base.opts[k] = v;
     }
+    if (def.free && typeof raw.opts?.name === 'string') base.opts.name = raw.opts.name.slice(0, 60);
     if (typeof raw.opts?.imageData === 'string' && raw.opts.imageData.startsWith('data:image/') && raw.opts.imageData.length < 4e6) base.opts.imageData = raw.opts.imageData;
     if (Mt.METALS[raw.alloy]) base.alloy = raw.alloy;
     if (Mt.FINISHES.some(([f]) => f === raw.finish)) base.finish = raw.finish;
@@ -216,7 +221,8 @@ export async function studioPage(root) {
     const gems = [];
     for (const m of meshes) {
       const role = m.userData.role;
-      if (role === 'metal') {
+      if (role === 'curve') m.material = new T.LineBasicMaterial({ color: 0xf0c75e });
+      else if (role === 'metal') {
         m.material = Mt.metalMaterial(part.alloy, part.finish);
         metalVol += Math.abs(J.signedVolume(m.geometry));
         area += J.surfaceArea(m.geometry);
@@ -313,7 +319,10 @@ export async function studioPage(root) {
   }
   function measureHtml(p, m, t) {
     const rows = [];
-    if (!J.PIECES[p.type].noMetal) {
+    if (p.type === 'curve') {
+      const c = JSON.parse(p.opts.data || '{"pts":[]}');
+      rows.push(['طول منحنی', `${fmt(D.curveLength(c) * p.scale, 2)} mm`], ['نقطه‌های کنترل', fa(c.pts.length)], ['نوع', c.closed ? 'بسته' : 'باز']);
+    } else if (!J.PIECES[p.type].noMetal) {
       rows.push(['وزن فلز این قطعه', `${fmt(m.grams, 3)} گرم`], ['حجم فلز', `${fmt(m.vol, 1)} mm³`], ['مساحت سطح (برای آبکاری)', `${fmt(m.area / 100, 2)} cm²`], ['وزن موم ریخته‌گری', `${fmt((m.vol / 1000) * WAX_DENSITY, 3)} گرم`], ['وزن رزین چاپ سه‌بعدی', `${fmt((m.vol / 1000) * RESIN_DENSITY, 3)} گرم`], ['فلز لازم برای ذوب (با راهگاه)', `${fmt(m.grams * SPRUE_FACTOR, 2)} گرم`]);
       if (p.params.size && RING_TYPES.includes(p.type)) {
         const r = ringFromCircumference(p.params.size * p.scale);
@@ -352,23 +361,24 @@ export async function studioPage(root) {
       </div>
       <div class="grp">
         <h3><span>قطعه‌های صحنه</span><button class="btn small ghost" data-act="add">${ICON.plus} افزودن</button></h3>
-        <ul class="parts">${S.parts.map((x) => html`<li data-part="${x.id}" aria-selected="${x.id === S.sel}">${svg(PIECE_ICONS[x.type])}<span>${J.PIECES[x.type].label}</span><button data-del="${x.id}" title="حذف">×</button></li>`)}</ul>
+        <ul class="parts">${S.parts.map((x) => html`<li data-part="${x.id}" aria-selected="${x.id === S.sel}">${svg(PIECE_ICONS[x.type])}<span>${x.opts.name || J.PIECES[x.type].label}</span><button data-del="${x.id}" title="حذف">×</button></li>`)}</ul>
       </div>
+      ${paletteHtml(pal.state)}
       ${p
-        ? html`<div class="grp">
+        ? html`${def.free ? '' : html`<div class="grp">
         <h3><span>نوع قطعه</span></h3>
-        <div class="piece-grid">${Object.entries(J.PIECES).map(([k, d]) => html`<button data-type="${k}" aria-pressed="${k === p.type}">${svg(PIECE_ICONS[k])}${d.label}</button>`)}</div>
+        <div class="piece-grid">${Object.entries(J.PIECES).filter(([, d]) => !d.free).map(([k, d]) => html`<button data-type="${k}" aria-pressed="${k === p.type}">${svg(PIECE_ICONS[k])}${d.label}</button>`)}</div>
       </div>
       <div class="grp">
         <h3><span>ابعاد (میلی‌متر)</span></h3>
         ${Object.entries(def.params).map(([k, [, min, max, step, label]]) => html`<label class="param"><span class="lbl"><span>${label}</span><b data-out="${k}">${fa(p.params[k])}</b></span><input type="range" min="${min}" max="${max}" step="${step}" value="${p.params[k]}" data-param="${k}"></label>`)}
         ${RING_TYPES.includes(p.type) ? html`<label class="param"><span class="lbl"><span>سایز آمریکا (US)</span><b>${fa(J.ringSize.fromISO(p.params.size).us.toFixed(2))} · قطر ${fa(J.ringSize.fromISO(p.params.size).diameter.toFixed(2))}mm</b></span><input class="input ltr" type="number" step="0.25" min="0" max="16" value="${(Math.round(J.ringSize.fromISO(p.params.size).us * 4) / 4).toFixed(2)}" data-us aria-label="سایز آمریکا"></label>` : ''}
         ${'milgrain' in def.opts ? html`<label class="small" style="display:flex;gap:8px;margin-top:10px"><input type="checkbox" data-bool="milgrain" ${p.opts.milgrain ? 'checked' : ''}> میل‌گرین (ردیف دانه) روی دو لبه</label>` : ''}
-        ${Object.keys(def.opts).filter((k) => !['gem', 'gem2', 'text', 'line1', 'line2', 'image', 'mirror', 'invert', 'milgrain'].includes(k)).map((k) => html`<div style="margin-top:12px"><div class="small" style="margin-bottom:6px">${OPT_LABEL[k] ?? k}</div><div class="chips">${(choiceList(k, p) ?? []).map(([v, l]) => html`<button class="chip" data-opt="${k}" data-val="${v}" aria-pressed="${p.opts[k] === v}">${l}</button>`)}</div></div>`)}
+        ${Object.keys(def.opts).filter((k) => !['gem', 'gem2', 'text', 'line1', 'line2', 'image', 'mirror', 'invert', 'milgrain', 'data', 'geo', 'name'].includes(k)).map((k) => html`<div style="margin-top:12px"><div class="small" style="margin-bottom:6px">${OPT_LABEL[k] ?? k}</div><div class="chips">${(choiceList(k, p) ?? []).map(([v, l]) => html`<button class="chip" data-opt="${k}" data-val="${v}" aria-pressed="${p.opts[k] === v}">${l}</button>`)}</div></div>`)}
         ${['text', 'line1', 'line2'].filter((k) => k in def.opts).map((k) => html`<label class="field" style="margin-top:12px">${k === 'text' ? (p.type === 'name' ? 'نام' : 'نوشته / حرف') : k === 'line1' ? 'سطر اول' : 'سطر دوم'}<input class="input" data-text="${k}" value="${p.opts[k] ?? ''}" maxlength="40"></label>`)}
         ${'mirror' in def.opts ? html`<label class="small" style="display:flex;gap:8px;margin-top:10px"><input type="checkbox" data-bool="mirror" ${p.opts.mirror ? 'checked' : ''}> نقش معکوس (برای مهر زدن روی لاک/موم)</label>` : ''}
         ${'image' in def.opts ? html`<div style="margin-top:12px;display:grid;gap:8px"><label class="btn small ghost" style="cursor:pointer">بارگذاری تصویر / لوگو<input type="file" accept="image/*" data-image hidden></label>${'invert' in def.opts ? html`<label class="small" style="display:flex;gap:8px"><input type="checkbox" data-bool="invert" ${p.opts.invert ? 'checked' : ''}> وارونه (تیره = برجسته)</label>` : ''}<span class="small">روشنی هر نقطه تصویر = ارتفاع نقش. تصاویر پرکنتراست بهترین نتیجه را می‌دهند.</span></div>` : ''}
-      </div>
+      </div>`}
       ${def.noMetal
         ? ''
         : html`<div class="grp">
@@ -377,7 +387,7 @@ export async function studioPage(root) {
         <div class="small" style="margin:12px 0 6px">پرداخت سطح</div>
         <div class="chips">${Mt.FINISHES.map(([k, l]) => html`<button class="chip" data-finish="${k}" aria-pressed="${k === p.finish}">${l}</button>`)}</div>
       </div>`}
-      ${'gem' in def.opts || def.noMetal
+      ${('gem' in def.opts || def.noMetal) && p.type !== 'curve'
         ? html`<div class="grp">
         <h3><span>سنگ${'gem2' in def.opts ? ' مرکزی' : ''}</span></h3>
         <div class="chips">${gemKinds.map(([k, g]) => html`<button class="chip" data-gem="${k}" aria-pressed="${k === p.gem}"><i style="background:#${new T.Color(g.color).getHexString()}"></i>${g.label}</button>`)}</div>
@@ -776,7 +786,7 @@ export async function studioPage(root) {
     return close;
   }
   function addDialog() {
-    modal(String(html`<h3 style="font-family:var(--display);font-size:26px;margin-bottom:12px">افزودن قطعه</h3><div class="piece-grid">${Object.entries(J.PIECES).map(([k, d]) => html`<button data-add="${k}">${svg(PIECE_ICONS[k])}${d.label}</button>`)}</div>`), (m, close) => {
+    modal(String(html`<h3 style="font-family:var(--display);font-size:26px;margin-bottom:12px">افزودن قطعه</h3><div class="piece-grid">${Object.entries(J.PIECES).filter(([, d]) => !d.free).map(([k, d]) => html`<button data-add="${k}">${svg(PIECE_ICONS[k])}${d.label}</button>`)}</div>`), (m, close) => {
       m.addEventListener('click', async (e) => {
         const b = e.target.closest('[data-add]');
         if (!b) return;
@@ -1089,6 +1099,33 @@ export async function studioPage(root) {
   } catch {
     /* storage unavailable */
   }
+  /* ---------------- مدل‌ساز آزاد (spec 0008) ---------------- */
+  function removePart(id) {
+    const o = objs.get(id);
+    if (o) stage.root.remove(o.group), o.group.traverse((m) => m.geometry?.dispose());
+    if (tc.object === o?.group) tc.detach();
+    objs.delete(id);
+    S.parts = S.parts.filter((x) => x.id !== id);
+    if (S.sel === id) S.sel = S.parts[0]?.id ?? null;
+  }
+  function movePart(p, pos, rot) {
+    p.pos = pos.map((v) => +v.toFixed(3));
+    p.rot = rot.map((v) => +v.toFixed(4));
+    const g = objs.get(p.id)?.group;
+    if (g) g.position.fromArray(p.pos), g.rotation.set(...p.rot);
+  }
+  const pal = { state: {} };
+  const palette = wirePalette(panel, {
+    T, D, J, S, objs, cur, newPart, removePart, movePart, stage, scene, camera, vp, modal,
+    nextId: () => uid++,
+    addParts: async (list) => {
+      if (S.parts.length + list.length > 24) throw new Error('حداکثر ۲۴ قطعه در صحنه؛ چند قطعه را حذف کنید.');
+      await addParts(list);
+      select(list[0].id);
+    },
+  });
+  pal.state = palette.state;
+  renderPanel();
   const q = new URLSearchParams(location.search).get('p');
   if (q && J.PIECES[q]) await restore({ parts: [newPart(q)], scene: S.scene });
   else if (saved) await restore(saved).catch(() => restore({ parts: [newPart('solitaire')] }));
@@ -1096,6 +1133,7 @@ export async function studioPage(root) {
 
   return () => {
     removeEventListener('keydown', onKey);
+    palette.dispose();
     tc.detach();
     tc.dispose();
     stage.dispose();
