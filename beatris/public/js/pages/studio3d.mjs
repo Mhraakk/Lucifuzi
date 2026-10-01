@@ -20,6 +20,13 @@ const PRESETS = [
   { label: 'زنجیر کارتیه', parts: [{ type: 'chain', alloy: 'au18y', opts: { style: 'curb' } }] },
   { label: 'رکاب اترنیتی', parts: [{ type: 'eternity', alloy: 'pt950', opts: { style: 'prong' } }] },
   { label: 'گوشواره میخی', parts: [{ type: 'stud', alloy: 'au18w', pos: [-6, 0, 0] }, { type: 'stud', alloy: 'au18w', pos: [6, 0, 0] }] },
+  { label: 'کتدرال تریلیس', parts: [{ type: 'cathedral', alloy: 'pt950', opts: { setting: 'trellis' } }] },
+  { label: 'سه‌نگین زمردی', parts: [{ type: 'trilogy', alloy: 'au18w', opts: { cut: 'emerald', gem: 'diamond', gem2: 'sapphire' } }] },
+  { label: 'پاوه سه‌ردیفه', parts: [{ type: 'pave', alloy: 'au18r', params: { rows: 3, width: 5 } }] },
+  { label: 'قلب پاوه با آویزگیر', parts: [{ type: 'pavePlate', alloy: 'au18y', opts: { shape: 'heart' } }, { type: 'bail', alloy: 'au18y', pos: [0, 0.5, -9.5], rot: [0, 1.5708, 0] }] },
+  { label: 'لاله با یاقوت', parts: [{ type: 'solitaire', alloy: 'au18y', opts: { setting: 'tulip', gem: 'ruby' } }] },
+  { label: 'حلقه طنابی', parts: [{ type: 'rope', alloy: 'au18y', params: { strands: 3 } }] },
+  { label: 'مروارید میخ', parts: [{ type: 'stud', alloy: 'au18y', opts: { cut: 'pearl', setting: 'peg', gem: 'pearl' } }] },
 ];
 
 const PIECE_ICONS = {
@@ -38,7 +45,17 @@ const PIECE_ICONS = {
   stud: '<path d="m8 9 4-5 4 5-4 2Z"/><path d="M12 11v9"/>',
   gem: '<path d="M6 9h12l-6 11Z"/><path d="m6 9 3-4h6l3 4M9 5l3 4 3-4"/>',
   relief: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m6 17 4-5 3 3 2-2 3 4"/><circle cx="15" cy="8.5" r="1.5"/>',
+  advanced: '<path d="M5 13a7 7 0 0 0 14 0"/><path d="M5 13a7 5 0 0 1 14 0"/><path d="M7 9.5c3-2 7-2 10 0"/>',
+  cathedral: '<circle cx="12" cy="16" r="5.5"/><path d="M7.5 13 11 7M16.5 13 13 7"/><path d="m10 6 2-3 2 3-2 1Z"/>',
+  trilogy: '<circle cx="12" cy="16" r="5.5"/><path d="m10.5 8 1.5-3 1.5 3-1.5 1Z"/><circle cx="7.5" cy="9.5" r="1.4"/><circle cx="16.5" cy="9.5" r="1.4"/>',
+  pave: '<circle cx="12" cy="12" r="7.5"/><circle cx="9" cy="5.6" r=".9"/><circle cx="12" cy="4.6" r=".9"/><circle cx="15" cy="5.6" r=".9"/><circle cx="10.5" cy="7.4" r=".9"/><circle cx="13.5" cy="7.4" r=".9"/>',
+  pavePlate: '<path d="M12 20s-7-4.6-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.4-7 10-7 10Z"/><circle cx="10" cy="10" r=".9"/><circle cx="14" cy="10" r=".9"/><circle cx="12" cy="13" r=".9"/>',
+  bail: '<path d="M9 14V7a3 3 0 0 1 6 0v7"/><path d="M8 14h8l-4 6Z"/>',
+  bead: '<circle cx="12" cy="12" r="7"/><path d="M12 5v14"/>',
+  rope: '<circle cx="12" cy="12" r="7.5"/><path d="M6 8c2 1 2 3 4 3M14 6c1 2 3 2 4 3M17 15c-2 0-2 2-4 3M7 16c1-1 3-1 3-3"/>',
+  sprue: '<path d="M12 3v11"/><path d="M8 20h8l-2-6h-4Z"/><circle cx="12" cy="3" r="1.5"/>',
 };
+const RING_TYPES = ['band', 'solitaire', 'halo', 'eternity', 'signet', 'advanced', 'cathedral', 'trilogy', 'pave', 'rope'];
 const svg = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`);
 
 const OPT_CHOICES = {
@@ -75,7 +92,7 @@ export async function studioPage(root) {
   const vp = $('#vp', root);
   const panel = $('#panel', root);
 
-  const [{ createStage, ENVS, BACKDROPS, T }, J, Mt, { FONTS }] = await Promise.all([import('../three/stage.mjs'), import('../three/jewelry.mjs'), import('../three/materials.mjs'), import('../three/text.mjs')]);
+  const [{ createStage, ENVS, BACKDROPS, T }, J, Mt, { FONTS }] = await Promise.all([import('../three/stage.mjs'), import('../three/jewelcad.mjs'), import('../three/materials.mjs'), import('../three/text.mjs')]);
   const stage = createStage(vp, { env: 'studio', backdrop: 'vault' });
   if (!stage) return;
   const { scene, camera, controls } = stage;
@@ -298,7 +315,7 @@ export async function studioPage(root) {
     const rows = [];
     if (!J.PIECES[p.type].noMetal) {
       rows.push(['وزن فلز این قطعه', `${fmt(m.grams, 3)} گرم`], ['حجم فلز', `${fmt(m.vol, 1)} mm³`], ['مساحت سطح (برای آبکاری)', `${fmt(m.area / 100, 2)} cm²`], ['وزن موم ریخته‌گری', `${fmt((m.vol / 1000) * WAX_DENSITY, 3)} گرم`], ['وزن رزین چاپ سه‌بعدی', `${fmt((m.vol / 1000) * RESIN_DENSITY, 3)} گرم`], ['فلز لازم برای ذوب (با راهگاه)', `${fmt(m.grams * SPRUE_FACTOR, 2)} گرم`]);
-      if (p.params.size && ['band', 'solitaire', 'halo', 'eternity', 'signet'].includes(p.type)) {
+      if (p.params.size && RING_TYPES.includes(p.type)) {
         const r = ringFromCircumference(p.params.size * p.scale);
         rows.push(['قطر داخلی / سایز آمریکا', `${fmt(r.diameter, 2)} mm / ${fmt(Math.round(r.us * 4) / 4, 2)}`]);
       }
@@ -313,13 +330,15 @@ export async function studioPage(root) {
   /* ---------------- panel ---------------- */
   const choiceList = (key, p) => {
     if (key === 'style') return p.type === 'chain' ? [['cable', 'کابلی (رولو)'], ['curb', 'کارتیه (کورب)'], ['figaro', 'فیگارو'], ['box', 'ونیزی (باکس)']] : [['prong', 'دانه‌ای'], ['channel', 'ریلی']];
-    if (key === 'shape') return p.type === 'relief' ? [['disc', 'گرد'], ['rect', 'چهارگوش']] : J.PENDANT_SHAPES;
+    if (key === 'shape') return p.type === 'relief' ? [['disc', 'گرد'], ['rect', 'چهارگوش']] : p.type === 'pavePlate' ? J.PLATE_SHAPES : J.PENDANT_SHAPES;
+    if (key === 'setting') return J.SETTINGS;
+    if (key === 'layout') return [['honeycomb', 'لانه‌زنبوری'], ['grid', 'ردیفی']];
     if (key === 'profile') return J.PROFILES;
     if (key === 'cut') return J.CUTS;
     if (key === 'font') return FONTS.map(([f, l]) => [f, l]);
     return OPT_CHOICES[key];
   };
-  const OPT_LABEL = { profile: 'مقطع رکاب', cut: 'تراش سنگ', setting: 'نوع نشاندن', style: 'بافت', shape: 'فرم', face: 'فرم صفحه', design: 'نقش', font: 'قلم' };
+  const OPT_LABEL = { layout: 'چیدمان سنگ', profile: 'مقطع رکاب', cut: 'تراش سنگ', setting: 'نوع نشاندن', style: 'بافت', shape: 'فرم', face: 'فرم صفحه', design: 'نقش', font: 'قلم' };
 
   function renderPanel() {
     const p = cur();
@@ -343,7 +362,9 @@ export async function studioPage(root) {
       <div class="grp">
         <h3><span>ابعاد (میلی‌متر)</span></h3>
         ${Object.entries(def.params).map(([k, [, min, max, step, label]]) => html`<label class="param"><span class="lbl"><span>${label}</span><b data-out="${k}">${fa(p.params[k])}</b></span><input type="range" min="${min}" max="${max}" step="${step}" value="${p.params[k]}" data-param="${k}"></label>`)}
-        ${Object.keys(def.opts).filter((k) => !['gem', 'gem2', 'text', 'line1', 'line2', 'image', 'mirror', 'invert'].includes(k)).map((k) => html`<div style="margin-top:12px"><div class="small" style="margin-bottom:6px">${OPT_LABEL[k] ?? k}</div><div class="chips">${(choiceList(k, p) ?? []).map(([v, l]) => html`<button class="chip" data-opt="${k}" data-val="${v}" aria-pressed="${p.opts[k] === v}">${l}</button>`)}</div></div>`)}
+        ${RING_TYPES.includes(p.type) ? html`<label class="param"><span class="lbl"><span>سایز آمریکا (US)</span><b>${fa(J.ringSize.fromISO(p.params.size).us.toFixed(2))} · قطر ${fa(J.ringSize.fromISO(p.params.size).diameter.toFixed(2))}mm</b></span><input class="input ltr" type="number" step="0.25" min="0" max="16" value="${(Math.round(J.ringSize.fromISO(p.params.size).us * 4) / 4).toFixed(2)}" data-us aria-label="سایز آمریکا"></label>` : ''}
+        ${'milgrain' in def.opts ? html`<label class="small" style="display:flex;gap:8px;margin-top:10px"><input type="checkbox" data-bool="milgrain" ${p.opts.milgrain ? 'checked' : ''}> میل‌گرین (ردیف دانه) روی دو لبه</label>` : ''}
+        ${Object.keys(def.opts).filter((k) => !['gem', 'gem2', 'text', 'line1', 'line2', 'image', 'mirror', 'invert', 'milgrain'].includes(k)).map((k) => html`<div style="margin-top:12px"><div class="small" style="margin-bottom:6px">${OPT_LABEL[k] ?? k}</div><div class="chips">${(choiceList(k, p) ?? []).map(([v, l]) => html`<button class="chip" data-opt="${k}" data-val="${v}" aria-pressed="${p.opts[k] === v}">${l}</button>`)}</div></div>`)}
         ${['text', 'line1', 'line2'].filter((k) => k in def.opts).map((k) => html`<label class="field" style="margin-top:12px">${k === 'text' ? (p.type === 'name' ? 'نام' : 'نوشته / حرف') : k === 'line1' ? 'سطر اول' : 'سطر دوم'}<input class="input" data-text="${k}" value="${p.opts[k] ?? ''}" maxlength="40"></label>`)}
         ${'mirror' in def.opts ? html`<label class="small" style="display:flex;gap:8px;margin-top:10px"><input type="checkbox" data-bool="mirror" ${p.opts.mirror ? 'checked' : ''}> نقش معکوس (برای مهر زدن روی لاک/موم)</label>` : ''}
         ${'image' in def.opts ? html`<div style="margin-top:12px;display:grid;gap:8px"><label class="btn small ghost" style="cursor:pointer">بارگذاری تصویر / لوگو<input type="file" accept="image/*" data-image hidden></label>${'invert' in def.opts ? html`<label class="small" style="display:flex;gap:8px"><input type="checkbox" data-bool="invert" ${p.opts.invert ? 'checked' : ''}> وارونه (تیره = برجسته)</label>` : ''}<span class="small">روشنی هر نقطه تصویر = ارتفاع نقش. تصاویر پرکنتراست بهترین نتیجه را می‌دهند.</span></div>` : ''}
@@ -363,6 +384,18 @@ export async function studioPage(root) {
         ${'gem2' in def.opts ? html`<div class="small" style="margin:12px 0 6px">سنگ‌های هاله</div><div class="chips">${gemKinds.map(([k, g]) => html`<button class="chip" data-gem2="${k}" aria-pressed="${k === p.gem2}"><i style="background:#${new T.Color(g.color).getHexString()}"></i>${g.label}</button>`)}</div>` : ''}
       </div>`
         : ''}
+      <div class="grp" id="cadTools">
+        <h3><span>ابزارهای ساخت</span></h3>
+        <div class="small cad-k">تبدیل</div>
+        <div class="chips"><button class="chip" data-act="dup">تکثیر</button><button class="chip" data-act="pair">جفت قرینه (گوشواره)</button><button class="chip" data-act="polar">آرایه دایره‌ای</button><button class="chip" data-act="linear">آرایه خطی</button></div>
+        <div class="cad-row"><label class="field xs">تعداد<input class="input ltr" id="cadN" type="number" min="2" max="12" value="6"></label><label class="field xs">شعاع / فاصله (mm)<input class="input ltr" id="cadD" type="number" min="1" max="200" step="0.5" value="18"></label></div>
+        <div class="small cad-k">تحلیل</div>
+        <div class="chips"><button class="chip" data-act="thick">ضخامت دیواره</button><button class="chip" data-act="coll">برخورد سنگ‌ها</button><button class="chip" data-act="clearmk">پاک کردن نشانه‌ها</button></div>
+        <div class="small cad-k">ساخت و ریخته‌گری</div>
+        <div class="chips"><button class="chip" data-act="sprue">افزودن راهگاه زیر قطعه</button><button class="chip" data-act="report">گزارش فلز و سنگ</button></div>
+        <label class="field xs" style="margin-top:8px">جبران انقباض در STL/OBJ (٪)<input class="input ltr" id="cadShrink" type="number" min="0" max="5" step="0.1" value="${S.shrink ?? 0}"></label>
+        <p class="small" id="cadOut" aria-live="polite"></p>
+      </div>
       <div class="grp">
         <h3><span>اندازه‌گیری و محاسبه</span></h3>
         <div id="measure"></div>
@@ -421,6 +454,15 @@ export async function studioPage(root) {
       S.scene.exposure = Number(t.value);
       panel.querySelector('[data-out="exposure"]').textContent = fa(t.value);
       stage.setExposure(S.scene.exposure);
+    } else if (t.matches('[data-us]') && p && t.value !== '') {
+      const iso = J.ringSize.fromUS(Number(t.value)).iso;
+      const [, lo, hi] = J.PIECES[p.type].params.size;
+      p.params.size = Math.round(Math.min(hi, Math.max(lo, iso)) * 2) / 2;
+      const r = panel.querySelector('[data-param="size"]');
+      if (r) (r.value = p.params.size), (panel.querySelector('[data-out="size"]').textContent = fa(p.params.size));
+      schedule(p);
+    } else if (t.id === 'cadShrink') {
+      S.shrink = Math.min(5, Math.max(0, Number(t.value) || 0));
     } else if (t.dataset.text && p) {
       p.opts[t.dataset.text] = t.value;
       clearTimeout(textTimer);
@@ -573,6 +615,7 @@ export async function studioPage(root) {
     else if (act === 'card') specCardDialog();
     else if (act === 'publish') publishDialog();
     else if (act === 'gallery') galleryDialog();
+    else if (['dup', 'pair', 'polar', 'linear', 'thick', 'coll', 'clearmk', 'sprue', 'report'].includes(act)) cadTool(act);
     else if (act === 'save') download(new Blob([snapshotState()], { type: 'application/json' }), `beatris-project-${Date.now()}.json`);
   }
 
@@ -605,6 +648,121 @@ export async function studioPage(root) {
     else if (k === 'escape' && gizmo) setGizmo(gizmo); else if (k === 'f') stage.frame();
   };
   addEventListener('keydown', onKey);
+
+  /* ---------------- ابزارهای ساخت (spec 0007): transforms, analysis, sprue, report ---------------- */
+  const markers = new T.Group();
+  scene.add(markers);
+  const clearMarkers = () => {
+    markers.children.slice().forEach((m) => (markers.remove(m), m.geometry.dispose()));
+    stage.invalidate();
+  };
+  const mark = (pts, color, r = 0.35) => {
+    const mat = new T.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.85 });
+    for (const at of pts) {
+      const m = new T.Mesh(new T.SphereGeometry(r, 12, 8), mat);
+      m.position.copy(at);
+      m.renderOrder = 10;
+      markers.add(m);
+    }
+    stage.invalidate();
+  };
+  const cadOut = (txt) => {
+    const o = $('#cadOut', panel);
+    if (o) o.textContent = txt;
+  };
+  const num = (id, lo, hi, d) => Math.min(hi, Math.max(lo, Number($(`#${id}`, panel)?.value) || d));
+  async function addParts(list) {
+    for (const np of list) {
+      if (S.parts.length >= 24) {
+        toast('حداکثر ۲۴ قطعه در صحنه.', 'error');
+        break;
+      }
+      S.parts.push(np);
+      await rebuild(np);
+    }
+    stage.ground();
+    stage.frame();
+    renderPanel();
+    pushHistory();
+  }
+  const copyOf = (p, patch) => ({ ...JSON.parse(JSON.stringify(p)), id: uid++, ...patch });
+  async function cadTool(act) {
+    const p = cur();
+    const o = p && objs.get(p.id);
+    if (act === 'clearmk') return clearMarkers(), cadOut('');
+    if (act === 'report') return reportDialog();
+    if (act === 'coll') {
+      clearMarkers();
+      const stones = [];
+      stage.root.updateMatrixWorld(true);
+      stage.root.traverse((m) => m.isMesh && m.userData.role === 'gem' && stones.push(...J.stonesOf(m)));
+      const hits = J.collisions(stones);
+      mark(hits.map((h) => h.at), 0xff3b30, 0.4);
+      return cadOut(hits.length ? `${fa(hits.length)} برخورد بین سنگ‌ها (نقطه‌های قرمز)؛ بیشترین هم‌پوشانی ${fmt(Math.max(...hits.map((h) => h.overlap)), 2)} mm.` : `${fa(stones.length)} سنگ وارسی شد؛ هیچ دو سنگی روی هم نمی‌افتند.`);
+    }
+    if (!p || !o) return toast('اول یک قطعه انتخاب کنید.', 'error');
+    if (act === 'thick') {
+      clearMarkers();
+      let min = Infinity, p5 = Infinity, thin = [];
+      o.group.traverse((m) => {
+        if (!m.isMesh || m.userData.role !== 'metal') return;
+        const r = J.thickness(m, { limit: 0.6 });
+        if (r.min != null) (min = Math.min(min, r.min)), (p5 = Math.min(p5, r.p5));
+        thin = thin.concat(r.thin);
+      });
+      mark(thin.slice(0, 400).map((t) => t.at), 0xff3b30, 0.18);
+      return cadOut(Number.isFinite(min) ? `کمترین ضخامت ${fmt(min, 2)} mm · ۵٪ نازک‌ترین ${fmt(p5, 2)} mm. ${thin.length ? `${fa(thin.length)} نقطه زیر ۰٫۶ mm (قرمز) برای ریخته‌گری ضعیف است.` : 'هیچ نقطه‌ای زیر ۰٫۶ mm نیست.'}` : 'برای این قطعه ضخامت سنجیده نشد.');
+    }
+    const box = new T.Box3().setFromObject(o.group);
+    const size = box.getSize(new T.Vector3());
+    if (act === 'dup') return addParts([copyOf(p, { pos: [p.pos[0] + size.x + 4, p.pos[1], p.pos[2]] })]);
+    if (act === 'pair') {
+      const off = Math.max(Math.abs(p.pos[0]), size.x / 2 + 3);
+      p.pos = [-off, p.pos[1], p.pos[2]];
+      objs.get(p.id).group.position.fromArray(p.pos);
+      return addParts([copyOf(p, { pos: [off, p.pos[1], p.pos[2]], rot: [p.rot[0], -p.rot[1], -p.rot[2]] })]);
+    }
+    const n = Math.round(num('cadN', 2, 12, 6)), d = num('cadD', 1, 200, 18);
+    if (act === 'linear') return addParts(Array.from({ length: n - 1 }, (_, i) => copyOf(p, { pos: [p.pos[0] + d * (i + 1), p.pos[1], p.pos[2]] })));
+    if (act === 'polar') {
+      p.pos = [d, p.pos[1], 0];
+      objs.get(p.id).group.position.fromArray(p.pos);
+      return addParts(Array.from({ length: n - 1 }, (_, i) => {
+        const a = ((i + 1) / n) * Math.PI * 2;
+        return copyOf(p, { pos: [d * Math.cos(a), p.pos[1], -d * Math.sin(a)], rot: [p.rot[0], p.rot[1] + a, p.rot[2]] });
+      }));
+    }
+    if (act === 'sprue') {
+      const np = newPart('sprue', { alloy: p.alloy, pos: [+(box.min.x + size.x / 2).toFixed(3), +(box.min.y + 0.4).toFixed(3), +(box.min.z + size.z / 2).toFixed(3)] });
+      await addParts([np]);
+      return cadOut('راهگاه به پایین‌ترین نقطه قطعه وصل شد؛ وزن آن جدا در گزارش می‌آید.');
+    }
+  }
+  function reportDialog() {
+    const rows = [], gemRows = [];
+    for (const p of S.parts) {
+      const m = metricsFor(p);
+      if (!m) continue;
+      if (!J.PIECES[p.type].noMetal) rows.push([J.PIECES[p.type].label, m.a.label, m.grams, m.vol]);
+      for (const g of m.gems) gemRows.push([Mt.GEMS[g.kind]?.label ?? g.kind, J.CUTS.find(([c]) => c === g.cut)?.[1] ?? g.cut ?? '', g.size ?? '', g.count, g.each, g.ct]);
+    }
+    const t = totals();
+    const csv = [['بخش', 'شرح', 'آلیاژ/تراش', 'اندازه mm', 'تعداد', 'وزن (گرم/قیراط)'], ...rows.map((r) => ['فلز', r[0], r[1], '', 1, r[2].toFixed(3)]), ...gemRows.map((r) => ['سنگ', r[0], r[1], r[2], r[3], r[5].toFixed(3)]), ['جمع', '', '', '', '', `${t.grams.toFixed(3)} گرم · ${t.ct.toFixed(3)} قیراط`]].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    modal(
+      String(html`<div class="printable"><h3 class="bk-h">گزارش فنی قطعه</h3>
+        <table class="table-plain"><thead><tr><th>قطعه</th><th>آلیاژ</th><th class="num">وزن (گرم)</th><th class="num">حجم (mm³)</th></tr></thead><tbody>${rows.map((r) => html`<tr><td>${r[0]}</td><td>${r[1]}</td><td class="num">${fa(r[2].toFixed(3))}</td><td class="num">${fa(r[3].toFixed(1))}</td></tr>`)}</tbody></table>
+        ${gemRows.length ? html`<table class="table-plain" style="margin-top:12px"><thead><tr><th>سنگ</th><th>تراش</th><th class="num">اندازه (mm)</th><th class="num">تعداد</th><th class="num">هر عدد (ct)</th><th class="num">جمع (ct)</th></tr></thead><tbody>${gemRows.map((r) => html`<tr><td>${r[0]}</td><td>${r[1]}</td><td class="num">${fa(String(r[2]))}</td><td class="num">${fa(r[3])}</td><td class="num">${fa(r[4].toFixed(3))}</td><td class="num">${fa(r[5].toFixed(3))}</td></tr>`)}</tbody></table>` : ''}
+        <p><b>جمع:</b> ${fa(t.grams.toFixed(3))} گرم فلز${t.ct ? ` · ${fa(t.ct.toFixed(3))} قیراط سنگ` : ''} · فلز لازم برای ذوب با راهگاه ≈ ${fa((t.grams * SPRUE_FACTOR).toFixed(2))} گرم</p></div>
+        <div class="actions"><button class="btn small" data-rp="csv">CSV (اکسل)</button><button class="btn small ghost" data-rp="print">چاپ</button><button class="btn small ghost" data-rp="close">بستن</button></div>`),
+      (m, close) =>
+        m.addEventListener('click', (e) => {
+          const a = e.target.closest('[data-rp]')?.dataset.rp;
+          if (a === 'csv') download(new Blob(['\ufeff' + csv], { type: 'text/csv' }), `beatris-report-${Date.now()}.csv`);
+          else if (a === 'print') window.print();
+          else if (a === 'close') close();
+        }),
+    );
+  }
 
   /* ---------------- dialogs ---------------- */
   function modal(inner, wire) {
@@ -693,6 +851,7 @@ export async function studioPage(root) {
       if (metalOnly && o.userData.role === 'gem') return;
       const geo = o.geometry.clone().applyMatrix4(o.matrixWorld);
       if (meters) geo.scale(0.001, 0.001, 0.001);
+      else if (S.shrink) geo.scale(1 + S.shrink / 100, 1 + S.shrink / 100, 1 + S.shrink / 100); // casting shrinkage allowance
       const mesh = new T.Mesh(geo, o.material);
       mesh.name = `${o.userData.role}-${o.parent?.userData.partId ?? ''}`;
       g.add(mesh);

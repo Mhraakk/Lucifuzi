@@ -79,6 +79,10 @@
 - `public/js/deskproducts.mjs`: جستجو، ساخت/ویرایش/حذف و قالب‌ساز محصول در میز؛ داده از `/api/books/products` (فیلد `group`).
 - `scripts/compare-video.mjs`: ویدیوی مقایسه با نسخه پایه مارکیز (فقط منابع عمومی؛ «ذکر نشده» به‌جای «ندارد»).
 
+## استودیو جواهرسازی (spec `docs/specs/0007-jewel-cad.md`)
+- `public/js/three/jewelcad.mjs` روی `jewelry.mjs`: قطعه‌های تازه (کتدرال، سه‌نگین، رکاب پیشرفته، پاوه رکابی/سطحی، آویزگیر، مهره، طنابی، راهگاه، میل‌گرین)، تحلیل (`thickness` جزء‌به‌جزء، `stonesOf`/`collisions`، `ringSize`). `jewelry.mjs`: تراش‌های باگت/کابوشن/مروارید، ۱۰ نوع نشاندن (`SETTINGS`)، `pipeVar` (لوله با مقطع متغیر).
+- `pages/studio3d.mjs`: گروه «ابزارهای ساخت» (تکثیر، جفت، آرایه دایره‌ای/خطی، ضخامت، برخورد، راهگاه، گزارش CSV، جبران انقباض در STL).
+
 ## استقرار (Railway — سرور دائمی، نه serverless)
 - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.

@@ -243,6 +243,9 @@ export const CUTS = [
   ['princess', 'پرنسس'],
   ['emerald', 'زمردی (پله‌ای)'],
   ['heart', 'قلب'],
+  ['baguette', 'باگت'],
+  ['cabochon', 'کابوشن'],
+  ['pearl', 'مروارید'],
 ];
 
 /** Outline radius function r(θ) for a unit-width stone, and its length/width ratio. */
@@ -370,8 +373,8 @@ function brilliantGeo(size, cut = 'round', ratio = 1.4) {
 }
 
 /** Step (emerald) cut: octagonal rectangle with 3 crown and 3 pavilion steps. */
-function emeraldGeo(size, ratio = 1.4) {
-  const W = size / 2, L = (size * ratio) / 2, cc = 0.26;
+function emeraldGeo(size, ratio = 1.4, cc = 0.26) {
+  const W = size / 2, L = (size * ratio) / 2;
   const octa = (sx, sy, z) => {
     const c = Math.min(sx, sy) * cc * 2;
     const pts = [[sx, sy - c], [sx - c, sy], [-sx + c, sy], [-sx, sy - c], [-sx, -sy + c], [-sx + c, -sy], [sx - c, -sy], [sx, -sy + c]];
@@ -407,7 +410,35 @@ function emeraldGeo(size, ratio = 1.4) {
   return { geo: g, top: 0.3 * W, bottom: -1.05 * W, outline: (a) => (of.r(a) * size) / 2 };
 }
 
+/** Cabochon: a smooth dome over an oval girdle with a shallow flat base (table up, girdle at y = 0). */
+function cabochonGeo(size, ratio = 1.3) {
+  const W = size / 2, L = (size * ratio) / 2, H = W * 0.75, B = W * 0.18;
+  // lathe profile in units of W: flat base → rim → dome to the top (axis = Y)
+  const prof = [new T.Vector2(0.001, -B / W), new T.Vector2(1, (-B / W) * 0.4), new T.Vector2(1, 0)];
+  for (let i = 1; i <= 28; i++) {
+    const t = (i / 28) * (Math.PI / 2);
+    prof.push(new T.Vector2(Math.max(0.001, Math.cos(t)), (H / W) * Math.sin(t)));
+  }
+  const g = new T.LatheGeometry(prof, 96);
+  g.scale(W, W, L);
+  const ng = g.toNonIndexed();
+  orient(ng);
+  ng.computeVertexNormals();
+  return { geo: ng, top: H, bottom: -B, outline: (a) => 1 / Math.hypot(Math.cos(a) / W, Math.sin(a) / L) };
+}
+/** Pearl: a sphere; it sits on a cup and peg rather than in prongs. */
+function pearlGeo(size) {
+  const r = size / 2;
+  const g = new T.SphereGeometry(r, 48, 32).toNonIndexed();
+  g.translate(0, r * 0.25, 0); // girdle reference a quarter below the centre: the cup holds the lower part
+  orient(g);
+  g.computeVertexNormals();
+  return { geo: g, top: r * 1.25, bottom: -r * 0.75, outline: () => r * 0.97 };
+}
 export function gemGeo(cut, size, ratio) {
+  if (cut === 'cabochon') return cabochonGeo(size, ratio ?? 1.3);
+  if (cut === 'pearl') return pearlGeo(size);
+  if (cut === 'baguette') return emeraldGeo(size, ratio ?? 2.5, 0.02);
   const r = cut === 'emerald' ? emeraldGeo(size, ratio ?? 1.4) : brilliantGeo(size, cut, ratio ?? (cut === 'marquise' ? 2 : cut === 'pear' ? 1.5 : cut === 'oval' ? 1.35 : 1.1));
   return r;
 }
@@ -439,6 +470,20 @@ function tubeAlong(points, r, closed = false, seg = 48, radial = 14) {
   const curve = new T.CatmullRomCurve3(points, closed, 'centripetal');
   const g = new T.TubeGeometry(curve, seg, r, radial, closed);
   return g;
+}
+/** Pipe with a varying elliptical section [rNormal, rBinormal](t) along a smooth curve (flat petals, arches, wires). */
+export function pipeVar(points, radii, { closed = false, seg = 64, radial = 16 } = {}) {
+  const curve = new T.CatmullRomCurve3(points, closed, 'centripetal');
+  const fr = curve.computeFrenetFrames(seg, closed);
+  const frames = [];
+  const n = closed ? seg : seg + 1;
+  for (let i = 0; i < n; i++) frames.push({ p: curve.getPointAt(i / seg), n: fr.normals[i % (closed ? seg : seg + 1)] ?? fr.normals[fr.normals.length - 1], b: fr.binormals[i % (closed ? seg : seg + 1)] ?? fr.binormals[fr.binormals.length - 1] });
+  return sweep(frames, (t) => {
+    const [ru, rv] = radii(t);
+    const out = [];
+    for (let j = 0; j < radial; j++) out.push([ru * Math.cos((j / radial) * TAU), rv * Math.sin((j / radial) * TAU)]);
+    return out;
+  }, { closed });
 }
 function sphere(r, p) {
   const g = new T.SphereGeometry(r, 24, 16);
@@ -476,8 +521,70 @@ function head(stone, { yg, baseY, setting = 'prong4', prongR = 0.55, stoneSize }
     geos.push(sweep(frames, () => prof, { closed: true }));
     return geos;
   }
-  const N = setting === 'prong6' ? 6 : 4;
+  if (setting === 'martini' || setting === 'peg') {
+    // martini: a conical cup flaring from the base to just under the girdle, with four short prongs;
+    // peg (pearl): a small cup and a post the drilled pearl is glued onto
+    const sx = stone.outline(0), sz = stone.outline(Math.PI / 2);
+    const rTop = setting === 'peg' ? Math.min(sx, sz) * 0.55 : 0.95, rBot = setting === 'peg' ? rTop * 0.6 : Math.min(0.42, 1.4 / Math.max(sx, sz));
+    const wall = setting === 'peg' ? 0.45 : Math.max(0.45, stoneSize * 0.07);
+    const yTop = setting === 'peg' ? yg - 0.1 : yg - 0.15, y0 = baseY;
+    const pr = [[rBot * (setting === 'peg' ? 1 : sx), y0], [rTop * (setting === 'peg' ? 1 : sx), yTop]];
+    const prof = [new T.Vector2(pr[0][0], y0), new T.Vector2(pr[1][0] + 0.01, yTop), new T.Vector2(pr[1][0] - wall, yTop), new T.Vector2(Math.max(0.05, pr[0][0] - wall), y0 + wall), new T.Vector2(Math.max(0.05, pr[0][0] - wall), y0)];
+    const cup = new T.LatheGeometry([...prof, prof[0].clone()], 64);
+    if (setting !== 'peg') cup.scale(1, 1, sz / sx);
+    geos.push(cup.toNonIndexed());
+    if (setting === 'peg') {
+      const post = new T.CylinderGeometry(0.45, 0.45, (yg + stone.top * 0.4) - yTop, 16);
+      post.translate(0, (yTop + yg + stone.top * 0.4) / 2, 0);
+      geos.push(post);
+      return geos;
+    }
+    for (let k = 0; k < 4; k++) {
+      const a = ((k + 0.5) / 4) * TAU;
+      const R = stone.outline(a);
+      const dir = (r, y) => V3(r * Math.cos(a), y, -r * Math.sin(a));
+      geos.push(tubeAlong([dir(R * 0.92, yTop - 0.4), dir(R + prongR * 0.45, yg + 0.05), dir(R * 0.96, yg + (crownTop - yg) * 0.55)], prongR, false, 24, 12));
+      geos.push(sphere(prongR * 1.12, dir(R * 0.96, yg + (crownTop - yg) * 0.55)));
+    }
+    return geos;
+  }
+  if (setting === 'tulip') {
+    // five petals: wide flat leaves that hug the pavilion and close over the girdle like a tulip
+    const P = 5;
+    for (let k = 0; k < P; k++) {
+      const a = ((k + 0.5) / P) * TAU;
+      const R = stone.outline(a);
+      const dir = (r, y) => V3(r * Math.cos(a), y, -r * Math.sin(a));
+      const pts = [dir(Math.min(R * 0.4, 1.4), baseY - 0.2), dir(R * 0.62, (pav + baseY) / 2), dir(R * 0.98, yg - (yg - pav) * 0.15), dir(R * 0.9, yg + (crownTop - yg) * 0.45)];
+      geos.push(pipeVar(pts, (t) => [prongR * 0.7, prongR * (0.8 + 2.2 * Math.sin(Math.PI * Math.min(1, t * 1.1)))]));
+    }
+    return geos;
+  }
+  const N = setting === 'prong6' ? 6 : setting === 'prong3' ? 3 : setting === 'prong8' ? 8 : 4;
+  const crossing = setting === 'trellis';
   for (let k = 0; k < N; k++) {
+    if (crossing) {
+      // trellis: each prong leaves the base at one angle and reaches the stone a quarter-turn later; neighbours cross
+      const a0 = ((k + 0.5) / N) * TAU - TAU / N / 2, a1 = ((k + 0.5) / N) * TAU + TAU / N / 2;
+      const R1 = stone.outline(a1);
+      const pt = (a, r, y) => V3(r * Math.cos(a), y, -r * Math.sin(a));
+      const pts = [pt(a0, Math.min(stone.outline(a0) * 0.5, 1.8), baseY - 0.3), pt((a0 + a1) / 2, stone.outline((a0 + a1) / 2) * 0.62, (pav + baseY) / 2), pt(a1, R1 * 0.93 + prongR * 0.4, yg - (yg - pav) * 0.25), pt(a1, R1 + prongR * 0.45, yg + 0.05), pt(a1, R1 * 0.96, yg + (crownTop - yg) * 0.55)];
+      geos.push(tubeAlong(pts, prongR, false, 48, 12));
+      geos.push(sphere(prongR * 1.12, pts[pts.length - 1]));
+      continue;
+    }
+    if (setting === 'prong8' && k % 2) continue; // double claws: two thin prongs either side of each of four stations
+    if (setting === 'prong8') {
+      for (const off of [-0.11, 0.11]) {
+        const a = ((k / 2 + 0.5) / 4) * TAU + off;
+        const R = stone.outline(a);
+        const dir = (r, y) => V3(r * Math.cos(a), y, -r * Math.sin(a));
+        const pts = [dir(Math.min(R * 0.45, 1.6), baseY - 0.3), dir(R * 0.55, (pav + baseY) / 2), dir(R * 0.92 + prongR * 0.3, yg - (yg - pav) * 0.25), dir(R + prongR * 0.35, yg + 0.05), dir(R * 0.97, yg + (crownTop - yg) * 0.5)];
+        geos.push(tubeAlong(pts, prongR * 0.78, false, 40, 12));
+        geos.push(sphere(prongR * 0.86, pts[pts.length - 1]));
+      }
+      continue;
+    }
     const a = ((k + 0.5) / N) * TAU;
     const R = stone.outline(a);
     const dir = (r, y) => V3(r * Math.cos(a), y, -r * Math.sin(a));
@@ -496,7 +603,8 @@ function head(stone, { yg, baseY, setting = 'prong4', prongR = 0.55, stoneSize }
     geos.push(sweep(frames, () => prof, { closed: true }));
   };
   rail(yg - (yg - pav) * 0.28, 0.86);
-  if (stoneSize > 5) rail(pav + (yg - pav) * 0.2, 0.5);
+  if (stoneSize > 5 || setting === 'basket') rail(pav + (yg - pav) * 0.2, 0.5);
+  if (setting === 'basket') rail(pav + (yg - pav) * 0.55, 0.7);
   return geos;
 }
 
@@ -513,6 +621,20 @@ function shank({ size, width, thickness, prof = 'comfort', taperW = 1, taperT = 
     return profile(prof, width * taperFn(a, taperW), thickness * taperFn(a, taperT));
   }, { closed: a1 === undefined });
 }
+
+export const SETTINGS = [
+  ['prong4', 'چهار پنجه'],
+  ['prong6', 'شش پنجه'],
+  ['prong3', 'سه پنجه'],
+  ['prong8', 'پنجه جفتی (۸)'],
+  ['basket', 'سبدی'],
+  ['tulip', 'لاله'],
+  ['trellis', 'تریلیس (ضربدری)'],
+  ['martini', 'مارتینی'],
+  ['bezel', 'قاب دور (بِزل)'],
+  ['peg', 'میخ مروارید'],
+];
+export { sweep, circleFrames, outlineFrames, outlinePts, profile as profileOf, M as meshOf, merge as mergeGeos, head as headOf, shank as shankOf, ringR, sphere as sphereAt, tubeAlong, orient };
 
 export const PIECES = {
   band: {

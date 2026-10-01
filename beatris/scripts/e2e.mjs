@@ -211,7 +211,7 @@ async function loginUI(page) {
     await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
     await go(page, '/studio', 7000);
     const types = await page.$$eval('.piece-grid [data-type]', (b) => b.map((x) => x.dataset.type));
-    check('studio: 15 piece types offered', types.length === 15, String(types.length));
+    check('studio: 24 piece types offered (with the jewel CAD set)', types.length === 24, String(types.length));
     for (const t of types) {
       await page.click(`.piece-grid [data-type="${t}"]`);
       await page.waitForTimeout(t === 'chain' || t === 'relief' || t === 'coin' ? 5000 : 2600);
@@ -1052,6 +1052,64 @@ async function loginUI(page) {
     check('control: twin numbers explain themselves', (await text(page, '.xp-s')).length > 10);
     await page.keyboard.press('Escape');
   });
+  await step('jewel cad: every piece × setting is a closed solid, pavé without overlaps, thickness, sizes, tools, report', async () => {
+    await go(page, '/studio', 2500);
+    const r = await page.evaluate(async () => {
+      const J = await import('/js/three/jewelcad.mjs');
+      const bad = [], counts = {};
+      for (const [k, def] of Object.entries(J.PIECES)) {
+        const params = Object.fromEntries(Object.entries(def.params).map(([a, v]) => [a, v[0]]));
+        for (const st of 'setting' in def.opts ? J.SETTINGS.map(([x]) => x) : [undefined]) {
+          const ms = await def.build({ ...params, ...def.opts, ...(st ? { setting: st } : {}) });
+          const metal = ms.filter((m) => m.userData.role === 'metal').reduce((s, m) => s + J.signedVolume(m.geometry), 0);
+          if (!def.noMetal && !(metal > 0)) bad.push(`${k}:${st} metal ${metal}`);
+          const stones = ms.filter((m) => m.userData.role === 'gem').flatMap((g) => J.stonesOf(g));
+          if (J.collisions(stones).length) bad.push(`${k}:${st} collisions`);
+          counts[k] = stones.length;
+        }
+      }
+      for (const [c] of J.CUTS) if (!(J.signedVolume(J.gemGeo(c, 6).geo) > 0)) bad.push(`cut ${c}`);
+      const band = (await J.PIECES.band.build({ size: 54, width: 4, thickness: 1.8, profile: 'flat' }))[0];
+      const th = J.thickness(band, { samples: 1200 });
+      return { bad, counts, min: th.min, us7: J.ringSize.fromUS(7).iso, n: Object.keys(J.PIECES).length, settings: J.SETTINGS.length, cuts: J.CUTS.length };
+    });
+    check(`jewel cad: ${r.n} pieces, ${r.settings} settings, ${r.cuts} cuts all build closed solids without stone overlaps`, r.bad.length === 0 && r.n >= 24 && r.settings >= 10 && r.cuts >= 11, r.bad.slice(0, 4).join(' | '));
+    check('jewel cad: pavé band and pavé plate place many stones', r.counts.pave >= 20 && r.counts.pavePlate >= 40, JSON.stringify({ pave: r.counts.pave, plate: r.counts.pavePlate }));
+    check('jewel cad: wall thickness of a 1.8 mm band reads 1.8 mm (±10%)', Math.abs(r.min - 1.8) < 0.18, String(r.min));
+    check('jewel cad: US 7 = ISO 54.4 mm', Math.abs(r.us7 - 54.41) < 0.05, String(r.us7));
+    // the UI: pick cathedral, change setting, set size by US, run tools and the report
+    await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
+    await go(page, '/studio', 2500);
+    await page.click('[data-type="cathedral"]');
+    await page.waitForTimeout(1200);
+    await page.click('[data-opt="setting"][data-val="trellis"]');
+    await page.waitForTimeout(800);
+    await page.fill('[data-us]', '8');
+    await page.dispatchEvent('[data-us]', 'input');
+    await page.waitForTimeout(800);
+    const size = await page.$eval('[data-param="size"]', (e) => Number(e.value));
+    check('jewel cad: US size input sets the ISO size', Math.abs(size - 57) < 0.6, String(size));
+    await page.click('[data-act="thick"]');
+    await page.waitForFunction(() => /ضخامت/.test(document.querySelector('#cadOut')?.textContent ?? ''), null, { timeout: 30000 });
+    check('jewel cad: thickness analysis reports a minimum', /کمترین ضخامت/.test(await text(page, '#cadOut')), await text(page, '#cadOut'));
+    await page.click('[data-act="coll"]');
+    await page.waitForTimeout(500);
+    check('jewel cad: stone collision check runs', /سنگ/.test(await text(page, '#cadOut')), await text(page, '#cadOut'));
+    await page.click('[data-act="sprue"]');
+    await page.waitForTimeout(1200);
+    await page.click('[data-act="pair"]');
+    await page.waitForTimeout(1500);
+    check('jewel cad: sprue and pair add parts', (await page.$$('.parts li')).length >= 3, String((await page.$$('.parts li')).length));
+    await page.click('[data-act="report"]');
+    await page.waitForSelector('[data-rp="csv"]');
+    const rep = await text(page, '.modal');
+    check('jewel cad: report lists metal grams and stones', rep.includes('گرم') && rep.includes('الماس'), rep.replace(/\s+/g, ' ').slice(0, 120));
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-rp="csv"]')]);
+    check('jewel cad: report downloads as CSV', dl.suggestedFilename().endsWith('.csv'));
+    await page.click('[data-rp="close"]');
+    await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
+  });
+
   if (!live) await step('desk products: template builder, search, pick, edit, delete', async () => {
     await go(page, '/books/desk', 1500);
     await page.click('[data-kind=coin]');

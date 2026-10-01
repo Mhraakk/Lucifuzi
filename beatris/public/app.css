@@ -3039,3 +3039,6 @@ html[data-theme='day'] .dk-prices > .dk-price, html[data-theme='day'] .dk-prices
 .bk-fold > summary::before { content: '◂'; color: var(--accent); font-size: 14px; transition: transform 0.2s; }
 .bk-fold[open] > summary::before { transform: rotate(-90deg); }
 .bk-fold[open] > summary { margin-bottom: 14px; }
+/* studio CAD tools */
+.studio3d .cad-k { margin: 12px 0 6px; font-weight: 650; }
+.studio3d .cad-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
