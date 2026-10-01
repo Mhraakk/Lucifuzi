@@ -81,9 +81,9 @@ export async function dashboardPage(root) {
 
   root.innerHTML = String(html`<div class="gd">
     <aside class="gd-side" aria-label="ناوبری مدیریت">
-      <a class="gd-brand" href="/books/dashboard" data-link>${raw(crownSvg({ size: 40, ring: false, id: 'gdc', cls: 'crown' }))}<span><b>${shop || 'خانه سکه و شمش'}</b><small>GOLD OS · مدیریت</small></span></a>
-      <nav class="gd-nav">${NAV.map(([k, href, label, ic]) => html`<a href="${href}" data-link ${k === 'dashboard' ? raw('aria-current="page"') : ''}>${ICON[ic]}<span>${label}</span></a>`)}</nav>
-      <nav class="gd-nav gd-nav2">${NAV2.map(([, href, label, ic]) => html`<a href="${href}" data-link>${ICON[ic]}<span>${label}</span></a>`)}</nav>
+      <a class="gd-brand" href="/books/dashboard" data-link aria-label="داشبورد ${shop || 'خانه سکه و شمش'}">${raw(crownSvg({ size: 40, ring: false, id: 'gdc', cls: 'crown' }))}<span><b>${shop || 'خانه سکه و شمش'}</b><small>GOLD OS · مدیریت</small></span></a>
+      <nav class="gd-nav">${NAV.map(([k, href, label, ic]) => html`<a href="${href}" data-link aria-label="${label}" ${k === 'dashboard' ? raw('aria-current="page"') : ''}>${ICON[ic]}<span>${label}</span></a>`)}</nav>
+      <nav class="gd-nav gd-nav2">${NAV2.map(([, href, label, ic]) => html`<a href="${href}" data-link aria-label="${label}">${ICON[ic]}<span>${label}</span></a>`)}</nav>
       <div class="gd-store"><span class="gd-store-mark">${raw(crownSvg({ size: 28, ring: false, id: 'gds', cls: 'crown' }))}</span><div><b>${shop || 'فروشگاه مرکزی'}</b><small>${prefs.settings?.address || 'شعبه اصلی'}</small></div></div>
     </aside>
     <main class="gd-main">

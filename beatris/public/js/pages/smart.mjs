@@ -77,7 +77,7 @@ async function closeTab(box) {
         <div class="scrollx"><table class="table-plain cl-count"><thead><tr><th>قلم</th><th>دفتر</th><th>شمرده‌شده</th><th>اختلاف</th></tr></thead><tbody>
         ${rowsK.map((a) => {
           const last = counts?.lines.find((l) => l.acct === a);
-          return html`<tr data-acct="${a}"><td>${acctName(a, accounts)}</td><td class="num">${qty(a, bk[a] ?? 0)}</td><td><input class="input ltr sm" data-count="${a}" value="${last ? last.counted : ''}" inputmode="decimal">${a === 'gold' && scale ? html`<button class="chip" data-weigh="${a}">از ترازو</button>` : ''}</td><td class="num ${last?.diff ? (last.diff > 0 ? 'pos' : 'neg') : ''}">${last ? (last.diff ? `${last.diff > 0 ? '+' : '−'}${qty(a, Math.abs(last.diff))}` : '✓') : ''}</td></tr>`;
+          return html`<tr data-acct="${a}"><td>${acctName(a, accounts)}</td><td class="num">${qty(a, bk[a] ?? 0)}</td><td><input class="input ltr sm" data-count="${a}" aria-label="شمارش واقعی ${acctName(a, accounts)}" value="${last ? last.counted : ''}" inputmode="decimal">${a === 'gold' && scale ? html`<button class="chip" data-weigh="${a}">از ترازو</button>` : ''}</td><td class="num ${last?.diff ? (last.diff > 0 ? 'pos' : 'neg') : ''}">${last ? (last.diff ? `${last.diff > 0 ? '+' : '−'}${qty(a, Math.abs(last.diff))}` : '✓') : ''}</td></tr>`;
         })}
         </tbody></table></div><div class="actions"><button class="btn small" data-save-count>ثبت شمارش</button>${counts?.lines.some((l) => l.diff) ? html`<a class="btn small ghost" href="/books/products" data-link>سند اصلاح موجودی</a>` : ''}</div>
         ${counts ? html`<p class="small">آخرین شمارش ${timeFa(counts.at)} (${counts.source === 'scale' ? 'با ترازو' : 'دستی'}).</p>` : ''}</section>

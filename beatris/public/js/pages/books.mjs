@@ -6,33 +6,56 @@ import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { invoicePaper, THEMES } from '../invoice.mjs';
 import { T, TU, G, jd, jdLong, jdInput, parseDay, today, addDays, timeFa, modal, confirmBox, statusChip, exportButtons, wireExport, download, balText, balClass, EX, unitName, moneyWords, K, booksPrefs, prefs } from '../bk.mjs';
 
+// one menu for every books page: grouped by what the operator is doing, the same on every screen (a side column on
+// a PC, a fold-out on a phone) so the books feel like one connected place instead of two dozen tabs
 export function booksNav(cur) {
   const admin = store.isAdmin();
   const base = prefs.edition === 'base';
-  const tabs = [
-    ...(admin ? [['dashboard', '/books/dashboard', 'داشبورد مدیریت'], ['control', '/books/control', 'کنترل']] : []),
-    ['pulse', '/books/pulse', 'نبض'],
-    ['desk', '/books/desk', 'میز معامله'],
-    ['day', '/books/day', 'روزنگار'],
-    ['trace', '/books/trace', 'رهگیری'],
-    ['audit', '/books/audit', 'ممیز و تاجیار'],
-    ['smart', '/books/smart', 'ابزارهای هوشمند'],
-    ['elliott', '/books/elliott', 'تحلیل الیوت'],
-    ['memory', '/books/memory', 'حافظه'],
-    ...(base ? [] : [['home', '/books', 'پیشخوان'], ['new', '/books/new/sale', 'فاکتور جدید']]),
-    ['docs', '/books/docs', 'اسناد'],
-    ['parties', '/books/parties', 'مشتریان'],
-    ['vault', '/books/vault', 'گاوصندوق'],
-    ['products', '/books/products', 'محصولات و موجودی'],
-    ['bars', '/books/bars', 'شمش‌ها'],
-    ...(base ? [] : [['stock', '/books/stock', 'انبار و ویترین']]),
-    ['cash', '/books/cash', 'صندوق، بانک، چک'],
-    ...(admin ? [['peers', '/books/peers', 'تطبیق با همکار']] : []),
-    ...(admin ? [['reports', '/books/reports', 'گزارش‌ها'], ['settings', '/books/settings', 'تنظیمات'], ['log', '/books/log', 'رویدادها']] : []),
-    ['help', '/help', 'راهنمای تصویری'],
-  ];
-  return html`<nav class="tabs bk-nav" aria-label="حسابداری">${tabs.map(([k, href, label]) => html`<a href="${href}" data-link ${cur === k ? raw('aria-current="page"') : ''}>${label}</a>`)}</nav>`;
+  const groups = [
+    ['کار روزانه', [
+      ['desk', '/books/desk', 'میز معامله'],
+      ...(base ? [] : [['new', '/books/new/sale', 'فاکتور جدید'], ['home', '/books', 'پیشخوان']]),
+      ['day', '/books/day', 'روزنگار'],
+      ['docs', '/books/docs', 'اسناد'],
+      ['trace', '/books/trace', 'رهگیری'],
+    ]],
+    ['حساب‌ها و موجودی', [
+      ['parties', '/books/parties', 'مشتریان'],
+      ['vault', '/books/vault', 'گاوصندوق'],
+      ['cash', '/books/cash', 'صندوق، بانک، چک'],
+      ['products', '/books/products', 'محصولات و موجودی'],
+      ['bars', '/books/bars', 'شمش‌ها'],
+      ...(base ? [] : [['stock', '/books/stock', 'انبار و ویترین']]),
+    ]],
+    ['مدیریت و کنترل', [
+      ...(admin ? [['dashboard', '/books/dashboard', 'داشبورد مدیریت'], ['control', '/books/control', 'کنترل']] : []),
+      ['pulse', '/books/pulse', 'نبض'],
+      ['audit', '/books/audit', 'ممیز و تاجیار'],
+      ...(admin ? [['reports', '/books/reports', 'گزارش‌ها'], ['peers', '/books/peers', 'تطبیق با همکار']] : []),
+    ]],
+    ['ابزار', [
+      ['smart', '/books/smart', 'ابزارهای هوشمند'],
+      ['elliott', '/books/elliott', 'تحلیل الیوت'],
+      ['memory', '/books/memory', 'حافظه'],
+    ]],
+    ['سامانه', [
+      ...(admin ? [['settings', '/books/settings', 'تنظیمات'], ['log', '/books/log', 'رویدادها']] : []),
+      ['help', '/help', 'راهنمای تصویری'],
+    ]],
+  ].filter(([, items]) => items.length);
+  const here = groups.flatMap(([, items]) => items).find(([k]) => k === cur);
+  return html`<nav class="bk-side bk-nav" aria-label="حسابداری"><button class="bk-side-t" type="button" aria-expanded="false" data-bkside><span>حسابداری</span><b>${here?.[2] ?? 'منو'}</b></button>
+    <div class="bk-side-list">${groups.map(([title, items]) => html`<div class="bk-side-g"><h2>${title}</h2>${items.map(([k, href, label]) => html`<a href="${href}" data-link ${cur === k ? raw('aria-current="page"') : ''}>${label}</a>`)}</div>`)}</div></nav>`;
 }
+// the phone fold-out: one listener for every page that shows the menu
+if (typeof document !== 'undefined')
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-bkside]');
+    if (!t) return;
+    const open = t.getAttribute('aria-expanded') !== 'true';
+    t.setAttribute('aria-expanded', String(open));
+    t.parentElement.classList.toggle('open', open);
+  });
 const QUICK = [
   ['sale', 'فروش', 'کارساخته، سکه، آب‌شده، خدمت؛ با تعویض و پرداخت ترکیبی'],
   ['buy', 'خرید از مشتری', 'طلای مستعمل، آب‌شده و سکه'],

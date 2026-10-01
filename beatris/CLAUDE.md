@@ -14,7 +14,7 @@ Node 22، `node:http` + `node:sqlite`، **بدون وابستگی runtime**؛ SP
 
 ## ممنوع (do not)
 - منطق حسابداری (`public/js/books.mjs`، `trade.mjs`، `server/books.mjs`) را بدون spec و تست تغییر نده؛ سند قطعی حذف نمی‌شود.
-- ظاهر پوسته‌های تیره را عوض نکن؛ تغییر ظاهر روشن فقط زیر `html[data-theme='day']`؛ رنگ فقط با توکن.
+- ظاهر یکدست (spec 0006) برای هر دو پوسته در لایه آخر `app.css`؛ رنگ فقط با توکن؛ صفحه حسابداری با `booksNav`.
 - وابستگی runtime، CDN، کلید یا راز در مخزن؛ شناسه مدل در کد.
 - letter-spacing روی متن فارسی.
 - volume `/data` روی Railway را حذف یا جابه‌جا نکن.
