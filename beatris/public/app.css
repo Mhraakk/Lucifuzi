@@ -2961,3 +2961,81 @@ html body * { font-variant-numeric: proportional-nums !important; font-feature-s
 /* links inside lists and cards read as rows, not as underlined text; the underline appears on hover/focus */
 .ctl-drivers a, .ctl-chg a, .gd-state a, .xp-t a, .bk-table a, .table-plain a { text-decoration: none; color: inherit; }
 .ctl-drivers a:hover span, .ctl-chg a:hover, .xp-t a:hover, .bk-table a:hover, .table-plain a:hover, .ctl-drivers a:focus-visible span { text-decoration: underline; color: var(--accent-foreground); }
+/* studio: the 3D view is always dark, so its readout never takes the page theme's text colours, and it sits on its
+   own glass plate so the figures stay legible when the piece turns underneath them */
+.studio3d .readout { padding: 12px 16px; border-radius: var(--u-r-lg); background: rgba(10, 12, 15, 0.72); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); max-width: min(520px, 70%); }
+.studio3d .readout b { color: #f3e3bb; }
+.studio3d .readout b small, .studio3d .readout div { color: #d7d2c6; }
+.studio3d .readout div { font-size: 13px; line-height: 1.7; }
+/* desk products: search + manage row above the product buttons */
+.dk-pfind { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.dk-pfind .input { flex: 1; min-height: 42px; }
+.dk-pc { position: relative; display: grid; }
+.dk-pe { position: absolute; top: 2px; inset-inline-end: 2px; width: 24px; height: 24px; border-radius: 6px; border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-size: 13px; opacity: 0; }
+.dk-pc:hover .dk-pe, .dk-pe:focus-visible { opacity: 1; }
+.dk-pe:hover { background: var(--u-sunk); color: var(--accent-foreground); }
+.dk-pnone { grid-column: 1 / -1; margin: 6px 0; }
+.dk-coins button { border-radius: var(--u-r); background: var(--u-sunk); }
+.dk-coins button:hover { transform: none; border-color: var(--accent); }
+.tp-w { display: flex; flex-wrap: wrap; gap: 6px; border: 0; padding: 0; margin: 0; }
+.tp-w legend { font-size: 13.5px; font-weight: 550; color: var(--muted-foreground); margin-bottom: 6px; }
+@media (hover: none) { .dk-pe { opacity: 1; } }
+
+/* =====================================================================================================
+   ساده و تخت (spec 0006 · بند ۲): one level of frame per page. A section may have a frame; nothing inside it does —
+   inner parts are separated by space and a hairline, notes by a coloured edge. Headings carry the page, not boxes.
+   ===================================================================================================== */
+:root { --u-h1: 30px; --u-h2: 19px; }
+h1, .bk-head h1 { font-size: var(--u-h1); font-weight: 800; }
+.bk-h { font-size: var(--u-h2); font-weight: 750; }
+.bk-head { border-bottom: 0; padding-bottom: 0; margin-bottom: 20px; }
+.bk-head p, .bk-head .small { font-size: 14px; }
+
+/* the books menu: a quiet column, no box */
+.bk-side { border: 0; border-inline-end: 1px solid var(--u-line-soft); border-radius: 0; background: transparent; padding: 0 0 0 14px; padding-inline: 0 14px; }
+.bk-side-g + .bk-side-g { border-top: 0; margin-top: 14px; padding-top: 0; }
+.bk-side-g h2 { font-size: 12.5px; margin: 0 12px 4px; }
+.bk-side a { font-size: 14.5px; padding: 6px 12px; }
+@media (max-width: 1100px) { .bk-side { border: 1px solid var(--u-line-soft); border-radius: var(--u-r-lg); padding: 0; } }
+
+/* inside a framed section everything is flat */
+:is(.tray, .bk-sec) :is(.tray, .bk-sec, .scrollx, .ledger, .ladder, .wave-card, .pr-row, .buy, .sell) { border: 0; border-radius: 0; background: transparent; box-shadow: none; padding-inline: 0; }
+:is(.tray, .bk-sec) .scrollx { border-top: 1px solid var(--u-line-soft); }
+:is(.tray, .bk-sec) .pr-row { border-bottom: 1px solid var(--u-line-soft); padding-block: 10px; }
+:is(.tray, .bk-sec) .wave-card { border-inline-start: 3px solid var(--u-line); padding: 6px 12px; }
+:is(.tray, .bk-sec) .wave-card.ok { border-inline-start-color: var(--positive); }
+:is(.tray, .bk-sec) .ledger { padding: 0; }
+:is(.tray, .bk-sec) .ledger div { border-bottom: 1px solid var(--u-line-soft); }
+:is(.tray, .bk-sec) :is(.notice, .warn, .ok):not(button):not(.btn):not(.chip):not(td):not(tr) { border: 0; border-inline-start: 3px solid var(--warning); border-radius: 0; background: transparent; padding: 4px 14px; }
+:is(.tray, .bk-sec) .notice.ok, :is(.tray, .bk-sec) div.ok, :is(.tray, .bk-sec) p.ok { border-inline-start-color: var(--positive); }
+:is(.tray, .bk-sec) .notice.bad { border-inline-start-color: var(--negative); }
+.notice { background: transparent; border: 0; border-inline-start: 3px solid var(--warning); border-radius: 0; padding: 6px 14px; }
+.notice.ok { border-inline-start-color: var(--positive); }
+.notice.bad { border-inline-start-color: var(--negative); }
+
+/* desk: kind tabs are an underlined row, not a pill box inside the box */
+.dk-kinds { background: transparent; border: 0; border-bottom: 1px solid var(--u-line-soft); border-radius: 0; padding: 0; gap: 0; }
+.dk-kinds button { border-radius: 0; min-height: 44px; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--muted-foreground); }
+.dk-kinds button[aria-selected='true'] { background: none; animation: none; color: var(--accent-foreground); border-bottom-color: var(--accent); font-weight: 750; }
+.dk-mode { background: transparent; }
+
+/* fewer numbers in view: secondary scores show on hover/focus only */
+.ctl-drivers li small { visibility: hidden; }
+.ctl-drivers li:hover small, .ctl-drivers li:focus-within small { visibility: visible; }
+/* desk price row: flat figures on one line, not a strip of cards */
+.dk-prices { align-items: stretch; gap: 0; border-bottom: 1px solid var(--u-line-soft); padding: 0 0 12px; margin-bottom: 18px; overflow-x: auto; }
+.dk-prices > .dk-price { background: transparent; border: 0; border-inline-end: 1px solid var(--u-line-soft); border-radius: 0; padding: 2px 18px; min-width: 0; box-shadow: none; }
+.dk-prices > .dk-price:first-child { padding-inline-start: 0; }
+.dk-price span { font-size: 13px; color: var(--muted-foreground); }
+.dk-price b { font-size: 19px; font-weight: 750; color: var(--foreground); }
+.dk-price:hover b { color: var(--accent-foreground); }
+.dk-pmore { align-self: center; margin-inline-start: 14px; background: none; border: 0; color: var(--accent); font: inherit; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+.dk-pmore:hover { text-decoration: underline; }
+.dk-prices .dk-src { align-self: center; margin-inline-start: auto; font-size: 12.5px; color: var(--muted-foreground); white-space: nowrap; padding-inline-start: 14px; }
+html[data-theme='day'] .dk-prices > .dk-price, html[data-theme='day'] .dk-prices > .dk-price:hover { background: transparent; box-shadow: none; }
+/* a long, rarely used part of a page folds away behind its heading */
+.bk-fold > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 10px; margin: 0; }
+.bk-fold > summary::-webkit-details-marker { display: none; }
+.bk-fold > summary::before { content: '◂'; color: var(--accent); font-size: 14px; transition: transform 0.2s; }
+.bk-fold[open] > summary::before { transform: rotate(-90deg); }
+.bk-fold[open] > summary { margin-bottom: 14px; }

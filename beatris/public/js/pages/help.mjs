@@ -39,7 +39,7 @@ export async function helpPage(root, { ch } = {}) {
   const total = list.reduce((a, c) => a + c.seconds, 0);
 
   root.innerHTML = String(html`<section class="hlp">
-    <header class="hlp-head"><div><h1>راهنمای تصویری از صفر تا صد</h1><p class="small">${fa(list.length)} فصل · ${clock(total)} دقیقه · هر فصل با نمونه واقعی ثبت می‌شود؛ هر جا خواستید مکث کنید و همان کار را در برنامه انجام دهید.</p><p class="small"><button type="button" class="linkish" id="hpInstall">نصب وب‌اپ روی همین دستگاه</button> (گوشی، تبلت، کامپیوتر) · <a href="/downloads/Beatris-Setup-x64.exe" download>نصب‌کننده ویندوز ۱۱ (۶۴ بیت)</a></p></div><div class="hlp-prog" id="hpProg"></div></header>
+    <header class="hlp-head"><div><h1>راهنمای تصویری از صفر تا صد</h1><p class="small">${fa(list.length)} فصل · ${clock(total)} دقیقه · هر فصل با نمونه واقعی ثبت می‌شود؛ هر جا خواستید مکث کنید و همان کار را در برنامه انجام دهید.</p><p class="small"><button type="button" class="linkish" id="hpInstall">نصب وب‌اپ روی همین دستگاه</button> (گوشی، تبلت، کامپیوتر) · <a href="/downloads/Beatris-Setup-x64.exe" download>نصب‌کننده ویندوز ۱۱ (۶۴ بیت)</a> · <a href="/media/compare/beatris-vs-marquise.mp4" target="_blank" rel="noopener">ویدیوی مقایسه با نسخه پایه مارکیز</a></p></div><div class="hlp-prog" id="hpProg"></div></header>
     <div class="hlp-grid">
       <div class="hlp-main">
         <div class="hlp-stage" id="hpStage"><video id="hpVideo" controls playsinline preload="metadata"><source id="hpMp4" type="video/mp4; codecs=avc1.64001F"><source id="hpWebm" type="video/webm; codecs=vp9"></video></div>

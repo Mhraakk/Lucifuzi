@@ -74,6 +74,11 @@
 - **سرور** `server/pos.mjs`: `bk_pos` و `GET/POST /api/books/pos` برای تطبیق؛ تأییدشده بی‌سند = هشدار در میز؛ سند با همان RRN خودکار وصل می‌شود. منطق حسابداری دست نخورده.
 - آزمون: `tests/pos.test.mjs` (فریم واقعی سامان، پل واقعی با `pwsh` در برابر پایانه شبیه‌سازی‌شده `tests/helpers/ssp1126.mjs`)، e2e مرحله `pos`.
 
+## ظاهر و کاتالوگ (spec `docs/specs/0006-calm-ui.md`)
+- لایه‌های آخر `app.css`: «نظام یکدست» و «ساده و تخت» (یک سطح کادر). منوی حسابداری `booksNav` در `pages/books.mjs`.
+- `public/js/deskproducts.mjs`: جستجو، ساخت/ویرایش/حذف و قالب‌ساز محصول در میز؛ داده از `/api/books/products` (فیلد `group`).
+- `scripts/compare-video.mjs`: ویدیوی مقایسه با نسخه پایه مارکیز (فقط منابع عمومی؛ «ذکر نشده» به‌جای «ندارد»).
+
 ## استقرار (Railway — سرور دائمی، نه serverless)
 - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.

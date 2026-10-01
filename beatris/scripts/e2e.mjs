@@ -1052,6 +1052,56 @@ async function loginUI(page) {
     check('control: twin numbers explain themselves', (await text(page, '.xp-s')).length > 10);
     await page.keyboard.press('Escape');
   });
+  if (!live) await step('desk products: template builder, search, pick, edit, delete', async () => {
+    await go(page, '/books/desk', 1500);
+    await page.click('[data-kind=coin]');
+    await page.waitForSelector('[data-psearch]');
+    check('desk products: the coin tab is «سکه و محصولات» with a search box', (await text(page, '[data-kind=coin]')).includes('محصولات'));
+    await page.click('[data-prod=tpl]');
+    await page.waitForSelector('#tp');
+    await page.fill('#tp [name=brand]', 'زردیس');
+    await page.selectOption('#tp [name=kind]', 'شمش');
+    await page.waitForTimeout(150);
+    check('desk products: the builder previews one product per weight', (await text(page, '#tpPrev')).includes('شمش زردیس ۲٫۵ گرم') && (await text(page, '#tpPrev')).includes('شمش زردیس ۵ گرم'));
+    await page.click('#tp button:not([type])');
+    await page.waitForSelector('#tp', { state: 'detached' });
+    await page.fill('[data-psearch]', 'زردیس 2.5');
+    await page.waitForTimeout(250);
+    const hits = await page.$$eval('#dkPick [data-coin]', (b) => b.map((x) => x.innerText));
+    check('desk products: «زردیس 2.5» finds exactly the 2.5 g Zardis bar', hits.length === 1 && hits[0].includes('۲٫۵'), JSON.stringify(hits));
+    await page.press('[data-psearch]', 'Enter');
+    await page.waitForTimeout(200);
+    check('desk products: Enter picks the match', !!(await page.$('#dkPick [data-coin][aria-pressed="true"]')));
+    await page.fill('[data-psearch]', 'نیستمحصول');
+    await page.waitForTimeout(200);
+    check('desk products: no match says so', (await text(page, '#dkPick')).includes('محصولی با'));
+    // new product, then edit and delete it from the desk
+    await page.click('[data-prod=new]');
+    await page.fill('#pm [name=label]', 'پلاک زرنشان ۱ گرم');
+    await page.fill('#pm [name=group]', 'زرنشان');
+    await page.fill('#pm [name=weight]', '1');
+    await page.fill('#pm [name=fineness]', '750');
+    await page.click('#pm button:not([type])');
+    await page.waitForSelector('#pm', { state: 'detached' });
+    await page.fill('[data-psearch]', 'زرنشان');
+    await page.waitForTimeout(200);
+    check('desk products: a product made at the desk is selected and searchable', (await text(page, '#dkPick')).includes('پلاک زرنشان') && !!(await page.$('#dkPick [data-coin][aria-pressed="true"]')));
+    await page.hover('#dkPick .dk-pc');
+    await page.click('#dkPick .dk-pe');
+    await page.fill('#pm [name=short]', 'پلاک ز ۱');
+    await page.click('#pm button:not([type])');
+    await page.waitForSelector('#pm', { state: 'detached' });
+    check('desk products: edited name shows', (await text(page, '#dkPick')).includes('پلاک ز ۱'));
+    await page.click('#dkPick .dk-pe');
+    await page.click('#pm [data-pm=del]');
+    await page.click('.modal [data-ok]');
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Escape');
+    await page.fill('[data-psearch]', 'زرنشان');
+    await page.waitForTimeout(200);
+    check('desk products: deleted product is gone', !(await text(page, '#dkPick')).includes('پلاک ز ۱'));
+  });
+
   if (!live) await step('pos: card reader charge before booking (mock bridge), decline, settings, reconciliation', async () => {
     const auth = (path) => page.evaluate(async (p) => (await fetch(p, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), path);
     // a stand-in for desktop/windows/pos-bridge.ps1 (the real bridge is tested against a simulated terminal in tests/pos.test.mjs)

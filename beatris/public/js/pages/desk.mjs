@@ -14,6 +14,7 @@ import { crown } from '../invoice.mjs';
 import { track } from '../harness.mjs';
 import { barcodeSvg } from '../barcode.mjs';
 import { qrSvg } from '../qr.mjs';
+import { pickerHtml, productModal, templateModal, canManageProducts } from '../deskproducts.mjs';
 import { posConfig, posProblem, startCharge, newChargeId, logCharge, linkCharge, STATE_TEXT, chargeLine } from '../pos.mjs';
 
 const MODES = [
@@ -24,7 +25,7 @@ const MODES = [
 ];
 const KINDS = [
   ['melt', 'آبشده'],
-  ['coin', 'سکه'],
+  ['coin', 'سکه و محصولات'],
   ['bar', 'شمش پلمپ'],
   ['fx', 'ارز'],
 ];
@@ -69,7 +70,7 @@ export async function deskPage(root) {
     return m ? m + (dir === 'in' ? -spread().buy : spread().sell) : '';
   };
   const coinFor = (id, dir) => {
-    const c = liveOf(COIN_BOARD[id]);
+    const c = liveOf(COIN_BOARD[id]) ?? COIN_TYPES[id]?.price ?? null;
     return c ? c + (dir === 'in' ? -spread().cBuy : spread().cSell) : '';
   };
 
@@ -128,11 +129,14 @@ export async function deskPage(root) {
       ['gerami', 'گرمی', 'coin:gerami'],
       ['usd', 'دلار', 'fx:USD'],
     ];
-    $('#prices', root).innerHTML = String(html`${tiles.map(([id, label, use]) => {
+    // four prices in view (what the counter quotes from); the rest one click away — fewer numbers on the screen
+    const allP = (() => { try { return localStorage.getItem('beatris.desk.allPrices') === '1'; } catch { return false; } })();
+    const shown = allP ? tiles : tiles.filter(([id]) => ['mesghal', 'geram18', 'sekee', 'rob'].includes(id));
+    $('#prices', root).innerHTML = String(html`${shown.map(([id, label, use]) => {
       const v = liveOf(id);
       const x = board?.items?.find((i) => i.id === id);
       return v ? html`<button class="dk-price" data-use="${use}" data-v="${v}" title="بگذار در فرم"><span>${label}</span><b>${R(v).replace(' ریال', '')}</b>${x?.pct ? html`<em class="${x.pct > 0 ? 'up' : 'down'}">${x.pct > 0 ? '▲' : '▼'}${fa(Math.abs(x.pct).toFixed(2))}٪</em>` : ''}</button>` : '';
-    })}<span class="dk-src">${board?.sample ? 'داده نمونه (قیمت زنده وصل نیست)' : 'ریال · منبع: ' + (board?.source?.label ?? '')}</span>`);
+    })}<button type="button" class="dk-pmore" data-pmore aria-expanded="${allP}">${allP ? 'قیمت‌های کمتر' : 'همه قیمت‌ها'}</button><span class="dk-src">${board?.sample ? 'داده نمونه (قیمت زنده وصل نیست)' : 'ریال · منبع: ' + (board?.source?.label ?? '')}</span>`);
   }
 
   /* ---------------- customer ---------------- */
@@ -209,7 +213,7 @@ export async function deskPage(root) {
         ${P ? html`${seg('basis', f.basis, [['mazaneh', 'مظنه'], ['gram750', 'قیمت گرم ۷۵۰'], ['amount', 'مبلغ توافقی']])}<div class="dk-grid">${f.basis === 'mazaneh' ? inp('mazaneh', f.mazaneh, 'مظنه (ریال هر مثقال ۷۰۵)', { w: 'big' }) : f.basis === 'gram750' ? inp('g750', f.g750, 'قیمت هر گرم ۷۵۰ (ریال)', { w: 'big' }) : inp('amount', f.amount, 'مبلغ کل توافقی (ریال)', { w: 'big' })}</div>` : ''}
         ${dir() === 'in' ? html`<label class="segopt dk-check"><input type="checkbox" data-f="conditional" ${f.conditional ? 'checked' : ''}><span>آبشده شرطی — عیار نهایی بعد از آزمایشگاه ثبت می‌شود</span></label>` : ''}`;
     else if (S.kind === 'coin')
-      body = html`<div class="dk-coins">${shownCoins().map(([id, c]) => html`<button type="button" data-coin="${id}" aria-pressed="${f.coin === id}"><b>${c.short}</b><small>${fa(c.weight)} گرم · ${fa(c.fineness)}</small></button>`)}</div>
+      body = html`<div id="dkPick">${pickerHtml(f, S.psearch ?? '', canManageProducts())}</div>
         <div class="dk-grid"><div class="field dk-f big"><span>تعداد</span><div class="dk-step"><button type="button" data-step="-1" aria-label="کم">−</button><input class="input ltr" data-f="count" value="${f.count}" inputmode="numeric"><button type="button" data-step="1" aria-label="زیاد">+</button></div></div>
         ${P ? (f.basis === 'count' ? inp('price', f.price, 'قیمت هر سکه (ریال)', { w: 'big' }) : f.basis === 'weight' ? html`${inp('weight', f.weight, 'وزن کل (گرم)')}${inp('gramPrice', f.gramPrice, 'قیمت هر گرم (ریال)')}` : inp('amount', f.amount, 'مبلغ کل (ریال)', { w: 'big' })) : ''}</div>
         ${P ? seg('basis', f.basis, [['count', 'تعدادی'], ['weight', 'وزنی'], ['amount', 'مبلغی']]) : ''}`;
@@ -701,6 +705,15 @@ export async function deskPage(root) {
   /* ---------------- events ---------------- */
   root.addEventListener('input', (e) => {
     const el = e.target;
+    if (el.dataset.psearch !== undefined) {
+      S.psearch = el.value;
+      const box = $('#dkPick', root);
+      box.innerHTML = String(pickerHtml(S.f.coin, S.psearch, canManageProducts()));
+      const i = $('[data-psearch]', box);
+      i.focus();
+      i.setSelectionRange(i.value.length, i.value.length);
+      return;
+    }
     if (el.id === 'pq') {
       clearTimeout(pqT);
       pqT = setTimeout(() => findParty(el.value), 180);
@@ -737,6 +750,12 @@ export async function deskPage(root) {
     if (e.target.matches('select[data-f], select[data-p], input[type=checkbox][data-f]')) e.target.dispatchEvent(new Event('input', { bubbles: true }));
   });
   root.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.dataset.psearch !== undefined) {
+      // Enter in the product search picks the first match instead of adding a line
+      e.preventDefault();
+      $('#dkPick [data-coin]', root)?.click();
+      return;
+    }
     if (e.key === 'Enter' && e.target.closest('#form') && !e.ctrlKey) {
       e.preventDefault();
       addLine();
@@ -800,6 +819,20 @@ export async function deskPage(root) {
     if (b.dataset.fq) {
       S.f.melt.fineness = Number(b.dataset.fq);
       return drawForm();
+    }
+    if (b.hasAttribute('data-pmore')) {
+      try {
+        localStorage.setItem('beatris.desk.allPrices', b.getAttribute('aria-expanded') === 'true' ? '0' : '1');
+      } catch {}
+      return drawPrices();
+    }
+    if (b.dataset.prod) {
+      const a = b.dataset.prod;
+      (a === 'tpl' ? templateModal() : productModal(a === 'edit' ? b.dataset.id : null)).then((r) => {
+        if (typeof r === 'string' && COIN_TYPES[r]) Object.assign(S.f.coin, { coin: r, price: coinFor(r, dir()) });
+        drawForm();
+      });
+      return;
     }
     if (b.dataset.coin) {
       S.f.coin.coin = b.dataset.coin;

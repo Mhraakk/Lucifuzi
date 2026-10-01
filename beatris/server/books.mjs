@@ -514,7 +514,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   const productUse = (id) => db.get("SELECT COUNT(*) AS n FROM bk_postings WHERE acct=? OR unit=?", `coin:${id}`, `COIN:${id}`).n + db.get("SELECT COUNT(*) AS n FROM bk_docs WHERE data_json LIKE ?", `%"coin":"${id}"%`).n;
   function cleanProduct(body, cur = {}) {
     const label = txt(body.label ?? cur.label, 80);
-    const short = txt(body.short ?? cur.short ?? label, 30);
+    const short = txt(body.short || cur.short || label, 30) || label.slice(0, 30);
     const weight = B.num(body.weight ?? cur.weight);
     const fineness = B.num(body.fineness ?? cur.fineness ?? 750);
     if (label.length < 2) throw bad('نام محصول را بنویسید.');
@@ -522,7 +522,8 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     if (!(fineness >= 1 && fineness <= 1000)) throw bad('عیار باید بین ۱ و ۱۰۰۰ باشد.');
     const price = body.price === '' || body.price == null ? (body.price === undefined ? cur.price : undefined) : Math.round(B.num(body.price));
     if (price != null && !(price > 0 && price < 1e15)) throw bad('قیمت دستی نامعتبر است.');
-    return { label, short, weight: B.r3(weight), fineness, custom: true, ...(price ? { price } : {}) };
+    const group = txt(body.group ?? cur.group ?? '', 40);
+    return { label, short, weight: B.r3(weight), fineness, custom: true, ...(group ? { group } : {}), ...(price ? { price } : {}) };
   }
   on('GET', '/api/books/products', 'auth', () => {
     const c = catalogue();
@@ -530,7 +531,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const lp = livePrices();
     const hidden = new Set(c.hidden);
     return {
-      items: Object.entries(COIN_TYPES).map(([id, p]) => ({ id, label: p.label, short: p.short, weight: p.weight, fineness: p.fineness, custom: !!p.custom, price: lp.price[`COIN:${id}`] ?? null, manualPrice: p.price ?? null, hidden: hidden.has(id), stock: v.coins[id] ?? 0, custody: v.custody[`COIN:${id}`] ?? null, used: productUse(id) })),
+      items: Object.entries(COIN_TYPES).map(([id, p]) => ({ id, label: p.label, short: p.short, group: p.group ?? '', weight: p.weight, fineness: p.fineness, custom: !!p.custom, price: lp.price[`COIN:${id}`] ?? null, manualPrice: p.price ?? null, hidden: hidden.has(id), stock: v.coins[id] ?? 0, custody: v.custody[`COIN:${id}`] ?? null, used: productUse(id) })),
       fx: Object.entries(TR.FX_CODES).map(([code, label]) => ({ code, label, hidden: c.fxHidden.includes(code), stock: v.fx[code] ?? 0 })),
       gold: v.gold,
       goldPrice: lp.price.G750,
@@ -540,7 +541,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   on('POST', '/api/books/products', 'auth', ({ user, body }) => {
     guardAdmin(user);
     const c = catalogue();
-    if (Object.keys(c.custom).length >= 60) throw bad('حداکثر ۶۰ محصول سفارشی.');
+    if (Object.keys(c.custom).length >= 300) throw bad('حداکثر ۳۰۰ محصول سفارشی.');
     const id = `u${randomUUID().replace(/-/g, '').slice(0, 7)}`;
     c.custom = { ...c.custom, [id]: cleanProduct(body) };
     c.order = [...c.order.filter((k) => k !== id), id];
