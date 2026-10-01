@@ -2,6 +2,13 @@ import { html, raw, fa, store, toast, api, $, $$ } from '../core.mjs';
 import { ICON } from '../ui.mjs';
 import { ALLOYS, alloyById, fmt, fmtT, pricePerGramAt, ringFromCircumference } from '../calc.mjs';
 import { paletteHtml, wirePalette } from './studiomodel.mjs';
+import { scanDialog } from './studioscan.mjs';
+import { labHtml, wireLab } from './studiolab.mjs';
+import { wireEdit } from './studioedit.mjs';
+import * as NB from '../nurbs.mjs';
+import * as SD from '../subd.mjs';
+import * as VX from '../voxel.mjs';
+import * as PS from '../photoscan.mjs';
 
 const SAVE_KEY = 'beatris.studio.v1';
 const WAX_DENSITY = 0.95; // g/cm³ — typical injection/carving wax
@@ -58,6 +65,9 @@ const PIECE_ICONS = {
   curve: '<path d="M4 17c3-9 6-9 8-5s5 4 8-5"/><circle cx="4" cy="17" r="1.2"/><circle cx="20" cy="7" r="1.2"/>',
   mesh: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
   meshGem: '<path d="M7 5h10l4 5-9 10-9-10Z"/><path d="M3 10h18"/>',
+  nsurf: '<path d="M3 16c4-8 8-8 9-4s5 4 9-4"/><path d="M3 20c4-8 8-8 9-4s5 4 9-4"/><path d="M3 16v4M21 8v4"/>',
+  subd: '<rect x="5" y="5" width="14" height="14" rx="5"/><circle cx="5" cy="5" r="1.3"/><circle cx="19" cy="5" r="1.3"/><circle cx="19" cy="19" r="1.3"/><circle cx="5" cy="19" r="1.3"/>',
+  scan: '<rect x="4" y="6" width="16" height="12" rx="2"/><circle cx="12" cy="12" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/><path d="M2 9V4h5M22 9V4h-5M2 15v5h5M22 15v5h-5"/>',
 };
 const RING_TYPES = ['band', 'solitaire', 'halo', 'eternity', 'signet', 'advanced', 'cathedral', 'trilogy', 'pave', 'rope'];
 const svg = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`);
@@ -96,7 +106,7 @@ export async function studioPage(root) {
   const vp = $('#vp', root);
   const panel = $('#panel', root);
 
-  const [{ createStage, ENVS, BACKDROPS, T }, J, Mt, { FONTS }, D] = await Promise.all([import('../three/stage.mjs'), import('../three/jewelcad.mjs'), import('../three/materials.mjs'), import('../three/text.mjs'), import('../three/modeler.mjs')]);
+  const [{ createStage, ENVS, BACKDROPS, T }, J, Mt, { FONTS }, D, Sc] = await Promise.all([import('../three/stage.mjs'), import('../three/jewelcad.mjs'), import('../three/materials.mjs'), import('../three/text.mjs'), import('../three/modeler.mjs'), import('../three/scan3d.mjs'), import('../three/cad2.mjs')]);
   const stage = createStage(vp, { env: 'studio', backdrop: 'vault' });
   if (!stage) return;
   const { scene, camera, controls } = stage;
@@ -127,18 +137,47 @@ export async function studioPage(root) {
   const S = { parts: [], sel: null, scene: { env: 'studio', backdrop: 'vault', exposure: 1, bloom: false, shadow: true } };
   const viewFor = () => (S.parts.length === 1 ? J.PIECES[S.parts[0].type].view : null) ?? {};
   const objs = new Map(); // part id → { group, metrics }
+  let lab = null; // inspection tools (spec 0009), wired after the panel exists
+  let editor = null; // control points, SubD cage and sculpting (spec 0010)
   const imgCache = new Map();
   const hist = [];
 
   const snapshotState = () => JSON.stringify({ parts: S.parts, sel: S.sel, scene: S.scene });
+  // undo history keeps big strings (scans, free solids) once, by reference
+  const blobs = new Map();
+  const BLOB = '\u0001blob:';
+  const keyOf = (v) => {
+    let h = 2166136261;
+    for (let i = 0; i < v.length; i += 97) h = Math.imul(h ^ v.charCodeAt(i), 16777619);
+    return `${v.length}.${(h >>> 0).toString(36)}`;
+  };
+  const compact = () => JSON.stringify({ parts: S.parts, sel: S.sel, scene: S.scene }, (k, v) => {
+    if (typeof v !== 'string' || v.length < 65536) return v;
+    const key = keyOf(v);
+    blobs.set(key, v);
+    return BLOB + key;
+  });
+  const expand = (s) => JSON.parse(s, (k, v) => (typeof v === 'string' && v.startsWith(BLOB) ? blobs.get(v.slice(BLOB.length)) ?? '' : v));
   function pushHistory() {
-    const s = snapshotState();
+    const s = compact();
     if (hist[hist.length - 1] !== s) hist.push(s);
     if (hist.length > 60) hist.shift();
+    persist();
+  }
+  function persist() {
+    const full = snapshotState();
     try {
-      localStorage.setItem(SAVE_KEY, s);
+      if (full.length > 4.5e6) throw new Error('big');
+      localStorage.setItem(SAVE_KEY, full);
     } catch {
-      /* quota */
+      // large projects (photo scans) live in IndexedDB; localStorage keeps a pointer
+      idbPut(full).then(() => {
+        try {
+          localStorage.setItem(SAVE_KEY, JSON.stringify({ idb: true }));
+        } catch {
+          /* storage unavailable */
+        }
+      });
     }
   }
   async function restore(json, { record = true } = {}) {
@@ -170,7 +209,7 @@ export async function studioPage(root) {
     for (const [k, [dflt, lo, hi]] of Object.entries(def.params)) base.params[k] = num(raw.params?.[k], lo, hi, dflt);
     for (const k of Object.keys(def.opts)) {
       const v = raw.opts?.[k];
-      if (typeof v === 'string') base.opts[k] = k === 'data' || k === 'geo' ? (v.length < 8e6 ? v : '') : v.slice(0, 40);
+      if (typeof v === 'string') base.opts[k] = k === 'data' || k === 'geo' || k === 'scan' || k === 'srf' || k === 'cage' ? (v.length < 12e6 ? v : '') : v.slice(0, 40);
       else if (typeof v === 'boolean') base.opts[k] = v;
     }
     if (def.free && typeof raw.opts?.name === 'string') base.opts.name = raw.opts.name.slice(0, 60);
@@ -223,7 +262,7 @@ export async function studioPage(root) {
       const role = m.userData.role;
       if (role === 'curve') m.material = new T.LineBasicMaterial({ color: 0xf0c75e });
       else if (role === 'metal') {
-        m.material = Mt.metalMaterial(part.alloy, part.finish);
+        m.material = m.userData.scan ? Sc.scanMaterial(m.userData.scan, part.opts.look, Mt.metalMaterial(part.alloy, part.finish)) : Mt.metalMaterial(part.alloy, part.finish);
         metalVol += Math.abs(J.signedVolume(m.geometry));
         area += J.surfaceArea(m.geometry);
       } else if (role === 'gem') {
@@ -244,6 +283,7 @@ export async function studioPage(root) {
     }
     stage.root.add(group);
     objs.set(part.id, { group, metrics: { metalVol, area, gems, links: meshes[0]?.userData.links } });
+    lab?.after(part);
     stage.invalidate();
     updateReadout();
   }
@@ -269,6 +309,7 @@ export async function studioPage(root) {
     stage.invalidate();
   }
   function select(id) {
+    if (S.sel !== id) lab?.onSelect(), editor?.active() && editor.exit(true);
     S.sel = id;
     const o = objs.get(id);
     if (o && gizmo) tc.attach(o.group);
@@ -360,7 +401,7 @@ export async function studioPage(root) {
         <div class="chips">${PRESETS.map((pr, i) => html`<button class="chip" data-preset="${i}">${pr.label}</button>`)}</div>
       </div>
       <div class="grp">
-        <h3><span>قطعه‌های صحنه</span><button class="btn small ghost" data-act="add">${ICON.plus} افزودن</button></h3>
+        <h3><span>قطعه‌های صحنه</span><span class="chips"><button class="btn small ghost" data-act="scan" title="ساخت مدل سه‌بعدی از عکس قطعه">اسکن از عکس</button><button class="btn small ghost" data-act="add">${ICON.plus} افزودن</button></span></h3>
         <ul class="parts">${S.parts.map((x) => html`<li data-part="${x.id}" aria-selected="${x.id === S.sel}">${svg(PIECE_ICONS[x.type])}<span>${x.opts.name || J.PIECES[x.type].label}</span><button data-del="${x.id}" title="حذف">×</button></li>`)}</ul>
       </div>
       ${paletteHtml(pal.state)}
@@ -374,7 +415,7 @@ export async function studioPage(root) {
         ${Object.entries(def.params).map(([k, [, min, max, step, label]]) => html`<label class="param"><span class="lbl"><span>${label}</span><b data-out="${k}">${fa(p.params[k])}</b></span><input type="range" min="${min}" max="${max}" step="${step}" value="${p.params[k]}" data-param="${k}"></label>`)}
         ${RING_TYPES.includes(p.type) ? html`<label class="param"><span class="lbl"><span>سایز آمریکا (US)</span><b>${fa(J.ringSize.fromISO(p.params.size).us.toFixed(2))} · قطر ${fa(J.ringSize.fromISO(p.params.size).diameter.toFixed(2))}mm</b></span><input class="input ltr" type="number" step="0.25" min="0" max="16" value="${(Math.round(J.ringSize.fromISO(p.params.size).us * 4) / 4).toFixed(2)}" data-us aria-label="سایز آمریکا"></label>` : ''}
         ${'milgrain' in def.opts ? html`<label class="small" style="display:flex;gap:8px;margin-top:10px"><input type="checkbox" data-bool="milgrain" ${p.opts.milgrain ? 'checked' : ''}> میل‌گرین (ردیف دانه) روی دو لبه</label>` : ''}
-        ${Object.keys(def.opts).filter((k) => !['gem', 'gem2', 'text', 'line1', 'line2', 'image', 'mirror', 'invert', 'milgrain', 'data', 'geo', 'name'].includes(k)).map((k) => html`<div style="margin-top:12px"><div class="small" style="margin-bottom:6px">${OPT_LABEL[k] ?? k}</div><div class="chips">${(choiceList(k, p) ?? []).map(([v, l]) => html`<button class="chip" data-opt="${k}" data-val="${v}" aria-pressed="${p.opts[k] === v}">${l}</button>`)}</div></div>`)}
+        ${Object.keys(def.opts).filter((k) => !['gem', 'gem2', 'text', 'line1', 'line2', 'image', 'mirror', 'invert', 'milgrain', 'data', 'geo', 'name', 'scan', 'look', 'srf', 'cage'].includes(k)).map((k) => html`<div style="margin-top:12px"><div class="small" style="margin-bottom:6px">${OPT_LABEL[k] ?? k}</div><div class="chips">${(choiceList(k, p) ?? []).map(([v, l]) => html`<button class="chip" data-opt="${k}" data-val="${v}" aria-pressed="${p.opts[k] === v}">${l}</button>`)}</div></div>`)}
         ${['text', 'line1', 'line2'].filter((k) => k in def.opts).map((k) => html`<label class="field" style="margin-top:12px">${k === 'text' ? (p.type === 'name' ? 'نام' : 'نوشته / حرف') : k === 'line1' ? 'سطر اول' : 'سطر دوم'}<input class="input" data-text="${k}" value="${p.opts[k] ?? ''}" maxlength="40"></label>`)}
         ${'mirror' in def.opts ? html`<label class="small" style="display:flex;gap:8px;margin-top:10px"><input type="checkbox" data-bool="mirror" ${p.opts.mirror ? 'checked' : ''}> نقش معکوس (برای مهر زدن روی لاک/موم)</label>` : ''}
         ${'image' in def.opts ? html`<div style="margin-top:12px;display:grid;gap:8px"><label class="btn small ghost" style="cursor:pointer">بارگذاری تصویر / لوگو<input type="file" accept="image/*" data-image hidden></label>${'invert' in def.opts ? html`<label class="small" style="display:flex;gap:8px"><input type="checkbox" data-bool="invert" ${p.opts.invert ? 'checked' : ''}> وارونه (تیره = برجسته)</label>` : ''}<span class="small">روشنی هر نقطه تصویر = ارتفاع نقش. تصاویر پرکنتراست بهترین نتیجه را می‌دهند.</span></div>` : ''}
@@ -409,7 +450,8 @@ export async function studioPage(root) {
       <div class="grp">
         <h3><span>اندازه‌گیری و محاسبه</span></h3>
         <div id="measure"></div>
-      </div>`
+      </div>
+      ${lab ? labHtml(p, lab.state) : ''}`
         : html`<p class="small">قطعه‌ای در صحنه نیست؛ از «افزودن» یا نمونه‌های آماده شروع کنید.</p>`}
       <div class="grp">
         <h3><span>نور و صحنه</span></h3>
@@ -616,6 +658,7 @@ export async function studioPage(root) {
       stage.invalidate();
     } else if (act === 'undo') undo();
     else if (act === 'add') addDialog();
+    else if (act === 'scan') scanDialog({ modal, addScan });
     else if (act === 'shot') {
       toast('در حال ساخت تصویر ۴K…');
       const r = await stage.snapshot({ width: 3840, height: 2160 });
@@ -632,7 +675,7 @@ export async function studioPage(root) {
   function undo() {
     if (hist.length < 2) return toast('مرحله‌ای برای بازگشت نیست.');
     hist.pop();
-    restore(hist[hist.length - 1], { record: false });
+    restore(expand(hist[hist.length - 1]), { record: false });
   }
 
   /* picking */
@@ -1115,8 +1158,68 @@ export async function studioPage(root) {
     if (g) g.position.fromArray(p.pos), g.rotation.set(...p.rot);
   }
   const pal = { state: {} };
+  /** A part's solid as a free mesh part in the same place (for sculpting). */
+  async function replaceWithMesh(p) {
+    const o = objs.get(p.id);
+    const geos = [];
+    o?.group.traverse((m) => m.isMesh && m.userData.role === 'metal' && geos.push(m.geometry.clone().applyMatrix4(m.matrix)));
+    if (!geos.length) return toast('این قطعه فلزی برای حجاری ندارد.', 'error'), null;
+    const np = newPart('mesh', { alloy: p.alloy, finish: p.finish, pos: p.pos, rot: p.rot, scale: p.scale, opts: { geo: D.encodeGeo(D.merge(geos)), name: `${p.opts.name || J.PIECES[p.type].label} (حجاری)` } });
+    removePart(p.id);
+    await addParts([np]);
+    select(np.id);
+    return np;
+  }
+  /** IGES (true NURBS) or 3DM (Rhino file, via the rhino3dm worker). */
+  async function exportCAD(kind) {
+    stage.root.updateMatrixWorld(true);
+    const curves = [], surfaces = [], meshes = [];
+    const tf = (q, mw) => new T.Vector3(...q).applyMatrix4(mw).toArray();
+    for (const p of S.parts) {
+      const g = objs.get(p.id)?.group;
+      if (!g) continue;
+      const mw = g.matrixWorld, name = p.opts.name || J.PIECES[p.type].label;
+      if (p.type === 'curve') {
+        const c = JSON.parse(p.opts.data);
+        const nc = c.nurbs ?? NB.interpolate(D.curvePoints(c, 64).map((v) => v.toArray()));
+        curves.push({ ...nc, P: nc.P.map((q) => tf(q, mw)), name, closed: c.closed });
+        continue;
+      }
+      if (p.type === 'nsurf') {
+        const d = JSON.parse(p.opts.srf);
+        surfaces.push({ ...d.s, P: d.s.P.map((r) => r.map((q) => tf(q, mw))), name });
+      }
+      if (kind === '3dm')
+        for (const role of ['metal', 'gem']) {
+          const geos = [];
+          g.traverse((m) => m.isMesh && m.userData.role === role && geos.push(m.geometry.clone().applyMatrix4(m.matrixWorld)));
+          if (!geos.length) continue;
+          const ig = D.toIndexed(D.merge(geos));
+          const col = role === 'metal' ? Mt.METALS[p.alloy]?.f0 : null;
+          meshes.push({ position: Array.from(ig.attributes.position.array), index: Array.from(ig.index.array), name: role === 'gem' ? `${name} — سنگ` : name, color: col ? col.map((v) => Math.round(v ** (1 / 2.2) * 255)) : [235, 245, 255] });
+        }
+    }
+    if (kind === 'iges') {
+      if (!curves.length && !surfaces.length) return toast('منحنی یا سطح NURBS در صحنه نیست؛ برای جسم‌ها از 3DM یا STL استفاده کنید.', 'error');
+      download(new Blob([NB.toIGES([...curves.map((c) => ({ curve: c })), ...surfaces.map((s2) => ({ surface: s2 }))])], { type: 'model/iges' }), `beatris-${Date.now()}.igs`);
+      return toast(`IGES: ${fa(curves.length)} منحنی و ${fa(surfaces.length)} سطح NURBS دقیق.`, 'ok');
+    }
+    toast('در حال ساخت فایل 3DM…');
+    const w = new Worker('/vendor/rhino3dm/r3dm-worker.js');
+    const r = await new Promise((res) => {
+      w.onmessage = (e) => res(e.data);
+      w.onerror = (e) => res({ ok: false, error: e.message });
+      w.postMessage({ meshes, curves, surfaces });
+    });
+    w.terminate();
+    if (!r.ok) return toast(`ساخت 3DM ممکن نشد: ${r.error}`, 'error');
+    download(new Blob([r.bytes], { type: 'application/octet-stream' }), `beatris-${Date.now()}.3dm`);
+    toast(`فایل 3DM با ${fa(r.count)} شیء (میلی‌متر) ساخته شد.`, 'ok');
+  }
   const palette = wirePalette(panel, {
-    T, D, J, S, objs, cur, newPart, removePart, movePart, stage, scene, camera, vp, modal,
+    T, D, J, S, objs, cur, newPart, removePart, movePart, stage, scene, camera, vp, modal, NB, SD, VX, PS,
+    edit: (k) => editor.start(k),
+    exportCAD,
     nextId: () => uid++,
     addParts: async (list) => {
       if (S.parts.length + list.length > 24) throw new Error('حداکثر ۲۴ قطعه در صحنه؛ چند قطعه را حذف کنید.');
@@ -1125,20 +1228,79 @@ export async function studioPage(root) {
     },
   });
   pal.state = palette.state;
+  /* ---------------- اسکن از عکس و آزمایشگاه وارسی (spec 0009) ---------------- */
+  async function addScan(json, name, { weight } = {}) {
+    if (S.parts.length >= 24) throw new Error('حداکثر ۲۴ قطعه در صحنه؛ چند قطعه را حذف کنید.');
+    const box = new T.Box3().setFromObject(stage.root);
+    const np = newPart('scan', { opts: { scan: json, name, look: 'photo' }, alloy: 'au18y', pos: [box.isEmpty() ? 0 : box.max.x + 14, 0, 0] });
+    await addParts([np]);
+    if (weight) lab.state.weigh.set(np.id, { wa: weight });
+    select(np.id);
+    stage.frame(objs.get(np.id)?.group);
+  }
+  globalThis.__beatrisStudio = { get editor() { return editor; }, state: () => JSON.parse(snapshotState()) }; // e2e hook: drive edits without pixel hunting
+  editor = wireEdit({ T, D, NB, SD, S, cur, objs, stage, scene, camera, vp, renderPanel, pushHistory, rebuild: (p) => rebuild(p), encodeGeo: D.encodeGeo, replaceWithMesh });
+  lab = wireLab(panel, {
+    T, S, objs, cur, stage, scene, camera, metricsFor, renderPanel, pushHistory,
+    rebuild: (p) => rebuild(p),
+    rethick: Sc.rethick,
+    setAlloy: (p, id) => {
+      p.alloy = id;
+      rebuild(p).then(renderPanel);
+      pushHistory();
+    },
+  });
   renderPanel();
   const q = new URLSearchParams(location.search).get('p');
   if (q && J.PIECES[q]) await restore({ parts: [newPart(q)], scene: S.scene });
-  else if (saved) await restore(saved).catch(() => restore({ parts: [newPart('solitaire')] }));
+  else if (saved) {
+    if (saved.startsWith('{"idb"')) saved = (await idbGet().catch(() => null)) ?? null;
+    if (saved) await restore(saved).catch(() => restore({ parts: [newPart('solitaire')] }));
+    else await restore({ parts: [newPart('solitaire', { opts: { setting: 'prong6' } })] });
+  }
   else await restore({ parts: [newPart('solitaire', { opts: { setting: 'prong6' } })] });
 
   return () => {
     removeEventListener('keydown', onKey);
     palette.dispose();
+    lab.dispose();
+    editor.dispose();
     tc.detach();
     tc.dispose();
     stage.dispose();
     $$('.modal').forEach((m) => m.remove());
   };
+}
+
+const IDB = { name: 'beatris-studio', store: 'kv' };
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(IDB.name, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(IDB.store);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbPut(v) {
+  try {
+    const db = await idbOpen();
+    await new Promise((res, rej) => {
+      const t = db.transaction(IDB.store, 'readwrite');
+      t.objectStore(IDB.store).put(v, 'project');
+      t.oncomplete = res;
+      t.onerror = () => rej(t.error);
+    });
+  } catch {
+    /* private mode */
+  }
+}
+async function idbGet() {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const r = db.transaction(IDB.store).objectStore(IDB.store).get('project');
+    r.onsuccess = () => res(r.result ?? null);
+    r.onerror = () => rej(r.error);
+  });
 }
 
 function download(blob, name) {

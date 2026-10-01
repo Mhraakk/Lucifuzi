@@ -10,6 +10,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { coinPhotos, ringPhotos } from './synthscan.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pw = await import(process.env.PLAYWRIGHT_MODULE || '/opt/node22/lib/node_modules/playwright/index.mjs').catch(() => import('playwright'));
@@ -1198,6 +1199,179 @@ async function loginUI(page) {
     await page.waitForSelector('#mdl');
     await page.waitForTimeout(2500);
     check('free modeller: free curves and solids survive a reload', (await page.$$('.parts li')).length === before, `${(await page.$$('.parts li')).length} vs ${before}`);
+    await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
+  });
+
+  await step('photo scan: coin from 8 lit photos and a ring from turntable photos become closed, weighed, inspectable parts', async () => {
+    await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
+    await go(page, '/studio', 2500);
+    const analyse = (id) => page.evaluate(async (id) => {
+      const D = await import('/js/three/modeler.mjs');
+      const st = JSON.parse(localStorage.getItem('beatris.studio.v1'));
+      const p = st.parts?.find((x) => x.id === id);
+      const sc = await import('/js/three/scan3d.mjs');
+      const ms = await sc.buildScan(p.opts.scan);
+      const a = D.analyze(D.merge(ms.map((m) => m.geometry.clone())));
+      ms[0].geometry.computeBoundingBox();
+      const bb = new (await import('/js/three/stage.mjs')).T.Box3();
+      ms.forEach((m) => (m.geometry.computeBoundingBox(), bb.union(m.geometry.boundingBox)));
+      return { closed: a.closed, naked: a.naked, volume: a.volume, size: [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z], info: JSON.parse(p.opts.scan).info };
+    }, id);
+    const lastScan = async () => page.evaluate(() => JSON.parse(localStorage.getItem('beatris.studio.v1')).parts.filter((x) => x.type === 'scan').at(-1)?.id);
+    // 1) coin: 8 photos, light from the clock directions
+    await page.click('[data-act="scan"]');
+    await page.waitForSelector('#scR');
+    await page.selectOption('#scR [name=coin]', 'bahar');
+    await page.setInputFiles('#scR [name=front]', coinPhotos());
+    await page.click('#scR button.btn:not(.ghost)');
+    await page.waitForSelector('#scan', { state: 'detached', timeout: 120000 });
+    const cid = await lastScan();
+    const c = await analyse(cid);
+    check('photo scan: the coin scan is a closed solid', c.closed, JSON.stringify({ naked: c.naked }));
+    check('photo scan: the coin is 22 mm across (scale from the nominal diameter)', Math.abs(c.size[0] - 22) < 0.6 && Math.abs(c.size[1] - 22) < 0.6, JSON.stringify(c.size));
+    check('photo scan: the coin relief stands out of the field', c.size[2] > c.info.thickness + 0.3, JSON.stringify({ z: c.size[2], t: c.info.thickness }));
+    check('photo scan: photo look renders the scan with its own texture', /رنگ واقعی/.test(await text(page, '#lab')));
+    // the lab: weighing a genuine-like coin, view tools
+    await page.fill('#labWa', '8.133');
+    await page.fill('#labWw', String((8.133 - 8.133 / 17.18 * 0.9982).toFixed(3)));
+    await page.click('[data-lab="weigh"]');
+    await page.waitForTimeout(400);
+    const lab = await text(page, '#labOut');
+    check('photo scan: the true volume (Archimedes) sets the thickness the photos cannot see', /ضخامت مدل/.test(lab) && /ارشمیدس/.test(lab), lab.replace(/\s+/g, ' ').slice(0, 200));
+    check('photo scan: weighing gives density, karat and the coin fraud probability', /چگالی/.test(lab) && /عیار/.test(lab) && /احتمال تقلب/.test(lab), lab.replace(/\s+/g, ' ').slice(0, 200));
+    await page.click('[data-lab="rake"]');
+    await page.click('[data-lab="heat"]');
+    await page.waitForTimeout(300);
+    check('photo scan: height map reports the relief range', /نقشه ارتفاع/.test(await text(page, '#labOut')));
+    await page.click('[data-lab="heat"]');
+    await page.click('[data-lab="rake"]');
+    // 2) ring on the turntable mat: two loops of 18 photos
+    await page.click('[data-act="scan"]');
+    await page.click('[data-stab="hull"]');
+    await page.fill('#scH [name=step]', '20');
+    await page.selectOption('#scH [name=res]', '120');
+    await page.setInputFiles('#scH [name=photos]', ringPhotos());
+    await page.waitForTimeout(1500);
+    check('photo scan: the mat ring is found in the first photo (preview)', /زاویه دوربین/.test(await text(page, '#shMsg')), await text(page, '#shMsg'));
+    await page.click('#scH button.btn:not(.ghost)');
+    await page.waitForSelector('#scan', { state: 'detached', timeout: 240000 });
+    const rid = await lastScan();
+    const r = await analyse(rid);
+    const truth = 2 * Math.PI ** 2 * 9 * 1.5 ** 2;
+    check('photo scan: the ring hull is a closed mesh', r.closed, JSON.stringify({ naked: r.naked }));
+    check('photo scan: ring size from the mat ring (21 × 3 × 21 mm ±1)', Math.abs(r.size[0] - 21) < 1.2 && Math.abs(r.size[2] - 21) < 1.2 && r.size[1] < 4.5, JSON.stringify(r.size));
+    check('photo scan: ring volume close to the true ring (hull ≥ object)', r.volume > truth * 0.85 && r.volume < truth * 1.6, `${r.volume.toFixed(1)} vs ${truth.toFixed(1)}`);
+    // measuring two points on the model surface
+    await page.click('[data-lab="measure"]');
+    const vb = await page.$eval('#vp canvas', (cv) => { const b = cv.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; });
+    await page.click('[data-act="frame"]');
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Escape');
+    const before = (await page.$$('.parts li')).length;
+    await page.reload();
+    await page.waitForSelector('#mdl');
+    await page.waitForTimeout(3500);
+    check('photo scan: scans survive a reload (IndexedDB for large projects)', (await page.$$('.parts li')).length === before, `${(await page.$$('.parts li')).length} vs ${before}`);
+    void vb;
+    await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
+  });
+
+  await step('rhino tools 2: NURBS, IGES and 3DM, surfaces with control points, SubD cage, fillets and offsets, sculpting', async () => {
+    await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
+    await go(page, '/studio', 2500);
+    // large projects live in IndexedDB: read the live state through the studio's test hook
+    const parts = () => page.evaluate(() => globalThis.__beatrisStudio.state().parts.map((x) => ({ id: x.id, type: x.type, name: x.opts.name ?? '', data: x.opts.data ?? x.opts.srf ?? x.opts.cage ?? '' })));
+    const cmd = async (id, vals = {}, sel = {}) => {
+      await page.fill('#mdlQ', id);
+      await page.click(`[data-cmd="${id}"]`);
+      await page.waitForSelector('#mdlF');
+      for (const [k, v] of Object.entries(vals)) await page.fill(`#mdlF [name="${k}"]`, String(v));
+      for (const [k, v] of Object.entries(sel)) await page.selectOption(`#mdlF [name="${k}"]`, v);
+      await page.click('#mdlF button.btn:not(.ghost)');
+      await page.waitForFunction(() => !document.querySelector('#mdlF') || /[^…]$/.test(document.querySelector('#mdlMsg')?.textContent || '…'), null, { timeout: 90000 });
+      const err = (await page.$('#mdlF')) ? await text(page, '#mdlMsg') : '';
+      if (err) await page.click('#mdlF [data-close]');
+      return err;
+    };
+    const volOf = (id) => page.evaluate(async (id) => {
+      const D = await import('/js/three/modeler.mjs');
+      const p = globalThis.__beatrisStudio.state().parts.find((x) => x.id === id);
+      const def = (await import('/js/three/jewelcad.mjs')).PIECES[p.type];
+      await import('/js/three/cad2.mjs');
+      try {
+        const ms = await def.build({ ...p.params, ...p.opts });
+        const a = D.analyze(D.merge(ms.filter((m) => m.isMesh).map((m) => m.geometry.clone())));
+        return { v: a.volume, closed: a.closed };
+      } catch (e) {
+        return { v: NaN, closed: false, err: `${p.type}: ${e.stack}`.slice(0, 400) };
+      }
+    }, id);
+    const last = async (type) => (await parts()).filter((x) => x.type === type).at(-1);
+    // exact circle, rebuild, knot insertion
+    const errs = [await cmd('CircleNurbs', { radius: 8 })];
+    const circ = JSON.parse((await last('curve')).data);
+    check('rhino 2: the circle is an exact rational NURBS (9 points, weights √½)', circ.nurbs?.P.length === 9 && Math.abs(circ.nurbs.W[1] - Math.SQRT1_2) < 1e-12, JSON.stringify(circ.nurbs?.W));
+    errs.push(await cmd('InsertKnot', { u: 0.3 }));
+    check('rhino 2: inserting a knot adds a control point and keeps the circle', JSON.parse((await last('curve')).data).nurbs?.P.length === 10);
+    errs.push(await cmd('Rebuild', { count: 12, degree: 3 }));
+    check('rhino 2: rebuild gives 12 control points of degree 3', JSON.parse((await last('curve')).data).nurbs?.P.length === 12 && JSON.parse((await last('curve')).data).nurbs?.p === 3);
+    // a NURBS surface thickened to a solid, then its control points edited
+    errs.push(await cmd('SrfPt', { w: 20, h: 12, lift: 0, t: 0.8 }));
+    const sp = await last('nsurf'), sv = await volOf(sp.id);
+    check('rhino 2: a four-point surface 20 × 12 thickened 0.8 mm is a closed 192 mm³ solid', sv.closed && Math.abs(sv.v - 192) < 0.5, JSON.stringify(sv));
+    await page.fill('#mdlQ', 'PointsOn');
+    await page.click('[data-cmd="PointsOn"]');
+    await page.waitForSelector('.edit-bar');
+    await page.evaluate(() => globalThis.__beatrisStudio.editor.movePoint(3, [0, 4, 0]));
+    await page.waitForTimeout(400);
+    const moved = JSON.parse((await last('nsurf')).data);
+    check('rhino 2: moving a surface control point changes the NURBS and the solid', Math.abs(moved.s.P[1][1][1] - 4) < 1e-6 && (await volOf(sp.id)).closed, JSON.stringify(moved.s.P[1][1]));
+    await page.keyboard.press('Escape');
+    // SubD ring: extrude a cage face
+    errs.push(await cmd('SubDTorus', { R: 9, r: 1.5, n: 8 }));
+    const sd = await last('subd'), v0 = await volOf(sd.id);
+    check('rhino 2: SubD ring is a closed smooth solid', v0.closed && v0.v > 300, JSON.stringify(v0));
+    await page.fill('#mdlQ', 'SubDEdit');
+    await page.click('[data-cmd="SubDEdit"]');
+    await page.waitForSelector('.edit-bar');
+    await page.evaluate(() => globalThis.__beatrisStudio.editor.faceOp('extrude', 2, 3));
+    await page.waitForTimeout(500);
+    const sd2 = JSON.parse((await last('subd')).data), v1 = await volOf(sd.id);
+    check('rhino 2: extruding a cage face adds 4 faces and volume, still closed', sd2.f.length === 32 + 4 && v1.v > v0.v && v1.closed, JSON.stringify({ f: sd2.f.length, v0: v0.v, v1: v1.v }));
+    await page.keyboard.press('Escape');
+    // fillet and offset of a box
+    errs.push(await cmd('Box', { x: 10, y: 6, z: 4 }));
+    errs.push(await cmd('FilletEdge', { r: 1, res: 100 }));
+    const fb = await last('mesh'), fv = await volOf(fb.id);
+    const rounded = 4 * 8 * 2 + 2 * (8 * 4 + 4 * 2 + 8 * 2) + Math.PI * (8 + 4 + 2) + (4 / 3) * Math.PI; // (a−2r)(b−2r)(c−2r) + faces·r + edges·πr²/4·4 + sphere
+    check('rhino 2: fillet r = 1 on a 10 × 6 × 4 box gives the rounded-box volume (±3 %), closed', fv.closed && Math.abs(fv.v / rounded - 1) < 0.03, JSON.stringify({ v: fv.v, rounded }));
+    errs.push(await cmd('OffsetMesh', { d: 0.5, res: 100 }));
+    const ov = await volOf((await last('mesh')).id);
+    check('rhino 2: offset +0.5 mm grows the solid', ov.closed && ov.v > fv.v * 1.2, JSON.stringify(ov));
+    // sculpting a dent into the box
+    await page.fill('#mdlQ', 'Sculpt');
+    await page.click('[data-cmd="Sculpt"]');
+    await page.waitForSelector('.edit-bar');
+    await page.click('[data-act="frame"]');
+    await page.waitForTimeout(500);
+    const before = (await volOf((await last('mesh')).id)).v;
+    const vb = await page.$eval('#vp canvas', (cv) => { const b = cv.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; });
+    await page.mouse.move(vb[0] - 10, vb[1]);
+    await page.mouse.down();
+    for (let i = 0; i < 10; i++) await page.mouse.move(vb[0] - 10 + i * 3, vb[1] + i), await page.waitForTimeout(30);
+    await page.mouse.up();
+    await page.click('.edit-bar [data-eb="done"]');
+    await page.waitForTimeout(800);
+    const after = (await volOf((await last('mesh')).id)).v;
+    check('rhino 2: a sculpt stroke changes the solid and is saved', Math.abs(after - before) > 0.01, JSON.stringify({ before, after }));
+    check('rhino 2: every command ran without an error', errs.every((e) => !e), errs.join(' | '));
+    // exports
+    const [ig] = await Promise.all([page.waitForEvent('download'), (async () => { await page.fill('#mdlQ', 'ExportIGES'); await page.click('[data-cmd="ExportIGES"]'); })()]);
+    const igs = await (await import('node:fs/promises')).readFile(await ig.path(), 'utf8');
+    check('rhino 2: IGES has NURBS curve (126) and surface (128) entities in 80-column records', /^ {5}126/m.test(igs) && /^ {5}128/m.test(igs) && igs.trim().split('\n').every((l) => l.length === 80), igs.slice(0, 80));
+    const [r3] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), (async () => { await page.fill('#mdlQ', 'Export3dm'); await page.click('[data-cmd="Export3dm"]'); })()]);
+    const head = (await (await import('node:fs/promises')).readFile(await r3.path())).subarray(0, 32).toString('latin1');
+    check('rhino 2: the .3dm file is a Rhino 3D model', head.startsWith('3D Geometry File Format') && r3.suggestedFilename().endsWith('.3dm'), head);
     await page.evaluate(() => localStorage.removeItem('beatris.studio.v1'));
   });
 

@@ -3054,3 +3054,18 @@ html[data-theme='day'] .dk-prices > .dk-price, html[data-theme='day'] .dk-prices
 .studio3d .mdl-hint b { color: #f3e3bb; }
 .mdl-pick { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .mdl-pick legend { margin-bottom: 6px; font-size: 13px; }
+/* photo scan wizard (spec 0009) */
+.scan .scan-how { display: grid; grid-template-columns: minmax(160px, 220px) 1fr; gap: 16px; align-items: start; margin: 12px 0; }
+.scan .scan-how ol { margin: 0; padding-inline-start: 18px; line-height: 1.9; }
+.scan .scan-guide { width: 100%; height: auto; border-radius: 10px; }
+.scan .scan-prev { width: 100%; height: auto; border-radius: 10px; margin-top: 8px; }
+.scan form[hidden] { display: none; }
+@media (max-width: 640px) { .scan .scan-how { grid-template-columns: 1fr; } }
+/* studio edit bar: control points, SubD cage, sculpting (spec 0010) */
+.studio3d .edit-bar { position: absolute; z-index: 5; top: 64px; inset-inline: 16px; margin-inline: auto; max-width: 860px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; border-radius: 12px; background: rgba(10, 12, 15, 0.86); border: 1px solid rgba(255, 255, 255, 0.12); color: #e9e4d8; font-size: 12.5px; }
+.studio3d .edit-bar b { color: #f3e3bb; }
+.studio3d .edit-bar label { display: inline-flex; align-items: center; gap: 6px; }
+.studio3d .edit-bar .input.xs { width: 72px; min-height: 32px; padding: 0 8px; }
+.studio3d .edit-bar .edit-sub { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.studio3d .edit-bar .edit-sub[hidden] { display: none; }
+.studio3d .edit-bar .chip { min-height: 30px; }

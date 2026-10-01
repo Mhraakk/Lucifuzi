@@ -5,6 +5,7 @@
 // split — BSP CSG), mesh and SubD tools (subdivide, smooth, reduce, shell/offset, weld, flip, fill holes), deforms
 // (bend, twist, taper, flow along curve, shear, scale 1-D, maelstrom, array along curve), and analysis.
 // Everything is in millimetres; curves lie in the XY construction plane (z = 0) unless a command says otherwise.
+import * as N from '../nurbs.mjs';
 import { T } from './stage.mjs';
 import * as J from './jewelcad.mjs';
 
@@ -196,6 +197,13 @@ export const CURVES = {
 };
 /** Points along a curve: exact corners for polylines, evenly spaced for interpolated curves. */
 export function curvePoints(c, n = 160) {
+  // a true NURBS curve (spec 0010) is evaluated exactly; pts then only hold a preview polyline
+  if (c.nurbs) {
+    const out = [];
+    for (let i = 0; i <= n; i++) out.push(V3(...N.curvePoint(c.nurbs, i / n)));
+    if (c.closed) out.pop();
+    return out;
+  }
   const pts = c.pts.map((p) => V3(...p));
   if (!c.smooth || pts.length < 3) return pts;
   const cc = new T.CatmullRomCurve3(pts, c.closed, 'centripetal');
@@ -1015,6 +1023,7 @@ export function analyze(geo) {
 
 /* ================================================================== part types: free curves and free solids */
 const curveLine = (c) => {
+  if (c.nurbs && !N.checkCurve(c.nurbs)) delete c.nurbs;
   const pts = curvePoints(c, 200);
   const g = new T.BufferGeometry().setFromPoints(c.closed ? [...pts, pts[0]] : pts);
   const line = new T.Line(g, undefined);

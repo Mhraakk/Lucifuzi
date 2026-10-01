@@ -71,13 +71,36 @@ export const COMMANDS = [
   { id: 'Maelstrom', fa: 'گرداب', cat: 'deform', in: ['part'], params: [N('angle', 'زاویه (درجه)', 120, -720, 720, 5), N('refine', 'ریزکردن', 1, 0, 3, 1)] },
   { id: 'Flow', fa: 'جاری کردن روی منحنی', cat: 'deform', in: ['part', 'curve'], params: [N('refine', 'ریزکردن', 1, 0, 3, 1)] },
   { id: 'ArrayCrv', fa: 'آرایه روی منحنی', cat: 'deform', in: ['part', 'curve'], params: [N('count', 'تعداد', 8, 2, 23, 1)] },
+  // ---------------- NURBS (spec 0010): exact curves and surfaces, control points, IGES / 3DM
+  { id: 'CurveCP', fa: 'منحنی با نقاط کنترل NURBS (کلیک)', cat: 'nurbs', draw: 'cp' },
+  { id: 'InterpCrv', fa: 'منحنی درون‌یاب NURBS (کلیک)', cat: 'nurbs', draw: 'interp' },
+  { id: 'CircleNurbs', fa: 'دایره دقیق (NURBS گویا)', cat: 'nurbs', params: [N('radius', 'شعاع', 10, 0.1, 100)] },
+  { id: 'Rebuild', fa: 'بازسازی منحنی (تعداد نقطه و درجه)', cat: 'nurbs', in: ['curve'], params: [N('count', 'تعداد نقاط کنترل', 10, 4, 60, 1), N('degree', 'درجه', 3, 1, 5, 1)] },
+  { id: 'InsertKnot', fa: 'افزودن گره (بدون تغییر شکل)', cat: 'nurbs', in: ['curve'], params: [N('u', 'محل روی منحنی (۰ تا ۱)', 0.5, 0.01, 0.99, 0.01)] },
+  { id: 'PointsOn', fa: 'ویرایش نقاط کنترل (منحنی، سطح، قفس SubD)', cat: 'nurbs', edit: 'points' },
+  { id: 'EdgeSrf', fa: 'سطح از چهار لبه', cat: 'nurbs', in: ['curve', 'curve2', 'curve3', 'curve4'], inLabels: ['لبه پایین', 'لبه بالا', 'لبه چپ', 'لبه راست'], params: [N('t', 'ضخامت جسم', 0.8, 0.05, 20, 0.05)] },
+  { id: 'NetworkSrf', fa: 'سطح شبکه‌ای از منحنی‌های دو جهت', cat: 'nurbs', in: ['curves', 'curves2'], params: [N('t', 'ضخامت جسم', 0.8, 0.05, 20, 0.05)] },
+  { id: 'LoftSrf', fa: 'لافت NURBS (سطح باز با ضخامت)', cat: 'nurbs', in: ['curves'], params: [N('t', 'ضخامت جسم', 0.8, 0.05, 20, 0.05)], open: true },
+  { id: 'SrfPt', fa: 'سطح چهار نقطه', cat: 'nurbs', params: [N('w', 'عرض', 20, 1, 200), N('h', 'طول', 12, 1, 200), N('lift', 'بالا آمدن یک گوشه', 0, -50, 50), N('t', 'ضخامت جسم', 0.8, 0.05, 20, 0.05)] },
+  { id: 'ExportIGES', fa: 'خروجی IGES (منحنی و سطح NURBS واقعی)', cat: 'nurbs', action: 'iges' },
+  { id: 'Export3dm', fa: 'خروجی 3DM (فایل راینو)', cat: 'nurbs', action: '3dm' },
+  // ---------------- fillets and offsets of solids (rolling ball on a distance field)
+  { id: 'FilletEdge', fa: 'گرد کردن لبه‌های بیرونی (Fillet)', cat: 'mesh', in: ['part'], params: [N('r', 'شعاع (mm)', 0.5, 0.05, 10, 0.05), N('res', 'دقت (خانه در بلندترین ضلع)', 160, 80, 240, 10)] },
+  { id: 'FilletInner', fa: 'گرد کردن گوشه‌های داخلی', cat: 'mesh', in: ['part'], params: [N('r', 'شعاع (mm)', 0.5, 0.05, 10, 0.05), N('res', 'دقت', 160, 80, 240, 10)] },
+  { id: 'OffsetMesh', fa: 'ضخیم یا نازک کردن جسم (Offset)', cat: 'mesh', in: ['part'], params: [N('d', 'فاصله (منفی = نازک‌تر)', 0.2, -5, 10, 0.05), N('res', 'دقت', 160, 80, 240, 10)] },
+  // ---------------- SubD and sculpting
+  { id: 'SubDBox', fa: 'SubD مکعبی', cat: 'subd', subd: 'box', params: [N('x', 'طول', 10, 1, 100), N('y', 'ارتفاع', 6, 1, 100), N('z', 'عمق', 6, 1, 100)] },
+  { id: 'SubDTorus', fa: 'SubD حلقه (رکاب)', cat: 'subd', subd: 'torus', params: [N('R', 'شعاع حلقه', 9, 2, 60), N('r', 'شعاع لوله', 1.5, 0.3, 10, 0.1), N('n', 'تقسیم دور', 8, 4, 24, 1)] },
+  { id: 'SubDCylinder', fa: 'SubD استوانه', cat: 'subd', subd: 'cylinder', params: [N('r', 'شعاع', 5, 0.5, 60), N('h', 'ارتفاع', 10, 0.5, 100), N('n', 'تقسیم دور', 8, 3, 24, 1)] },
+  { id: 'SubDEdit', fa: 'ویرایش قفس SubD (نقطه، اکسترود، لبه تیز)', cat: 'subd', edit: 'points' },
+  { id: 'Sculpt', fa: 'حجاری (کشیدن، صاف کردن، باد کردن، فرو بردن)', cat: 'subd', edit: 'sculpt' },
   // ---------------- analyze
   { id: 'Check', fa: 'وارسی جسم (حجم، سطح، بسته بودن)', cat: 'analyze', in: ['part'] },
   { id: 'Length', fa: 'طول منحنی', cat: 'analyze', in: ['curve'] },
   { id: 'Distance', fa: 'فاصله مرکز دو قطعه', cat: 'analyze', in: ['part', 'part2'] },
   { id: 'BoundingBox', fa: 'ابعاد جعبه محیطی', cat: 'analyze', in: ['part'] },
 ];
-export const CATS = [['curve', 'منحنی'], ['surface', 'سطح و جسم از منحنی'], ['solid', 'احجام پایه'], ['boolean', 'بولین'], ['mesh', 'مش و SubD'], ['deform', 'تبدیل و تغییر شکل'], ['analyze', 'تحلیل']];
+export const CATS = [['curve', 'منحنی'], ['nurbs', 'NURBS'], ['surface', 'سطح و جسم از منحنی'], ['solid', 'احجام پایه'], ['boolean', 'بولین'], ['mesh', 'مش، گردکاری و Offset'], ['subd', 'SubD و حجاری'], ['deform', 'تبدیل و تغییر شکل'], ['analyze', 'تحلیل']];
 
 export function paletteHtml(state) {
   const q = (state.q ?? '').trim().toLowerCase();
@@ -113,7 +136,8 @@ export function wirePalette(panel, ctx) {
     const o = ctx.objs.get(p.id);
     if (!o) return c;
     o.group.updateMatrixWorld(true);
-    return { ...c, pts: c.pts.map((q) => new T.Vector3(...q).applyMatrix4(o.group.matrixWorld).toArray()) };
+    const tf = (q) => new T.Vector3(...q).applyMatrix4(o.group.matrixWorld).toArray();
+    return { ...c, pts: c.pts.map(tf), ...(c.nurbs ? { nurbs: { ...c.nurbs, P: c.nurbs.P.map(tf) } } : {}) };
   };
   /** A part's metal geometry in world space (merged). */
   const worldGeo = (p, role = 'metal') => {
@@ -125,6 +149,10 @@ export function wirePalette(panel, ctx) {
     if (!geos.length) throw new Error(role === 'metal' ? 'این قطعه فلز ندارد.' : 'این قطعه سنگ ندارد.');
     return D.merge(geos);
   };
+  /** A NURBS curve part: the exact definition plus a preview polyline. */
+  const nurbsCurve = (nc, closed = false) => ({ pts: ctx.NB.sampleCurve(nc, 64), closed, smooth: false, nurbs: nc });
+  const addSrf = (s, t, from, name) => ctx.addParts([ctx.newPart('nsurf', { alloy: from?.alloy, opts: { srf: JSON.stringify({ s, t, res: 48 }), name } })]);
+  const toNurbs = (c) => c.nurbs ?? (c.closed ? ctx.NB.interpolate([...D.resample(c, 48).map((p) => p.toArray()), D.resample(c, 48)[0].toArray()]) : ctx.NB.interpolate(D.resample(c, 32).map((p) => p.toArray())));
   const addCurve = (c, name) => ctx.addParts([{ ...ctx.newPart('curve', { opts: { data: JSON.stringify(c), name } }) }]);
   const addSolid = (geo, from, name, gem = false) => {
     const np = ctx.newPart(gem ? 'meshGem' : 'mesh', { alloy: from?.alloy, opts: { geo: D.encodeGeo(geo), name, ...(gem && from ? { gem: from.gem } : {}) } });
@@ -154,12 +182,17 @@ export function wirePalette(panel, ctx) {
 
   function openCommand(cmd) {
     if (cmd.draw) return startDraw(cmd);
+    if (cmd.edit) return ctx.edit(cmd.edit);
+    if (cmd.action) return ctx.exportCAD(cmd.action);
     const need = cmd.in ?? [];
     const pick = (slot, i) => {
       const isCurve = slot.startsWith('curve');
       const list = isCurve ? curves() : solids();
       const lab = cmd.inLabels?.[i] ?? (isCurve ? 'منحنی' : i ? 'قطعه دوم' : 'قطعه');
-      if (slot === 'curves') return html`<fieldset class="mdl-pick"><legend>مقطع‌ها به ترتیب (دست‌کم دو منحنی بسته)</legend>${list.map((p) => html`<label class="segopt"><input type="checkbox" name="curves" value="${p.id}" ${isClosed(p) ? 'checked' : ''}><span>${label(p)}</span></label>`)}</fieldset>`;
+      if (slot === 'curves' || slot === 'curves2') {
+        const legend = cmd.id === 'NetworkSrf' ? (slot === 'curves' ? 'منحنی‌های جهت اول (به ترتیب)' : 'منحنی‌های جهت دوم (به ترتیب)') : cmd.open ? 'مقطع‌ها به ترتیب (باز یا بسته)' : 'مقطع‌ها به ترتیب (دست‌کم دو منحنی بسته)';
+        return html`<fieldset class="mdl-pick"><legend>${legend}</legend>${list.map((p) => html`<label class="segopt"><input type="checkbox" name="${slot}" value="${p.id}" ${cmd.id === 'NetworkSrf' || cmd.open ? '' : isClosed(p) ? 'checked' : ''}><span>${label(p)}</span></label>`)}</fieldset>`;
+      }
       const sel = ctx.cur();
       let dflt;
       if (!isCurve) dflt = i === 0 ? sel?.id : list.find((p) => p.id !== sel?.id)?.id;
@@ -168,10 +201,12 @@ export function wirePalette(panel, ctx) {
         const prof = [...list].reverse().find(isClosed) ?? list[list.length - 1];
         const rails = [...list].reverse().filter((p) => p !== prof).sort((x, y) => isClosed(x) - isClosed(y));
         dflt = i === 0 ? prof?.id : rails[i - 1]?.id;
-      } else dflt = sel?.type === 'curve' ? sel.id : list[list.length - 1]?.id;
+      } else if (cmd.id === 'EdgeSrf') dflt = list[list.length - 4 + i]?.id ?? list[i]?.id;
+      else dflt = sel?.type === 'curve' ? sel.id : list[list.length - 1]?.id;
       return html`<label class="field">${lab}<select class="input" name="${slot}">${list.map((p) => html`<option value="${p.id}" ${p.id === dflt ? 'selected' : ''}>${label(p)}</option>`)}</select></label>`;
     };
-    const missing = need.some((slot) => (slot.startsWith('curve') ? curves().length < (slot === 'curves' ? 2 : slot === 'curve3' ? 3 : slot === 'curve2' ? 2 : 1) : solids().length < (slot === 'part2' ? 2 : 1)));
+    const needCurves = (slot) => (slot.startsWith('curves') ? 2 : Number(slot.slice(5)) || 1);
+    const missing = need.some((slot) => (slot.startsWith('curve') ? curves().length < needCurves(slot) : solids().length < (slot === 'part2' ? 2 : 1)));
     if (missing) return toast(need.some((x) => x.startsWith('curve')) ? 'اول منحنی(های) لازم را بکشید یا بسازید (دسته «منحنی»).' : 'برای این فرمان قطعه(های) کافی در صحنه نیست.', 'error');
     ctx.modal(
       String(html`<h3 class="bk-h">${cmd.fa} <span class="small ltr">${cmd.id}</span></h3><form class="form" id="mdlF">
@@ -192,7 +227,8 @@ export function wirePalette(panel, ctx) {
           $('#mdlMsg', m).textContent = 'در حال محاسبه…';
           await new Promise((r) => setTimeout(r, 30));
           try {
-            const msg = await run(cmd, v, { part, fd, axis: fd.get('axis'), keep: fd.get('keep') === 'on', curves: fd.getAll('curves').map((id) => ctx.S.parts.find((p) => p.id === Number(id))) });
+            const byIds = (k) => fd.getAll(k).map((id) => ctx.S.parts.find((p) => p.id === Number(id))).filter(Boolean);
+            const msg = await run(cmd, v, { part, fd, axis: fd.get('axis'), keep: fd.get('keep') === 'on', curves: byIds('curves'), curves2: byIds('curves2') });
             close();
             if (msg) toast(msg, 'ok');
           } catch (err) {
@@ -206,8 +242,51 @@ export function wirePalette(panel, ctx) {
     );
   }
 
-  async function run(cmd, v, { part, axis, keep, curves: cs }) {
+  async function run(cmd, v, { part, axis, keep, curves: cs, curves2: cs2 }) {
     if (cmd.gen) return addCurve(D.CURVES[cmd.gen](v), cmd.fa);
+    if (cmd.subd) {
+      const S = ctx.SD, cage = cmd.subd === 'box' ? S.boxCage(v.x, v.y, v.z) : cmd.subd === 'torus' ? S.torusCage(v.R, v.r, v.n, 4) : S.cylinderCage(v.r, v.h, v.n);
+      return ctx.addParts([ctx.newPart('subd', { alloy: ctx.cur()?.alloy, opts: { cage: JSON.stringify({ ...cage, levels: 3 }), name: cmd.fa } })]);
+    }
+    const NB = ctx.NB;
+    switch (cmd.id) {
+      case 'CircleNurbs': return addCurve(nurbsCurve(NB.circle(v.radius), true), cmd.fa);
+      case 'SrfPt': return addSrf(NB.srfPt([-v.w / 2, 0, -v.h / 2], [v.w / 2, 0, -v.h / 2], [v.w / 2, v.lift, v.h / 2], [-v.w / 2, 0, v.h / 2]), v.t, ctx.cur(), cmd.fa);
+    }
+    const c1n = () => toNurbs(worldCurve(part('curve')));
+    switch (cmd.id) {
+      case 'Rebuild': {
+        const A = part('curve'), c = toNurbs(worldCurve(A)), r = NB.rebuild(c, Math.round(v.count), Math.round(v.degree));
+        ctx.removePart(A.id);
+        await addCurve(nurbsCurve(r, worldCurve(A).closed), `${A.opts.name || 'منحنی'} (بازسازی)`);
+        return `منحنی با ${fa(Math.round(v.count))} نقطه کنترل و درجه ${fa(Math.round(v.degree))} بازسازی شد.`;
+      }
+      case 'InsertKnot': {
+        const A = part('curve'), c = NB.insertKnot(c1n(), v.u);
+        ctx.removePart(A.id);
+        await addCurve(nurbsCurve(c, worldCurve(A).closed), A.opts.name || 'منحنی');
+        return `گره افزوده شد؛ نقاط کنترل: ${fa(c.P.length)}، شکل بی‌تغییر.`;
+      }
+      case 'EdgeSrf': {
+        const cs4 = ['curve', 'curve2', 'curve3', 'curve4'].map((k) => toNurbs(worldCurve(part(k))));
+        // orient: the top edge and the right edge run like the bottom and the left
+        const near = (a, b) => Math.hypot(...a.map((x, k) => x - b[k]));
+        const rev = (c) => ({ ...c, U: c.U.map((u) => 1 - u).reverse(), P: [...c.P].reverse(), ...(c.W ? { W: [...c.W].reverse() } : {}) });
+        let [b, t, l, r] = cs4;
+        if (near(NB.curvePoint(t, 0), NB.curvePoint(b, 0)) > near(NB.curvePoint(t, 1), NB.curvePoint(b, 0))) t = rev(t);
+        if (near(NB.curvePoint(l, 0), NB.curvePoint(b, 0)) > near(NB.curvePoint(l, 1), NB.curvePoint(b, 0))) l = rev(l);
+        if (near(NB.curvePoint(r, 0), NB.curvePoint(b, 1)) > near(NB.curvePoint(r, 1), NB.curvePoint(b, 1))) r = rev(r);
+        return addSrf(NB.edgeSurface(b, t, l, r), v.t, ctx.cur(), cmd.fa);
+      }
+      case 'NetworkSrf': {
+        if (cs.length < 2 || cs2.length < 2) throw new Error('در هر جهت دست‌کم دو منحنی لازم است.');
+        return addSrf(NB.networkSurface(cs.map((c) => toNurbs(worldCurve(c))), cs2.map((c) => toNurbs(worldCurve(c)))), v.t, ctx.cur(), cmd.fa);
+      }
+      case 'LoftSrf': {
+        if (cs.length < 2) throw new Error('دست‌کم دو منحنی لازم است.');
+        return addSrf(NB.loft(cs.map((c) => toNurbs(worldCurve(c)))), v.t, ctx.cur(), cmd.fa);
+      }
+    }
     if (cmd.solid) return ctx.addParts([addSolid(D.solid(cmd.solid, v), ctx.cur(), cmd.fa)]);
     const c1 = () => worldCurve(part('curve')), c2 = () => worldCurve(part('curve2')), c3 = () => worldCurve(part('curve3'));
     switch (cmd.id) {
@@ -308,6 +387,19 @@ export function wirePalette(panel, ctx) {
       case 'Scale1D': g = D.DEFORMS.scale1d(g, { ...v, axis }); break;
       case 'Maelstrom': g = D.DEFORMS.maelstrom(g, v); break;
       case 'Flow': g = D.flowAlong(g, c1(), v); break;
+      case 'FilletEdge':
+      case 'FilletInner':
+      case 'OffsetMesh': {
+        const idx = D.toIndexed(g), op = { FilletEdge: 'fillet', FilletInner: 'filletInner', OffsetMesh: 'offset' }[cmd.id];
+        const m = ctx.VX.remeshDistance(idx.attributes.position.array, idx.index.array, op, cmd.id === 'OffsetMesh' ? v.d : v.r, Math.round(v.res));
+        if (!m.index.length) throw new Error('چیزی باقی نماند؛ شعاع یا فاصله برای این قطعه زیاد است.');
+        const sm = ctx.PS.taubin(m.position, m.index, 2);
+        g = new T.BufferGeometry();
+        g.setAttribute('position', new T.BufferAttribute(sm, 3));
+        g.setIndex(new T.BufferAttribute(m.index, 1));
+        g = D.finish(g);
+        break;
+      }
     }
     const np = addSolid(g, A, A.opts?.name || ctx.J.PIECES[A.type].label);
     ctx.removePart(A.id);
@@ -342,7 +434,11 @@ export function wirePalette(panel, ctx) {
   const redraw = () => {
     const pts = [...draw.pts, ...(draw.hover ? [draw.hover] : [])];
     const c = { pts: pts.map((p) => p.toArray()), closed: false, smooth: draw.cmd.draw === 'smooth' };
-    const shown = pts.length > 1 ? D.curvePoints(c, 120) : pts;
+    let shown = pts.length > 1 ? D.curvePoints(c, 120) : pts;
+    if (pts.length > 1 && (draw.cmd.draw === 'cp' || draw.cmd.draw === 'interp')) {
+      const q = pts.map((p) => p.toArray()), nc = draw.cmd.draw === 'cp' ? ctx.NB.fromControlPoints(q, 3) : ctx.NB.interpolate(q, 3);
+      shown = ctx.NB.sampleCurve(nc, 120).map((p) => new T.Vector3(...p));
+    }
     draw.line.geometry.dispose();
     draw.line.geometry = new T.BufferGeometry().setFromPoints(shown);
     draw.dots.geometry.dispose();
@@ -359,7 +455,14 @@ export function wirePalette(panel, ctx) {
     d.dots.geometry.dispose();
     ctx.stage.invalidate();
     const pts = d.pts.filter((p, i) => !i || p.distanceTo(d.pts[i - 1]) > 1e-6); // a double click lands twice
-    if (commit && pts.length >= 2) await addCurve({ pts: pts.map((p) => p.toArray()), closed: d.closed && pts.length >= 3, smooth: d.cmd.draw === 'smooth' }, d.cmd.fa).catch((err) => toast(err.message, 'error'));
+    const arr = pts.map((p) => p.toArray());
+    const closed = d.closed && pts.length >= 3;
+    let c = { pts: arr, closed, smooth: d.cmd.draw === 'smooth' };
+    if (commit && pts.length >= 2 && (d.cmd.draw === 'cp' || d.cmd.draw === 'interp')) {
+      const NB = ctx.NB, q = closed ? [...arr, arr[0]] : arr;
+      c = nurbsCurve(d.cmd.draw === 'cp' ? NB.fromControlPoints(q, 3) : NB.interpolate(q, 3), closed);
+    }
+    if (commit && pts.length >= 2) await addCurve(c, d.cmd.fa).catch((err) => toast(err.message, 'error'));
     else if (commit) toast('دست‌کم دو نقطه لازم است.', 'error');
   };
   const canvas = ctx.stage.renderer.domElement;
