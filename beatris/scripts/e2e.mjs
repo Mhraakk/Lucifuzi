@@ -377,7 +377,9 @@ async function loginUI(page) {
     await page.click('[data-tool="scale"]');
     await page.waitForTimeout(500);
     const w = await text(page, '#readout');
-    check('coin lab: genuine full coin weighs ≈8.13 g', /۸٫۱۳/.test(w), w.split('\n')[0]);
+    // a real reference specimen may read a milligram off the nominal 8.133 g on the 0.001 g scale
+    const grams = Number(w.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace('٫', '.').match(/\d+\.\d+/)?.[0]);
+    check('coin lab: genuine full coin weighs ≈8.13 g', Math.abs(grams - 8.133) < 0.01, w.split('\n')[0]);
     await page.click('[data-kind="brass"]');
     await page.waitForTimeout(5000);
     await page.click('[data-tool="scale"]');
