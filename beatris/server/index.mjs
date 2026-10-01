@@ -99,6 +99,18 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       }
     }
   });
+  // آموزش عامل‌محور (spec 0015): routines and inactivity triggers of every shop, idempotent per Tehran slot
+  bus.handle('training.tick', async () => {
+    for (const [id, h] of platform.all()) {
+      try {
+        const ran = await h.agents?.tick();
+        if (ran?.length) metrics.inc('training.routines', ran.length);
+      } catch (e) {
+        metrics.inc('training.errors');
+        if (!quiet) console.error('[beatris] training', id, e?.message);
+      }
+    }
+  });
   /** Deep health: the database answers, the price feed is fresh, the queue has no dead jobs, a recent backup exists. */
   function health() {
     const out = { ok: true, time: new Date().toISOString(), db: 'ok' };
@@ -450,6 +462,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
     bus.every('market', 60000, 'market.poll', {}, { maxAttempts: 1 });
     if (backupDir) bus.every('backup', 24 * 3600 * 1000, 'ops.backup', {}, { maxAttempts: 3 });
     bus.every('autoclose', 5 * 60 * 1000, 'books.autoclose', {}, { maxAttempts: 1 });
+    bus.every('training', 10 * 60 * 1000, 'training.tick', {}, { maxAttempts: 1 });
     bus.start(1000);
   };
   server.platform = platform;

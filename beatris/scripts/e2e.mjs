@@ -1618,6 +1618,34 @@ async function loginUI(page) {
       await page.keyboard.press('Escape');
     });
 
+  if (!live)
+    await step('accounting trainer (spec 0015): a case, the right entry, graded by the kernel; manager view', async () => {
+      await go(page, '/train/accounting', 1500);
+      check('trainer: the page opens with the tutor\'s suggestion', /یک رویداد، یک سند/.test(await text(page, '.at-head')));
+      await page.selectOption('#atTpl', 'buy_melt');
+      await page.waitForSelector('.at-case');
+      const sc = await page.evaluate(async () => (await (await fetch('/api/train/acct', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).progress.open[0]);
+      const lines = await page.evaluate(async (s) => (await import('/js/acct/scenarios.mjs')).buildScenario(s.id, { date: s.date }).hiddenExpectedResult.entries[0].lines, sc);
+      for (let j = 0; j < lines.length; j++) {
+        if (j >= 2) await page.click('[data-addline="0"]');
+        const l = lines[j];
+        await page.selectOption(`[data-e="0"][data-l="${j}"][data-f=account]`, l.account);
+        if (l.dr) await page.fill(`[data-e="0"][data-l="${j}"][data-f=dr]`, String(l.dr));
+        if (l.cr) await page.fill(`[data-e="0"][data-l="${j}"][data-f=cr]`, String(l.cr));
+        if (l.grams) {
+          await page.fill(`[data-e="0"][data-l="${j}"][data-f=grams]`, String(l.grams));
+          await page.fill(`[data-e="0"][data-l="${j}"][data-f=fineness]`, String(l.fineness));
+        }
+      }
+      check('trainer: the entry balances as it is typed', /متوازن/.test(await text(page, '.at-entry tfoot')));
+      await page.click('[data-act=check]');
+      await page.waitForSelector('.at-result');
+      check('trainer: the kernel grades the right entry 100% and explains it', /۱۰۰٪/.test(await text(page, '.at-score')) && /اثر روی دفتر/.test(await text(page, '.at-result')));
+      check('trainer: no horizontal overflow', (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
+      await go(page, '/train/team', 1500);
+      check('trainer: the manager sees seven quiet columns', (await page.$$eval('.at-team th', (t) => t.length)) === 8);
+    });
+
   if (!live) await step('desk products: template builder, search, pick, edit, delete', async () => {
     await go(page, '/books/desk', 1500);
     await page.click('[data-kind=coin]');

@@ -1777,5 +1777,5 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   on('POST', '/api/books/setup', 'auth', ({ user, body }) => setup.run(user, body));
   on('POST', '/api/books/setup/skip', 'auth', ({ user }) => setup.skip(user));
 
-  return { verifyLog, settings, audit, assistant, learn, catalogue, autoClose: () => control?.autoTick(), partyView: (id) => call('GET', '/api/books/parties/:id', { id: null, role: 'owner', name: 'سامانه' }, { params: { id } }) };
+  return { call, verifyLog, settings, audit, assistant, learn, catalogue, autoClose: () => control?.autoTick(), partyView: (id) => call('GET', '/api/books/parties/:id', { id: null, role: 'owner', name: 'سامانه' }, { params: { id } }) };
 }

@@ -59,6 +59,8 @@ route('/intro', lazy('./pages/intro.mjs', 'introPage'), { public: true, bare: tr
 route('/intro/:tab', lazy('./pages/intro.mjs', 'introPage'), { public: true, bare: true, tone: 'full' });
 route('/', lazy('./pages/home.mjs', 'homePage'), { tab: 'home', tone: 'full' });
 route('/learn', lazy('./pages/learn.mjs', 'learnPage'), { tab: 'learn' });
+route('/train/accounting', lazy('./pages/acctrain.mjs', 'accountingPage'), { tab: 'learn', tone: 'wide' });
+route('/train/team', lazy('./pages/acctrain.mjs', 'trainingTeamPage'), { tab: 'learn', tone: 'wide', staff: true });
 route('/learn/:id', lazy('./pages/learn.mjs', 'coursePage'), { tab: 'learn' });
 route('/lesson/:id', lazy('./pages/learn.mjs', 'lessonPage'), { tab: 'learn', tone: 'paper-page' });
 route('/exam/:id', lazy('./pages/exam.mjs', 'examPage'), { tab: 'learn' });

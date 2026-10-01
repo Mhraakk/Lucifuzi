@@ -1,5 +1,6 @@
 import { randomUUID, randomBytes } from 'node:crypto';
-import { capsOf } from './rbac.mjs';
+import { capsOf, can } from './rbac.mjs';
+import { createAgentSystem, registerAgentRoutes } from './agents/index.mjs';
 import { backtest } from '../public/js/backtest.mjs';
 import path from 'node:path';
 import * as C from '../content/index.mjs';
@@ -720,6 +721,10 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', key, JSON.stringify(value), now(), by);
   const books = registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin: (u) => ADMIN_ROLES.has(u.role), market, sealer, shopId: tenantId, onEvent, flag: (k) => flags()[k] !== false });
 
+  /* ---------------- agentic accounting training (spec 0015): tutor, auditor, coach; approvals for real books ---------------- */
+  const agents = createAgentSystem({ db, books, can: (u, cap) => can(u, cap, { main: isMain }), phrase: (i, t) => books.assistant.phrase(i, t) });
+  registerAgentRoutes({ on, sys: agents, HttpError, can: (u, cap) => can(u, cap, { main: isMain }) });
+
   /* ---------------- dispatcher ---------------- */
   function authenticate(req) {
     const h = req.headers.authorization ?? '';
@@ -776,6 +781,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   handle.mcp = mcp;
   handle.mcpAuth = mcpAuth;
   handle.books = books;
+  handle.agents = agents;
   return handle;
 }
 

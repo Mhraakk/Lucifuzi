@@ -417,6 +417,25 @@ export function makeAssistant({ db, call, audit, settings, tehranDay, livePrices
       }
       return done({ ...books(), ...(failed.length ? { fallback: failed.join(' · ') } : {}) });
     },
+    /**
+     * Rephrase a finished, deterministic text in plainer Persian (spec 0015). No tools, no data beyond the text;
+     * null when no engine is set up or every engine failed — callers keep the deterministic text then.
+     */
+    async phrase(instruction, text) {
+      for (const cfg of chain()) {
+        const t = external(cfg) ? redact(text) : text;
+        try {
+          const data = cfg.dialect === 'anthropic'
+            ? await gw.post(cfg.id, `${cfg.base.replace(/\/+$/, '')}/messages`, { 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01' }, { model: cfg.model, max_tokens: 700, system: `${instruction}\n${GUARD_NOTE}`, messages: [{ role: 'user', content: t }] })
+            : await gw.post(cfg.id, `${cfg.base.replace(/\/+$/, '')}/chat/completions`, cfg.key ? { authorization: `Bearer ${cfg.key}` } : {}, { model: cfg.model, temperature: 0.2, messages: [{ role: 'system', content: `${instruction}\n${GUARD_NOTE}` }, { role: 'user', content: t }] });
+          const out = cfg.dialect === 'anthropic' ? (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('') : data.choices?.[0]?.message?.content;
+          if (typeof out === 'string' && out.trim()) return { engine: cfg.engine, text: cleanOutput(out.trim()).text };
+        } catch {
+          /* next engine */
+        }
+      }
+      return null;
+    },
     local,
     localTyped,
     intentOf: (q) => intentOf(norm(q).trim()),

@@ -12,7 +12,7 @@ export async function teamPage(root) {
   const present = active.filter((m) => m.today?.inAt && !m.today?.outAt).length;
   const avg = active.length ? Math.round(active.reduce((s, m) => s + m.overall, 0) / active.length) : 0;
   root.innerHTML = String(html`
-    <div class="head"><div><h1>تیم</h1><p class="lead">آمادگی هر همکار = درس‌ها ۴۰٪ + پرسش‌ها ۳۰٪ + آزمون ۳۰٪ در هر دوره.</p></div></div>
+    <div class="head"><div><h1>تیم</h1><p class="lead">آمادگی هر همکار = درس‌ها ۴۰٪ + پرسش‌ها ۳۰٪ + آزمون ۳۰٪ در هر دوره. <a href="/train/team" data-link>آمادگی تیم در حسابداری عملی</a></p></div></div>
     <div class="stats">
       <div><b>${fa(active.length)}</b><span>همکار فعال</span></div>
       <div><b>${fa(present)}</b><span>حاضر در شعبه</span></div>
