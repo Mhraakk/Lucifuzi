@@ -2,6 +2,22 @@ import { crownSvg } from './crown.mjs';
 import { html, raw, fa, store } from './core.mjs';
 
 const P = (d) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`);
+/* Tab icons (spec 0021): two layers each — a soft fill (.tf) that comes in when the tab is current and the line art.
+ * Drawn for this app's meanings: a house with a Persian arch, an open book with a gem marker, practice as a loop
+ * round a target, the market as candles, the books as a ruled ledger, the studio as a ring with its stone, tools as a
+ * goldsmith's balance. Same 24-unit grid and 1.6 stroke as the rest of the icon set. */
+const T = (fill, line) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="tf" fill="currentColor" stroke="none">${fill}</g><g class="tl">${line}</g></svg>`);
+export const TAB_ICON = {
+  home: T('<path d="M6 10.6 12 5.4l6 5.2V19.5H6Z" opacity=".22"/>', '<path d="M3.8 11.2 12 4.2l8.2 7"/><path d="M6 9.8v9.7h12V9.8"/><path class="ta" d="M10 19.5v-4.2a2 2 0 0 1 4 0v4.2"/>'),
+  learn: T('<path d="M12 6.4C10 5 7.6 4.6 4.5 4.8v13.4c3.1-.2 5.5.2 7.5 1.6 2-1.4 4.4-1.8 7.5-1.6V4.8c-3.1-.2-5.5.2-7.5 1.6Z" opacity=".2"/>', '<path d="M12 6.4C10 5 7.6 4.6 4.5 4.8v13.4c3.1-.2 5.5.2 7.5 1.6M12 6.4c2-1.4 4.4-1.8 7.5-1.6v13.4c-3.1-.2-5.5.2-7.5 1.6M12 6.4v13.4"/><path class="ta" d="m15.2 8.6 1.3-1.4 1.3 1.4-1.3 1.6Z"/>'),
+  practice: T('<circle cx="12" cy="12" r="3.1" opacity=".3"/>', '<path d="M19.4 9.2A7.8 7.8 0 0 0 5.1 8.1"/><path d="m19.6 4.9-.2 4.3-4.3-.2"/><path d="M4.6 14.8a7.8 7.8 0 0 0 14.3 1.1"/><path d="m4.4 19.1.2-4.3 4.3.2"/><circle class="ta" cx="12" cy="12" r="1.2"/>'),
+  market: T('<rect x="6.2" y="8.5" width="3.6" height="6.5" rx=".8" opacity=".25"/><rect x="14.2" y="6" width="3.6" height="8" rx=".8" opacity=".25"/>', '<path d="M8 5v3.5M8 15v4M16 3.8V6M16 14v3.5"/><rect x="6.2" y="8.5" width="3.6" height="6.5" rx=".8"/><rect x="14.2" y="6" width="3.6" height="8" rx=".8"/><path class="ta" d="M3.5 20.2h17"/>'),
+  books: T('<path d="M5 4.5h11.5a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2Z" opacity=".2"/>', '<path d="M5 17.5v-13h11.5a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2 2 2 0 0 1 2-2h11.5"/><path d="M9 4.5v11"/><path class="ta" d="M11.5 8.2h4.3M11.5 11h4.3"/>'),
+  studio: T('<path d="m9.4 6.6 2.6-2.9 2.6 2.9-2.6 2.1Z" opacity=".35"/>', '<path d="m9.4 6.6 2.6-2.9 2.6 2.9-2.6 2.1Z"/><circle cx="12" cy="15" r="5.6"/><path class="ta" d="M9.2 9.9a5.6 5.6 0 0 1 5.6 0"/>'),
+  tools: T('<path d="M4 14.2h5.4a2.7 2.7 0 0 1-5.4 0ZM14.6 14.2H20a2.7 2.7 0 0 1-5.4 0Z" opacity=".25"/>', '<path d="M12 4.2v15.3M8.2 19.5h7.6M5.2 6.8h13.6"/><path d="M6.7 6.8 4 14.2h5.4ZM17.3 6.8 14.6 14.2H20Z"/><circle class="ta" cx="12" cy="4.2" r="1"/>'),
+  team: T('<circle cx="9" cy="8.6" r="3" opacity=".22"/>', '<circle cx="9" cy="8.6" r="3"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path class="ta" d="M15.4 6a3 3 0 0 1 0 5.4M17.4 13.8A5.4 5.4 0 0 1 20.4 19"/>'),
+  me: T('<circle cx="12" cy="8.2" r="3.6" opacity=".22"/>', '<circle cx="12" cy="8.2" r="3.6"/><path class="ta" d="M5.2 19.8a6.8 6.8 0 0 1 13.6 0"/>'),
+};
 export const ICON = {
   home: P('<path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/>'),
   learn: P('<path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5Z"/><path d="M5 20.5V5.5M19 18H8"/>'),

@@ -3,7 +3,7 @@
 // fractions; prices understand میلیون/هزار and تومان/ریال. Nothing here touches the network: the customer comes back
 // as a name to look up, and every word that was not understood is reported, never guessed silently.
 
-const MESGHAL_G = 4.608;
+import { MESGHAL_G } from './calc.mjs'; // one mesghal = 4.6083 g, the same constant the books use
 /** One «خط» of the Tehran gold market: 10,000 toman = 100,000 rial off (or on) the مظنه (spec 0020). */
 export const KHAT_RIAL = 100000;
 const DOWN = new Set(['پایین', 'پائین', 'زیر', 'کمتر', 'کم', 'زیرِ', 'پایینتر', 'کمتره']);
@@ -314,7 +314,7 @@ export function parseLine(line) {
       }
       // coin names (with an optional count before them is handled by the number branch)
       const c = matchPhrase(w, i, COINS);
-      if (c && !(c.id === 'half' && w[i + 1] === 'گرم') && !(c.id === 'emami' && c.text === 'تمام' && !isCoinContext(w, i))) {
+      if (c && !(c.id === 'half' && (w[i + 1] === 'گرم' || w[i + 1] === 'مثقال')) && !(c.id === 'emami' && c.text === 'تمام' && !isCoinContext(w, i))) {
         out.kind = 'coin';
         out.coin = c.id;
         out.count ??= 1;

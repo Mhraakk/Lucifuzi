@@ -168,3 +168,8 @@ test('no language engine: the reason is said plainly', async () => {
   const r = await understandLine('یه چیزی عجیب گفت و رفت پیش بقیه', { provider: { available: () => false } });
   assert.equal(r.ok, false);
 });
+
+test('a weight in mesghal uses the books’ own mesghal (4.6083 g), not a rounded one', () => {
+  assert.equal(parseLine('خرید ۲ مثقال عیار ۷۵۰').weight, 9.217);
+  assert.equal(parseLine('خرید نیم مثقال').weight, 2.304);
+});

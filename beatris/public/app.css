@@ -3519,3 +3519,30 @@ html[data-skin^='clean'] #tabbar .goo b { background: var(--bone); }
 .mesh > * { position: relative; }
 html[data-tone='light'] .mesh::before { opacity: 0.22; mix-blend-mode: multiply; }
 .loading-row { display: flex; align-items: center; gap: 10px; }
+
+/* ---------- motion kit (spec 0021): text morph words, the dock tray and highlight, the tab icons ---------- */
+.tm-w { display: inline-block; white-space: pre; will-change: transform; }
+.tm-sp { display: inline; }
+[data-morph] { position: relative; }
+.dock-tray { position: fixed; left: 0; top: 0; z-index: 170; max-width: 260px; padding: 10px 14px; border-radius: 14px; pointer-events: none; transform-origin: 50% 100%;
+  background: rgba(var(--raise-rgb), 0.96); border: 1px solid var(--hair-2); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.6); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); overflow: hidden; }
+.dock-tray-in { display: grid; gap: 2px; }
+.dock-t { font-size: 14px; font-weight: 700; color: var(--bone); }
+.dock-p { font-size: 12.5px; line-height: 1.7; color: var(--dust); }
+html[data-tone='light'] .dock-tray { background: rgba(255, 255, 255, 0.97); box-shadow: 0 18px 40px -18px rgba(40, 30, 10, 0.35); }
+#tabbar .dock-hl { position: absolute; left: 0; top: 0; z-index: 0; border-radius: 18px; pointer-events: none; opacity: 0; background: rgba(var(--gold-rgb), 0.09); }
+#tabbar[data-dock] a svg { transition: none; transform-origin: 50% 60%; }
+#tabbar[data-dock] a:active svg { transform: scale(0.88); transition: transform 0.08s; }
+@media (max-width: 959px) { #tabbar { touch-action: none; } #tabbar.dock-scrub a { -webkit-user-select: none; user-select: none; } }
+#tabbar .tf { opacity: 0; transition: opacity 0.3s var(--ease); }
+#tabbar a[aria-current='page'] .tf { opacity: 1; }
+#tabbar a[aria-current='page'] .ta { stroke-dasharray: 40; stroke-dashoffset: 0; animation: tab-draw 0.6s var(--ease) both; }
+@keyframes tab-draw { from { stroke-dashoffset: 40; } }
+@media (prefers-reduced-motion: reduce) { #tabbar a[aria-current='page'] .ta { animation: none; } }
+/* the smooth text cursor (caret.mjs) */
+.sc-input { caret-color: transparent; }
+.sc-mirror { position: absolute; top: 0; visibility: hidden; white-space: pre; overflow: hidden; pointer-events: none; height: 0; }
+.sc-caret { position: absolute; left: 0; width: 2px; border-radius: 1px; background: var(--gold); opacity: 0; pointer-events: none; will-change: transform; }
+.sc-caret.on { opacity: 1; animation: sc-blink 1.06s steps(1, end) infinite 0.5s; }
+.sc-caret.on.moving { animation: none; }
+@keyframes sc-blink { 50% { opacity: 0; } }

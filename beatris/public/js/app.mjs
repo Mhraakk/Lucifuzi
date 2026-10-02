@@ -1,5 +1,5 @@
-import { html, raw, $, route, render, setShell, store, ROLE_FA } from './core.mjs';
-import { ICON, brandMark } from './ui.mjs';
+import { html, raw, $, route, render, setShell, store, navigate, ROLE_FA } from './core.mjs';
+import { ICON, TAB_ICON, brandMark } from './ui.mjs';
 import { SHOP_NAME } from './crown.mjs';
 import { startHarness } from './harness.mjs';
 import { initPalette, openPalette } from './palette.mjs';
@@ -10,11 +10,14 @@ import { pending, onOutbox } from './outbox.mjs';
 import { initSkins, toggleSkinPicker, skinName } from './skinpicker.mjs';
 import { initOrbs } from './orb.mjs';
 import { gooTabs } from './goo.mjs';
+import { initDock } from './dock.mjs';
+import { initCaret } from './caret.mjs';
 
 /* ---------- پوسته‌ها (spec 0014): the chosen skin, its automatic modes and the picker — remembered per device ---------- */
 const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.6-1.6-1.8-1.6-3.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-3.9-4-7-9-7Z"/><circle cx="7.5" cy="11" r="1.1"/><circle cx="10" cy="7" r="1.1"/><circle cx="15" cy="7" r="1.1"/></svg>';
 initSkins();
 initOrbs();
+initCaret();
 
 /** وضعیت اتصال و صف ارسال (spec 0013): always in view, so nobody wonders whether a document went through. */
 async function netPill() {
@@ -105,6 +108,18 @@ route('/staff/leads', lazy('./pages/team.mjs', 'leadsPage'), { tab: 'team', staf
 route('/staff/access', lazy('./pages/access.mjs', 'accessPage'), { tab: 'team', staff: true });
 route('/staff/:id', lazy('./pages/team.mjs', 'memberPage'), { tab: 'team', staff: true, tone: 'wide' });
 
+/** The tab bar's places: key, address, name, icon, and the one sentence the dock tray says about each (spec 0021). */
+const TABS = [
+  ['home', '/', 'خانه', TAB_ICON.home, 'خلاصه امروز، اعلان‌ها و میانبرها'],
+  ['learn', '/learn', 'آموزش', TAB_ICON.learn, 'دوره‌ها، درس‌ها و آزمون‌ها؛ از صفر تا حرفه‌ای'],
+  ['practice', '/practice', 'تمرین', TAB_ICON.practice, 'تمرین محاسبه، کارت مرور و شبیه‌ساز مشتری'],
+  ['market', '/market', 'بازار', TAB_ICON.market, 'مظنه، نمودارها، تحلیل الیوت و هشدار قیمت'],
+  ['books', '/books', 'حساب', TAB_ICON.books, 'میز معامله، روزنگار، گاوصندوق و گزارش‌ها'],
+  ['studio', '/studio', 'استودیو', TAB_ICON.studio, 'طراحی سه‌بعدی، وزن واقعی و خروجی ساخت'],
+  ['tools', '/tools', 'ابزار', TAB_ICON.tools, 'ماشین‌حساب‌ها، آزمایشگاه سکه و ابزار عیار'],
+  ['team', '/staff', 'تیم', TAB_ICON.team, 'همکاران، پیشرفت آموزش و دسترسی‌ها'],
+  ['me', '/me', 'من', TAB_ICON.me, 'حساب من، پوسته و پیشرفت شخصی'],
+];
 setShell((opts) => {
   const top = $('#topbar');
   const nav = $('#tabbar');
@@ -133,20 +148,17 @@ setShell((opts) => {
       },
     });
   });
-  const tabs = [
-    ['home', '/', 'خانه', ICON.home],
-    ['learn', '/learn', 'آموزش', ICON.learn],
-    ['practice', '/practice', 'تمرین', ICON.practice],
-    ['market', '/market', 'بازار', ICON.chart],
-    ['books', '/books', 'حساب', ICON.book],
-    ['studio', '/studio', 'استودیو', ICON.cube],
-    ['tools', '/tools', 'ابزار', ICON.tools],
-  ];
-  if (store.isStaff()) tabs.push(['team', '/staff', 'تیم', ICON.team]);
-  else tabs.push(['me', '/me', 'من', ICON.me]);
+  const tabs = TABS.filter(([k]) => (k === 'team' ? store.isStaff() : k === 'me' ? !store.isStaff() : true));
   nav.hidden = false;
   nav.innerHTML = String(html`${tabs.map(([k, href, label, icon]) => html`<a href="${href}" data-link ${opts.tab === k ? html`aria-current="page"` : ''}>${icon}<span>${label}</span></a>`)}`);
   gooTabs(nav);
+  initDock(nav, {
+    about: (href) => {
+      const t = TABS.find((x) => x[1] === href);
+      return t && { label: t[2], text: t[4] };
+    },
+    go: (href) => navigate(href),
+  });
 });
 addEventListener('resize', () => gooTabs($('#tabbar'), { jump: true }));
 

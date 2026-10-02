@@ -2,6 +2,8 @@
 // a quiet haptic tick, a sunrise when the theme changes, a thread of light while a page is on its way and a header
 // that gains depth as the page scrolls. Decoration only: nothing here changes text, layout or behaviour, and nothing
 // moves when the user asked for less motion.
+import { morphText } from './motion.mjs';
+
 const root = document.documentElement;
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
@@ -154,7 +156,9 @@ else watchToasts();
 
 /* ---------- 7. a button that says something new: the width glides to the new words, which arrive out of a soft blur ---------- */
 export function morphLabel(btn, text) {
-  if (!btn || btn.textContent === text) return;
+  if (!btn) return;
+  const cur = btn.querySelector(':scope > .lt-lbl');
+  if ((cur?.dataset.morph ?? btn.textContent) === text) return;
   if (quiet() || !btn.isConnected) return void (btn.textContent = text);
   const from = btn.getBoundingClientRect().width;
   const probe = btn.cloneNode(false);
@@ -163,11 +167,15 @@ export function morphLabel(btn, text) {
   btn.after(probe);
   const to = probe.getBoundingClientRect().width;
   probe.remove();
-  const label = document.createElement('span');
-  label.className = 'lt-lbl';
-  label.textContent = text;
+  let label = cur;
+  if (!label) {
+    label = document.createElement('span');
+    label.className = 'lt-lbl';
+    morphText(label, btn.textContent.trim());
+    btn.replaceChildren(label);
+  }
   btn.style.width = `${from}px`;
-  btn.replaceChildren(label);
+  morphText(label, text); // kept words glide, new ones rise out of a blur (motion.mjs)
   requestAnimationFrame(() => (btn.style.width = `${to}px`));
   const done = () => (btn.style.width = '');
   btn.addEventListener('transitionend', (e) => e.propertyName === 'width' && done(), { once: true });

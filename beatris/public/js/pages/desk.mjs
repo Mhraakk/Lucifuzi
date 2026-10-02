@@ -17,6 +17,7 @@ import { qrSvg } from '../qr.mjs';
 import { pickerHtml, productModal, templateModal, canManageProducts } from '../deskproducts.mjs';
 import { posConfig, posProblem, startCharge, newChargeId, logCharge, linkCharge, STATE_TEXT, chargeLine } from '../pos.mjs';
 import { createHistory, mountDock } from '../undo.mjs';
+import { morphText } from '../motion.mjs';
 import { parseLine, describe as describeParsed, resolveMazaneh, explainMazaneh, missing as missingOf } from '../oneline.mjs';
 import { drafts, submit, onOutbox, take } from '../outbox.mjs';
 
@@ -104,7 +105,7 @@ export async function deskPage(root) {
     ${cond.items.length ? html`<button class="notice dk-cond" data-act="cond">⚖ ${fa(cond.items.length)} آبشده شرطی منتظر عیار آزمایشگاه است — ثبت عیار</button>` : ''}
     <div id="dkNotice"></div>
     <section class="dk-cmd" id="dkCmd" aria-label="ورود سریع">
-      <div class="dk-cmd-f"><span class="dk-cmd-ic" aria-hidden="true">⌘</span><input class="input" id="dkLine" autocomplete="off" spellcheck="false" aria-keyshortcuts="F3" placeholder="یک خط بنویسید: خرید رضایی ۱۲٫۴۵ گرم عیار ۷۵۰ نقد — Enter (F3)"></div>
+      <div class="dk-cmd-f"><span class="dk-cmd-ic" aria-hidden="true">⌘</span><input class="input" id="dkLine" data-caret autocomplete="off" spellcheck="false" aria-keyshortcuts="F3" placeholder="یک خط بنویسید: خرید رضایی ۱۲٫۴۵ گرم عیار ۷۵۰ نقد — Enter (F3)"></div>
       <div class="dk-cmd-out" id="dkLineOut" aria-live="polite"></div>
       <div class="dk-quick-row" id="dkQuick"></div>
       <div class="dk-help" id="dkHelp" hidden></div>
@@ -549,6 +550,7 @@ export async function deskPage(root) {
     sentence(c);
     return c;
   }
+  const sentenceText = () => { const el = $('#dkSentence', root); return el?.dataset.morph ?? el?.textContent ?? ''; };
   /** تمرکز: the whole document in one sentence, always in view. */
   function sentence(c) {
     const el = $('#dkSentence', root);
@@ -556,7 +558,8 @@ export async function deskPage(root) {
     const rows = c?.lines ?? [];
     const what = rows.map((l) => `${lineVerb(l)} ${l.kind === 'coin' ? `${fa(l.count ?? l.amt)} سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : l.kind === 'fx' ? `${fa(l.fxAmount ?? l.amt)} ${TR.FX_CODES?.[l.code] ?? l.code ?? ''}` : `${G(l.weight ?? 0)} گرم ${TR.TRADE_KINDS[l.kind]}${l.fineness ? ` ${fa(l.fineness)}` : ''}`}`.replace(/\s+/g, ' ').trim());
     const pays = S.payments.map((p) => B.payMethod(p.method)?.label).filter(Boolean);
-    el.textContent = what.length || pays.length ? `${S.amend ? `اصلاحیه ${S.amend.track}: ` : ''}${what.join('، ')}${S.party ? ` — ${S.party.name}` : ''}${pays.length ? ` — ${pays.join(' + ')}` : ''}` : S.party ? `${S.party.name}: ${MODE_FA[S.mode]}، ${KIND_FA[S.kind]}` : `${MODE_FA[S.mode]}، ${KIND_FA[S.kind]} — مشتری را انتخاب کنید (F2) یا یک خط بنویسید (F3)`;
+    // the sentence morphs word by word as the document changes (spec 0021)
+    morphText(el, what.length || pays.length ? `${S.amend ? `اصلاحیه ${S.amend.track}: ` : ''}${what.join('، ')}${S.party ? ` — ${S.party.name}` : ''}${pays.length ? ` — ${pays.join(' + ')}` : ''}` : S.party ? `${S.party.name}: ${MODE_FA[S.mode]}، ${KIND_FA[S.kind]}` : `${MODE_FA[S.mode]}، ${KIND_FA[S.kind]} — مشتری را انتخاب کنید (F2) یا یک خط بنویسید (F3)`);
   }
 
   /* ---------------- save and receipt ---------------- */
@@ -590,12 +593,12 @@ export async function deskPage(root) {
         if (reason.length < 3) return toast('دلیل اصلاح را بنویسید؛ در تاریخچه هر دو سند می‌ماند.', 'error'), $('#dkAmendReason', root)?.focus();
         doc = await api(`/api/books/docs/${S.amend.id}`, { method: 'PUT', body: { ...b, reason } });
       } else {
-        const r = await submit({ url: '/api/books/docs', body: b, label: $('#dkSentence', root)?.textContent ?? '' });
+        const r = await submit({ url: '/api/books/docs', body: b, label: sentenceText() });
         doc = r.doc ?? null;
         if (r.queued) queued = r.key;
       }
       remember(b);
-      const was = { party: S.party, sentence: $('#dkSentence', root)?.textContent ?? '', c };
+      const was = { party: S.party, sentence: sentenceText(), c };
       S.lines = [];
       S.payments = [];
       S.note = '';

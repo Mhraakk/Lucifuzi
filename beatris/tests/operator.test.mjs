@@ -102,7 +102,7 @@ test('ورود تک‌خطی: معامله‌های رایج پشت پیشخوا
   assert.deepEqual([f.kind, f.serial, f.weight, f.fineness], ['bar', '3307021', 100, 995]);
 
   const g = parseLine('خرید - محمدی - ۲ مثقال - ۷۵۰');
-  assert.deepEqual([g.party, g.weight, g.fineness], ['محمدی', 9.216, 750]);
+  assert.deepEqual([g.party, g.weight, g.fineness], ['محمدی', 9.217, 750]); // 2 × 4.6083 g, the books' mesghal (was 9.216 from a rounded 4.608)
 
   const h = parseLine('فروش دو ربع به نوری ۵۰ میلیون کارت بقیه نقد');
   assert.deepEqual([h.coin, h.count, h.party], ['quarter', 2, 'نوری']);

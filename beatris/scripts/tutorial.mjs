@@ -34,7 +34,7 @@ const ago = (n) => new Date(Date.parse(`${today}T00:00:00Z`) - n * 864e5).toISOS
 
 /* ---------------- the overlay: narration bar, chapter title, cursor, click ring ---------------- */
 const OVERLAY = () => {
-  const css = `#tt-cap{position:fixed;inset-inline:0;bottom:0;z-index:2147483646;padding:14px 28px 18px;background:linear-gradient(0deg,rgba(10,10,12,.94),rgba(10,10,12,.82));color:#fff;font:500 21px/1.75 Estedad,Vazirmatn,Tahoma,sans-serif;direction:rtl;text-align:right;box-shadow:0 -8px 30px rgba(0,0,0,.35);transition:opacity .25s;pointer-events:none}#tt-cap b{display:block;font-size:14px;color:#e8c887;font-weight:700;letter-spacing:0}#tt-cap:empty{opacity:0}#tt-cur{position:fixed;z-index:2147483647;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:rgba(232,200,135,.55);border:2px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none;transition:left .55s cubic-bezier(.3,.8,.3,1),top .55s cubic-bezier(.3,.8,.3,1);left:50%;top:40%}#tt-ring{position:fixed;z-index:2147483645;pointer-events:none;border:3px solid #e8c887;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18);transition:all .35s;opacity:0}.tt-title{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#2a2419,#0c0b09 70%);color:#fff;font-family:Estedad,Vazirmatn,Tahoma,sans-serif;direction:rtl;text-align:center;pointer-events:none}.tt-title small{display:block;color:#e8c887;font-size:18px;margin-bottom:10px}.tt-title h1{margin:0;font-size:44px;font-weight:800}.tt-title p{margin:12px 0 0;color:#cbbd9f;font-size:20px}`;
+  const css = `#tt-cap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(1120px,calc(100vw - 48px));z-index:2147483646;padding:14px 26px 16px;border-radius:18px;background:rgba(12,11,10,.86);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border:1px solid rgba(232,200,135,.22);color:#fff;font:500 21px/1.8 Estedad,Tahoma,sans-serif;direction:rtl;text-align:right;box-shadow:0 24px 60px -20px rgba(0,0,0,.7);transition:opacity .35s;pointer-events:none}#tt-cap b{display:block;font-size:14px;color:#e8c887;font-weight:700;letter-spacing:0}#tt-cap:empty{opacity:0}#tt-cap .w{display:inline-block;white-space:pre;will-change:transform,filter,opacity}#tt-cur{position:fixed;z-index:2147483647;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:rgba(232,200,135,.55);border:2px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none;transition:left .55s cubic-bezier(.3,.8,.3,1),top .55s cubic-bezier(.3,.8,.3,1);left:50%;top:40%}#tt-ring{position:fixed;z-index:2147483645;pointer-events:none;border:3px solid #e8c887;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18);transition:all .35s;opacity:0}.tt-title{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#2a2419,#0c0b09 70%);color:#fff;font-family:Estedad,Vazirmatn,Tahoma,sans-serif;direction:rtl;text-align:center;pointer-events:none}.tt-title small{display:block;color:#e8c887;font-size:18px;margin-bottom:10px}.tt-title h1{margin:0;font-size:44px;font-weight:800}.tt-title p{margin:12px 0 0;color:#cbbd9f;font-size:20px}`;
   const boot = () => {
     if (document.getElementById('tt-cap')) return;
     const st = document.createElement('style');
@@ -52,11 +52,23 @@ const OVERLAY = () => {
   if (document.readyState === 'loading') addEventListener('DOMContentLoaded', boot);
   else boot();
   window.__tt = {
+    // cinematic captions: the old line leaves upward into a blur, the new one arrives word by word out of a blur
+    // (whole words: Persian letters join), on a soft spring-like curve; a re-loaded page shows its line at once
     say(title, text) {
       boot();
-      const html = text ? `<b>${title}</b>${text}` : '';
-      document.getElementById('tt-cap').innerHTML = html;
+      const cap = document.getElementById('tt-cap');
+      const words = String(text || '').split(/(\s+)/).filter((w) => w.length);
+      const html = text ? `<b>${title}</b>${words.map((w) => (/^\s+$/.test(w) ? w : `<span class="w">${w}</span>`)).join('')}` : '';
       sessionStorage.setItem('tt-cap', html);
+      const old = [...cap.querySelectorAll('.w')];
+      const swap = () => {
+        cap.innerHTML = html;
+        [...cap.querySelectorAll('.w')].forEach((w, i) =>
+          w.animate([{ opacity: 0, transform: 'translateY(14px) scale(.985)', filter: 'blur(12px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 620, delay: Math.min(i * 42, 900), easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' }),
+        );
+      };
+      if (!old.length) return swap();
+      Promise.all(old.map((w, i) => w.animate([{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: 'translateY(-10px)', filter: 'blur(8px)' }], { duration: 260, delay: Math.min(i * 8, 120), easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }).finished)).then(swap, swap);
     },
     move(x, y) {
       boot();
@@ -750,6 +762,37 @@ const CHAPTERS = [
       await d.click('[data-pick=calm]', 1600);
       await page.keyboard.press('Escape');
       await d.say('و «شب آرام» برای ساعت‌های طولانی پشت پیشخوان.', 3600);
+    },
+  },
+  {
+    n: 22, slug: 'market-language', title: 'معامله با زبان بازار', sub: '«بیست خط زیر مظنه ۱۰۹ میلیون» را همان‌طور که گفته شد بنویسید؛ سند درست صادر می‌شود', standalone: true,
+    steps: ['میز معامله ← خانه یک‌خطی (F3). جمله را همان‌طور که در بازار گفته شد بنویسید: «خرید از رضایی ۱۲٫۴۵ گرم آبشده ۷۵۰ بیست خط زیر مظنه بازار ۱۰۹ میلیون نقد».', 'هر خط ده هزار تومان (صد هزار ریال) است. «زیر/پایین/کمتر» کم می‌کند و «بالای/روی/بالاتر» اضافه؛ «منهای ۲۰ خط» هم درست است. بدون عدد مظنه، مظنه تابلوی بازار برداشته می‌شود.', 'پیش از اعمال، اپ مظنه حساب‌شده را می‌نویسد: مظنه − ۲۰ خط = مظنه توافقی؛ و هر چیزی که هنوز کم است.', 'Enter ردیف و پرداخت را می‌سازد. اگر آخر جمله «ثبت کن» باشد، سند همان لحظه صادر می‌شود؛ اگر چیزی کم باشد، هیچ سندی ثبت نمی‌شود و کمبود گفته می‌شود.', 'اگر جمله آزادتر باشد، «از دستیار بپرس» آن را به زبان میز برمی‌گرداند؛ عددی که شما ننوشته‌اید پذیرفته نمی‌شود.'],
+    async run(page, d) {
+      await J('POST', '/api/books/parties', { name: 'رضایی' }, S.token).catch(() => {});
+      await d.go('/books/desk', 2000);
+      const fresh = await page.$('[data-act=fresh]');
+      if (fresh) await fresh.click();
+      await d.say('طلافروش معامله را با زبان بازار زده: «بیست خط زیر مظنه بازار ۱۰۹ میلیون». اپراتور همان را می‌نویسد.', 5600);
+      await d.point('#dkLine');
+      await page.click('#dkLine');
+      for (const ch of 'خرید از رضایی ۱۲٫۴۵ گرم آبشده ۷۵۰ بیست خط زیر مظنه بازار ۱۰۹ میلیون نقد') {
+        await page.keyboard.type(ch);
+        await wait(38);
+      }
+      await wait(600);
+      await d.point('.dk-cmd-price');
+      await d.say('اپ هر بخش را فهمیده و مظنه توافقی را حساب کرده: ۱۰۹ میلیون منهای ۲۰ خط، یعنی ۱۰۸ میلیون و ۸۰۰ هزار تومان. هر خط ده هزار تومان است.', 7600);
+      await d.say('اگر «زیر» یا «بالای» را ننویسید، اپ حدس نمی‌زند و می‌پرسد.', 4200);
+      await page.keyboard.type(' ثبت کن');
+      await wait(500);
+      await d.say('«ثبت کن» در آخر جمله یعنی سند همین حالا صادر شود.', 4000);
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('.dk-receipt', { timeout: 15000 });
+      await wait(900);
+      await d.point('.dk-receipt');
+      await d.say('سند ثبت شد؛ همان مظنه توافقی در سند نوشته شده و حساب آن را موتور حسابداری می‌زند، نه حدس.', 6400);
+      await page.keyboard.press('Escape');
+      await d.say('جمله‌های آزادتر را «از دستیار بپرس» به زبان میز برمی‌گرداند، اما عددی که شما ننوشته‌اید هرگز پذیرفته نمی‌شود.', 6400);
     },
   },
 ];

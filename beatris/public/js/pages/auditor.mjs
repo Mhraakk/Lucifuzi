@@ -34,7 +34,7 @@ export async function auditPage(root) {
       <section class="tray au-chat"><div class="bk-head"><h3 class="bk-h">تاجیار · دستیار حسابرس</h3><span class="small"><span id="eng"></span>${store.isAdmin() ? html` · <a href="/books/ai" data-link>کلیدهای هوش مصنوعی</a>` : ''}</span></div>
         <div class="au-msgs" id="msgs" aria-live="polite"></div>
         <div class="chips au-quick">${['ممیز', 'بدهکاران', 'طلبکاران', 'روزنگار امروز', 'گاوصندوق', 'مظنه', 'چی یادته', 'محاسبه ۲ گرم عیار ۷۴۰'].map((q) => html`<button class="chip" data-q="${q}">${q}</button>`)}</div>
-        <form class="au-form" id="af"><input class="input" id="aq" placeholder="بپرسید: «مانده مهران رضایی»، «سریال ۳۳۰۷۰۲۱»، «محاسبه ۱۰ گرم عیار ۷۴۵»" autocomplete="off" maxlength="2000"><button class="btn">بپرس</button></form></section>
+        <form class="au-form" id="af"><input class="input" id="aq" data-caret placeholder="بپرسید: «مانده مهران رضایی»، «سریال ۳۳۰۷۰۲۱»، «محاسبه ۱۰ گرم عیار ۷۴۵»" autocomplete="off" maxlength="2000"><button class="btn">بپرس</button></form></section>
     </div>`);
   let hist = loadHist();
   async function board() {

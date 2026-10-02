@@ -4,7 +4,7 @@
 // dollar, relative performance, correlation, risk, seasonality, ratios), price alerts and a chart guide.
 import { html, fa, api, store, toast, $, $$ } from '../core.mjs';
 import { ICON } from '../ui.mjs';
-import { fmt, parseNum } from '../calc.mjs';
+import { fmt, parseNum, MAZANEH_TO_G750, MAZANEH_TO_G1000 } from '../calc.mjs';
 import * as T from '../ta.mjs';
 import { SYMBOLS, SYMBOL, isSymbol, roundQuote } from '../market.mjs';
 import { createChart, sparkline, barChart, heatmap, jDate, PALETTE } from '../charts.mjs';
@@ -227,7 +227,7 @@ export async function marketPage(root) {
     const basis = `انس ${fa(fmt(o, 2))} دلار (${jDate(ons.at(-1).d)}) × دلار ${fa(fmt(u))} تومان (${jDate(usd.at(-1).d)})`;
     if (['mesghal', 'mesghal_fwd', 'geram18', 'geram24'].includes(S.symbol)) {
       const maz = T.impliedMesghal(o, u);
-      const fair = S.symbol === 'geram18' ? maz / (4.6083 * 0.705 / 0.75) : S.symbol === 'geram24' ? maz / (4.6083 * 0.705) : maz;
+      const fair = S.symbol === 'geram18' ? maz / MAZANEH_TO_G750 : S.symbol === 'geram24' ? maz / MAZANEH_TO_G1000 : maz;
       return { label: 'ارزش از انس × دلار', fair, gap: T.bubble(last(S.bars), fair), note: basis };
     }
     if (sym.pure) {
