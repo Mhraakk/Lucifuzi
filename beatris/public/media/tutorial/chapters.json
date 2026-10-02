@@ -1,5 +1,5 @@
 {
- "made": "2026-10-02T09:08:38.034Z",
+ "made": "2026-10-02T14:05:13.552Z",
  "chapters": [
   {
    "n": 1,
@@ -17,7 +17,7 @@
    "poster": "/media/tutorial/01.jpg",
    "seconds": 106,
    "vertical": false,
-   "bytes": 5139868,
+   "bytes": 4925179,
    "film": true
   },
   {
@@ -36,9 +36,9 @@
    "file": "/media/tutorial/02.mp4",
    "webm": "/media/tutorial/02.webm",
    "poster": "/media/tutorial/02.jpg",
-   "seconds": 151,
+   "seconds": 140,
    "vertical": false,
-   "bytes": 8078174,
+   "bytes": 7337725,
    "film": true
   },
   {
@@ -57,9 +57,9 @@
    "file": "/media/tutorial/03.mp4",
    "webm": "/media/tutorial/03.webm",
    "poster": "/media/tutorial/03.jpg",
-   "seconds": 118,
+   "seconds": 108,
    "vertical": false,
-   "bytes": 6716172,
+   "bytes": 5931415,
    "film": true
   },
   {
@@ -76,9 +76,9 @@
    "file": "/media/tutorial/04.mp4",
    "webm": "/media/tutorial/04.webm",
    "poster": "/media/tutorial/04.jpg",
-   "seconds": 109,
+   "seconds": 92,
    "vertical": false,
-   "bytes": 5768354,
+   "bytes": 5099416,
    "film": true
   },
   {
@@ -95,9 +95,9 @@
    "file": "/media/tutorial/05.mp4",
    "webm": "/media/tutorial/05.webm",
    "poster": "/media/tutorial/05.jpg",
-   "seconds": 39,
+   "seconds": 32,
    "vertical": false,
-   "bytes": 2327679,
+   "bytes": 2132438,
    "film": true
   },
   {
@@ -114,9 +114,9 @@
    "file": "/media/tutorial/06.mp4",
    "webm": "/media/tutorial/06.webm",
    "poster": "/media/tutorial/06.jpg",
-   "seconds": 50,
+   "seconds": 44,
    "vertical": false,
-   "bytes": 2814803,
+   "bytes": 2460058,
    "film": true
   },
   {
@@ -133,9 +133,9 @@
    "file": "/media/tutorial/07.mp4",
    "webm": "/media/tutorial/07.webm",
    "poster": "/media/tutorial/07.jpg",
-   "seconds": 67,
+   "seconds": 57,
    "vertical": false,
-   "bytes": 3467315,
+   "bytes": 3186324,
    "film": true
   },
   {
@@ -151,9 +151,9 @@
    "file": "/media/tutorial/08.mp4",
    "webm": "/media/tutorial/08.webm",
    "poster": "/media/tutorial/08.jpg",
-   "seconds": 30,
+   "seconds": 25,
    "vertical": false,
-   "bytes": 1703056,
+   "bytes": 1570190,
    "film": true
   },
   {
@@ -170,9 +170,9 @@
    "file": "/media/tutorial/09.mp4",
    "webm": "/media/tutorial/09.webm",
    "poster": "/media/tutorial/09.jpg",
-   "seconds": 42,
+   "seconds": 41,
    "vertical": false,
-   "bytes": 2415600,
+   "bytes": 2259759,
    "film": true
   },
   {
@@ -188,9 +188,9 @@
    "file": "/media/tutorial/10.mp4",
    "webm": "/media/tutorial/10.webm",
    "poster": "/media/tutorial/10.jpg",
-   "seconds": 52,
+   "seconds": 45,
    "vertical": false,
-   "bytes": 2782421,
+   "bytes": 2439300,
    "film": true
   },
   {
@@ -206,9 +206,9 @@
    "file": "/media/tutorial/11.mp4",
    "webm": "/media/tutorial/11.webm",
    "poster": "/media/tutorial/11.jpg",
-   "seconds": 48,
+   "seconds": 40,
    "vertical": false,
-   "bytes": 2477060,
+   "bytes": 2285610,
    "film": true
   },
   {
@@ -224,9 +224,9 @@
    "file": "/media/tutorial/12.mp4",
    "webm": "/media/tutorial/12.webm",
    "poster": "/media/tutorial/12.jpg",
-   "seconds": 109,
+   "seconds": 122,
    "vertical": true,
-   "bytes": 3284930,
+   "bytes": 3599337,
    "film": true
   },
   {
@@ -245,9 +245,9 @@
    "file": "/media/tutorial/13.mp4",
    "webm": "/media/tutorial/13.webm",
    "poster": "/media/tutorial/13.jpg",
-   "seconds": 93,
+   "seconds": 90,
    "vertical": false,
-   "bytes": 4577322,
+   "bytes": 4571867,
    "film": true
   },
   {
@@ -265,9 +265,9 @@
    "file": "/media/tutorial/14.mp4",
    "webm": "/media/tutorial/14.webm",
    "poster": "/media/tutorial/14.jpg",
-   "seconds": 67,
+   "seconds": 55,
    "vertical": false,
-   "bytes": 3828052,
+   "bytes": 3306928,
    "film": true
   },
   {
@@ -285,9 +285,9 @@
    "file": "/media/tutorial/15.mp4",
    "webm": "/media/tutorial/15.webm",
    "poster": "/media/tutorial/15.jpg",
-   "seconds": 120,
+   "seconds": 99,
    "vertical": false,
-   "bytes": 6606974,
+   "bytes": 5816630,
    "film": true
   },
   {
@@ -305,9 +305,9 @@
    "file": "/media/tutorial/16.mp4",
    "webm": "/media/tutorial/16.webm",
    "poster": "/media/tutorial/16.jpg",
-   "seconds": 78,
+   "seconds": 67,
    "vertical": false,
-   "bytes": 4354928,
+   "bytes": 3861411,
    "film": true
   },
   {
@@ -325,9 +325,9 @@
    "file": "/media/tutorial/17.mp4",
    "webm": "/media/tutorial/17.webm",
    "poster": "/media/tutorial/17.jpg",
-   "seconds": 91,
+   "seconds": 77,
    "vertical": false,
-   "bytes": 4691028,
+   "bytes": 4157594,
    "film": true
   },
   {
@@ -346,9 +346,9 @@
    "file": "/media/tutorial/18.mp4",
    "webm": "/media/tutorial/18.webm",
    "poster": "/media/tutorial/18.jpg",
-   "seconds": 151,
+   "seconds": 123,
    "vertical": false,
-   "bytes": 8238821,
+   "bytes": 7430784,
    "film": true
   },
   {
@@ -365,9 +365,9 @@
    "file": "/media/tutorial/19.mp4",
    "webm": "/media/tutorial/19.webm",
    "poster": "/media/tutorial/19.jpg",
-   "seconds": 71,
+   "seconds": 60,
    "vertical": false,
-   "bytes": 3325435,
+   "bytes": 3068790,
    "film": true
   },
   {
@@ -385,9 +385,9 @@
    "file": "/media/tutorial/20.mp4",
    "webm": "/media/tutorial/20.webm",
    "poster": "/media/tutorial/20.jpg",
-   "seconds": 100,
+   "seconds": 85,
    "vertical": false,
-   "bytes": 5149270,
+   "bytes": 4663449,
    "film": true
   },
   {
@@ -404,9 +404,29 @@
    "file": "/media/tutorial/21.mp4",
    "webm": "/media/tutorial/21.webm",
    "poster": "/media/tutorial/21.jpg",
-   "seconds": 96,
+   "seconds": 86,
    "vertical": false,
-   "bytes": 4920602,
+   "bytes": 4404385,
+   "film": true
+  },
+  {
+   "n": 22,
+   "slug": "market-language",
+   "title": "معامله با زبان بازار",
+   "sub": "«بیست خط زیر مظنه ۱۰۹ میلیون» را همان‌طور که گفته شد بنویسید؛ سند درست صادر می‌شود",
+   "steps": [
+    "میز معامله ← خانه یک‌خطی (F3). جمله را همان‌طور که در بازار گفته شد بنویسید: «خرید از رضایی ۱۲٫۴۵ گرم آبشده ۷۵۰ بیست خط زیر مظنه بازار ۱۰۹ میلیون نقد».",
+    "هر خط ده هزار تومان (صد هزار ریال) است. «زیر/پایین/کمتر» کم می‌کند و «بالای/روی/بالاتر» اضافه؛ «منهای ۲۰ خط» هم درست است. بدون عدد مظنه، مظنه تابلوی بازار برداشته می‌شود.",
+    "پیش از اعمال، اپ مظنه حساب‌شده را می‌نویسد: مظنه − ۲۰ خط = مظنه توافقی؛ و هر چیزی که هنوز کم است.",
+    "Enter ردیف و پرداخت را می‌سازد. اگر آخر جمله «ثبت کن» باشد، سند همان لحظه صادر می‌شود؛ اگر چیزی کم باشد، هیچ سندی ثبت نمی‌شود و کمبود گفته می‌شود.",
+    "اگر جمله آزادتر باشد، «از دستیار بپرس» آن را به زبان میز برمی‌گرداند؛ عددی که شما ننوشته‌اید پذیرفته نمی‌شود."
+   ],
+   "file": "/media/tutorial/22.mp4",
+   "webm": "/media/tutorial/22.webm",
+   "poster": "/media/tutorial/22.jpg",
+   "seconds": 79,
+   "vertical": false,
+   "bytes": 3833056,
    "film": true
   }
  ]
