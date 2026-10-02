@@ -18,6 +18,8 @@ import { PROVIDERS, checkBaseUrl, keyHint } from './providers.mjs';
 import * as TR from '../public/js/trade.mjs';
 import { tehranDay } from './tz.mjs';
 import { makePos } from './pos.mjs';
+import { understandLine } from './oneline-ai.mjs';
+import { providerFromAssistant } from './agent-platform/provider.mjs';
 
 export const BOOKS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS bk_parties (
@@ -149,7 +151,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   /** Average-cost positions and realized result up to a day (the P&L engine), shared. */
   core.positions = (upto) => core.memo('positions', upto, () => TR.positionReport(core.events(upto)));
   // writes that never touch the ledger or its checks do not move the revision
-  const NO_LEDGER = new Set(['POST /api/books/events', 'POST /api/books/memory', 'DELETE /api/books/memory/:id', 'POST /api/books/control/changes/seen', 'POST /api/books/preview', 'POST /api/books/control/simulate', 'POST /api/books/assistant']);
+  const NO_LEDGER = new Set(['POST /api/books/events', 'POST /api/books/memory', 'DELETE /api/books/memory/:id', 'POST /api/books/control/changes/seen', 'POST /api/books/preview', 'POST /api/books/control/simulate', 'POST /api/books/assistant', 'POST /api/books/oneline/understand']);
   const on = (method, path, guard, fn) => {
     const key = `${method} ${path}`;
     const f = method === 'GET' || NO_LEDGER.has(key) ? fn : (ctx) => {
@@ -1762,6 +1764,9 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   });
   on('GET', '/api/books/assistant', 'auth', () => assistant.info());
   on('POST', '/api/books/assistant', 'auth', async ({ user, body }) => assistant.ask(user, body));
+  // spec 0020: a free sentence the desk's rules did not fully understand, rewritten by the shop's language engine into
+  // the desk's own wording; numbers the operator did not write are refused. Nothing is booked here.
+  on('POST', '/api/books/oneline/understand', 'auth', async ({ body }) => understandLine(body?.text, { provider: providerFromAssistant(assistant) }));
 
   /* ---------------- the seven tools: locked quotes, price-move risk, bar cards, counts, shared statements, forecast, day close ---------------- */
   ideas = makeIdeas({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, sealer, shopId, partyRow, verifyLog });

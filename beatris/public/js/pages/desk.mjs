@@ -17,7 +17,7 @@ import { qrSvg } from '../qr.mjs';
 import { pickerHtml, productModal, templateModal, canManageProducts } from '../deskproducts.mjs';
 import { posConfig, posProblem, startCharge, newChargeId, logCharge, linkCharge, STATE_TEXT, chargeLine } from '../pos.mjs';
 import { createHistory, mountDock } from '../undo.mjs';
-import { parseLine, describe as describeParsed } from '../oneline.mjs';
+import { parseLine, describe as describeParsed, resolveMazaneh, explainMazaneh, missing as missingOf } from '../oneline.mjs';
 import { drafts, submit, onOutbox, take } from '../outbox.mjs';
 
 const MODES = [
@@ -1016,13 +1016,22 @@ export async function deskPage(root) {
   /* ورود تک‌خطی */
   let pendingLine = null;
   const moneyOf = (v, unit) => (v == null ? '' : String(Math.round(v * ((unit ?? (prefs.money === 'toman' ? 'toman' : 'rial')) === 'toman' ? 10 : 1))));
+  /** The مظنه a sentence agreed (spec 0020): its own number or the market board's, then ± its «خط». */
+  /** The parser's words come back with Latin digits; the desk shows Persian ones, like every page. */
+  const faText = (t) => String(t).replace(/(\d)\.(\d)/g, '$1٫$2').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  const lineMazaneh = (p) => resolveMazaneh(p.price, { liveRial: liveOf('mesghal'), shopUnit: prefs.money === 'toman' ? 'toman' : 'rial' });
   function drawLineOut(p, choices = null) {
     const out = $('#dkLineOut', root);
     if (!out) return;
     if (!p) return (out.innerHTML = '');
-    const ROLE = { mode: 'نوع', party: 'مشتری', kind: 'کالا', coin: 'سکه', count: 'تعداد', weight: 'وزن', fineness: 'عیار', price: 'قیمت', pay: 'پرداخت', fx: 'ارز', serial: 'سریال', note: 'یادداشت' };
-    out.innerHTML = String(html`<div class="dk-cmd-parts">${p.parts.map((x) => html`<span class="dk-part ${x.role}"><small>${ROLE[x.role] ?? ''}</small>${x.text}</span>`)}${p.unknown.map((x) => html`<span class="dk-part unknown" title="این بخش فهمیده نشد"><small>؟</small>${x}</span>`)}</div>
-      ${choices ? html`<div class="dk-cmd-choose"><span>کدام «${p.party}»؟</span>${choices.slice(0, 6).map((c, i) => html`<button type="button" class="chip" data-line-party="${c.id}">${fa(i + 1)}. ${c.label}</button>`)}</div>` : html`<p class="dk-cmd-say">${describeParsed(p) || 'چیزی فهمیده نشد.'} ${p.unknown.length ? html`<b class="dk-cmd-warn">— بخش‌های «؟» فهمیده نشد</b>` : ''} <kbd>Enter</kbd></p>`}`);
+    const mz = p.price?.basis === 'mazaneh' ? lineMazaneh(p) : null;
+    const need = p.mode || p.kind || p.weight != null ? missingOf(p, { doc: p.commit }).filter((x) => !(x === 'مشتری' && S.party)) : [];
+    const ROLE = { offset: 'فاصله از مظنه', commit: 'ثبت', mode: 'نوع', party: 'مشتری', kind: 'کالا', coin: 'سکه', count: 'تعداد', weight: 'وزن', fineness: 'عیار', price: 'قیمت', pay: 'پرداخت', fx: 'ارز', serial: 'سریال', note: 'یادداشت' };
+    out.innerHTML = String(html`<div class="dk-cmd-parts">${p.parts.map((x) => html`<span class="dk-part ${x.role}"><small>${ROLE[x.role] ?? ''}</small>${faText(x.text)}</span>`)}${p.unknown.map((x) => html`<span class="dk-part unknown" title="این بخش فهمیده نشد"><small>؟</small>${faText(x)}</span>`)}</div>
+      ${choices ? html`<div class="dk-cmd-choose"><span>کدام «${p.party}»؟</span>${choices.slice(0, 6).map((c, i) => html`<button type="button" class="chip" data-line-party="${c.id}">${fa(i + 1)}. ${c.label}</button>`)}</div>` : html`<p class="dk-cmd-say">${describeParsed(p) || 'چیزی فهمیده نشد.'} ${p.unknown.length ? html`<b class="dk-cmd-warn">— بخش‌های «؟» فهمیده نشد</b> <button type="button" class="chip" data-line-ai data-think="composing">از دستیار بپرس</button>` : ''} <kbd>Enter</kbd></p>`}
+      ${p.rewritten ? html`<p class="dk-cmd-need">بازنویسی دستیار از جمله شما؛ عددها همان عددهای شماست. Enter برای اعمال.</p>` : ''}
+      ${mz ? html`<p class="dk-cmd-price ${mz.ok ? (mz.far ? 'warn' : 'ok') : 'bad'}">${mz.ok ? html`<b>${explainMazaneh(p.price, mz, prefs.money === 'toman' ? 'toman' : 'rial')}</b>${mz.steps.length ? html`<small>${mz.steps.join('؛ ')}</small>` : ''}${mz.far ? html`<small>این مظنه از مظنه بازار خیلی دور است؛ دوباره نگاه کنید.</small>` : ''}` : mz.error}</p>` : ''}
+      ${need.length ? html`<p class="dk-cmd-need">${p.commit ? 'برای ثبت سند' : 'برای افزودن ردیف'} هنوز لازم است: ${need.join('، ')}</p>` : ''}`);
   }
   async function applyOneLine(text, chosen = null) {
     const p = typeof text === 'string' ? parseLine(text) : text;
@@ -1071,11 +1080,14 @@ export async function deskPage(root) {
         else if (f.code === 'USD') f.rate = liveOf('usd') ?? '';
       }
       if (p.price && priced()) {
-        const v = moneyOf(p.price.value, p.price.unit);
+        const v = p.price.value == null ? '' : moneyOf(p.price.value, p.price.unit);
+        // a مظنه price: its own number or the board's, ± the «خط»s, always in rial (spec 0020)
+        const mz = p.price.basis === 'mazaneh' && (S.kind === 'melt' || S.kind === 'bar') ? lineMazaneh(p) : null;
+        if (mz && !mz.ok) throw Object.assign(new Error(mz.error), { userFacing: true });
         if (S.kind === 'melt') {
           const b = p.price.basis === 'g750' ? 'gram750' : p.price.basis === 'amount' ? 'amount' : 'mazaneh';
-          Object.assign(f, { basis: b, [b === 'gram750' ? 'g750' : b]: v });
-        } else if (S.kind === 'bar') Object.assign(f, p.price.basis === 'amount' ? { basis: 'amount', amount: v } : { basis: 'mazaneh', mazaneh: v });
+          Object.assign(f, { basis: b, [b === 'gram750' ? 'g750' : b]: b === 'mazaneh' ? String(mz.rial) : v });
+        } else if (S.kind === 'bar') Object.assign(f, p.price.basis === 'amount' ? { basis: 'amount', amount: v } : { basis: 'mazaneh', mazaneh: String(mz.rial) });
         else if (S.kind === 'coin') Object.assign(f, p.price.basis === 'amount' ? { basis: 'amount', amount: v } : { basis: 'count', price: v });
         else if (S.kind === 'fx') f.rate = v;
       }
@@ -1087,6 +1099,10 @@ export async function deskPage(root) {
         S.note = [S.note, p.note].filter(Boolean).join(' — ');
         $('#note', root).value = S.note;
       }
+    } catch (e) {
+      if (!e.userFacing) throw e;
+      batching = false;
+      return toast(e.message, 'error'); // nothing was applied that the operator did not see
     } finally {
       batching = false;
     }
@@ -1095,6 +1111,12 @@ export async function deskPage(root) {
     $('#dkLine', root).value = '';
     pendingLine = null;
     drawLineOut(null);
+    // «… ثبت کن»: a whole sentence (customer, line, payment) is booked at once; anything missing is said, not guessed
+    if (p.commit) {
+      const need = missingOf(p, { doc: true }).filter((x) => !(x === 'مشتری' && S.party));
+      if (!added || need.length) return toast(`سند ثبت نشد؛ هنوز لازم است: ${need.length ? need.join('، ') : 'یک ردیف کامل'}`, 'error');
+      return save($('.dk-save [data-act=save]', root));
+    }
     if (!added) (nextEmpty() ?? $(FIRST, $('#form', root)))?.focus();
   }
   function drawHelp(open) {
@@ -1303,6 +1325,23 @@ export async function deskPage(root) {
     const b = e.target.closest('button, [data-pick]');
     if (!b) return;
     if (b.dataset.pick) return pickParty($('#pdrop', root)._items.find((x) => x.id === b.dataset.pick));
+    if (b.dataset.lineAi !== undefined) {
+      // spec 0020: the shop's language engine rewrites the sentence in the desk's words; numbers it did not see are refused
+      const inp = $('#dkLine', root);
+      busy(b, true);
+      try {
+        const r = await api('/api/books/oneline/understand', { method: 'POST', body: { text: inp.value } });
+        if (!r.ok) return toast(r.reason, 'error');
+        inp.value = r.canonical;
+        drawLineOut({ ...parseLine(r.canonical), rewritten: r.source === 'model' });
+        inp.focus();
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        if (b.isConnected) busy(b, false);
+      }
+      return;
+    }
     if (b.dataset.lineParty) {
       const p = pendingLine;
       pendingLine = null;

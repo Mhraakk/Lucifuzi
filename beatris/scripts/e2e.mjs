@@ -1625,6 +1625,41 @@ async function loginUI(page) {
     });
 
   if (!live)
+    await step('market language (spec 0020): «بیست خط زیر مظنه ۱۰۹ میلیون» becomes the exact مظنه, the line and the document', async () => {
+      const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);
+      await auth('/api/books/parties', { method: 'POST', body: JSON.stringify({ name: 'مهران خطی' }) });
+      await freshDesk(page);
+      await page.keyboard.press('F3');
+      // a خط without up or down is asked, not guessed
+      await page.keyboard.type('خرید ۱۰ گرم ۷۵۰ ۲۰ خط مظنه ۱۰۹ میلیون');
+      await page.waitForTimeout(300);
+      check('market language: «۲۰ خط» with no up or down is a question', /زیر.*بالای|بالای.*زیر/.test(await text(page, '.dk-cmd-price')), await text(page, '.dk-cmd-price'));
+      await page.fill('#dkLine', '');
+      const said = 'خرید از مهران خطی ۱۲٫۴۵ گرم آبشده ۷۵۰ بیست خط زیر مظنه بازار ۱۰۹ میلیون نقد ثبت کن';
+      await page.keyboard.type(said);
+      await page.waitForTimeout(400);
+      const pv = await text(page, '#dkLineOut');
+      check('market language: the agreed مظنه is spelled out before anything is applied', /(۱۰۸٬۸۰۰٬۰۰۰ تومان|۱٬۰۸۸٬۰۰۰٬۰۰۰ ریال)/.test(pv) && /۲۰ خط/.test(pv) && !(await page.$('.dk-part.unknown')), pv);
+      const t0 = Date.now();
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('.dk-receipt', { timeout: 15000 });
+      check('market language: «ثبت کن» books the whole sentence at once', /^M\d{4}-\d{5}$/.test((await text(page, '.dk-r-track b')).trim()), `${Date.now() - t0} ms`);
+      const list = await auth(`/api/books/docs?q=${encodeURIComponent('مهران خطی')}&limit=1`);
+      const doc = await auth(`/api/books/docs/${list.items[0].id}`);
+      const js = JSON.stringify(doc);
+      check('market language: the document carries مظنه 1,088,000,000 rial (109,000,000 − 20 × 10,000 toman)', js.includes('"mazaneh":1088000000') || js.includes('"mazaneh":"1088000000"'), js.match(/"mazaneh":"?\d+"?/)?.[0] ?? 'no mazaneh');
+      // «ثبت کن» with no payment books nothing and says what is missing
+      await page.keyboard.press('Escape');
+      await freshDesk(page);
+      await page.keyboard.press('F3');
+      await page.keyboard.type('فروش به مهران خطی ۵ گرم ۷۵۰ پنج خط بالای مظنه ۱۰۹ میلیون ثبت کن');
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(1200);
+      check('market language: an incomplete «ثبت کن» books nothing and names what is missing', !(await page.$('.dk-receipt')) && /روش پرداخت/.test(await text(page, '#toasts')), await text(page, '#toasts'));
+      await freshDesk(page);
+    });
+
+  if (!live)
     await step('accounting trainer (spec 0015): a case, the right entry, graded by the kernel; manager view', async () => {
       await go(page, '/train/accounting', 1500);
       check('trainer: the page opens with the tutor\'s suggestion', /یک رویداد، یک سند/.test(await text(page, '.at-head')));
