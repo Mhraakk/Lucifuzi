@@ -721,12 +721,14 @@ async function loginUI(page) {
     const t0 = await page.evaluate(() => document.documentElement.dataset.theme);
     const themeIs = (t) => page.waitForFunction((x) => document.documentElement.dataset.theme === x, t, { timeout: 5000 }).then(() => true, () => false);
     await page.click('#themeBtn');
+    await page.click('[data-pick=day]');
     const t1 = await themeIs('day');
-    // two quick taps, the second during the first sunrise: the theme still moves on by two (day → classic → calm)
-    await page.click('#themeBtn');
-    await page.click('#themeBtn', { force: true });
+    // two quick picks, the second during the first sunrise: the last one wins and is kept (day → classic → calm)
+    await page.click('[data-pick=classic]');
+    await page.click('[data-pick=calm]', { force: true });
     const back = await themeIs('calm');
-    check('light: theme switches through the sunrise; quick taps are not lost', t0 === 'calm' && t1 && back && (await page.evaluate(() => localStorage.getItem('beatris.theme'))) === 'calm', `${t0} ${t1} ${back}`);
+    await page.keyboard.press('Escape');
+    check('light: skin switches through the sunrise; quick picks are not lost', t0 === 'calm' && t1 && back && (await page.evaluate(() => localStorage.getItem('beatris.theme'))) === 'calm', `${t0} ${t1} ${back}`);
     // asked for less motion: nothing follows, nothing ripples
     const still = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
     const ps = await still.newPage();
@@ -1697,12 +1699,12 @@ async function loginUI(page) {
     await page.click('#themeBtn');
     await page.click('[data-mode=os]');
     await page.click('[data-pick=cleannight]');
+    // the media-change event reaches the page on its next frame, which a headless browser may delay
+    const skinIs = (x) => page.waitForFunction((v) => document.documentElement.dataset.skin === v, x, { timeout: 3000 }).then(() => true, () => false);
     await page.emulateMedia({ colorScheme: 'dark' });
-    await page.waitForTimeout(300);
-    check('skins: with the device, a dark device gets the dark member of the pair', (await skin()) === 'cleannight');
+    check('skins: with the device, a dark device gets the dark member of the pair', await skinIs('cleannight'));
     await page.emulateMedia({ colorScheme: 'light' });
-    await page.waitForTimeout(300);
-    check('skins: and a light device the light member', (await skin()) === 'clean');
+    check('skins: and a light device the light member', await skinIs('clean'));
     await page.keyboard.press('Escape');
     await page.evaluate(() => { localStorage.setItem('beatris.theme', 'calm'); });
     await page.reload();

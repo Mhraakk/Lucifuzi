@@ -77,7 +77,8 @@ export function toggleSkinPicker(anchor, { onPick = (id, apply) => apply() } = {
     previewing = false;
     const target = currentSkin();
     back();
-    onPick(target, () => paint(target));
+    // the switch may land after the device or the clock moved on: it applies what is current then, not a stale choice
+    onPick(target, () => paint(currentSkin()));
     for (const b of pop.querySelectorAll('[data-pick]')) {
       const on = b.dataset.pick === id;
       b.setAttribute('aria-selected', String(on));
