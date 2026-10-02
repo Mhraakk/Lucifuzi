@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "autoreview": {
+      "source": "openclaw/openclaw",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/autoreview/SKILL.md",
+      "computedHash": "732b173cd2446ac1bf694e4e0c6276d769873bdc9ab1940034443b987fb9f7cc"
+    }
+  }
+}

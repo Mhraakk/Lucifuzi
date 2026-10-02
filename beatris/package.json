@@ -1,0 +1,18 @@
+{
+  "name": "beatris",
+  "version": "2.2.1",
+  "private": true,
+  "description": "Beatris — آموزش کارکنان گالری طلا (Node 22, zero runtime dependencies)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13 <23"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.mjs",
+    "dev": "BEATRIS_DEMO=true node --disable-warning=ExperimentalWarning --watch server/index.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "e2e": "node scripts/e2e.mjs",
+    "gate": "node scripts/check.mjs && node --disable-warning=ExperimentalWarning --test tests/*.test.mjs"
+  }
+}

@@ -1,0 +1,35 @@
+{
+ "id": "/?app=beatris",
+ "name": "بئاتریس — حسابداری طلا، سکه و شمش",
+ "short_name": "بئاتریس",
+ "description": "حسابداری طلا، سکه، شمش و ارز با نبض طلا، مرکز استثناها، شبیه‌ساز معامله، تحلیل الیوت و آموزش تصویری",
+ "lang": "fa",
+ "dir": "rtl",
+ "start_url": "/?source=pwa",
+ "scope": "/",
+ "display": "standalone",
+ "display_override": ["standalone", "minimal-ui"],
+ "orientation": "any",
+ "background_color": "#0b0906",
+ "theme_color": "#0b0906",
+ "categories": ["finance", "business", "productivity"],
+ "prefer_related_applications": false,
+ "icons": [
+  { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+  { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+  { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+  { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+ ],
+ "shortcuts": [
+  { "name": "میز معامله", "short_name": "میز معامله", "url": "/books/desk?source=pwa", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+  { "name": "کنترل و نبض طلا", "short_name": "کنترل", "url": "/books/control?source=pwa", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+  { "name": "داشبورد مدیریت", "short_name": "داشبورد", "url": "/books/dashboard?source=pwa", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+  { "name": "تحلیل جامع امواج الیوت", "short_name": "الیوت", "url": "/books/elliott?source=pwa", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+ ],
+ "screenshots": [
+  { "src": "/pwa/wide-elliott.jpg", "sizes": "1280x720", "type": "image/jpeg", "form_factor": "wide", "label": "تحلیل جامع امواج الیوت" },
+  { "src": "/pwa/wide-market.jpg", "sizes": "1280x720", "type": "image/jpeg", "form_factor": "wide", "label": "بازار طلا، سکه و ارز" },
+  { "src": "/pwa/narrow-desk.jpg", "sizes": "390x844", "type": "image/jpeg", "form_factor": "narrow", "label": "میز معامله روی گوشی" },
+  { "src": "/pwa/narrow-elliott.jpg", "sizes": "390x844", "type": "image/jpeg", "form_factor": "narrow", "label": "الیوت روی گوشی" }
+ ]
+}
