@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<style>
+@font-face { font-family: 'Estedad'; src: url('../../public/fonts/estedad-arabic-var.woff2') format('woff2'); font-weight: 100 900; }
+@font-face { font-family: 'Estedad'; src: url('../../public/fonts/estedad-latin-var.woff2') format('woff2'); font-weight: 100 900; unicode-range: U+0000-00FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0e1115; font-family: Estedad, sans-serif; color: #f2ede2; }
+#stage { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(1400px 900px at 70% 20%, #1d232b 0%, #0e1115 62%); }
+.layer { position: absolute; inset: 0; will-change: transform, opacity; }
+.glow { position: absolute; width: 1400px; height: 1400px; border-radius: 50%; background: radial-gradient(closest-side, rgba(217,181,108,.20), rgba(217,181,108,0)); }
+.win { position: absolute; border-radius: 22px; overflow: hidden; box-shadow: 0 60px 120px -30px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.08); background: #13171c; }
+.win img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.chip { position: absolute; display: inline-flex; align-items: center; gap: 16px; padding: 18px 30px; border-radius: 999px; background: rgba(14,17,21,.82); border: 1px solid rgba(217,181,108,.45); font-weight: 700; font-size: 34px; color: #f6e6b8; backdrop-filter: blur(14px); white-space: nowrap; }
+.chip i { width: 14px; height: 14px; border-radius: 50%; background: #d9b56c; box-shadow: 0 0 18px #d9b56c; }
+.title { position: absolute; font-weight: 800; color: #f2ede2; line-height: 1.25; }
+.sub { position: absolute; font-weight: 500; color: #b9b2a3; }
+.word { display: inline-block; }
+.mask { display: inline-block; overflow: hidden; vertical-align: bottom; padding: 0 .08em .12em; }
+.gold { background: linear-gradient(100deg, #f6e6b8 0%, #d9b56c 45%, #9c7a3c 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.foot { position: absolute; left: 48px; bottom: 34px; font-size: 20px; color: rgba(242,237,226,.45); font-weight: 500; }
+.phone { position: absolute; width: 360px; height: 760px; border-radius: 56px; background: #0b0d10; padding: 14px; box-shadow: 0 0 0 2px rgba(217,181,108,.5), 0 60px 120px -30px rgba(0,0,0,.8); }
+.phone img { width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: 44px; display: block; }
+</style></head>
+<body><div id="stage">
+  <div class="glow" id="glow"></div>
+
+  <!-- S1 logo -->
+  <div class="layer" id="s1">
+    <svg id="gem" viewBox="0 0 512 512" style="position:absolute;left:760px;top:170px;width:400px;height:400px">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e6b8"/><stop offset=".5" stop-color="#d9b56c"/><stop offset="1" stop-color="#9c7a3c"/></linearGradient></defs>
+      <g fill="none" stroke="url(#g)" stroke-linejoin="round">
+        <polygon id="p1" points="256,86 376,136 426,256 376,376 256,426 136,376 86,256 136,136" stroke-width="18" pathLength="1"/>
+        <polygon id="p2" points="256,176 313,199 336,256 313,313 256,336 199,313 176,256 199,199" stroke-width="10" pathLength="1"/>
+        <path id="p3" d="M256 86 313 199M376 136 336 256M426 256 313 313M376 376 256 336M256 426 199 313M136 376 176 256M86 256 199 199M136 136 256 176M256 86 199 199M376 136 313 199M426 256 336 256M376 376 313 313M256 426 256 336M136 376 199 313M86 256 176 256M136 136 199 199" stroke-width="6" pathLength="1"/>
+      </g>
+      <circle id="dot" cx="256" cy="256" r="24" fill="url(#g)"/>
+    </svg>
+    <div class="title gold" id="name" style="left:0;right:0;top:600px;text-align:center;font-size:120px">بئاتریس</div>
+    <div class="sub" id="kick" style="left:0;right:0;top:770px;text-align:center;font-size:38px">حساب، آموزش و استودیوی طلافروشی</div>
+  </div>
+
+  <!-- S2 kinetic type -->
+  <div class="layer" id="s2">
+    <div class="title" style="left:0;right:0;top:330px;text-align:center;font-size:132px" id="t2a"></div>
+    <div class="title" style="left:0;right:0;top:520px;text-align:center;font-size:132px" id="t2b" data-gold="1"></div>
+  </div>
+
+  <!-- S3..S6 screen beats -->
+  <div class="layer" id="s3"><div class="win" id="w3"><img src="shots/desk.png"></div><div class="chip" id="c3"><i></i>میز معامله · خرید، فروش و پرداخت ترکیبی</div></div>
+  <div class="layer" id="s4"><div class="win" id="w4a"><img src="shots/pulse.png"></div><div class="win" id="w4b"><img src="shots/dash.png"></div><div class="chip" id="c4"><i></i>نبض طلا و داشبورد مدیریت</div></div>
+  <div class="layer" id="s5"><div class="win" id="w5"><img src="shots/trainer.png" id="i5"></div><div class="chip" id="c5"><i></i>حسابداری عملی با مربی · نمره از موتور حسابداری</div></div>
+  <div class="layer" id="s6"><div class="win" id="w6"><img src="shots/studio3d.png" id="i6"></div><div class="chip" id="c6"><i></i>استودیوی طراحی · وزن از حجم واقعی فلز</div></div>
+
+  <!-- S7 skins -->
+  <div class="layer" id="s7">
+    <div class="win" id="k1"><img src="shots/pulse-lapis.png"></div>
+    <div class="win" id="k2"><img src="shots/pulse-day.png"></div>
+    <div class="win" id="k3"><img src="shots/desk-clean.png"></div>
+    <div class="win" id="k4"><img src="shots/pulse.png"></div>
+    <div class="chip" id="c7"><i></i>پوسته‌های روشن و تیره · پیش‌نمایش زنده</div>
+  </div>
+
+  <!-- S8 platforms -->
+  <div class="layer" id="s8">
+    <div class="phone" id="ph"><img src="shots/phone-pulse.png"></div>
+    <div class="title" id="t8" style="right:180px;top:330px;font-size:96px">هر جا کار می‌کنید.</div>
+    <div class="sub" id="t8b" style="right:184px;top:470px;font-size:46px"></div>
+  </div>
+
+  <!-- S9 end card -->
+  <div class="layer" id="s9">
+    <svg viewBox="0 0 512 512" id="gem2" style="position:absolute;left:870px;top:150px;width:180px;height:180px"><use href="#gemg"/></svg>
+    <div class="title gold" id="e1" style="left:0;right:0;top:360px;text-align:center;font-size:118px">بئاتریس</div>
+    <div class="sub" id="e2" style="left:0;right:0;top:520px;text-align:center;font-size:42px;color:#e9e3d6">حساب درست، آموزش واقعی، طراحی قابل ساخت.</div>
+    <div class="chip" id="e3" style="left:50%;top:640px;font-size:32px;direction:ltr">beatris-production-68ac.up.railway.app</div>
+    <div class="sub" id="e4" style="left:0;right:0;top:760px;text-align:center;font-size:30px">درخواست حساب از صفحه ورود</div>
+  </div>
+  <div class="foot" id="foot">تصاویر از نسخه نمایشی بئاتریس با داده نمونه</div>
+</div>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e6b8"/><stop offset=".5" stop-color="#d9b56c"/><stop offset="1" stop-color="#9c7a3c"/></linearGradient>
+<g id="gemg" fill="none" stroke="url(#g2)" stroke-linejoin="round"><polygon points="256,86 376,136 426,256 376,376 256,426 136,376 86,256 136,136" stroke-width="20"/><polygon points="256,176 313,199 336,256 313,313 256,336 199,313 176,256 199,199" stroke-width="11"/><path d="M256 86 313 199M376 136 336 256M426 256 313 313M376 376 256 336M256 426 199 313M136 376 176 256M86 256 199 199M136 136 256 176M256 86 199 199M376 136 313 199M426 256 336 256M376 376 313 313M256 426 256 336M136 376 199 313M86 256 176 256M136 136 199 199" stroke-width="7" opacity=".8"/><circle cx="256" cy="256" r="26" fill="url(#g2)" stroke="none"/></g></defs></svg>
+<script>
+// Every state is a pure function of t (seconds): seek(t) can be called in any order and gives the same frame.
+const DUR = 32;
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const outExpo = (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
+const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const inCubic = (x) => x * x * x;
+const lerp = (a, b, x) => a + (b - a) * x;
+// a scene window: in over `ti`, out over `to` (accelerating), visible between
+function win(t, a, b, ti = 0.6, to = 0.45) {
+  const i = outExpo(prog(t, a, a + ti));
+  const o = inCubic(prog(t, b - to, b));
+  return { on: t >= a - 0.001 && t <= b, i, o, p: prog(t, a, b) };
+}
+const set = (el, css) => Object.assign(el.style, css);
+function words(el, text, t, start, step, dur = 0.55) {
+  if (!el.dataset.built) {
+    el.innerHTML = text.split(' ').map((w) => `<span class="mask"><span class="word${el.dataset.gold ? ' gold' : ''}">${w}</span></span>`).join(' ');
+    el.dataset.built = 1;
+  }
+  [...el.querySelectorAll('.word')].forEach((w, k) => {
+    const x = outExpo(prog(t, start + k * step, start + k * step + dur));
+    w.style.transform = `translateY(${lerp(110, 0, x)}%)`;
+    w.style.opacity = String(x);
+  });
+}
+function screenBeat(t, a, b, win$, chip, { from = 0.86, to = 1.0, x0 = 0, y0 = 0, x1 = 0, y1 = 0, tilt = 14, chipX = 'right' } = {}) {
+  const w = win(t, a, b, 0.75, 0.5);
+  const layer = win$.parentElement;
+  layer.style.display = w.on ? 'block' : 'none';
+  if (!w.on) return;
+  // the screen enters tilted back and settles, then keeps a slow push (no frozen holds)
+  const s = lerp(from, to, inOut(w.p)) * lerp(0.92, 1, w.i) * lerp(1, 1.12, w.o);
+  const rx = lerp(tilt, 0, w.i);
+  set(win$, { left: '170px', top: '120px', width: '1580px', height: '880px', transform: `perspective(2200px) translate(${lerp(x0, x1, inOut(w.p))}px, ${lerp(y0, y1, inOut(w.p)) + lerp(140, 0, w.i)}px) rotateX(${rx}deg) scale(${s})`, opacity: String(w.i * (1 - w.o)), filter: `blur(${w.o * 14}px)` });
+  const c = outExpo(prog(t, a + 0.35, a + 0.95));
+  set(chip, { [chipX]: '110px', top: '890px', transform: `translateY(${lerp(40, 0, c)}px)`, opacity: String(c * (1 - w.o)) });
+}
+window.seek = function seek(t) {
+  // ambient glow drifts the whole time
+  set($('glow'), { left: `${lerp(900, 120, t / DUR)}px`, top: `${-500 + Math.sin(t * 0.35) * 80}px` });
+
+  // S1 0–3.4: the gem draws itself, the name rises
+  {
+    const w = win(t, 0, 3.4, 0.01, 0.5);
+    $('s1').style.display = w.on ? 'block' : 'none';
+    if (w.on) {
+      const d1 = inOut(prog(t, 0.1, 1.3)), d2 = inOut(prog(t, 0.5, 1.6)), d3 = inOut(prog(t, 0.8, 1.9));
+      $('p1').style.strokeDasharray = '1'; $('p1').style.strokeDashoffset = String(1 - d1);
+      $('p2').style.strokeDasharray = '1'; $('p2').style.strokeDashoffset = String(1 - d2);
+      $('p3').style.strokeDasharray = '1'; $('p3').style.strokeDashoffset = String(1 - d3);
+      const dot = outExpo(prog(t, 1.6, 2.1));
+      $('dot').setAttribute('r', String(24 * dot));
+      const n = outExpo(prog(t, 1.5, 2.3)), k = outExpo(prog(t, 1.9, 2.6));
+      set($('gem'), { transform: `scale(${lerp(1, 1.06, prog(t, 0, 3.4))}) rotate(${lerp(-8, 0, d1)}deg)`, opacity: String(1 - w.o) });
+      set($('name'), { transform: `translateY(${lerp(50, 0, n)}px)`, opacity: String(n * (1 - w.o)) });
+      set($('kick'), { transform: `translateY(${lerp(30, 0, k)}px)`, opacity: String(k * (1 - w.o)) });
+    }
+  }
+  // S2 3.4–6.6: kinetic type
+  {
+    const w = win(t, 3.4, 6.6, 0.3, 0.45);
+    $('s2').style.display = w.on ? 'block' : 'none';
+    if (w.on) {
+      words($('t2a'), 'طلافروشی شما،', t, 3.45, 0.16);
+      words($('t2b'), 'در یک اپ.', t, 3.95, 0.16);
+      set($('s2'), { transform: `scale(${lerp(1, 1.05, w.p) * lerp(1, 1.25, w.o)})`, opacity: String(1 - w.o), filter: `blur(${w.o * 10}px)` });
+    }
+  }
+  screenBeat(t, 6.6, 10.6, $('w3'), $('c3'), { from: 0.9, to: 1.0, y0: 20, y1: -20 });
+  // S4 two screens: pulse, then the dashboard slides over it
+  {
+    const w = win(t, 10.6, 14.6, 0.7, 0.5);
+    $('s4').style.display = w.on ? 'block' : 'none';
+    if (w.on) {
+      const swap = inOut(prog(t, 12.2, 13.0));
+      set($('w4a'), { left: '170px', top: '120px', width: '1580px', height: '880px', transform: `perspective(2200px) translateY(${lerp(140, 0, w.i)}px) rotateX(${lerp(14, 0, w.i)}deg) scale(${lerp(0.9, 0.96, w.p) * lerp(1, 0.86, swap)}) translateX(${lerp(0, 260, swap)}px)`, opacity: String(w.i * (1 - swap * 0.65) * (1 - w.o)), filter: `blur(${swap * 4 + w.o * 12}px)` });
+      set($('w4b'), { left: '170px', top: '120px', width: '1580px', height: '880px', transform: `perspective(2200px) translateX(${lerp(-1900, 0, swap)}px) scale(${lerp(0.94, 1.0, prog(t, 12.2, 14.6)) * lerp(1, 1.1, w.o)})`, opacity: String((swap > 0 ? 1 : 0) * (1 - w.o)), filter: `blur(${w.o * 12}px)` });
+      const c = outExpo(prog(t, 10.95, 11.5));
+      set($('c4'), { right: '110px', top: '890px', transform: `translateY(${lerp(40, 0, c)}px)`, opacity: String(c * (1 - w.o)) });
+    }
+  }
+  // S5 trainer: push into the 100% score
+  screenBeat(t, 14.6, 18.6, $('w5'), $('c5'), { from: 0.95, to: 1.0, y0: 0, y1: -40 });
+  if (t >= 14.6 && t <= 18.6) set($('i5'), { transform: `scale(${lerp(1, 1.35, inOut(prog(t, 15.4, 18.6)))})`, transformOrigin: '75% 78%' });
+  // S6 studio: push into the ring and its weight
+  screenBeat(t, 18.6, 22.6, $('w6'), $('c6'), { from: 0.95, to: 1.0, chipX: 'right' });
+  if (t >= 18.6 && t <= 22.6) set($('i6'), { transform: `scale(${lerp(1.0, 1.45, inOut(prog(t, 19.2, 22.6)))})`, transformOrigin: '62% 60%' });
+  // S7 skins: four screens fan out, then the stack shuffles
+  {
+    const w = win(t, 22.6, 26.0, 0.6, 0.45);
+    $('s7').style.display = w.on ? 'block' : 'none';
+    if (w.on) {
+      ['k1', 'k2', 'k3', 'k4'].forEach((id, k) => {
+        const f = outExpo(prog(t, 22.7 + k * 0.18, 23.6 + k * 0.18));
+        const spread = (k - 1.5);
+        const lift = inOut(prog(t, 24.3 + k * 0.12, 25.0 + k * 0.12));
+        set($(id), { left: '560px', top: '230px', width: '800px', height: '500px', zIndex: String(10 + k), transform: `translate(${spread * 330 * f}px, ${lerp(300, 0, f) - lift * 40 + Math.abs(spread) * 30}px) rotate(${spread * 6 * f}deg) scale(${lerp(0.7, 1, f) * lerp(1, 1.08, lift)})`, opacity: String(f * (1 - w.o)), filter: `blur(${w.o * 12}px)` });
+      });
+      const c = outExpo(prog(t, 23.2, 23.8));
+      set($('c7'), { right: '110px', top: '890px', transform: `translateY(${lerp(40, 0, c)}px)`, opacity: String(c * (1 - w.o)) });
+    }
+  }
+  // S8 platforms
+  {
+    const w = win(t, 26.0, 28.8, 0.6, 0.45);
+    $('s8').style.display = w.on ? 'block' : 'none';
+    if (w.on) {
+      set($('ph'), { left: '300px', top: '160px', transform: `translateY(${lerp(500, 0, w.i) - lerp(0, 30, w.p)}px) rotate(${lerp(-10, -4, w.p)}deg)`, opacity: String(1 - w.o) });
+      const a = outExpo(prog(t, 26.3, 26.9)), b = outExpo(prog(t, 26.7, 27.3));
+      set($('t8'), { transform: `translateX(${lerp(-60, 0, a)}px)`, opacity: String(a * (1 - w.o)) });
+      $('t8b').textContent = 'وب · گوشی · ویندوز ۱۱';
+      set($('t8b'), { transform: `translateX(${lerp(-60, 0, b)}px)`, opacity: String(b * (1 - w.o)) });
+    }
+  }
+  // S9 end card
+  {
+    const on = t >= 28.8;
+    $('s9').style.display = on ? 'block' : 'none';
+    if (on) {
+      const g = outExpo(prog(t, 28.8, 29.5)), n = outExpo(prog(t, 29.1, 29.8)), s = outExpo(prog(t, 29.5, 30.2)), u = outExpo(prog(t, 29.9, 30.6)), r = outExpo(prog(t, 30.3, 30.9));
+      set($('gem2'), { transform: `scale(${lerp(0.6, 1, g) * lerp(1, 1.04, prog(t, 29.5, 32))}) rotate(${lerp(30, 0, g)}deg)`, opacity: String(g) });
+      set($('e1'), { transform: `translateY(${lerp(40, 0, n)}px)`, opacity: String(n) });
+      set($('e2'), { transform: `translateY(${lerp(30, 0, s)}px)`, opacity: String(s) });
+      set($('e3'), { transform: `translateX(-50%) translateY(${lerp(30, 0, u)}px)`, opacity: String(u) });
+      set($('e4'), { opacity: String(r) });
+    }
+  }
+  $('foot').style.opacity = String(t > 6.6 && t < 28.6 ? 1 : 0);
+};
+window.DUR = DUR;
+seek(0);
+</script></body></html>

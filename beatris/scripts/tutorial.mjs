@@ -433,7 +433,7 @@ const CHAPTERS = [
   {
     n: 12, slug: 'phone', title: 'روی گوشی و پوسته روشن', sub: 'همان حساب، همان داده‌ها؛ طراحی مخصوص صفحه کوچک',
     viewport: { width: 390, height: 844 },
-    steps: ['با همان نام کاربری و رمز روی گوشی وارد شوید.', 'نبض، میز معامله و گاوصندوق برای صفحه کوچک چیده شده‌اند.', 'دکمه پوسته بالای صفحه: «شب آرام» برای ساعت‌های طولانی و «روز» برای مغازه روشن.'],
+    steps: ['با همان نام کاربری و رمز روی گوشی وارد شوید.', 'نبض، میز معامله و گاوصندوق برای صفحه کوچک چیده شده‌اند.', 'دکمه پوسته بالای صفحه فهرست پوسته‌ها را باز می‌کند: «شب آرام» برای ساعت‌های طولانی، «روز» برای مغازه روشن و پوسته‌های دیگر.'],
     async run(page, d) {
       await d.go('/login', 600);
       await d.type('input[name=login]', 'omid.rahimi');
@@ -443,8 +443,11 @@ const CHAPTERS = [
       await d.say('روی گوشی با همان حساب: نبض امروز، قیمت‌ها و آخرین رویدادها.', 4200);
       await d.go('/books/desk', 1800);
       await d.say('میز معامله روی گوشی.', 2600);
-      await d.click('#themeBtn', 1600);
+      await d.click('#themeBtn', 1400);
+      await d.say('دکمه پوسته فهرست پوسته‌ها را باز می‌کند؛ هر کدام را لمس کنید همان لحظه اعمال می‌شود.', 4200);
+      await d.click('[data-pick=day]', 1600);
       await d.say('پوسته «روز» برای مغازه پرنور؛ «شب آرام» برای کار طولانی. انتخاب شما روی همین دستگاه می‌ماند.', 4600);
+      await page.keyboard.press('Escape');
       await d.go('/books/dashboard', 2400);
       await d.say('پایان. هر فصل را می‌توانید دوباره از صفحه «راهنما» ببینید.', 3600);
     },
@@ -636,6 +639,115 @@ const CHAPTERS = [
       await d.say('شمارش و قواعد: هر قاعده با تیک یا ضربدر، نسبت‌های اندازه‌گیری‌شده و قیمت ابطال. آموزشی است، نه توصیه معامله.', 7000);
     },
   },
+  {
+    n: 19, slug: 'accounting-coach', title: 'حسابداری عملی با مربی', sub: 'یک رویداد، یک سند؛ موتور حسابداری می‌سنجد و مربی توضیح می‌دهد', standalone: true,
+    steps: ['آموزش ← «حسابداری عملی با مربی». مربی بر اساس تسلط واقعی شما تمرین بعدی را پیشنهاد می‌دهد؛ می‌توانید یک موقعیت خاص را هم انتخاب کنید.', 'رویداد پیشخوان را بخوانید و سند را بزنید: حساب، بدهکار، بستانکار و برای طلا وزن و عیار. جمع ردیف‌ها همان لحظه نشان می‌دهد سند متوازن است یا نه.', '«بررسی»: موتور حسابداری سند را با محاسبه خودش می‌سنجد، نمره می‌دهد و پس از حل، اثر سند روی دفتر را توضیح می‌دهد.', 'راهنمایی در چند سطح است و پاسخ پیش از تلاش نشان داده نمی‌شود. مدیر در «آمادگی تیم» پیشرفت همه را می‌بیند.'],
+    async run(page, d) {
+      await d.go('/train/accounting', 2200);
+      await d.say('حسابداری عملی با مربی: هر تمرین یک رویداد واقعی پیشخوان طلاست و شما سند آن را می‌زنید.', 5200);
+      await d.point('.at-head');
+      await d.say('آمادگی شما و مهارت‌هایی که تمرین بیشتر می‌خواهند از تلاش‌های واقعی شما حساب می‌شود، نه حدس.', 5000);
+      const tpl = await d.point('#atTpl');
+      await tpl.selectOption('buy_melt');
+      await page.waitForSelector('.at-case');
+      await wait(1200);
+      await d.point('.at-context');
+      await d.say('رویداد: خرید طلای آبشده از مشتری. حالا سند را می‌زنیم.', 4200);
+      const sc = await page.evaluate(async () => (await (await fetch('/api/train/acct', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).progress.open[0]);
+      const lines = await page.evaluate(async (x) => (await import('/js/acct/scenarios.mjs')).buildScenario(x.id, { date: x.date }).hiddenExpectedResult.entries[0].lines, sc);
+      for (let j = 0; j < lines.length; j++) {
+        if (j >= 2) await d.click(`[data-addline="0"]`, 400);
+        const l = lines[j];
+        const acc = await d.point(`[data-e="0"][data-l="${j}"][data-f=account]`);
+        await acc.selectOption(l.account);
+        if (l.dr) await d.type(`[data-e="0"][data-l="${j}"][data-f=dr]`, l.dr);
+        if (l.cr) await d.type(`[data-e="0"][data-l="${j}"][data-f=cr]`, l.cr);
+        if (l.grams) {
+          await d.type(`[data-e="0"][data-l="${j}"][data-f=grams]`, l.grams);
+          await d.type(`[data-e="0"][data-l="${j}"][data-f=fineness]`, l.fineness);
+        }
+      }
+      await d.point('.at-entry tfoot');
+      await d.say('جمع بدهکار و بستانکار همان لحظه حساب می‌شود؛ سند متوازن است.', 4000);
+      await d.click('[data-act=check]', 1800);
+      await d.point('.at-result');
+      await d.say('موتور حسابداری سند را با محاسبه خودش سنجید: نمره کامل، و توضیح اثر سند روی صندوق، موجودی طلا و حساب مشتری.', 6500);
+      await d.go('/train/team', 2200);
+      await d.say('مدیر در «آمادگی تیم» آمادگی، تسلط، مهارت‌های ضعیف و شایستگی‌های دیگر هر نفر را می‌بیند.', 5500);
+    },
+  },
+  {
+    n: 20, slug: 'studio-coach', title: 'استودیوی طراحی با مربی', sub: 'از بریف تا مدلی که ساخته می‌شود؛ وزن و ایراد ساخت جدا از نکته زیبایی', standalone: true,
+    steps: ['آموزش ← «استودیوی طراحی با مربی». بریف را به فارسی بنویسید؛ مثلاً «انگشتر ۱۸ عیار مینیمال، سنگ بیضی ۸×۶، زیر ۴ گرم، مناسب ریخته‌گری».', 'طرح ساخته و اندازه‌گیری می‌شود: وزن تخمینی از حجم واقعی فلز و چگالی آلیاژ، ایرادهای پیش از ساخت و نکته‌های زیبایی جدا از هم.', 'تغییر را با یک جمله بخواهید («ضخامت کف ۱٫۴»، «وزن را ۰٫۳ گرم کم کن»)؛ هر تغییر نسخه تازه می‌سازد.', 'فایل آزمایشی STL آزاد است؛ فایل تولید با تأیید مدیر.', 'زبانه «تمرین»: پروژه‌های کوچک با شرط‌های قابل اندازه‌گیری و راهنمایی چندسطحی، بدون دادن عدد پاسخ.'],
+    async run(page, d) {
+      await d.go('/studio/coach', 2000);
+      await d.say('استودیوی طراحی با مربی: بریف را بنویسید، طرح ساخته و اندازه‌گیری می‌شود.', 4800);
+      await d.type('#scBrief', 'انگشتر ۱۸ عیار مینیمال، سنگ بیضی ۸×۶، زیر ۴ گرم، مناسب ریخته‌گری', 400);
+      await d.click('[data-act=design]', 600);
+      await page.waitForSelector('.sc-result', { timeout: 60000 });
+      await wait(900);
+      await d.point('.sc-weight');
+      await d.say('وزن تخمینی از حجم واقعی فلز مدل و چگالی طلای ۱۸ عیار حساب شده و با هدف بریف مقایسه می‌شود.', 5800);
+      await d.point('.sc-result .at-h2');
+      await d.say('ایرادهای پیش از ساخت از قواعد اندازه‌گیری می‌آیند و جدا از یادداشت‌های زیبایی نشان داده می‌شوند.', 5500);
+      await d.type('#scEdit', 'ضخامت کف ۱٫۴', 300);
+      await d.click('[data-act=edit]', 600);
+      await page.waitForFunction(() => /نسخه ۲/.test(document.querySelector('.sc-result .at-kicker')?.textContent ?? ''), null, { timeout: 60000 });
+      await wait(800);
+      await d.say('تغییر با یک جمله: نسخه تازه ساخته، دوباره اندازه‌گیری و بررسی شد. نسخه قبلی دست‌نخورده می‌ماند.', 5500);
+      await d.click('[data-tab=practice]', 1200);
+      const ex = await d.point('#scEx');
+      await ex.selectOption('thin-fix');
+      await d.click('[data-act=exNext]', 1200);
+      await page.waitForSelector('.sc-grid');
+      await d.say('تمرین: کارگاه ریخته‌گری این مدل را برگردانده؛ باید نازکی‌ها را اصلاح کنید و وزن را زیر حد نگه دارید.', 5800);
+      await d.click('[data-act=check]', 600);
+      await page.waitForSelector('.sc-assess', { timeout: 60000 });
+      await wait(800);
+      await d.point('.sc-assess');
+      await d.say('هنوز قبول نیست: شرط‌هایی که برقرار نیستند و دلیل اندازه‌گیری‌شده هر کدام.', 5000);
+      await d.click('[data-act=hint]', 1200);
+      await d.point('.sc-hint');
+      await d.say('راهنمایی سطح به سطح: اول چه چیزی برقرار نیست، بعد کدام پارامترها، بعد قاعده. عدد پاسخ داده نمی‌شود.', 6000);
+      await d.type('[data-p=thickBottom]', '۱٫۲', 200);
+      await d.type('[data-p=widthBottom]', '۱٫۶', 200);
+      await d.type('[data-s=prongDiameterMm]', '۰٫۷۵', 200);
+      await d.type('[data-s=seatDepthMm]', '۰٫۳', 200);
+      await d.click('[data-act=check]', 600);
+      await page.waitForFunction(() => /قبول/.test(document.querySelector('.sc-assess')?.textContent ?? ''), null, { timeout: 60000 });
+      await wait(800);
+      await d.point('.sc-assess');
+      await d.say('اصلاح شد و قبول است؛ تسلط شما در مهارت‌های ساخت و نگین‌گذاری به‌روز شد.', 5000);
+    },
+  },
+  {
+    n: 21, slug: 'skins', title: 'پوسته‌ها و پوسته «تمیز»', sub: 'روشن و تیره، پیش‌نمایش زنده، همراه دستگاه یا خورشید', standalone: true,
+    steps: ['دکمه پوسته (بالای صفحه) یا «من» ← «پوسته». با رفتن روی هر کارت، کل اپ همان لحظه آن پوسته را نشان می‌دهد؛ Esc برمی‌گرداند.', 'با کلیک یا Enter انتخاب کنید؛ انتخاب روی همین دستگاه می‌ماند.', '«تمیز»: قاب خاکستری، صفحه سفید و کارت‌های گرد؛ «تمیز شب» همان در تاریکی.', 'حالت «همراه دستگاه» روشن یا تیره بودن سیستم را دنبال می‌کند و «همراه خورشید» از طلوع تا غروب واقعی پوسته روشن را می‌گذارد.'],
+    async run(page, d) {
+      await d.go('/books/pulse', 1800);
+      await d.click('#themeBtn', 1200);
+      await d.say('پوسته‌ها: روشن و تیره، هر کدام با شخصیت خودش.', 4000);
+      await page.evaluate(([t, x]) => window.__tt.say(t, x), ['فصل 21 · پوسته‌ها و پوسته «تمیز»', 'با رفتن روی هر کارت، کل اپ همان لحظه آن پوسته را نشان می‌دهد.']);
+      for (const id of ['lapis', 'firouzeh', 'pearl', 'cleannight']) {
+        await d.point(`[data-pick=${id}]`, { ring: false });
+        await page.hover(`[data-pick=${id}]`);
+        await wait(1500);
+      }
+      await d.click('[data-pick=clean]', 1800);
+      await page.keyboard.press('Escape');
+      await wait(600);
+      await d.say('پوسته «تمیز»: قاب خاکستری، صفحه سفید، کارت‌های گرد و آرام.', 4800);
+      await d.go('/books/desk', 2000);
+      await d.say('همه صفحه‌ها همان هستند؛ فقط ظاهر عوض می‌شود.', 3800);
+      await d.click('#themeBtn', 1200);
+      await d.click('[data-mode=sun]', 1400);
+      await d.say('«همراه خورشید»: از طلوع تا غروب واقعی پوسته روشن و پس از غروب پوسته تیره‌ای که انتخاب کرده‌اید.', 5800);
+      await d.click('[data-mode=fixed]', 1000);
+      await d.click('[data-pick=calm]', 1600);
+      await page.keyboard.press('Escape');
+      await d.say('و «شب آرام» برای ساعت‌های طولانی پشت پیشخوان.', 3600);
+    },
+  },
 ];
 
 // keep chapters generated earlier when only some are rebuilt
@@ -678,7 +790,11 @@ try {
           localStorage.setItem('beatris.token', t);
           sessionStorage.setItem('tt-tok', '1');
         }
-        localStorage.setItem('beatris.theme', 'calm');
+        // the default skin once per tab: a chapter that picks a skin keeps it across its own navigations
+        if (!sessionStorage.getItem('tt-skin')) {
+          localStorage.setItem('beatris.theme', 'calm');
+          sessionStorage.setItem('tt-skin', '1');
+        }
       } catch {
         /* no storage */
       }
