@@ -12,7 +12,7 @@ import { SYMBOLS, SYMBOL, isSymbol, roundQuote } from '../public/js/market.mjs';
 import { COIN_TYPES, COIN_TESTS, SEAL_TESTS, binaryPosterior, decide } from '../public/js/coins.mjs';
 
 export const MCP_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
-const SERVER = { name: 'beatris', title: 'Beatris — میز طلافروشی', version: '2.1.0' };
+const SERVER = { name: 'beatris', title: 'Beatris — میز طلافروشی', version: '2.2.0' };
 const INSTRUCTIONS =
   'Beatris is an Iranian gold shop desk. Prices are in toman (the world ounce in US dollars). mazaneh = toman per mesghal (4.6083 g) of 705 gold; gram-18 = mazaneh ÷ 4.3318. The market data may be labelled sample (synthetic, for training) — say so when you use it. Analyses are educational, not investment advice.';
 

@@ -7,6 +7,6 @@
 
 - **پل کارتخوان** (`pos-bridge.ps1`): همراه نصب می‌شود و با ورود به ویندوز (میان‌بر Startup «Beatris POS») پنهان اجرا می‌شود؛ مبلغ میز معامله را به کارتخوان سامان (PC-POS شبکه) یا برنامه رابط سداد می‌فرستد. spec `docs/specs/0005-pos-bridge.md`.
 
-ساخت: `FFMPEG=… bash desktop/windows/build.sh [https://server]` (نیاز: `makensis` ۳ با stubهای amd64، Node، ffmpeg). آزمون: نصب/حذف بی‌صدا با Wine (`/S`) با `LANG=C.UTF-8`.
+ساخت: `[FFMPEG=…] bash desktop/windows/build.sh [https://server]` (نیاز: `makensis` ۳ با stubهای amd64 و Node؛ ffmpeg فقط برای ساختن دوباره آیکن، بدون آن همان `beatris.ico` به کار می‌رود). آزمون: نصب/حذف بی‌صدا با Wine (`/S`) با `LANG=C.UTF-8`.
 
 امضای دیجیتال ندارد؛ ویندوز بار اول «Windows protected your PC» نشان می‌دهد → More info → Run anyway. برای حذف این پیام گواهی Code Signing لازم است.
