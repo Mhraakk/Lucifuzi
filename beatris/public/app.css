@@ -466,7 +466,7 @@ a.tile:hover { transform: translateY(-4px); border-color: var(--hair-2); }
 .era-item .body { display: grid; gap: 14px; grid-template-columns: 1fr; align-items: start; }
 .era-item h2 { margin: 0; font-size: clamp(30px, 4vw, 46px); }
 .era-item .place { font: var(--label); color: var(--gold); }
-.era-item p { color: #d8ceb8; max-width: 62ch; font-size: 16.5px; }
+.era-item p { color: var(--dust); max-width: 62ch; font-size: 16.5px; }
 .era-item .fact { display: flex; gap: 10px; flex-wrap: wrap; }
 .era-item .fact span { font-size: 12.5px; padding: 3px 12px; border-radius: 99px; border: 1px solid var(--hair-2); color: var(--gold-hi); }
 .era-item .art { position: relative; height: 260px; border-radius: var(--r-xl); overflow: hidden; border: 1px solid var(--hair); background: radial-gradient(ellipse at 50% 45%, #2a2114, var(--void) 75%); }
@@ -711,7 +711,7 @@ a.tile:active, .tool-card:active, a.row:active, .chip:active, .iconbtn:active, .
 .ledger-hint code { display: block; margin-top: 4px; font-family: var(--body); color: var(--gold-hi); }
 
 /* ---------------- market desk ---------------- */
-.market { display: grid; gap: 18px; }
+.market { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); } /* one column that never grows past the screen */
 .market h2 { margin-top: 0; }
 .market .ledger { background: rgba(var(--ink-rgb), 0.45); border-color: var(--vault-4); padding: 2px 14px; }
 .market .ledger div { border-color: var(--vault-4); font-size: 13.5px; align-items: center; }
@@ -753,6 +753,7 @@ a.tile:active, .tool-card:active, a.row:active, .chip:active, .iconbtn:active, .
 .chart-static { display: block; width: 100%; }
 .mk-help { margin: 8px 0 0; }
 .mk-cols { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); align-items: start; }
+.mk-cols > * { min-width: 0; } /* a wide table scrolls inside its card instead of widening the page on a phone */
 .mk-h { font-family: var(--display); font-size: 21px; margin: 0 0 8px; }
 .hunt-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
 .hunt-pair > div { display: grid; gap: 2px; padding: 12px; border-radius: var(--r-md); border: 1px solid; }
@@ -3469,3 +3470,4 @@ html[data-skin^='clean'] .btn.danger { background: var(--vault-2); color: var(--
 html[data-skin^='clean'] .btn.is-busy::after { border-color: #fff; border-top-color: transparent; }
 html[data-skin^='clean'] .input, html[data-skin^='clean'] .at-in { border-radius: 12px; }
 html[data-skin='clean'] .toast { background: #393846; color: #fff; }
+.sc-scroll { overflow-x: auto; max-width: 100%; }

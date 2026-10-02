@@ -219,13 +219,13 @@ export async function agentsDebugPage(root) {
       <header class="at-head"><p class="at-kicker">مدیر سیستم</p><h1>عامل‌ها</h1>
         <p class="at-meta">${fa(S.reg.agents.length)} عامل · ${fa(st.delegations)} واگذاری · ${fa(st.pendingApprovals)} تأیید در انتظار</p></header>
       <h2 class="at-h2">رجیستری</h2>
-      <table class="at-journal"><thead><tr><th>عامل</th><th>دامنه</th><th>ابزارها</th><th>تأیید</th><th>حافظه</th><th>واگذاری به</th></tr></thead><tbody>
+      <div class="sc-scroll" tabindex="0"><table class="at-journal"><thead><tr><th>عامل</th><th>دامنه</th><th>ابزارها</th><th>تأیید</th><th>حافظه</th><th>واگذاری به</th></tr></thead><tbody>
         ${S.reg.agents.map((a) => html`<tr><td>${a.fa}<br><small dir="ltr">${a.id}</small></td><td>${a.domain}</td><td dir="ltr"><small>${a.allowedTools.join(', ')}</small></td><td dir="ltr"><small>${a.approvalPolicy.join(', ') || '—'}</small></td><td dir="ltr"><small>${a.memoryScopes.join(', ')}</small></td><td dir="ltr"><small>${a.canDelegateTo.join(', ') || '—'}</small></td></tr>`)}
-      </tbody></table>
+      </tbody></table></div>
       <h2 class="at-h2">ابزارها</h2>
-      <table class="at-journal"><thead><tr><th>ابزار</th><th>فراخوانی</th><th>خطا</th><th>تلاش دوباره</th><th>میانگین (ms)</th></tr></thead><tbody>
+      <div class="sc-scroll" tabindex="0"><table class="at-journal"><thead><tr><th>ابزار</th><th>فراخوانی</th><th>خطا</th><th>تلاش دوباره</th><th>میانگین (ms)</th></tr></thead><tbody>
         ${st.tools.map((t) => html`<tr><td dir="ltr">${t.tool}</td><td>${fa(t.calls)}</td><td>${fa(t.failed ?? 0)}</td><td>${fa(t.retries ?? 0)}</td><td>${t.ms == null ? '—' : fa(t.ms)}</td></tr>`)}
-      </tbody></table>
+      </tbody></table></div>
       <h2 class="at-h2">اجراهای اخیر</h2>
       <ul class="at-list">${S.runs.map((r) => html`<li><button class="at-link" data-run="${r.id}">${r.agentName}${r.depth ? ` ← ${r.chain.slice(0, -1).join(' ← ')}` : ''}</button><small>${STATE[r.status] ?? r.status} · ${r.origin} · ${fa(r.steps.length)} گام</small></li>`)}</ul>
       ${S.open ? html`<section class="sc-run"><h2 class="at-h2" dir="ltr">${S.open.run.id}</h2>
