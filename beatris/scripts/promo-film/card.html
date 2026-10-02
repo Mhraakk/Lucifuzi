@@ -13,6 +13,11 @@ canvas { position: absolute; inset: 0; }
 #title { top: 238px; font-size: 54px; font-weight: 800; line-height: 1.35; }
 #sub { top: 410px; font-size: 25px; font-weight: 500; color: #c9c1b0; line-height: 1.7; }
 #brand { position: absolute; left: 40px; bottom: 26px; font-size: 16px; color: rgba(242,237,226,.4); }
+/* a phone chapter: the same card standing up — the gem above, the words centred below */
+html.v, html.v body { width: 720px; height: 1558px; }
+html.v .t { right: 60px; left: 60px; text-align: center; }
+html.v #kick { top: 640px; font-size: 30px; } html.v #title { top: 690px; font-size: 56px; } html.v #sub { top: 900px; font-size: 28px; }
+html.v #brand { left: 0; right: 0; text-align: center; bottom: 40px; font-size: 20px; }
 .gold { background: linear-gradient(100deg, #fff1c9 0%, #e2bd6e 45%, #a27c3a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 </style></head>
 <body>
@@ -32,8 +37,11 @@ const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
 const inCubic = (x) => x * x * x;
 const lerp = (a, b, x) => a + (b - a) * x;
 const $ = (id) => document.getElementById(id);
+const V = q.get('v') === '1';
+if (V) { document.documentElement.classList.add('v'); $('cv').width = 720; $('cv').height = 1558; }
+const CW = V ? 720 : 1280, CHH = V ? 1558 : 720;
 const g = $('cv').getContext('2d');
-const GEM = { x: 230, y: 330, r: 82 };
+const GEM = V ? { x: 300, y: 420, r: 110 } : { x: 230, y: 330, r: 82 };
 
 if (KIND === 'open') {
   $('kick').textContent = `فصل ${fa(q.get('n') ?? '')}`;
@@ -65,9 +73,9 @@ function gem(cx, cy, r, a, draw) {
 window.DUR = DUR;
 window.seek = function (t) {
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
-  g.fillStyle = '#07080a'; g.fillRect(0, 0, 1280, 720);
+  g.fillStyle = '#07080a'; g.fillRect(0, 0, CW, CHH);
   const hz = g.createRadialGradient(900, 160, 0, 900, 160, 800); hz.addColorStop(0, 'rgba(60,46,24,0.5)'); hz.addColorStop(1, 'rgba(7,8,10,0)');
-  g.fillStyle = hz; g.fillRect(0, 0, 1280, 720);
+  g.fillStyle = hz; g.fillRect(0, 0, CW, CHH);
   const outT = KIND === 'open' ? prog(t, 4.3, 5.0) : 0;
   gem(GEM.x, GEM.y, GEM.r, outExpo(prog(t, 0, 0.8)) * (1 - outT), outExpo(prog(t, 0, 1.0)));
   // the beam in, the spectrum out (under the title, fading as the words settle)
@@ -82,11 +90,11 @@ window.seek = function (t) {
     g.beginPath(); g.moveTo(GEM.x + GEM.r * 0.75, GEM.y); g.lineTo(GEM.x + GEM.r * 0.75 + Math.cos(ang) * len, GEM.y + Math.sin(ang) * len); g.stroke();
   }
   // the flash
-  if (t > 0.85) { const f = 1 - prog(t, 0.85, 1.8), r = 260 * outExpo(prog(t, 0.85, 1.6)); const gr = g.createRadialGradient(GEM.x, GEM.y, 0, GEM.x, GEM.y, r + 1); gr.addColorStop(0, `rgba(255,240,200,${0.6 * f})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = 1; g.fillStyle = gr; g.fillRect(0, 0, 1280, 720); }
+  if (t > 0.85) { const f = 1 - prog(t, 0.85, 1.8), r = 260 * outExpo(prog(t, 0.85, 1.6)); const gr = g.createRadialGradient(GEM.x, GEM.y, 0, GEM.x, GEM.y, r + 1); gr.addColorStop(0, `rgba(255,240,200,${0.6 * f})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = 1; g.fillStyle = gr; g.fillRect(0, 0, CW, CHH); }
   // the exit: seven skewed bands sweep across (open card only)
   if (outT > 0) {
     const x = lerp(1500, -500, inOut(outT));
-    for (let k = 0; k < 7; k++) { g.globalAlpha = 0.6; g.fillStyle = SPEC[k]; const bx = x + k * 30; g.beginPath(); g.moveTo(bx, 0); g.lineTo(bx + 26, 0); g.lineTo(bx - 130 + 26, 720); g.lineTo(bx - 130, 720); g.closePath(); g.fill(); }
+    for (let k = 0; k < 7; k++) { g.globalAlpha = 0.6; g.fillStyle = SPEC[k]; const bx = x + k * 30; g.beginPath(); g.moveTo(bx, 0); g.lineTo(bx + 26, 0); g.lineTo(bx - 130 + 26, CHH); g.lineTo(bx - 130, CHH); g.closePath(); g.fill(); }
   }
   g.restore();
   const a = outExpo(prog(t, 1.0, 1.6)), b = outExpo(prog(t, 1.25, 1.9)), c = outExpo(prog(t, 1.6, 2.3)), x = inCubic(outT);

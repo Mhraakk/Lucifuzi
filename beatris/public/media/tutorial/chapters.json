@@ -1,5 +1,5 @@
 {
- "made": "2026-10-02T07:15:18.705Z",
+ "made": "2026-10-02T09:08:38.034Z",
  "chapters": [
   {
    "n": 1,
@@ -15,9 +15,10 @@
    "file": "/media/tutorial/01.mp4",
    "webm": "/media/tutorial/01.webm",
    "poster": "/media/tutorial/01.jpg",
-   "seconds": 96,
+   "seconds": 106,
    "vertical": false,
-   "bytes": 4244278
+   "bytes": 5139868,
+   "film": true
   },
   {
    "n": 2,
@@ -35,9 +36,10 @@
    "file": "/media/tutorial/02.mp4",
    "webm": "/media/tutorial/02.webm",
    "poster": "/media/tutorial/02.jpg",
-   "seconds": 122,
+   "seconds": 151,
    "vertical": false,
-   "bytes": 6460501
+   "bytes": 8078174,
+   "film": true
   },
   {
    "n": 3,
@@ -55,9 +57,10 @@
    "file": "/media/tutorial/03.mp4",
    "webm": "/media/tutorial/03.webm",
    "poster": "/media/tutorial/03.jpg",
-   "seconds": 101,
+   "seconds": 118,
    "vertical": false,
-   "bytes": 5433168
+   "bytes": 6716172,
+   "film": true
   },
   {
    "n": 4,
@@ -73,9 +76,10 @@
    "file": "/media/tutorial/04.mp4",
    "webm": "/media/tutorial/04.webm",
    "poster": "/media/tutorial/04.jpg",
-   "seconds": 93,
+   "seconds": 109,
    "vertical": false,
-   "bytes": 4730085
+   "bytes": 5768354,
+   "film": true
   },
   {
    "n": 5,
@@ -91,9 +95,10 @@
    "file": "/media/tutorial/05.mp4",
    "webm": "/media/tutorial/05.webm",
    "poster": "/media/tutorial/05.jpg",
-   "seconds": 30,
+   "seconds": 39,
    "vertical": false,
-   "bytes": 1699025
+   "bytes": 2327679,
+   "film": true
   },
   {
    "n": 6,
@@ -109,9 +114,10 @@
    "file": "/media/tutorial/06.mp4",
    "webm": "/media/tutorial/06.webm",
    "poster": "/media/tutorial/06.jpg",
-   "seconds": 41,
+   "seconds": 50,
    "vertical": false,
-   "bytes": 2006106
+   "bytes": 2814803,
+   "film": true
   },
   {
    "n": 7,
@@ -127,9 +133,10 @@
    "file": "/media/tutorial/07.mp4",
    "webm": "/media/tutorial/07.webm",
    "poster": "/media/tutorial/07.jpg",
-   "seconds": 54,
+   "seconds": 67,
    "vertical": false,
-   "bytes": 2659985
+   "bytes": 3467315,
+   "film": true
   },
   {
    "n": 8,
@@ -144,9 +151,10 @@
    "file": "/media/tutorial/08.mp4",
    "webm": "/media/tutorial/08.webm",
    "poster": "/media/tutorial/08.jpg",
-   "seconds": 23,
+   "seconds": 30,
    "vertical": false,
-   "bytes": 1084835
+   "bytes": 1703056,
+   "film": true
   },
   {
    "n": 9,
@@ -162,9 +170,10 @@
    "file": "/media/tutorial/09.mp4",
    "webm": "/media/tutorial/09.webm",
    "poster": "/media/tutorial/09.jpg",
-   "seconds": 34,
+   "seconds": 42,
    "vertical": false,
-   "bytes": 1636005
+   "bytes": 2415600,
+   "film": true
   },
   {
    "n": 10,
@@ -179,9 +188,10 @@
    "file": "/media/tutorial/10.mp4",
    "webm": "/media/tutorial/10.webm",
    "poster": "/media/tutorial/10.jpg",
-   "seconds": 41,
+   "seconds": 52,
    "vertical": false,
-   "bytes": 1975573
+   "bytes": 2782421,
+   "film": true
   },
   {
    "n": 11,
@@ -196,9 +206,10 @@
    "file": "/media/tutorial/11.mp4",
    "webm": "/media/tutorial/11.webm",
    "poster": "/media/tutorial/11.jpg",
-   "seconds": 38,
+   "seconds": 48,
    "vertical": false,
-   "bytes": 1660671
+   "bytes": 2477060,
+   "film": true
   },
   {
    "n": 12,
@@ -213,9 +224,10 @@
    "file": "/media/tutorial/12.mp4",
    "webm": "/media/tutorial/12.webm",
    "poster": "/media/tutorial/12.jpg",
-   "seconds": 91,
+   "seconds": 109,
    "vertical": true,
-   "bytes": 2660086
+   "bytes": 3284930,
+   "film": true
   },
   {
    "n": 13,
@@ -233,9 +245,10 @@
    "file": "/media/tutorial/13.mp4",
    "webm": "/media/tutorial/13.webm",
    "poster": "/media/tutorial/13.jpg",
-   "seconds": 83,
+   "seconds": 93,
    "vertical": false,
-   "bytes": 3525215
+   "bytes": 4577322,
+   "film": true
   },
   {
    "n": 14,
@@ -252,9 +265,10 @@
    "file": "/media/tutorial/14.mp4",
    "webm": "/media/tutorial/14.webm",
    "poster": "/media/tutorial/14.jpg",
-   "seconds": 55,
+   "seconds": 67,
    "vertical": false,
-   "bytes": 2857803
+   "bytes": 3828052,
+   "film": true
   },
   {
    "n": 15,
@@ -271,9 +285,10 @@
    "file": "/media/tutorial/15.mp4",
    "webm": "/media/tutorial/15.webm",
    "poster": "/media/tutorial/15.jpg",
-   "seconds": 99,
+   "seconds": 120,
    "vertical": false,
-   "bytes": 5470283
+   "bytes": 6606974,
+   "film": true
   },
   {
    "n": 16,
@@ -290,9 +305,10 @@
    "file": "/media/tutorial/16.mp4",
    "webm": "/media/tutorial/16.webm",
    "poster": "/media/tutorial/16.jpg",
-   "seconds": 64,
+   "seconds": 78,
    "vertical": false,
-   "bytes": 3375963
+   "bytes": 4354928,
+   "film": true
   },
   {
    "n": 17,
@@ -309,16 +325,18 @@
    "file": "/media/tutorial/17.mp4",
    "webm": "/media/tutorial/17.webm",
    "poster": "/media/tutorial/17.jpg",
-   "seconds": 76,
+   "seconds": 91,
    "vertical": false,
-   "bytes": 3687155
+   "bytes": 4691028,
+   "film": true
   },
   {
    "n": 18,
    "slug": "elliott",
    "title": "تحلیل جامع امواج الیوت",
-   "sub": "شمارش دو درجه‌ای، فیبوناچی، کانال و دو سناریو روی یک نمودار",
+   "sub": "موتور ترکیبی الیوت + فیبوناچی: شمارش، سطوح بازگشت و دو سناریو",
    "steps": [
+    "موتور ترکیبی: ۱) شمارش موج در دو درجه و سنجش با قواعد الیوت، ۲) فیبوناچی از همان حرکتِ شمرده‌شده (ناحیه طلایی ۰٫۳۸۲ تا ۰٫۶۱۸)، ۳) دو سناریو با احتمال و قیمت ابطال.",
     "حسابداری ← «تحلیل الیوت» (یا بازار ← «استودیوی تحلیل جامع الیوت»). نماد، بازه ۱ روزه، هفتگی یا ماهانه و درجه موج را انتخاب کنید.",
     "درجه بزرگ نارنجی: (I) تا (V) یا (A)(B)(C). درجه کوچک: ۱ تا ۵ آبی و A B C قرمز؛ فقط وقتی زیرموج‌ها خودشان قواعد را پاس کنند.",
     "سطوح فیبوناچی با قیمت، کانال موج، ناحیه حمایت یا مقاومت و ناحیه هدف جایگزین.",
@@ -328,9 +346,10 @@
    "file": "/media/tutorial/18.mp4",
    "webm": "/media/tutorial/18.webm",
    "poster": "/media/tutorial/18.jpg",
-   "seconds": 97,
+   "seconds": 151,
    "vertical": false,
-   "bytes": 5530795
+   "bytes": 8238821,
+   "film": true
   },
   {
    "n": 19,
@@ -346,9 +365,10 @@
    "file": "/media/tutorial/19.mp4",
    "webm": "/media/tutorial/19.webm",
    "poster": "/media/tutorial/19.jpg",
-   "seconds": 57,
+   "seconds": 71,
    "vertical": false,
-   "bytes": 2437219
+   "bytes": 3325435,
+   "film": true
   },
   {
    "n": 20,
@@ -365,9 +385,10 @@
    "file": "/media/tutorial/20.mp4",
    "webm": "/media/tutorial/20.webm",
    "poster": "/media/tutorial/20.jpg",
-   "seconds": 83,
+   "seconds": 100,
    "vertical": false,
-   "bytes": 3943511
+   "bytes": 5149270,
+   "film": true
   },
   {
    "n": 21,
@@ -383,9 +404,9 @@
    "file": "/media/tutorial/21.mp4",
    "webm": "/media/tutorial/21.webm",
    "poster": "/media/tutorial/21.jpg",
-   "seconds": 99,
+   "seconds": 96,
    "vertical": false,
-   "bytes": 4896904,
+   "bytes": 4920602,
    "film": true
   }
  ]

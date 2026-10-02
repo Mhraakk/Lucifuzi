@@ -58,7 +58,9 @@ mkdirSync(tmp, { recursive: true });
 
 /** Render card.html (open or end) to an mp4 the size of the chapter (a phone chapter gets the card letterboxed). */
 async function card(params, file, { w, h }) {
-  await page.goto(`${srv.url}/scripts/promo-film/card.html?${new URLSearchParams(params)}`);
+  const vertical = w < h; // a phone chapter gets the standing card, filled to its frame
+  await page.setViewportSize(vertical ? { width: 720, height: 1558 } : { width: 1280, height: 720 });
+  await page.goto(`${srv.url}/scripts/promo-film/card.html?${new URLSearchParams({ ...params, ...(vertical ? { v: '1' } : {}) })}`);
   await page.waitForFunction(() => window.READY === true);
   const dur = await page.evaluate(() => window.DUR);
   const dir = path.join(tmp, 'card');
@@ -68,7 +70,7 @@ async function card(params, file, { w, h }) {
     await page.evaluate((t) => window.seek(t), i / FPS);
     await page.screenshot({ path: path.join(dir, `${String(i).padStart(4, '0')}.jpg`), type: 'jpeg', quality: 92 });
   }
-  const fit = w / h >= 16 / 9 ? `scale=${w}:-2` : `scale=${w}:-2,pad=${w}:${h}:0:(oh-ih)/2:color=0x07080a`;
+  const fit = vertical ? `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}` : `scale=${w}:${h}`;
   ff('-framerate', String(FPS), '-i', path.join(dir, '%04d.jpg'), '-vf', `${fit},format=yuv420p`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-r', String(FPS), file);
   return dur;
 }
