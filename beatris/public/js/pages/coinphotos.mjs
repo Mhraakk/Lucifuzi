@@ -4,6 +4,7 @@
 import { html, fa, api, toast, store, $, $$ } from '../core.mjs';
 import { back } from '../ui.mjs';
 import { COIN_TYPES } from '../coins.mjs';
+import { confirmBox } from '../dialog.mjs';
 
 const VIEW = 560; // preview canvas width (CSS px scales it down on phones)
 
@@ -45,7 +46,7 @@ export async function coinPhotosPage(root) {
     </form>`
       : html`<p class="small">افزودن و حذف عکس فقط برای مدیر است؛ عکس‌ها را در آزمایشگاه سکه ببینید.</p>`}
     <h2>عکس‌های ثبت‌شده</h2>
-    <div id="list" class="photo-list"><p class="small">در حال بارگذاری…</p></div>`);
+    <div id="list" class="photo-list"><div class="loading"></div></div>`);
 
   const msg = (t) => {
     const m = $('#msg', root);
@@ -74,7 +75,7 @@ export async function coinPhotosPage(root) {
   }
   $('#list', root).addEventListener('click', async (e) => {
     const b = e.target.closest('[data-del]');
-    if (!b || !confirm('این عکس مرجع حذف شود؟')) return;
+    if (!b || !(await confirmBox('حذف عکس مرجع', 'این عکس مرجع حذف شود؟', { danger: true, ok: 'حذف' }))) return;
     try {
       await api(`/api/coin-photos/${encodeURIComponent(b.dataset.del)}`, { method: 'DELETE' });
       toast('حذف شد.');
@@ -119,7 +120,7 @@ export async function coinPhotosPage(root) {
       vg.stroke();
       vg.setLineDash([]);
       if (role) {
-        vg.font = '600 15px Vazirmatn';
+        vg.font = '600 15px Estedad';
         vg.fillStyle = '#f7e6b0';
         vg.textAlign = 'center';
         vg.fillText(role, c.cx * k, (c.cy - c.r * c.scale) * k + 18);

@@ -11,7 +11,7 @@ const C = {
   green: '#22c55e', red: '#ef4444', rsi: '#a78bfa', macd: '#60a5fa', signal: '#f97316', cross: 'rgba(226,232,240,0.45)',
 };
 const FIB = { 0: '#94a3b8', 0.236: '#f87171', 0.382: '#fbbf24', 0.5: '#facc15', 0.618: '#4ade80', 0.786: '#60a5fa', 1: '#94a3b8' };
-const FONT = (px, w = 500) => `${w} ${px}px Vazirmatn, Tahoma, sans-serif`;
+const FONT = (px, w = 500) => `${w} ${px}px Estedad, Vazirmatn, Tahoma, sans-serif`;
 const fin = Number.isFinite;
 const fa = (s) => String(s).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));

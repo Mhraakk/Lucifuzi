@@ -7,6 +7,7 @@ import { fmt, parseNum } from '../calc.mjs';
 import { SYMBOLS, SYMBOL, isSymbol } from '../market.mjs';
 import { jalaliOf } from '../ta.mjs';
 import { jDate } from '../charts.mjs';
+import { confirmBox } from '../dialog.mjs';
 
 const tehranToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(new Date());
 const jToday = () => fa(jalaliOf(tehranToday()).map((x, i) => (i ? String(x).padStart(2, '0') : x)).join('/'));
@@ -104,7 +105,7 @@ export async function marketDataPage(root) {
         busy(b, false);
       }
     } else if (b.dataset.del) {
-      if (!confirm(`قیمت ${jDate(b.dataset.del)} حذف شود؟`)) return;
+      if (!(await confirmBox('حذف قیمت', `قیمت ${jDate(b.dataset.del)} حذف شود؟`, { danger: true, ok: 'حذف' }))) return;
       try {
         await api(`/api/market/bars/${symbol}/${b.dataset.del}`, { method: 'DELETE' });
         await drawRecent();

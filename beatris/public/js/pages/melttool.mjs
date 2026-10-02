@@ -5,6 +5,7 @@ import { html, fa, store, toast, $, $$ } from '../core.mjs';
 import { back } from '../ui.mjs';
 import { fmt, parseNum, MAZANEH_TO_G750 } from '../calc.mjs';
 import { eq750, gram18, r3, ledgerValue, AYAR_FACTORS } from '../melt.mjs';
+import { confirmBox } from '../dialog.mjs';
 
 const KEY = 'beatris.melt.session';
 const SPREAD_KEY = 'beatris.melt.spread';
@@ -110,7 +111,7 @@ export function meltToolPage(root) {
     form.elements.w.focus();
     live();
   });
-  root.addEventListener('click', (e) => {
+  root.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.del) {
@@ -118,7 +119,7 @@ export function meltToolPage(root) {
       save();
       book();
     } else if (b.dataset.act === 'clear') {
-      if (!rows.length || !confirm('دفتر این جلسه پاک شود؟')) return;
+      if (!rows.length || !(await confirmBox('پاک کردن دفتر', 'دفتر این جلسه پاک شود؟', { danger: true, ok: 'پاک کن' }))) return;
       rows = [];
       save();
       book();

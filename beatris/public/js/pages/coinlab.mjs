@@ -1,4 +1,5 @@
-import { html, fa, api, toast, store, $ } from '../core.mjs';
+import { html, raw, fa, api, toast, store, $ } from '../core.mjs';
+import { orb } from '../orb.mjs';
 import { ICON } from '../ui.mjs';
 import { fmt } from '../calc.mjs';
 import {
@@ -53,7 +54,7 @@ async function creditStamp(blob, lines) {
   g.drawImage(bmp, 0, 0);
   bmp.close?.();
   const fs = Math.round(cv.height * 0.017);
-  g.font = `500 ${fs}px Vazirmatn`;
+  g.font = `500 ${fs}px Estedad`;
   g.direction = 'rtl';
   g.textAlign = 'right';
   const w = Math.max(...lines.map((l) => g.measureText(l).width)) + fs * 1.6;
@@ -416,7 +417,7 @@ export async function coinLabPage(root) {
   }
 
   function realPanel() {
-    if (!S.photos) return html`<div class="grp"><p class="small">در حال بارگذاری عکس‌ها…</p></div>`;
+    if (!S.photos) return html`<div class="grp loading-row" role="status">${raw(orb('searching', { size: 20, decorative: true }))}<p class="small">در حال بارگذاری عکس‌ها…</p></div>`;
     const admin = store.isAdmin();
     const add = admin ? html`<div class="actions" style="margin-top:10px"><a class="btn small ghost" href="/coins/manage" data-link>افزودن یا مدیریت عکس‌ها</a></div>` : '';
     if (!S.photos.length) return html`<div class="grp"><p class="small">هنوز عکسی ثبت نشده است.</p>${add}</div>`;
@@ -602,7 +603,7 @@ export async function coinLabPage(root) {
     let sub = '';
     if (real()) {
       const it = currentPhoto();
-      if (S.loading) (big = '<span class="spin"></span>'), (sub = 'در حال بارگذاری عکس‌ها و ساخت مدل سه‌بعدی…');
+      if (S.loading) (big = orb('searching', { size: 32, decorative: true })), (sub = 'در حال بارگذاری عکس‌ها و ساخت مدل سه‌بعدی…');
       else if (it && S.lastTool) (big = S.realSide === 'obv' ? 'جلو' : 'پشت'), (sub = `عکس واقعی · ${fa(it.sides[S.realSide].px)} پیکسل در قطر`);
     } else if (seal()) {
       const p = S.pack;
@@ -755,7 +756,7 @@ export async function coinLabPage(root) {
     curve(1.6, 'rgba(92,194,177,.8)', [8, 6]);
     curve(S.specimen.ring.decay, '#f7e6b0', []);
     g.fillStyle = '#a2977f';
-    g.font = '22px Vazirmatn';
+    g.font = '22px Estedad';
     g.direction = 'rtl';
     g.textAlign = 'right';
     g.fillText('— این سکه    - - مرجع اصل', W - 8, 22);

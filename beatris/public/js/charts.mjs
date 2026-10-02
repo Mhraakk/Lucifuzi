@@ -6,7 +6,7 @@ import { jalaliOf, JALALI_MONTHS } from './ta.mjs';
 
 export const COLORS = { grid: 'rgba(255,240,200,0.07)', axis: 'rgba(255,240,200,0.16)', text: '#bfb193', dim: '#8a7f68', up: '#3fb27f', down: '#e0605e', gold: '#e3b862', cross: 'rgba(255,240,200,0.45)', tip: 'rgba(16,13,9,0.94)', tipLine: 'rgba(227,184,98,0.35)' };
 export const PALETTE = ['#e3b862', '#5aa9e6', '#b388eb', '#3fb27f', '#e0605e', '#f29e4c', '#8fd3c1', '#d9d2c3', '#ff7eb6', '#a0c15a'];
-const FONT = (px, w = 400) => `${w} ${px}px Vazirmatn, Tahoma, sans-serif`;
+const FONT = (px, w = 400) => `${w} ${px}px Estedad, Vazirmatn, Tahoma, sans-serif`;
 const fin = Number.isFinite;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const faDigits = (s) => String(s).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);

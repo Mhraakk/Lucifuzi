@@ -8,10 +8,13 @@ import { initInstall, install, canInstall } from './install.mjs';
 import { sunrise } from './light.mjs';
 import { pending, onOutbox } from './outbox.mjs';
 import { initSkins, toggleSkinPicker, skinName } from './skinpicker.mjs';
+import { initOrbs } from './orb.mjs';
+import { gooTabs } from './goo.mjs';
 
 /* ---------- پوسته‌ها (spec 0014): the chosen skin, its automatic modes and the picker — remembered per device ---------- */
 const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.6-1.6-1.8-1.6-3.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-3.9-4-7-9-7Z"/><circle cx="7.5" cy="11" r="1.1"/><circle cx="10" cy="7" r="1.1"/><circle cx="15" cy="7" r="1.1"/></svg>';
 initSkins();
+initOrbs();
 
 /** وضعیت اتصال و صف ارسال (spec 0013): always in view, so nobody wonders whether a document went through. */
 async function netPill() {
@@ -53,7 +56,7 @@ route('/market', lazy('./pages/market.mjs', 'marketPage'), { tab: 'market', tone
 route('/market/elliott', lazy('./pages/elliott.mjs', 'elliottPage'), { tab: 'market', tone: 'full' });
 route('/market/data', lazy('./pages/marketdata.mjs', 'marketDataPage'), { tab: 'market', staff: true, tone: 'wide' });
 route('/books', lazy('./pages/books.mjs', 'booksHome'), { tab: 'books', tone: 'wide' });
-route('/books/desk', lazy('./pages/desk.mjs', 'deskPage'), { tab: 'books', tone: 'wide' });
+route('/books/desk', lazy('./pages/desk.mjs', 'deskPage'), { tab: 'books', tone: 'wide', title: 'میز معامله' });
 route('/books/dashboard', lazy('./pages/dashboard.mjs', 'dashboardPage'), { tab: 'books', tone: 'full', bare: true });
 route('/books/memory', lazy('./pages/memory.mjs', 'memoryPage'), { tab: 'books', tone: 'wide' });
 route('/books/pulse', lazy('./pages/pulse.mjs', 'pulsePage'), { tab: 'books', tone: 'wide' });
@@ -86,10 +89,10 @@ route('/ops', lazy('./pages/ops.mjs', 'opsPage'), { tab: 'team', tone: 'wide', v
 route('/vendor', lazy('./pages/vendor.mjs', 'vendorPage'), { tab: 'team', tone: 'wide', vendor: true });
 route('/s/:token', lazy('./pages/statement.mjs', 'statementPage'), { public: true, bare: true, tone: 'full' });
 route('/verify/:code', lazy('./pages/books.mjs', 'verifyPage'), { public: true, bare: true });
-route('/studio', lazy('./pages/studio3d.mjs', 'studioPage'), { tab: 'studio', tone: 'full' });
+route('/studio', lazy('./pages/studio3d.mjs', 'studioPage'), { tab: 'studio', tone: 'full', title: 'استودیوی سه‌بعدی' });
 route('/studio/coach', lazy('./pages/studiocoach.mjs', 'studioCoachPage'), { tab: 'studio', tone: 'wide' });
 route('/agents', lazy('./pages/studiocoach.mjs', 'agentsDebugPage'), { tab: 'team', tone: 'wide', staff: true });
-route('/coins', lazy('./pages/coinlab.mjs', 'coinLabPage'), { tab: 'tools', tone: 'full' });
+route('/coins', lazy('./pages/coinlab.mjs', 'coinLabPage'), { tab: 'tools', tone: 'full', title: 'آزمایشگاه سکه' });
 route('/coins/manage', lazy('./pages/coinphotos.mjs', 'coinPhotosPage'), { tab: 'tools', staff: true });
 route('/history', lazy('./pages/history.mjs', 'historyPage'), { tab: 'learn', tone: 'full' });
 route('/library', lazy('./pages/library.mjs', 'libraryPage'), { tab: 'me' });
@@ -143,7 +146,9 @@ setShell((opts) => {
   else tabs.push(['me', '/me', 'من', ICON.me]);
   nav.hidden = false;
   nav.innerHTML = String(html`${tabs.map(([k, href, label, icon]) => html`<a href="${href}" data-link ${opts.tab === k ? html`aria-current="page"` : ''}>${icon}<span>${label}</span></a>`)}`);
+  gooTabs(nav);
 });
+addEventListener('resize', () => gooTabs($('#tabbar'), { jump: true }));
 
 initPalette();
 initInstall();

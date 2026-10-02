@@ -55,6 +55,8 @@ document.addEventListener(
     if (!host || host.disabled || host.closest('.paper, .printable')) return;
     if (e.pointerType === 'touch' && host.matches('.btn:not(.ghost):not(.danger)')) buzz(6);
     const r = host.getBoundingClientRect();
+    // a press sinks by about the same few pixels whatever the width: a wide bar barely moves, a small chip clearly does
+    host.style.setProperty('--press', String(Math.max(0.92, 1 - Math.min(0.06, 3.2 / Math.max(1, r.width))).toFixed(3)));
     if (getComputedStyle(host).position === 'static') host.classList.add('lt-host');
     const box = document.createElement('span'), dot = document.createElement('span');
     box.className = 'lt-rip-box';
@@ -149,3 +151,25 @@ addEventListener(
 
 if (document.readyState === 'loading') addEventListener('DOMContentLoaded', watchToasts, { once: true });
 else watchToasts();
+
+/* ---------- 7. a button that says something new: the width glides to the new words, which arrive out of a soft blur ---------- */
+export function morphLabel(btn, text) {
+  if (!btn || btn.textContent === text) return;
+  if (quiet() || !btn.isConnected) return void (btn.textContent = text);
+  const from = btn.getBoundingClientRect().width;
+  const probe = btn.cloneNode(false);
+  probe.textContent = text;
+  probe.style.cssText = 'position:absolute;visibility:hidden;width:auto;pointer-events:none';
+  btn.after(probe);
+  const to = probe.getBoundingClientRect().width;
+  probe.remove();
+  const label = document.createElement('span');
+  label.className = 'lt-lbl';
+  label.textContent = text;
+  btn.style.width = `${from}px`;
+  btn.replaceChildren(label);
+  requestAnimationFrame(() => (btn.style.width = `${to}px`));
+  const done = () => (btn.style.width = '');
+  btn.addEventListener('transitionend', (e) => e.propertyName === 'width' && done(), { once: true });
+  setTimeout(done, 600);
+}

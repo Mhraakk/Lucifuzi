@@ -4,6 +4,7 @@
 import { html, raw, api, fa, $, toast } from '../core.mjs';
 import { modal, confirmBox, jd, timeFa } from '../bk.mjs';
 import { booksNav } from './books.mjs';
+import { morphLabel } from '../light.mjs';
 
 export async function aiKeysPage(root) {
   let data;
@@ -76,7 +77,7 @@ export async function aiKeysPage(root) {
       if (b.dataset.edit) return form(data.providers.find((p) => p.id === b.dataset.edit));
       if (b.dataset.test) {
         b.disabled = true;
-        b.textContent = 'در حال آزمون…';
+        morphLabel(b, 'در حال آزمون…');
         const t = await api(`/api/books/ai/${b.dataset.test}/test`, { method: 'POST' });
         toast(t.ok ? `اتصال برقرار (${fa(t.ms)} میلی‌ثانیه)` : `خطا: ${t.error}`, t.ok ? 'ok' : 'error');
         return load();

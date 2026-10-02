@@ -304,6 +304,7 @@ input[type='color'] { width: 44px; height: 32px; border: 1px solid var(--vault-4
 .blk-tip .stamp { color: #2c7a6b; }
 .blk-floor { border: 1px solid #b08a35; border-radius: var(--r-md); padding: 16px 18px; background: #fffaf0; }
 .blk-floor ol { padding-inline-start: 1.3em; margin: 8px 0; }
+.blk-floor .input { background: color-mix(in oklab, var(--parch) 25%, #fff); color: var(--ink); border-color: var(--parch-2); }
 .blk-model .stage { position: relative; height: 340px; border-radius: var(--r-lg); overflow: hidden; background: radial-gradient(ellipse at 50% 30%, #2a2215, var(--void) 72%); }
 .blk-model .cap { font-size: 14px; color: var(--sepia-2); margin-top: 8px; }
 .blk-model .model-bar { position: absolute; inset-inline: 12px; bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; color: var(--bone); z-index: 2; }
@@ -386,6 +387,7 @@ input[type='color'] { width: 44px; height: 32px; border: 1px solid var(--vault-4
 /* ---------- misc ---------- */
 .empty { text-align: center; padding: 70px 20px; display: grid; gap: 16px; justify-items: center; }
 .loading { display: grid; place-items: center; min-height: 50vh; }
+.loading canvas[data-orb] { width: 64px; height: 64px; }
 .loading span { width: 44px; height: 44px; border-radius: 50%; background: conic-gradient(var(--gold), transparent 70%); -webkit-mask: radial-gradient(circle, transparent 17px, #000 18px); mask: radial-gradient(circle, transparent 17px, #000 18px); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 #toasts { position: fixed; inset-inline: 16px; bottom: calc(var(--nav-h) + 26px + env(safe-area-inset-bottom)); z-index: 160; display: grid; gap: 8px; justify-items: center; pointer-events: none; }
@@ -1507,9 +1509,7 @@ td.cred, .num.cred { color: var(--turq); }
 .au-m small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--dust-2); }
 .au-m.user { justify-self: start; background: rgba(var(--gold-rgb), 0.14); border: 1px solid var(--gold-lo); border-end-start-radius: 4px; }
 .au-m.assistant { justify-self: end; background: rgba(var(--ink-rgb), 0.55); border: 1px solid var(--hair-2); border-end-end-radius: 4px; }
-.au-m.typing { display: flex; gap: 5px; padding: 14px 16px; }
-.au-m.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); animation: dk-pulse 1s ease-in-out infinite; }
-.au-m.typing i:nth-child(2) { animation-delay: 0.15s; } .au-m.typing i:nth-child(3) { animation-delay: 0.3s; }
+.au-m.typing { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 16px; font-size: 13px; color: var(--dust); }
 .au-quick { display: flex; flex-wrap: wrap; gap: 6px; }
 .au-form { display: flex; gap: 8px; }
 .au-form .input { flex: 1; min-height: 48px; }
@@ -1723,7 +1723,7 @@ html[data-theme='day'] .brand-t b { background: none; color: var(--gold-hi); -we
   --gd-gold: var(--gold); --gd-gold-hi: var(--gold-hi); --gd-pos: var(--turq); --gd-neg: var(--carn); --gd-info: var(--lapis);
   --gd-violet: #8b7bd8; --gd-amber: #d58a4e; --gd-r: 14px; --gd-gap: 16px;
   display: grid; grid-template-columns: 244px minmax(0, 1fr); min-height: 100dvh; background: var(--gd-bg); color: var(--gd-text);
-  font-family: 'Vazirmatn', 'Estedad', Tahoma, sans-serif; font-weight: 400; font-feature-settings: 'kern';
+  font-family: var(--body); font-weight: 400; font-feature-settings: 'kern';
 }
 html[data-theme='day'] .gd { --gd-violet: #6552b8; --gd-amber: #b8672c; }
 .gd .num { font-variant-numeric: tabular-nums; }
@@ -1842,7 +1842,7 @@ a.gd-kpi:hover { border-color: var(--gd-border-2); transform: translateY(-1px); 
 .gd-pos { display: block; width: 100%; height: auto; overflow: visible; }
 .gd-pos .grid line { stroke: var(--gd-border); stroke-dasharray: 2 4; }
 .gd-pos .grid line.zero { stroke: var(--gd-border-2); stroke-dasharray: none; }
-.gd-pos text { font: 11px 'Vazirmatn', sans-serif; fill: var(--gd-muted-2); }
+.gd-pos text { font: 11px var(--body); fill: var(--gd-muted-2); }
 .gd-pos .ln { fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .gd-pos .ln.strong { stroke-width: 2.6; }
 .gd-pos .s-gold { stroke: var(--gd-gold); } .gd-pos .s-info { stroke: var(--gd-info); } .gd-pos .s-neg { stroke: var(--gd-neg); } .gd-pos .s-pos { stroke: var(--gd-pos); }
@@ -3184,8 +3184,8 @@ html:root .tray::after, html:root .bk-sec::after, html:root .lux-card::after, ht
 /* 4. press: a spring and a ripple of light from the pressed point */
 .lt-host { position: relative; }
 .btn, .chip, .seg button, .theme-btn, #tabbar a { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-.btn:active:not(:disabled), .chip:active, .seg button:active, .theme-btn:active { transform: scale(0.965); transition: transform 0.08s ease-out; }
-.btn, .chip, .seg button { transition: transform 0.45s var(--lt-spring), background-position 0.8s var(--ease), box-shadow 0.4s, border-color 0.25s, color 0.25s, background-color 0.25s; }
+.btn:active:not(:disabled), .chip:active, .seg button:active, .theme-btn:active { transform: scale(var(--press, 0.965)); transition: transform 0.08s ease-out; }
+.btn, .chip, .seg button { transition: transform 0.45s var(--lt-spring), width 0.4s var(--lt-spring), background-position 0.8s var(--ease), box-shadow 0.4s, border-color 0.25s, color 0.25s, background-color 0.25s; }
 #tabbar a:active svg { transform: scale(0.88); transition: transform 0.08s; }
 /* the ripple sits above the control's own background and below its label */
 .chip, .seg button, #tabbar a, .theme-btn, .lt-host { isolation: isolate; }
@@ -3313,7 +3313,7 @@ html[data-theme='day'] .ud-row, html[data-theme='day'] .ud-list { background: rg
 .at { max-width: 980px; margin: 0 auto; padding-bottom: 72px; }
 .at-head { padding: 28px 0 8px; border-bottom: 1px solid var(--hair); margin-bottom: 32px; }
 .at-kicker { margin: 0 0 6px; color: var(--gold); font-size: 13px; font-weight: 600; }
-.at-head h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(28px, 4vw, 44px); line-height: 1.35; margin: 0 0 10px; }
+.at-head h1 { font-family: var(--body); font-weight: 600; font-size: clamp(28px, 4vw, 44px); line-height: 1.35; margin: 0 0 10px; }
 .at-lead { color: var(--dust); max-width: 62ch; margin: 0 0 12px; font-size: 16px; line-height: 1.95; }
 .at-meta { color: var(--dust); font-size: 14px; margin: 0 0 14px; }
 .at-meta b { color: var(--bone); font-weight: 600; }
@@ -3322,7 +3322,7 @@ html[data-theme='day'] .ud-row, html[data-theme='day'] .ud-list { background: rg
 .at-tabs button { background: none; border: 0; padding: 8px 0 12px; color: var(--dust); font-size: 15px; cursor: pointer; border-bottom: 1.5px solid transparent; }
 .at-tabs button[aria-selected='true'] { color: var(--bone); border-bottom-color: var(--gold); }
 .at-tabs button:hover { color: var(--bone); }
-.at-h2 { font-family: var(--serif); font-size: 21px; font-weight: 600; margin: 36px 0 12px; }
+.at-h2 { font-family: var(--body); font-size: 21px; font-weight: 600; margin: 36px 0 12px; }
 .at-start p { font-size: 17px; }
 .at-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 22px 0; }
 .at-link { background: none; border: 0; padding: 0; color: var(--gold); cursor: pointer; font: inherit; font-size: 14.5px; text-underline-offset: 4px; }
@@ -3338,7 +3338,7 @@ html[data-theme='day'] .ud-row, html[data-theme='day'] .ud-list { background: rg
 .at-acc { width: 100%; min-width: 210px; }
 .at-case { animation: at-in 0.35s var(--lt-soft, ease) both; }
 @keyframes at-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.at-context { font-family: var(--serif); font-size: clamp(18px, 2.1vw, 21px); line-height: 2.05; margin: 6px 0 22px; max-width: 64ch; }
+.at-context { font-family: var(--body); font-size: clamp(18px, 2.1vw, 21px); line-height: 2.05; margin: 6px 0 22px; max-width: 64ch; }
 .at-open { margin: 10px 0 18px; color: var(--dust); font-size: 14px; }
 .at-open summary { cursor: pointer; }
 .at-open ol { margin: 10px 0 0; padding-inline-start: 22px; line-height: 2; }
@@ -3365,10 +3365,10 @@ html[data-theme='day'] .ud-row, html[data-theme='day'] .ud-list { background: rg
 .at-findings label { display: flex; gap: 8px; align-items: center; font-size: 14.5px; }
 .at-hint { color: var(--dust); border-inline-start: 2px solid var(--gold-lo); padding: 4px 14px; margin: 8px 0 18px; line-height: 2; max-width: 70ch; }
 .at-result { border-top: 1px solid var(--hair-2); margin-top: 26px; padding-top: 22px; animation: at-in 0.35s var(--lt-soft, ease) both; }
-.at-score { font-family: var(--serif); font-size: 46px; line-height: 1; margin: 0 0 12px; color: var(--carn); font-variant-numeric: tabular-nums; }
+.at-score { font-family: var(--body); font-size: 46px; line-height: 1; margin: 0 0 12px; color: var(--carn); font-variant-numeric: tabular-nums; }
 .at-result.ok .at-score { color: var(--turq); }
 .at-mistakes { margin: 12px 0; padding-inline-start: 20px; line-height: 2.05; }
-.at-why { font-family: var(--serif); line-height: 2.1; max-width: 70ch; color: var(--bone); margin-top: 18px; }
+.at-why { font-family: var(--body); line-height: 2.1; max-width: 70ch; color: var(--bone); margin-top: 18px; }
 .at-answer { margin: 6px 0 14px; }
 .at-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; }
 .at-bars { list-style: none; padding: 0; margin: 0; }
@@ -3393,7 +3393,7 @@ html[data-theme='day'] .ud-row, html[data-theme='day'] .ud-list { background: rg
 /* مربی استودیو (spec 0016): the same quiet page as the accounting trainer */
 .sc-label { display: block; color: var(--dust); font-size: 13px; margin: 0 0 6px; }
 .sc-text { width: 100%; min-height: 96px; line-height: 2; resize: vertical; }
-.sc-weight { font-family: var(--serif); font-size: clamp(24px, 3vw, 32px); margin: 4px 0 6px; }
+.sc-weight { font-family: var(--body); font-size: clamp(24px, 3vw, 32px); margin: 4px 0 6px; }
 .sc-weight small { font-family: inherit; font-size: 14px; color: var(--dust); }
 .sc-summary { color: var(--bone); font-size: 16px; line-height: 1.95; margin: 0 0 8px; max-width: 64ch; }
 .sc-find { list-style: none; margin: 0; padding: 0; }
@@ -3471,3 +3471,42 @@ html[data-skin^='clean'] .btn.is-busy::after { border-color: #fff; border-top-co
 html[data-skin^='clean'] .input, html[data-skin^='clean'] .at-in { border-radius: 12px; }
 html[data-skin='clean'] .toast { background: #393846; color: #fff; }
 .sc-scroll { overflow-x: auto; max-width: 100%; }
+
+/* ---------- thinking orb (spec 0019): one sign for "the system is working", in every skin ---------- */
+canvas[data-orb] { display: inline-block; vertical-align: middle; flex: none; }
+.think { display: inline-flex; align-items: center; gap: 8px; margin-inline-start: 10px; font-size: 13px; color: var(--dust); animation: dk-rise 0.3s var(--ease) both; }
+.at-list li > canvas[data-orb] { margin-inline-end: 6px; }
+@media (prefers-reduced-motion: reduce) { .think { animation: none; } }
+.lt-lbl { display: inline-block; white-space: nowrap; animation: lt-lbl 0.38s var(--ease) both; }
+@keyframes lt-lbl { from { opacity: 0; filter: blur(5px); transform: translateY(5px) scale(0.96); } }
+@media (prefers-reduced-motion: reduce) { .lt-lbl { animation: none; } }
+
+/* ---------- the gooey tab drop (spec 0019): phone tab bar only; the drop replaces the selected tab's own fill ---------- */
+#tabbar .goo { position: absolute; inset: 0; z-index: 0; pointer-events: none; filter: url(#gooFx); opacity: 0.24; }
+#tabbar > a { z-index: 1; }
+#tabbar .goo b { position: absolute; left: 0; top: 0; background: var(--gold); transform: translate(var(--x), var(--y)) translate(-50%, -50%); }
+#tabbar .goo-head { width: calc(var(--w) - 8px); height: calc(var(--h) - 8px); border-radius: 18px; transition: transform 0.42s cubic-bezier(0.3, 1.35, 0.5, 1); }
+#tabbar .goo-tail { width: calc(var(--h) - 22px); height: calc(var(--h) - 22px); border-radius: 50%; transition: transform 0.78s cubic-bezier(0.65, 0, 0.25, 1); }
+#tabbar .goo.still b { transition: none; }
+html[data-skin^='clean'] #tabbar .goo { opacity: 0.09; }
+html[data-skin^='clean'] #tabbar .goo b { background: var(--bone); }
+@media (max-width: 959px) {
+  html[data-skin] #tabbar a[aria-current='page'] { background: transparent; box-shadow: none; }
+}
+@media (min-width: 960px) { #tabbar .goo { display: none; } }
+@media (prefers-reduced-motion: reduce) { #tabbar .goo b { transition: none; } }
+
+/* ---------- painted gradient card (spec 0019, after feralui's soft gradients): four soft pools of the skin's own
+ * colours under a fine paper grain. Colours come only from tokens, so every skin gets its own version. ---------- */
+.mesh, .tool-card.feature.mesh, html[data-skin] .tool-card.mesh { position: relative; isolation: isolate; overflow: hidden;
+  background:
+    radial-gradient(60% 80% at 12% 18%, color-mix(in oklab, var(--gold) 46%, transparent), transparent 70%),
+    radial-gradient(55% 70% at 88% 22%, color-mix(in oklab, var(--carn) 30%, transparent), transparent 72%),
+    radial-gradient(70% 80% at 78% 92%, color-mix(in oklab, var(--lapis) 34%, transparent), transparent 70%),
+    radial-gradient(60% 70% at 18% 96%, color-mix(in oklab, var(--turq) 28%, transparent), transparent 70%),
+    var(--vault-2); }
+.mesh::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0.32; mix-blend-mode: overlay;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 1.2 -0.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.mesh > * { position: relative; }
+html[data-tone='light'] .mesh::before { opacity: 0.22; mix-blend-mode: multiply; }
+.loading-row { display: flex; align-items: center; gap: 10px; }

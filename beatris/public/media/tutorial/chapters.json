@@ -1,5 +1,5 @@
 {
- "made": "2026-10-02T06:21:19.663Z",
+ "made": "2026-10-02T07:15:18.705Z",
  "chapters": [
   {
    "n": 1,
@@ -383,9 +383,10 @@
    "file": "/media/tutorial/21.mp4",
    "webm": "/media/tutorial/21.webm",
    "poster": "/media/tutorial/21.jpg",
-   "seconds": 84,
+   "seconds": 99,
    "vertical": false,
-   "bytes": 3892358
+   "bytes": 4896904,
+   "film": true
   }
  ]
 }

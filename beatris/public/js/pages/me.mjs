@@ -2,6 +2,7 @@ import { html, store, api, fa, $, actions, toast, busy, auth, navigate, ROLE_FA 
 import { ICON, ringEl, courseTitle, faDate } from '../ui.mjs';
 import { statusStamp } from './learn.mjs';
 import { toggleSkinPicker, skinName } from '../skinpicker.mjs';
+import { confirmBox } from '../dialog.mjs';
 
 export function mePage(root) {
   const { user, progress: p } = store.me;
@@ -60,7 +61,7 @@ export function mePage(root) {
     } }),
     logout: out,
     logoutAll: async () => {
-      if (!confirm('از همه دستگاه‌ها خارج شوید؟')) return;
+      if (!(await confirmBox('خروج از همه دستگاه‌ها', 'از همه دستگاه‌ها خارج شوید؟', { ok: 'خروج' }))) return;
       await api('/api/auth/logout-all', { method: 'POST' }).catch(() => {});
       out();
     },

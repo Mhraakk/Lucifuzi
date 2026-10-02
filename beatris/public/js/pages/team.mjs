@@ -2,6 +2,7 @@ import { html, store, api, fa, $, actions, toast, busy, render, ROLE_FA } from '
 import { back, ICON, ringEl, barEl, courseTitle, faDate, faTime } from '../ui.mjs';
 import { fmt, parseNum } from '../calc.mjs';
 import { statusStamp } from './learn.mjs';
+import { confirmBox, askBox } from '../dialog.mjs';
 
 const ROLE_ORDER = { owner: 0, manager: 1, trainer: 2, employee: 3 };
 
@@ -122,7 +123,7 @@ export async function memberPage(root, { id }) {
   };
   actions(root, {
     assign: async (el) => {
-      const due = prompt('مهلت (اختیاری) به شکل 2026-10-30:', '') ?? null;
+      const due = await askBox('مهلت', 'اختیاری؛ خالی بگذارید اگر مهلتی ندارد.', { label: 'تاریخ به شکل 2026-10-30', dir: 'ltr', placeholder: '2026-10-30' });
       if (due === null) return;
       busy(el, true);
       try {
@@ -145,8 +146,8 @@ export async function memberPage(root, { id }) {
       if (pin) body.pin = pin;
       patch(el, body, pin ? 'ذخیره شد؛ همکار باید با رمز جدید وارد شود' : 'ذخیره شد');
     },
-    toggle: (el) => {
-      if (u.active && !confirm(`حساب ${u.name} غیرفعال شود؟ پیشرفت او حفظ می‌شود.`)) return;
+    toggle: async (el) => {
+      if (u.active && !(await confirmBox('غیرفعال کردن حساب', `حساب ${u.name} غیرفعال شود؟ پیشرفت او حفظ می‌شود.`, { danger: true, ok: 'غیرفعال کن' }))) return;
       patch(el, { active: !u.active }, u.active ? 'حساب غیرفعال شد' : 'حساب فعال شد');
     },
   });
@@ -221,7 +222,7 @@ export function settingsPage(root) {
     const b = e.target.closest('[data-mcp]');
     if (e.target.matches('[data-copy]')) return e.target.select();
     if (!b) return;
-    if (b.dataset.mcp === 'off' && !confirm('اتصال دستیار هوش مصنوعی قطع شود؟')) return;
+    if (b.dataset.mcp === 'off' && !(await confirmBox('قطع اتصال', 'اتصال دستیار هوش مصنوعی قطع شود؟', { danger: true, ok: 'قطع کن' }))) return;
     busy(b, true);
     try {
       if (b.dataset.mcp === 'new') {
@@ -290,7 +291,7 @@ export async function leadsPage(root) {
     if (!b) return;
     try {
       if (b.dataset.del) {
-        if (!confirm('این درخواست حذف شود؟')) return;
+        if (!(await confirmBox('حذف درخواست', 'این درخواست حذف شود؟', { danger: true, ok: 'حذف' }))) return;
         await api(`/api/leads/${b.dataset.lead}`, { method: 'DELETE' });
       } else await api(`/api/leads/${b.dataset.lead}`, { method: 'PATCH', body: { status: b.dataset.status } });
       await draw();

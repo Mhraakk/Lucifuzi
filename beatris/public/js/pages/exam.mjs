@@ -1,6 +1,7 @@
 import { html, store, api, fa, $, $$, actions, toast, busy } from '../core.mjs';
 import { back } from '../ui.mjs';
 import { fmt, parseNum } from '../calc.mjs';
+import { confirmBox } from '../dialog.mjs';
 
 export async function examPage(root, { id }) {
   const c = store.course(id);
@@ -40,7 +41,7 @@ export async function examPage(root, { id }) {
       if (Number.isFinite(v)) answers[inp.dataset.num] = v;
     });
     const missing = exam.questions.filter((q) => answers[q.id] === undefined).length;
-    if (missing && !confirm(`${fa(missing)} پرسش بی‌پاسخ است و غلط حساب می‌شود. ثبت شود؟`)) return;
+    if (missing && !(await confirmBox('ثبت آزمون', `${fa(missing)} پرسش بی‌پاسخ است و غلط حساب می‌شود. ثبت شود؟`, { ok: 'ثبت' }))) return;
     const btn = e.submitter ?? $('button[type=submit]', root);
     busy(btn, true);
     try {

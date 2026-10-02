@@ -2,7 +2,8 @@
 // in a sentence, ask for a lighter piece, and practise studio exercises with levelled hints. The agents and the engine
 // work behind it; the page shows only the stage, the weight, what must be fixed before making, and the aesthetic notes
 // kept apart. No engine words for the trainee.
-import { html, api, fa, $, toast, busy } from '../core.mjs';
+import { html, raw, api, fa, $, toast, busy } from '../core.mjs';
+import { orb, RUN_ORB } from '../orb.mjs';
 
 const newKey = () => `k${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 const g = (x) => `${(Math.round(Number(x) * 100) / 100).toLocaleString('fa-IR', { maximumFractionDigits: 2 })} گرم`;
@@ -27,7 +28,7 @@ function findingsView(f) {
 
 export async function studioCoachPage(root) {
   const S = { home: null, tab: 'design', design: null, exercise: null, last: null, hint: null };
-  root.innerHTML = String(html`<div class="at" aria-busy="true"><p class="at-quiet">در حال آماده شدن…</p></div>`);
+  root.innerHTML = String(html`<div class="at loading" aria-busy="true"></div>`);
   const load = async () => (S.home = await api('/api/studio/coach'));
   await load();
 
@@ -54,7 +55,7 @@ export async function studioCoachPage(root) {
     return html`<section class="sc-brief">
       <label class="sc-label" for="scBrief">بریف</label>
       <textarea id="scBrief" class="at-in sc-text" rows="3" placeholder="مثلاً: انگشتر ۱۸ عیار مینیمال، سنگ بیضی ۸×۶، زیر ۴ گرم، مناسب ریخته‌گری، سایز ۵۴"></textarea>
-      <div class="at-actions"><button class="btn" data-act="design">ساخت طرح</button></div>
+      <div class="at-actions"><button class="btn" data-act="design" data-think="shaping">ساخت طرح</button></div>
       ${d ? resultView(d) : projectsView()}
     </section>`;
   }
@@ -70,10 +71,10 @@ export async function studioCoachPage(root) {
       ${d.optimization && !d.optimization.feasible ? html`<p class="at-off">${d.optimization.reason}</p>` : ''}
       ${findingsView(d.findings)}
       <h2 class="at-h2">تغییر با یک جمله</h2>
-      <div class="at-actions"><input id="scEdit" class="at-in at-wide" placeholder="مثلاً: ضخامت کف ۱٫۲ · وزن را ۰٫۳ گرم کم کن · سایز ۵۶"><button class="btn ghost" data-act="edit">اعمال</button></div>
+      <div class="at-actions"><input id="scEdit" class="at-in at-wide" placeholder="مثلاً: ضخامت کف ۱٫۲ · وزن را ۰٫۳ گرم کم کن · سایز ۵۶"><button class="btn ghost" data-act="edit" data-think="shaping">اعمال</button></div>
       <div class="at-actions">
-        <button class="at-link" data-act="stl">دریافت فایل آزمایشی STL</button>
-        <button class="at-link" data-act="prod">درخواست فایل تولید (با تأیید مدیر)</button>
+        <button class="at-link" data-act="stl" data-think="working">دریافت فایل آزمایشی STL</button>
+        <button class="at-link" data-act="prod" data-think="working">درخواست فایل تولید (با تأیید مدیر)</button>
         <button class="at-link" data-act="back">طرح‌های دیگر</button>
       </div>
     </article>`;
@@ -85,7 +86,7 @@ export async function studioCoachPage(root) {
       const open = S.home.progress.open;
       return html`<section class="at-start">
         <p>پیشنهاد: <b>${S.home.skills.find((s) => s.id === S.home.progress.next.skillId)?.fa ?? ''}</b></p>
-        <div class="at-actions"><button class="btn" data-act="exNext">تمرین پیشنهادی</button>
+        <div class="at-actions"><button class="btn" data-act="exNext" data-think="composing">تمرین پیشنهادی</button>
         <select class="at-in" id="scEx" aria-label="یا یک تمرین"><option value="">یا یک تمرین خاص…</option>${S.home.exercises.map((e) => html`<option value="${e.id}">${e.title} · ${e.difficultyFa}</option>`)}</select></div>
         ${open.length ? html`<h2 class="at-h2">تمرین‌های باز</h2><ul class="at-list">${open.map((o) => html`<li><button class="at-link" data-exrow="${o.id}">${S.home.exercises.find((e) => e.id === o.exerciseId)?.title ?? o.exerciseId}</button><small>${o.assignedBy === 'routine' ? 'تمرین روزانه' : o.assignedBy === 'trigger' ? 'تمرین جبرانی' : ''}</small></li>`)}</ul>` : ''}
       </section>`;
@@ -101,8 +102,8 @@ export async function studioCoachPage(root) {
           ${p.setting ? SET_FIELDS.map(([k, label]) => html`<label>${label}<input class="at-in num" data-s="${k}" inputmode="decimal" value="${p.setting[k] == null ? '' : fa(p.setting[k])}"></label>`) : ''}
         </div>
       </fieldset>
-      <div class="at-actions"><button class="btn" data-act="check">بررسی</button>
-        <button class="btn ghost" data-act="hint">راهنمایی${S.hint ? ` (${fa(S.hint.level)})` : ''}</button>
+      <div class="at-actions"><button class="btn" data-act="check" data-think="solving">بررسی</button>
+        <button class="btn ghost" data-act="hint" data-think="composing">راهنمایی${S.hint ? ` (${fa(S.hint.level)})` : ''}</button>
         <button class="at-link" data-act="exBack">تمرین‌های دیگر</button></div>
       ${S.hint ? html`<p class="sc-hint">${S.hint.text}</p>` : ''}
       ${a ? html`<section class="sc-assess">
@@ -227,7 +228,7 @@ export async function agentsDebugPage(root) {
         ${st.tools.map((t) => html`<tr><td dir="ltr">${t.tool}</td><td>${fa(t.calls)}</td><td>${fa(t.failed ?? 0)}</td><td>${fa(t.retries ?? 0)}</td><td>${t.ms == null ? '—' : fa(t.ms)}</td></tr>`)}
       </tbody></table></div>
       <h2 class="at-h2">اجراهای اخیر</h2>
-      <ul class="at-list">${S.runs.map((r) => html`<li><button class="at-link" data-run="${r.id}">${r.agentName}${r.depth ? ` ← ${r.chain.slice(0, -1).join(' ← ')}` : ''}</button><small>${STATE[r.status] ?? r.status} · ${r.origin} · ${fa(r.steps.length)} گام</small></li>`)}</ul>
+      <ul class="at-list">${S.runs.map((r) => html`<li>${RUN_ORB[r.status] ? raw(orb(RUN_ORB[r.status], { size: 20, label: STATE[r.status] })) : ''}<button class="at-link" data-run="${r.id}">${r.agentName}${r.depth ? ` ← ${r.chain.slice(0, -1).join(' ← ')}` : ''}</button><small>${STATE[r.status] ?? r.status} · ${r.origin} · ${fa(r.steps.length)} گام</small></li>`)}</ul>
       ${S.open ? html`<section class="sc-run"><h2 class="at-h2" dir="ltr">${S.open.run.id}</h2>
         <ol class="sc-steps">${S.open.run.steps.map((s) => html`<li><span dir="ltr">${s.tool}</span> <small>${s.status}${s.attempts > 1 ? ` · ${fa(s.attempts)} تلاش` : ''}${s.ms != null ? ` · ${fa(s.ms)}ms` : ''}${s.error ? ` · ${s.error}` : ''}</small></li>`)}</ol>
         <details class="at-open"><summary>رویدادها (${fa(S.open.events.length)})</summary><ol dir="ltr">${S.open.events.map((e) => html`<li>${e.type}</li>`)}</ol></details></section>` : ''}

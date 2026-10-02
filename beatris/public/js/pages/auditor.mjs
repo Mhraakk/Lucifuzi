@@ -1,6 +1,7 @@
 // ممیز و دستیار حسابرس: the audit board (score ring, findings by severity, each one a link to the document or page
 // that needs a look) and a chat with the assistant, which reads the books but never writes them.
 import { html, raw, fa, api, store, toast, $, $$ } from '../core.mjs';
+import { orb } from '../orb.mjs';
 import { booksPrefs, jd, timeFa } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 // the books engine answers a typed decision (spec 0004): which kind of question it took this to be
@@ -58,7 +59,7 @@ export async function auditPage(root) {
     if (!q) return;
     hist.push({ role: 'user', text: q });
     drawMsgs();
-    $('#msgs', root).insertAdjacentHTML('beforeend', '<div class="au-m assistant typing"><i></i><i></i><i></i></div>');
+    $('#msgs', root).insertAdjacentHTML('beforeend', `<div class="au-m assistant typing" role="status">${orb('composing', { size: 32, decorative: true })}<span>در حال خواندن دفاتر و نوشتن پاسخ…</span></div>`);
     try {
       const r = await api('/api/books/assistant', { method: 'POST', body: { question: q, history: hist.slice(-9, -1).map(({ role, text }) => ({ role, text })) } });
       hist.push({ role: 'assistant', text: r.answer, engine: r.engine, provider: r.provider, model: r.model, fallback: !!r.fallback, intent: r.intent ? { l: INTENT[r.intent.choice] ?? r.intent.choice, c: r.intent.confidence, v: r.intent.coverage } : null });

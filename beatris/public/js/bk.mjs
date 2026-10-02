@@ -95,45 +95,8 @@ export function wireExport(map, prefix, name, getRows, cols, title) {
   map[`${prefix}-print`] = () => window.print();
 }
 
-/* ---------------- modal ---------------- */
-export function modal(inner, wire, onClose) {
-  const m = document.createElement('div');
-  m.className = 'modal';
-  m.innerHTML = `<div class="tray" role="dialog" aria-modal="true">${inner}</div>`;
-  let open = true;
-  const close = () => {
-    if (!open) return;
-    open = false;
-    m.remove();
-    document.removeEventListener('keydown', onKey);
-    onClose?.();
-  };
-  const onKey = (e) => e.key === 'Escape' && close();
-  document.addEventListener('keydown', onKey);
-  m.addEventListener('click', (e) => {
-    if (e.target === m || e.target.closest('[data-close]')) close();
-  });
-  document.body.append(m);
-  wire?.(m, close);
-  $('input:not([type=hidden]), select, textarea', m)?.focus();
-  return close;
-}
-/** Resolves true (or the typed reason) on confirm, false on cancel. */
-export const confirmBox = (title, body, { danger = false, reason = false, ok = 'تأیید' } = {}) =>
-  new Promise((resolve) => {
-    let result = false;
-    modal(
-      String(html`<h3 class="bk-h">${title}</h3><p class="small">${body}</p>${reason ? html`<label class="field">دلیل (در تاریخچه سند می‌ماند)<input class="input" name="reason" maxlength="300"></label>` : ''}<div class="actions"><button class="btn ${danger ? 'danger' : ''}" data-ok>${ok}</button><button class="btn ghost" data-close>انصراف</button></div>`),
-      (m, close) =>
-        m.querySelector('[data-ok]').addEventListener('click', () => {
-          const r = m.querySelector('[name=reason]')?.value.trim() ?? '';
-          if (reason && r.length < 3) return m.querySelector('[name=reason]').focus();
-          result = reason ? r : true;
-          close();
-        }),
-      () => resolve(result),
-    );
-  });
+/* ---------------- modal: one dialog for the whole app (dialog.mjs) ---------------- */
+export { modal, confirmBox, askBox } from './dialog.mjs';
 
 export const statusChip = (s) => raw(`<span class="bk-st ${s}">${{ draft: 'پیش‌نویس', final: 'قطعی', void: 'باطل' }[s] ?? s}</span>`);
 /** A customer-account unit in words, and an amount of it. */

@@ -1,4 +1,5 @@
 import { faDigits } from './calc.mjs';
+import { orb, ORB_STATES } from './orb.mjs';
 
 /* ---------- templating ---------- */
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -153,7 +154,7 @@ async function renderRoute() {
   if (!r.opts.public && !auth.token) return navigate('/login', { replace: true });
   try {
     if (!r.opts.public && !store.me) {
-      main.innerHTML = '<div class="loading" aria-busy="true"><span></span></div>';
+      main.innerHTML = `<div class="loading" aria-busy="true">${orb('working')}</div>`;
       await Promise.all([store.loadMe(), store.loadContent()]);
     }
     if (r.opts.staff && !store.isStaff()) return navigate('/', { replace: true });
@@ -167,6 +168,8 @@ async function renderRoute() {
     window.scrollTo(0, 0);
     cleanup = (await r.handler(page, m.groups ?? {})) ?? null;
     reveal(page);
+    // every page has one heading (spec 0019): a full-screen workspace without a visible one names itself for readers
+    if (!$('h1', page) && r.opts.title) page.insertAdjacentHTML('afterbegin', `<h1 class="sr">${esc(r.opts.title)}</h1>`);
     const h1 = $('h1', page);
     const t = h1?.textContent.trim();
     document.title = t && t !== BRAND ? `${t} · ${BRAND}` : BRAND;
@@ -261,4 +264,9 @@ export function busy(btn, on) {
   if (!btn) return;
   btn.disabled = on;
   btn.classList.toggle('is-busy', on);
+  // an agent or assistant at work says what it is doing beside its button, with the thinking orb (spec 0019)
+  const st = btn.dataset.think;
+  if (!st) return;
+  if (btn.nextElementSibling?.classList.contains('think')) btn.nextElementSibling.remove();
+  if (on) btn.insertAdjacentHTML('afterend', `<span class="think" role="status">${orb(st, { size: 20, decorative: true })}<span>${ORB_STATES[st] ?? ''}…</span></span>`);
 }

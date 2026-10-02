@@ -4,3 +4,5 @@ data/
 *.db-*
 .env
 .DS_Store
+scripts/promo-film/frames/
+scripts/promo-film/frames-prism/

@@ -72,6 +72,12 @@ async function session(viewport) {
   });
   return { ctx, page, label };
 }
+/** Answer the app's own confirm dialog (dialog.mjs) that `click` opens: the browser's dialogs are never used. */
+const confirmApp = async (page, sel) => {
+  await page.click(sel);
+  await page.waitForSelector('.modal [data-ok]', { timeout: 5000 });
+  await page.click('.modal [data-ok]');
+};
 const go = async (page, p, wait = 1200) => {
   await page.goto(base + p);
   await page.waitForTimeout(wait);
@@ -367,8 +373,7 @@ async function loginUI(page) {
     await page.waitForFunction((n) => document.querySelectorAll('.photo-item').length > n, before, { timeout: 300000 });
     const after = await page.$$eval('.photo-item', (x) => x.length);
     check('uploader: 4K set built in the browser and stored', after === before + 1, `${before} → ${after}`);
-    page.once('dialog', (d) => d.accept());
-    await page.click('[data-del]');
+    await confirmApp(page, '[data-del]');
     await page.waitForFunction((n) => document.querySelectorAll('.photo-item').length === n, before, { timeout: 15000 }).catch(() => {});
     check('uploader: uploaded photo deleted', (await page.$$eval('.photo-item', (x) => x.length)) === before);
   });
@@ -554,8 +559,7 @@ async function loginUI(page) {
     await go(page, '/market', 3000);
     check('market: real price replaces the sample on the board', !(await page.$('#notice .notice')) && /۲۴۰٬۵۰۵٬۰۰۰/.test(await text(page, '#board')));
     await go(page, '/market/data?s=sekee', 1500);
-    page.once('dialog', (d) => d.accept());
-    await page.click('#recent [data-del]');
+    await confirmApp(page, '#recent [data-del]');
     await page.waitForTimeout(1000);
     await go(page, '/market', 2500);
     check('market: deleting the only real price restores the labelled sample', /داده نمونه آموزشی/.test(await text(page, '#notice')));
@@ -581,8 +585,7 @@ async function loginUI(page) {
       return { v: init.result?.protocolVersion, n: list.result?.tools?.length, value: gold.result?.structuredContent?.value };
     }, tok);
     check('MCP: same-origin client initialises, lists 13 tools and prices gold', res.v === '2025-06-18' && res.n === 13 && res.value > 0, JSON.stringify(res));
-    page.once('dialog', (d) => d.accept());
-    await page.click('[data-mcp="off"]');
+    await confirmApp(page, '[data-mcp="off"]');
     await page.waitForTimeout(800);
     expectedError = /status of 401/;
     const after = await page.evaluate((t) => fetch('/mcp', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: '{"jsonrpc":"2.0","id":1,"method":"ping"}' }).then((r) => r.status), tok);
@@ -869,8 +872,7 @@ async function loginUI(page) {
     check('quick entry: CSV has the header and both booked rows', csv.length === 3 && csv[0].startsWith('row,date_jalali,time,side') && /^"1","14\d\d\/\d\d\/\d\d","\d\d:\d\d","buy"/.test(csv[1]) && csv[1].includes('"9.867"') && csv[2].includes('"sell"') && csv[2].includes('"-9.867"'), csv.join(' | '));
     await go(page, '/tools/melt', 1000);
     check('quick entry: session ledger survives a reload', (await page.$$eval('#book tbody tr', (x) => x.length)) === 2);
-    page.once('dialog', (d) => d.accept());
-    await page.click('[data-act=clear]');
+    await confirmApp(page, '[data-act=clear]');
     await page.waitForTimeout(200);
     check('quick entry: session ledger cleared', !(await page.$('#book tbody tr')));
   });

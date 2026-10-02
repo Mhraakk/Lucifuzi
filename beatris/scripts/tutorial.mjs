@@ -2,6 +2,7 @@
 // accounting, reports, the smart tools), records every chapter with an on-screen Persian narration, a visible cursor
 // and highlighted clicks, and writes H.264 MP4 files plus a chapter list for the help page.
 //   FFMPEG=/path/to/ffmpeg MUSIC=/path/to/nocturne.mp3 node scripts/tutorial.mjs [--only 3,4]
+//   FILM=1 FFMPEG=… node scripts/tutorial.mjs, then scripts/tutorial-film.mjs: picture only, then cards, explainer and mastered sound
 // Output: public/media/tutorial/NN.mp4, NN.jpg (poster) and chapters.json
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, statSync, existsSync } from 'node:fs';
@@ -602,11 +603,14 @@ const CHAPTERS = [
     },
   },
   {
-    n: 18, slug: 'elliott', title: 'تحلیل جامع امواج الیوت', sub: 'شمارش دو درجه‌ای، فیبوناچی، کانال و دو سناریو روی یک نمودار', standalone: true,
-    steps: ['حسابداری ← «تحلیل الیوت» (یا بازار ← «استودیوی تحلیل جامع الیوت»). نماد، بازه ۱ روزه، هفتگی یا ماهانه و درجه موج را انتخاب کنید.', 'درجه بزرگ نارنجی: (I) تا (V) یا (A)(B)(C). درجه کوچک: ۱ تا ۵ آبی و A B C قرمز؛ فقط وقتی زیرموج‌ها خودشان قواعد را پاس کنند.', 'سطوح فیبوناچی با قیمت، کانال موج، ناحیه حمایت یا مقاومت و ناحیه هدف جایگزین.', 'سناریوی اصلی (سبز) و جایگزین (قرمز) با مسیر، هدف و احتمال؛ پایین صفحه جمله‌های هر سناریو و قیمت ابطال.', 'RSI و MACD زیر نمودار؛ کشیدن، چرخ ماوس و دوبار کلیک برای جابه‌جایی و بزرگ‌نمایی؛ دکمه «تصویر» برای ذخیره.'],
+    n: 18, slug: 'elliott', title: 'تحلیل جامع امواج الیوت', sub: 'موتور ترکیبی الیوت + فیبوناچی: شمارش، سطوح بازگشت و دو سناریو', standalone: true,
+    steps: ['موتور ترکیبی: ۱) شمارش موج در دو درجه و سنجش با قواعد الیوت، ۲) فیبوناچی از همان حرکتِ شمرده‌شده (ناحیه طلایی ۰٫۳۸۲ تا ۰٫۶۱۸)، ۳) دو سناریو با احتمال و قیمت ابطال.', 'حسابداری ← «تحلیل الیوت» (یا بازار ← «استودیوی تحلیل جامع الیوت»). نماد، بازه ۱ روزه، هفتگی یا ماهانه و درجه موج را انتخاب کنید.', 'درجه بزرگ نارنجی: (I) تا (V) یا (A)(B)(C). درجه کوچک: ۱ تا ۵ آبی و A B C قرمز؛ فقط وقتی زیرموج‌ها خودشان قواعد را پاس کنند.', 'سطوح فیبوناچی با قیمت، کانال موج، ناحیه حمایت یا مقاومت و ناحیه هدف جایگزین.', 'سناریوی اصلی (سبز) و جایگزین (قرمز) با مسیر، هدف و احتمال؛ پایین صفحه جمله‌های هر سناریو و قیمت ابطال.', 'RSI و MACD زیر نمودار؛ کشیدن، چرخ ماوس و دوبار کلیک برای جابه‌جایی و بزرگ‌نمایی؛ دکمه «تصویر» برای ذخیره.'],
     async run(page, d) {
       await d.go('/books/elliott', 3200);
       await d.say('تحلیل جامع امواج الیوت، داخل همان منوی حسابداری. همه چیز از قیمت‌های واقعی همین نماد حساب می‌شود، نه عدد ساختگی.', 6500);
+      await d.say('موتور ترکیبی الیوت + فیبوناچی سه کار را پشت هم می‌کند: اول موج‌ها را در دو درجه می‌شمارد و هر شمارش را با قواعد الیوت می‌سنجد.', 7000);
+      await d.say('بعد فیبوناچی را از همان حرکتِ شمرده‌شده می‌کشد، نه از دو نقطه دلخواه؛ ناحیه ۰٫۳۸۲ تا ۰٫۶۱۸ جایی است که اصلاح معمولاً تمام می‌شود.', 7500);
+      await d.say('و در آخر از شمارش، فیبوناچی، شیب و RSI و MACD دو سناریو با احتمال می‌سازد و قیمت ابطال را هم می‌گوید.', 7000);
       await d.point('#ewStats');
       await d.say('سربرگ: قیمت فعلی، تغییر، سقف و کف همین شمع و ۵۲ هفته.', 4200);
       await d.point('.ew-legend');
@@ -804,8 +808,9 @@ try {
     const errs = [];
     page.on('pageerror', (e) => errs.push(e.message));
     await page.goto(base + (ch.n >= 3 && ch.n !== 12 ? '/books/pulse' : '/login'));
-    await page.evaluate(([n, t, s]) => window.__tt.title(n, t, s), [ch.n, ch.title, ch.sub]);
-    await wait(rec ? 3400 : 300);
+    // FILM=1: scripts/tutorial-film.mjs adds the motion title card, so the recording starts on the page itself
+    if (!process.env.FILM) await page.evaluate(([n, t, s]) => window.__tt.title(n, t, s), [ch.n, ch.title, ch.sub]);
+    await wait(rec ? (process.env.FILM ? 900 : 3400) : 300);
     const d = director(page, `فصل ${ch.n} · ${ch.title}`);
     const t0 = Date.now();
     try {

@@ -14,7 +14,7 @@ const TYPE_FA = { asset: 'دارایی', liability: 'بدهی', equity: 'سرم�
 
 export async function accountingPage(root) {
   const S = { home: null, scenario: null, entries: [], result: null, hint: null, tab: 'case', practice: null, choice: { decision: null, findings: new Set() } };
-  root.innerHTML = String(html`<div class="at" aria-busy="true"><p class="at-quiet">در حال آماده شدن…</p></div>`);
+  root.innerHTML = String(html`<div class="at loading" aria-busy="true"></div>`);
   S.home = await api('/api/train/acct');
   const ACC = Object.fromEntries(S.home.accounts.map((a) => [a.code, a]));
   const blankEntry = () => ({ ref: '', lines: [blankLine(), blankLine()] });
@@ -47,7 +47,7 @@ export async function accountingPage(root) {
       const open = S.home.progress.open;
       return html`<section class="at-start">
         <p>پیشنهاد مربی: <b>${S.home.skills.find((s) => s.id === n.skillId)?.fa ?? ''}</b>، سطح ${S.home.difficulties.find((d) => d.id === n.difficulty)?.fa ?? ''}.</p>
-        <div class="at-actions"><button class="btn" data-act="next">شروع تمرین</button>
+        <div class="at-actions"><button class="btn" data-act="next" data-think="composing">شروع تمرین</button>
         <select class="at-in" id="atTpl" aria-label="یا یک موقعیت"><option value="">یا یک موقعیت خاص…</option>${S.home.templates.map((t) => html`<option value="${t.id}">${t.title}</option>`)}</select></div>
         ${open.length ? html`<h2 class="at-h2">تمرین‌های باز</h2><ul class="at-list">${open.map((o) => html`<li><button class="at-link" data-open="${o.rowId}">${o.title}</button><small>${o.assignedBy === 'routine' ? 'تمرین روزانه' : o.assignedBy === 'trigger' ? 'تمرین جبرانی' : ''}</small></li>`)}</ul>` : ''}
       </section>`;
@@ -60,9 +60,9 @@ export async function accountingPage(root) {
         <ol>${sc.opening.map((e) => html`<li>${e.memo || e.kind}</li>`)}</ol></details>
       ${sc.answerKind === 'decision' ? decisionView() : sc.answerKind === 'findings' ? findingsView(sc) : entriesView()}
       <div class="at-actions">
-        <button class="btn" data-act="check" ${r?.evaluation?.done ? 'disabled' : ''}>بررسی</button>
-        <button class="btn ghost" data-act="hint">راهنمایی${S.hint ? ` (${fa(S.hint.level)})` : ''}</button>
-        ${r?.evaluation?.done ? html`<button class="btn ghost" data-act="next">تمرین بعدی</button>` : html`<button class="at-link" data-act="reveal">پاسخ را نشان بده</button>`}
+        <button class="btn" data-act="check" data-think="solving" ${r?.evaluation?.done ? 'disabled' : ''}>بررسی</button>
+        <button class="btn ghost" data-act="hint" data-think="composing">راهنمایی${S.hint ? ` (${fa(S.hint.level)})` : ''}</button>
+        ${r?.evaluation?.done ? html`<button class="btn ghost" data-act="next" data-think="composing">تمرین بعدی</button>` : html`<button class="at-link" data-act="reveal">پاسخ را نشان بده</button>`}
       </div>
       ${S.hint ? html`<p class="at-hint" role="status">${S.hint.text}</p>` : ''}
       ${r ? resultView(r) : ''}
@@ -112,7 +112,7 @@ export async function accountingPage(root) {
     const b = S.practice;
     return html`<section class="at-practice">
       <p class="at-lead">یک جمله از پیشخوان بنویسید؛ موتور آن را به عملیات و سند تبدیل می‌کند و در دفتر آزاد شما ثبت می‌کند.</p>
-      <div class="at-actions"><input class="at-in at-wide" id="atLine" placeholder="مثلاً: خرید - رضایی - ۱۲٫۴۵ گرم - عیار ۷۵۰ - نقد"><input class="at-in at-s" id="atPrice" inputmode="numeric" placeholder="قیمت گرم ۷۵۰ (ریال)"><button class="btn" data-act="intent">بساز و ثبت کن</button><button class="btn ghost" data-act="audit">حسابرسی دفتر</button></div>
+      <div class="at-actions"><input class="at-in at-wide" id="atLine" placeholder="مثلاً: خرید - رضایی - ۱۲٫۴۵ گرم - عیار ۷۵۰ - نقد"><input class="at-in at-s" id="atPrice" inputmode="numeric" placeholder="قیمت گرم ۷۵۰ (ریال)"><button class="btn" data-act="intent" data-think="composing">بساز و ثبت کن</button><button class="btn ghost" data-act="audit" data-think="searching">حسابرسی دفتر</button></div>
       <p class="at-hint" id="atOut" role="status"></p>
       ${b ? html`<div class="at-cols">
         <div><h2 class="at-h2">تراز آزمایشی ${b.trial.balanced ? '' : '(نامتوازن)'}</h2><table class="at-grid"><tbody>${b.trial.rows.map((r) => html`<tr><td>${r.name}</td><td class="num">${money(r.dr)}</td><td class="num">${money(r.cr)}</td></tr>`)}</tbody></table></div>
@@ -203,6 +203,7 @@ export async function accountingPage(root) {
       if (act === 'next') return busy(t, true), await start({});
       if (act === 'addentry') return S.entries.push(blankEntry()), draw();
       if (act === 'hint') {
+        busy(t, true);
         S.hint = await api(`/api/train/acct/scenario/${S.scenario.rowId}/hint`, { method: 'POST', body: { level: Math.min(3, (S.hint?.level ?? 0) + 1) } });
         return draw();
       }
@@ -221,6 +222,7 @@ export async function accountingPage(root) {
       if (act === 'intent') {
         const text = $('#atLine', root).value.trim();
         if (!text) return;
+        busy(t, true);
         const r = await api('/api/train/acct/practice/intent', { method: 'POST', body: { text, price750: num($('#atPrice', root).value) || undefined, post: true, key: newKey() } });
         S.practice = r.book;
         draw();
@@ -228,7 +230,8 @@ export async function accountingPage(root) {
         return;
       }
       if (act === 'audit') {
-        const r = await api('/api/train/acct/audit', { method: 'POST', body: {} });
+        busy(t, true);
+        const r = await api('/api/train/acct/audit', { method: 'POST', body: {} }).finally(() => busy(t, false));
         $('#atOut', root).textContent = `${r.message} ${(r.findings ?? []).map((f) => f.text).join(' ')}`;
         return;
       }

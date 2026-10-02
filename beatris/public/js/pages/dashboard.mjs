@@ -43,19 +43,19 @@ const ICON = {
   why: I('<circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.5a2.3 2.3 0 1 1 3.2 2.1c-.6.3-1 .9-1 1.6v.4M12 16.6h.01"/>'),
 };
 const NAV = [
-  ['dashboard', '/books/dashboard', 'داشبورد', 'home'],
+  ['dashboard', '/books/dashboard', 'داشبورد مدیریت', 'home'],
   ['control', '/books/control', 'کنترل', 'control'],
-  ['desk', '/books/desk', 'معاملات', 'trade'],
-  ['vault', '/books/vault', 'موجودی طلا', 'vault'],
+  ['desk', '/books/desk', 'میز معامله', 'trade'],
+  ['vault', '/books/vault', 'گاوصندوق', 'vault'],
   ['parties', '/books/parties', 'مشتریان', 'people'],
-  ['day', '/books/day', 'حسابداری', 'ledger'],
+  ['day', '/books/day', 'روزنگار', 'ledger'],
   ['reports', '/books/reports', 'گزارش‌ها', 'chart'],
   ['settings', '/books/settings', 'تنظیمات', 'gear'],
 ];
 const NAV2 = [
   ['trace', '/books/trace', 'رهگیری', 'trace'],
   ['audit', '/books/audit', 'ممیز و تاجیار', 'shield'],
-  ['home', '/', 'خانه اپ', 'exit'],
+  ['home', '/', 'خانه', 'exit'],
 ];
 const RANGES = [['today', 'امروز'], ['7', '۷ روز'], ['30', '۳۰ روز'], ['90', '۹۰ روز'], ['custom', 'بازه']];
 const SERIES = [

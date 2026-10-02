@@ -92,7 +92,7 @@ function block(b, ctx) {
       return html`<div class="blk blk-floor" id="${b.id}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="stamp">کار عملی در شعبه</span>${statusStamp(f?.status)}</div>
         <h3 style="margin-top:8px">${fa(b.title)}</h3><ol>${b.steps.map((s) => html`<li>${fa(s)}</li>`)}</ol>
         ${f?.reviewerNote ? html`<p class="small" style="color:var(--ink-2)">نظر مدیر: ${f.reviewerNote}</p>` : ''}
-        ${f?.status === 'verified' ? '' : html`<label class="field" style="color:var(--ink-2)">یادداشت برای مدیر (اختیاری)<textarea class="input" rows="2" data-note="${b.id}" style="background:#fffdf8;color:var(--ink);border-color:#d9ccb2"></textarea></label>
+        ${f?.status === 'verified' ? '' : html`<label class="field" style="color:var(--ink-2)">یادداشت برای مدیر (اختیاری)<textarea class="input" rows="2" data-note="${b.id}"></textarea></label>
           <div class="actions"><button class="btn small" data-act="floor" data-id="${b.id}">${f?.status === 'requested' ? 'ارسال دوباره' : 'انجام دادم؛ برای تأیید بفرست'}</button></div>`}</div>`;
     }
     case 'model':

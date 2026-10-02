@@ -8,6 +8,7 @@ import { T, TU, G, jd, jdInput, parseDay, today, modal, balText, balClass, EX, u
 import { booksNav } from './books.mjs';
 import { createHistory, mountDock } from '../undo.mjs';
 import { drafts, submit } from '../outbox.mjs';
+import { confirmBox } from '../dialog.mjs';
 
 const EXPENSES = ['اجاره', 'حقوق و دستمزد', 'قبوض و شارژ', 'تعمیر و نگهداری', 'حمل و پیک', 'تبلیغات', 'کارمزد بانکی', 'مالیات و عوارض', 'بیمه', 'پذیرایی', 'سایر'];
 const IN_TYPES = new Set(['sale', 'receipt']);
@@ -414,7 +415,7 @@ export async function docEditorPage(root, params) {
     } catch (e) {
       toast(e.message, 'error');
       if (e.status === 409 && /سقف اعتبار/.test(e.message) && admin) {
-        if (confirm('سقف اعتبار رد شود و سند ثبت شود؟')) {
+        if (await confirmBox('سقف اعتبار', 'سقف اعتبار رد شود و سند ثبت شود؟', { ok: 'ثبت با رد سقف' })) {
           try {
             const doc = await api('/api/books/docs', { method: 'POST', body: { ...body, force: true } });
             drafts.set(`doc:${type}`, null);

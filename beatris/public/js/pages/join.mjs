@@ -3,6 +3,7 @@
 // a random ticket (the server stores its hash).
 import { html, api, $, busy, navigate, store } from '../core.mjs';
 import { brandMark } from '../ui.mjs';
+import { morphLabel } from '../light.mjs';
 
 const KEY = 'beatris.join';
 const ROLES = [
@@ -141,9 +142,9 @@ export async function joinPage(root) {
         if (b?.dataset.j === 'copy') {
           try {
             await navigator.clipboard.writeText(`نام کاربری: ${s.username}\nرمز: ${s.password}`);
-            b.textContent = 'کپی شد';
+            morphLabel(b, 'کپی شد');
           } catch {
-            b.textContent = 'کپی نشد؛ دستی بردارید';
+            morphLabel(b, 'کپی نشد؛ دستی بردارید');
           }
         }
       });
