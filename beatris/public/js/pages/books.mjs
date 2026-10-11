@@ -47,6 +47,8 @@ export function booksNav(cur) {
   return html`<nav class="bk-side bk-nav" aria-label="حسابداری"><button class="bk-side-t" type="button" aria-expanded="false" data-bkside><span>حسابداری</span><b>${here?.[2] ?? 'منو'}</b></button>
     <div class="bk-side-list">${groups.map(([title, items]) => html`<div class="bk-side-g"><h2>${title}</h2>${items.map(([k, href, label]) => html`<a href="${href}" data-link ${cur === k ? raw('aria-current="page"') : ''}>${label}</a>`)}</div>`)}</div></nav>`;
 }
+/** What changed, one line each (spec 0024). */
+export const changeList = (words) => html`<ul class="bk-changes">${words.map((w) => html`<li>${w}</li>`)}</ul>`;
 // the phone fold-out: one listener for every page that shows the menu
 if (typeof document !== 'undefined')
   document.addEventListener('click', (e) => {
@@ -246,15 +248,18 @@ export async function docPage(root, { id }) {
           ${official && d.status === 'final' && d.type !== 'proforma' ? html`<button class="btn small ghost" data-act="moadian">فایل سامانه مودیان</button>` : ''}
           <button class="btn small ghost" data-act="json">JSON سند</button>
           ${admin && d.status !== 'void' ? html`<button class="btn small danger" data-act="void">ابطال</button>` : ''}
+          ${admin && d.restorable ? html`<button class="btn small" data-act="restore" title="همین سند با همین ارقام دوباره در دفتر می‌نشیند؛ هیچ چیز از تاریخچه پاک نمی‌شود">برگرداندن این سند</button>` : ''}
         </div></div>
       ${d.tax?.supersededBy ? html`<p class="notice noprint">این سند با <a href="/books/doc/${d.tax.supersededBy}" data-link>اصلاحیه</a> جایگزین شده است؛ ارقامش دست‌نخورده در تاریخچه می‌ماند و اثرش از حساب‌ها برداشته شده است.</p>` : ''}
-      ${d.amends ? html`<p class="notice noprint">این سند <b>اصلاحیهٔ</b> <a href="/books/doc/${d.amends}" data-link>سند قبلی</a> است.</p>` : ''}
+      ${d.tax?.restoredBy ? html`<p class="notice noprint">این سند با <a href="/books/doc/${d.tax.restoredBy}" data-link>سند تازه</a> به دفتر برگردانده شده است.</p>` : ''}
+      ${d.restores ? html`<p class="notice noprint">این سند <b>برگرداندهٔ</b> <a href="/books/doc/${d.restores}" data-link>سند باطل‌شده</a> با همان ارقام است.</p>` : ''}
+      ${d.amends ? html`<section class="notice noprint bk-amend"><p>این سند <b>اصلاحیهٔ</b> <a href="/books/doc/${d.amends}" data-link>سند ${d.changes?.from?.track ?? 'قبلی'}</a> است.</p>${d.changes?.words?.length ? html`<h4>تغییرات نسبت به سند قبلی</h4>${changeList(d.changes.words)}` : html`<p class="small">ارقام و ردیف‌ها با سند قبلی یکی است.</p>`}</section>` : ''}
       ${d.tax?.pending && d.tax.pending !== 'superseded' ? html`<p class="notice noprint">این فاکتور ${d.tax.pending === 'cancel' ? 'پیش‌تر به سامانه مودیان رفته و باطل شده؛ صورتحساب «ابطالی»' : d.tax.refTaxId ? 'اصلاحیهٔ صورتحسابی است که به سامانه مودیان رفته؛ صورتحساب «اصلاحی» با ارجاع به شماره مالیاتی اصل' : 'پیش‌تر به سامانه مودیان رفته و تغییر کرده؛ صورتحساب «اصلاحی»'} باید ارسال شود.</p>` : ''}
       ${d.tax?.convertedTo ? html`<p class="notice noprint">به <a href="/books/doc/${d.tax.convertedTo}" data-link>فاکتور فروش</a> تبدیل شده است.</p>` : ''}
       ${d.returns?.length ? html`<p class="notice noprint">برگشت‌ها: ${d.returns.map((r) => html`<a href="/books/doc/${r.id}" data-link>${fa(r.no)}</a>${r.status === 'void' ? ' (باطل)' : ''} `)}</p>` : ''}
       ${paper()}
-      <section class="tray bk-sec noprint"><h3 class="bk-h">تاریخچه نسخه‌ها</h3><table class="table-plain"><tbody>${d.versions.map((v) => html`<tr><td>نسخه ${fa(v.version)}</td><td>${statusChip(v.status)}</td><td>${jd(v.at)} ${timeFa(v.at)}</td><td>${v.by ?? ''}</td><td>${v.reason || '—'}</td><td class="ltr-num small">${v.hash.slice(0, 12).toUpperCase()}</td><td>${v.version !== d.version ? html`<button class="chip" data-ver="${v.version}">مشاهده</button>` : html`<span class="small">فعلی</span>`}</td></tr>`)}</tbody></table>
-        ${d.cheques?.length ? html`<h3 class="bk-h">چک‌های این سند</h3><table class="table-plain"><tbody>${d.cheques.map((q) => html`<tr><td>${fa(q.no || q.sayad)}</td><td>${q.bank}</td><td>${jd(q.due)}</td><td class="num">${TU(q.amount)}</td><td>${B.CHEQUE_STATUS[q.status]}</td></tr>`)}</tbody></table>` : ''}
+      <section class="tray bk-sec noprint"><h3 class="bk-h">تاریخچه نسخه‌ها</h3><div class="scrollx"><table class="table-plain"><tbody>${d.versions.map((v) => html`<tr><td>نسخه ${fa(v.version)}</td><td>${statusChip(v.status)}</td><td>${jd(v.at)} ${timeFa(v.at)}</td><td>${v.by ?? ''}</td><td>${v.reason || '—'}</td><td class="ltr-num small">${v.hash.slice(0, 12).toUpperCase()}</td><td>${v.version !== d.version ? html`<button class="chip" data-ver="${v.version}">مشاهده</button>` : html`<span class="small">فعلی</span>`}</td></tr>${v.changes?.length ? html`<tr class="bk-vchg"><td></td><td colspan="6">${changeList(v.changes)}</td></tr>` : ''}`)}</tbody></table></div>
+        ${d.cheques?.length ? html`<h3 class="bk-h">چک‌های این سند</h3><div class="scrollx"><table class="table-plain"><tbody>${d.cheques.map((q) => html`<tr><td>${fa(q.no || q.sayad)}</td><td>${q.bank}</td><td>${jd(q.due)}</td><td class="num">${TU(q.amount)}</td><td>${B.CHEQUE_STATUS[q.status]}</td></tr>`)}</tbody></table></div>` : ''}
         <p class="small">ثبت: ${d.createdByName ?? ''} ${jd(d.createdAt)} ${timeFa(d.createdAt)}${d.updatedAt !== d.createdAt ? ` · آخرین تغییر: ${d.updatedByName ?? ''} ${jd(d.updatedAt)} ${timeFa(d.updatedAt)}` : ''}</p></section>`);
   };
   draw();
@@ -307,6 +312,16 @@ export async function docPage(root, { id }) {
         navigate(location.pathname, { replace: true });
       } catch (err) {
         toast(err.message, err.status === 428 ? 'info' : 'error'); // approval requested: void again once it is approved
+      }
+    } else if (act === 'restore') {
+      const reason = await confirmBox('برگرداندن سند', 'همین سند با همان تاریخ و همان ارقام دوباره در دفتر می‌نشیند (اگر اصلاحیه گرفته، به‌صورت اصلاحیهٔ سند فعلی). اگر رقمی با امروز یکی نشود، چیزی ثبت نمی‌شود. همه کنترل‌های موجودی، چک و قفل دوره اعمال می‌شود.', { reason: true, ok: 'برگرداندن' });
+      if (!reason) return;
+      try {
+        const r = await api(`/api/books/docs/${d.id}/restore`, { method: 'POST', body: { reason } });
+        toast(`برگردانده شد: ${r.track}`, 'ok');
+        navigate(`/books/doc/${r.id}`);
+      } catch (err) {
+        toast(err.message, err.status === 428 ? 'info' : 'error');
       }
     } else if (act === 'finalize') {
       busy(b, true);

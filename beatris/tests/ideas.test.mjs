@@ -134,7 +134,9 @@ test('۵) برگه ته حساب اشتراکی: مشتری می‌بیند و �
   const s2 = await ok('POST', `/api/books/parties/${pars.id}/share`, { days: 1 }, E);
   await ok('POST', `/api/books/shares/${s2.id}/revoke`, null, E);
   assert.equal((await call('GET', `/api/public/statement/${encodeURIComponent(s2.token)}`)).status, 404);
-  assert.equal((await call('GET', `/api/public/statement/${encodeURIComponent(s.token.replace(/.$/, 'x'))}`)).status, 404);
+  // a tampered token: the last character changed (to one it surely is not — the token is random)
+  const tampered = s.token.slice(0, -1) + (s.token.endsWith('x') ? 'y' : 'x');
+  assert.equal((await call('GET', `/api/public/statement/${encodeURIComponent(tampered)}`)).status, 404);
   assert.equal((await call('GET', '/api/public/statement/evil~abc')).status, 404);
 });
 

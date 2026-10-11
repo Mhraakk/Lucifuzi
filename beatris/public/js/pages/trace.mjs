@@ -6,7 +6,7 @@ import * as TR from '../trade.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { barcodeSvg } from '../barcode.mjs';
 import { booksPrefs, R, G, jd, timeFa, unitAmt, unitLabel, describeLine, lineVerb, statusChip } from '../bk.mjs';
-import { booksNav } from './books.mjs';
+import { booksNav, changeList } from './books.mjs';
 
 const amtOf = (unit, v) => (unit === 'IRR' ? R(Math.abs(v)) : unit === 'G750' ? `${G(Math.abs(v))} گرم` : unit === 'COUNT' || unit === 'FX' ? fa(Math.abs(v)) : unitAmt(unit, Math.abs(v)));
 
@@ -33,13 +33,15 @@ export async function tracePage(root) {
   function card(d, i) {
     const focus = d.part ? `${d.track}/${d.part.kind}${d.part.n}` : '';
     // versions and log events on one timeline
-    const tl = [...d.events.map((e) => ({ at: e.at, t: e.label, who: e.by, more: e.detail?.reason || (e.detail?.format ? `قالب ${e.detail.format}` : ''), h: e.hash })), ...d.recon.map((x) => ({ at: x.at, t: `تطبیق با صورتحساب بانک (${x.trace})`, who: x.by, more: x.ref ? `مرجع ${x.ref}` : '' }))].sort((a, b) => a.at.localeCompare(b.at));
+    const tl = [...d.events.map((e) => ({ at: e.at, t: e.label, who: e.by, more: e.detail?.reason || (e.detail?.format ? `قالب ${e.detail.format}` : ''), h: e.hash, changes: e.changes })), ...d.recon.map((x) => ({ at: x.at, t: `تطبیق با صورتحساب بانک (${x.trace})`, who: x.by, more: x.ref ? `مرجع ${x.ref}` : '' }))].sort((a, b) => a.at.localeCompare(b.at));
     return html`<article class="tray tc-doc ${d.status}" style="--i:${i}">
       <header class="tc-h"><div class="tc-code"><span>کد رهگیری</span><b class="ltr-num">${d.track}</b>${raw(barcodeSvg(d.track, { module: 1.6, height: 34, label: false }))}</div>
         <div class="tc-meta"><h3>${d.typeLabel}</h3><p>${statusChip(d.status)} ${d.version > 1 ? html`<span class="bk-st">نسخه ${fa(d.version)}</span>` : ''} · ${jd(d.date)} ${d.issuedAt ? timeFa(d.issuedAt) : ''} · ثبت: ${d.by || '—'}</p>
           <p>${d.party ? html`طرف حساب: <a href="/books/party/${d.party.id}" data-link>${d.party.label}</a>` : d.hawala ? html`از ${d.hawala.fromLabel} به ${d.hawala.toLabel}` : 'مشتری گذری'} · کد اصالت <b class="ltr-num">${d.verify}</b></p>
-          <p class="small">یافته از: ${d.why}</p></div>
+          <p class="small">یافته از: ${d.why}</p>
+          ${d.supersededBy ? html`<p class="small">جایگزین‌شده با <a href="/books/doc/${d.supersededBy}" data-link>اصلاحیه</a></p>` : ''}${d.restoredBy ? html`<p class="small">برگردانده‌شده با <a href="/books/doc/${d.restoredBy}" data-link>سند تازه</a></p>` : ''}${d.restores ? html`<p class="small">برگرداندهٔ <a href="/books/doc/${d.restores}" data-link>سند باطل‌شده</a></p>` : ''}</div>
         <div class="tc-act"><a class="btn small" href="/books/doc/${d.id}" data-link>باز کردن سند</a><button class="btn small ghost" data-copy="${d.track}">کپی کد</button></div></header>
+      ${d.changes?.words?.length ? html`<section class="bk-amend"><h4>تغییرات نسبت به ${d.changes.from.track}</h4>${changeList(d.changes.words)}</section>` : ''}
       ${d.lines.length ? html`<h4>ردیف‌ها</h4><div class="scrollx"><table class="table-plain bk-table tc-t"><thead><tr><th>کد ردیف</th><th>شرح</th><th>مبلغ</th></tr></thead><tbody>${d.lines.map((l) => html`<tr class="${focus === l.trace ? 'focus' : ''}"><td class="ltr-num">${l.trace}</td><td>${d.type === 'trade' ? html`<b>${lineVerb(l)} ${l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : TR.TRADE_KINDS[l.kind] ?? B.KIND_LABEL?.[l.kind] ?? l.kind}</b> <small>${describeLine(l)}</small>` : html`${l.src?.title || B.KIND_LABEL?.[l.kind] || l.kind}${l.weight ? html` <small>${G(l.weight)} گرم</small>` : ''}`}</td><td class="num">${d.type === 'trade' ? (l.priced ? R(l.value) : unitAmt(l.unit, l.amt)) : R(l.total ?? 0)}</td></tr>`)}</tbody></table></div>` : ''}
       ${d.payments.length ? html`<h4>پرداخت‌ها</h4><div class="scrollx"><table class="table-plain bk-table tc-t"><thead><tr><th>کد پرداخت</th><th>روش</th><th>جهت</th><th>حساب / مرجع</th><th>مبلغ</th><th>تطبیق بانک</th></tr></thead><tbody>${d.payments.map((p) => {
         const rc = d.recon.find((x) => x.trace === p.trace || x.trace === d.track);
@@ -49,7 +51,7 @@ export async function tracePage(root) {
       ${d.convert ? html`<p>تبدیل ${unitAmt(d.convert.unit, Math.abs(d.convert.amount))} به ${R(Math.abs(d.convert.value))}</p>` : ''}
       <div class="tc-cols">
         <section><h4>اثر روی حساب‌ها</h4>${d.postings.length ? html`<table class="table-plain tc-post"><tbody>${d.postings.map((x) => html`<tr><td>${x.label}</td><td class="num ${x.amt > 0 ? 'debt' : 'cred'}">${x.amt > 0 ? 'بدهکار' : 'بستانکار'} ${amtOf(x.unit, x.amt)}</td></tr>`)}</tbody></table>` : html`<p class="small">${d.status === 'void' ? 'سند باطل است؛ اثری در حساب‌ها ندارد.' : 'اثری ثبت نشده (پیش‌نویس).'}</p>`}</section>
-        <section><h4>سرگذشت</h4><ol class="tc-tl">${tl.map((x) => html`<li><b>${x.t}</b><span>${jd(x.at)} ${timeFa(x.at)}${x.who ? ` · ${x.who}` : ''}</span>${x.more ? html`<em>${x.more}</em>` : ''}${x.h ? html`<code class="ltr-num">#${x.h}</code>` : ''}</li>`)}</ol></section>
+        <section><h4>سرگذشت</h4><ol class="tc-tl">${tl.map((x) => html`<li><b>${x.t}</b><span>${jd(x.at)} ${timeFa(x.at)}${x.who ? ` · ${x.who}` : ''}</span>${x.more ? html`<em>${x.more}</em>` : ''}${x.changes?.length ? changeList(x.changes) : ''}${x.h ? html`<code class="ltr-num">#${x.h}</code>` : ''}</li>`)}</ol></section>
       </div>
       ${d.note ? html`<p class="small">یادداشت: ${d.note}</p>` : ''}
     </article>`;

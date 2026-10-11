@@ -48,10 +48,12 @@ const ENDPOINTS = [
   '/api/books/report/pnl', '/api/books/report/balance', '/api/books/audit', '/api/books/replay',
   '/api/books/control/pulse', '/api/books/control/changes', '/api/books/control/exceptions', '/api/books/control/twin', `/api/books/control/twin?day=${ago(200)}&compare=${ago(400)}`,
   '/api/books/control/trial', '/api/books/control/lots', `/api/books/control/story?party=${P}`, '/api/books/control/forecast10', '/api/books/control/explain?metric=cash', '/api/books/control/explain?metric=net', '/api/books/control/find?q=مشتری',
+  // spec 0023: a remembered figure, searched across every day
+  `/api/books/daybook/find?q=${encodeURIComponent('حدود ۶۰۰ میلیون ریال')}`, `/api/books/daybook/find?q=${encodeURIComponent('۲ گرم')}`, `/api/books/daybook/find?q=${encodeURIComponent('حدود ۱ میلیارد ریال مشتری ۷')}&tol=10`,
 ];
 if (process.env.BENCH_COLD) {
   // the first view after a sale: one write, then the heavy screens once each
-  for (const ep of ['/api/books/control/pulse', '/api/books/dashboard', '/api/books/control/changes']) {
+  for (const ep of ['/api/books/control/pulse', '/api/books/dashboard', '/api/books/control/changes', `/api/books/daybook/find?q=${encodeURIComponent('حدود ۶۰۰ میلیون ریال')}`]) {
     await call('POST', '/api/books/docs', { type: 'trade', date: today, partyId: parties[3], lines: [{ kind: 'melt', dir: 'in', weight: 1, fineness: 750, mazaneh: 4e8 }], payments: [] });
     const s = performance.now();
     await call('GET', ep);

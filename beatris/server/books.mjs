@@ -20,6 +20,8 @@ import { tehranDay } from './tz.mjs';
 import { makePos } from './pos.mjs';
 import { understandLine } from './oneline-ai.mjs';
 import { providerFromAssistant } from './agent-platform/provider.mjs';
+import { docDiff, changeText } from '../public/js/docdiff.mjs';
+import * as DS from '../public/js/daysearch.mjs';
 
 export const BOOKS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS bk_parties (
@@ -891,11 +893,13 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     return { id: r.id, type: r.type, fy: r.fy, no: r.no, track: B.trackCode(r.type, r.fy, r.no), status: r.status, version: r.version, date: r.date, partyId: r.party_id, partyName: r.party_name ?? null, sales: c.sales, tradeIn: c.tradeIn, net: c.net, vat: c.vat, credit: c.credit, paidIn: c.paidIn, paidOut: c.paidOut, tax: JSON.parse(r.tax_json).status ?? null, updatedAt: r.updated_at, createdBy: r.created_by_name ?? null };
   };
 
-  function save(user, body, prevRow = null, reason = '', { amends = null } = {}) {
+  function save(user, body, prevRow = null, reason = '', { amends = null, restores = null } = {}) {
     const prev = prevRow ? docOut(prevRow) : null;
     const { doc, calc, warn } = prepare(user, body, prev);
     if (amends) doc.amends = amends;
     else if (prev?.amends) doc.amends = prev.amends;
+    if (restores) doc.restores = restores;
+    else if (prev?.restores) doc.restores = prev.restores;
     const usedQuotes = ideas ? ideas.hooks.check(user, doc, calc, prev) : [];
     const approval = control ? control.hooks.check(user, doc, calc, prev, body) : null;
     const wantStatus = body.status === 'draft' || doc.type === 'proforma' ? (doc.type === 'proforma' ? 'final' : 'draft') : 'final';
@@ -926,8 +930,10 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       writePostings(id, doc, calc, doc.type === 'proforma' ? 'draft' : wantStatus);
       if (usedQuotes.length && wantStatus === 'final') ideas.hooks.commit(id, usedQuotes);
       if (approval) control.hooks.commit(approval, id);
-      log(user, prev ? 'doc.update' : 'doc.create', id, { type: doc.type, fy, no, version, status: wantStatus, net: calc.net, hash, reason: txt(reason, 300) || undefined });
-      return docOut(db.get('SELECT * FROM bk_docs WHERE id=?', id), { warnings: warn });
+      const out = docOut(db.get('SELECT * FROM bk_docs WHERE id=?', id), { warnings: warn });
+      // an edit records exactly what it changed, so the hash chain carries the change itself (spec 0024)
+      log(user, prev ? 'doc.update' : 'doc.create', id, { type: doc.type, fy, no, version, status: wantStatus, net: calc.net, hash, reason: txt(reason, 300) || undefined, ...(prev ? { changes: docDiff(prev, out).slice(0, 200) } : {}) });
+      return out;
     });
   }
 
@@ -966,14 +972,14 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
    * that names the original; the original keeps its number, figures and history, is marked as superseded and its
    * effect leaves the ledger — all in one transaction. A tax invoice already sent goes as «اصلاحی» to the original.
    */
-  function amend(user, cur, body, reason) {
+  function amend(user, cur, body, reason, { restores = null } = {}) {
     const why = txt(reason, 300);
     return db.tx(() => {
       const curDoc = docOut(cur);
       // locked months are checked for the original's date here, and for the amendment's date by save()
       control?.hooks.check(user, null, null, curDoc, { status: 'draft' });
       supersede(user, cur, `اصلاح با سند جدید: ${why}`);
-      const next = save(user, { ...body, type: cur.type, status: 'final' }, null, why, { amends: cur.id });
+      const next = save(user, { ...body, type: cur.type, status: 'final' }, null, why, { amends: cur.id, restores });
       const oldTax = JSON.parse(db.get('SELECT tax_json FROM bk_docs WHERE id=?', cur.id).tax_json);
       oldTax.supersededBy = next.id;
       const sent = oldTax.status === 'sent' || oldTax.status === 'accepted';
@@ -984,7 +990,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
         Object.assign(t, { pending: 'correction', refTaxId: oldTax.taxId });
         db.run('UPDATE bk_docs SET tax_json=? WHERE id=?', JSON.stringify(t), next.id);
       }
-      log(user, 'doc.amend', cur.id, { by: next.id, type: cur.type, fy: cur.fy, no: cur.no, reason: why });
+      log(user, 'doc.amend', cur.id, { by: next.id, type: cur.type, fy: cur.fy, no: cur.no, reason: why, changes: docDiff(curDoc, next).slice(0, 200) });
       return docOut(db.get('SELECT * FROM bk_docs WHERE id=?', next.id), { amended: cur.id, warnings: next.warnings });
     });
   }
@@ -1028,6 +1034,124 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     db.tx(() => voidDoc(user, params.id, body.reason, body.approval ?? null));
     return docOut(db.get('SELECT * FROM bk_docs WHERE id=?', params.id));
   });
+  /* ---------------- برگرداندن (spec 0024): a wrong amendment or void undone by the same engine, never by hand ---------------- */
+  // documents whose stored inputs give back the same figures through the same engine (opening and inventory
+  // adjustments are corrected by a new document of their own)
+  const RESTORABLE = new Set(['trade', 'hawala', 'convert', 'sale', 'buy', 'return', 'receipt', 'payment', 'expense', 'transfer']);
+  const contentOf = (d) => ({
+    type: d.type, date: d.date, partyId: d.partyId ?? null, lines: d.lines ?? [], note: d.note ?? '', category: d.category, seller: d.seller, ref: d.ref ?? null,
+    creditUnit: d.creditUnit, creditP750: d.creditP750, hawala: d.hawala, convert: d.convert,
+    // a cheque comes back as a new cheque row: the old one left with the void
+    payments: (d.payments ?? []).map(({ chequeId, ...p }) => p),
+  });
+  /** The first figure that would differ between the original and the restored calculation, or null. */
+  function firstDifference(a, b) {
+    const m = (x) => B.fmtMoney(Math.round(x ?? 0), settings().money);
+    for (const [k, label] of [['net', 'جمع سند'], ['paidIn', 'دریافتی'], ['paidOut', 'پرداختی'], ['credit', 'مانده روی حساب'], ['vat', 'مالیات']])
+      if (Math.round(a[k] ?? 0) !== Math.round(b[k] ?? 0)) return `${label}: ${m(a[k])} در اصل، ${m(b[k])} اکنون`;
+    const la = a.lines ?? [], lb = b.lines ?? [];
+    if (la.length !== lb.length) return 'تعداد ردیف‌ها';
+    for (let i = 0; i < la.length; i++) {
+      const va = la[i].value ?? la[i].total ?? 0, vb = lb[i].value ?? lb[i].total ?? 0;
+      if (Math.round(va) !== Math.round(vb)) return `ردیف ${B.faNum(i + 1)}: ${m(va)} در اصل، ${m(vb)} اکنون`;
+      if ((la[i].eq750 ?? la[i].g750 ?? 0) !== (lb[i].eq750 ?? lb[i].g750 ?? 0)) return `ردیف ${B.faNum(i + 1)}: معادل ۷۵۰`;
+    }
+    const pa = a.payments ?? [], pb = b.payments ?? [];
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) if (Math.round(pa[i]?.value ?? 0) !== Math.round(pb[i]?.value ?? 0)) return `پرداخت ${B.faNum(i + 1)}`;
+    return null;
+  }
+  /** The live end of a chain of amendments starting at a document. */
+  function chainHead(row) {
+    let head = row;
+    for (let i = 0; i < 100; i++) {
+      const by = JSON.parse(head.tax_json).supersededBy;
+      const next = by && db.get('SELECT * FROM bk_docs WHERE id=?', by);
+      if (!next) break;
+      head = next;
+    }
+    return head;
+  }
+  const restorable = (row) => row.status === 'void' && RESTORABLE.has(row.type) && !JSON.parse(row.tax_json).restoredBy;
+  function restore(user, id, reason) {
+    const why = txt(reason, 300);
+    const target = db.get('SELECT * FROM bk_docs WHERE id=?', id);
+    if (!target) throw notFound('سند پیدا نشد.');
+    if (target.status !== 'void') throw bad('فقط سند باطل‌شده یا جایگزین‌شده برگردانده می‌شود.');
+    if (!RESTORABLE.has(target.type)) throw bad('سند افتتاحیه و اصلاح موجودی با سند تازه خودش اصلاح می‌شود.');
+    if (JSON.parse(target.tax_json).restoredBy) throw new HttpError(409, 'این سند قبلاً برگردانده شده است.');
+    if (why.length < 3) throw bad('دلیل برگرداندن را بنویسید؛ در تاریخچه می‌ماند.');
+    const t = docOut(target);
+    const head = chainHead(target);
+    const label = `برگرداندن ${t.track}: ${why}`;
+    return db.tx(() => {
+      // an original replaced by an amendment comes back as an amendment of whatever stands now; a plain void as a new document
+      const replaced = head.id !== target.id && head.status === 'final' ? docOut(head) : null;
+      const out = replaced ? amend(user, head, contentOf(t), label, { restores: t.id }) : save(user, { ...contentOf(t), status: 'final' }, null, label, { restores: t.id });
+      // exactness: the same figures as the original, or nothing at all
+      const diff = firstDifference(t.calc, out.calc);
+      if (diff) throw new HttpError(409, `برگرداندن دقیق ممکن نیست؛ ارقام با اصل یکی نمی‌شود (${diff}). اگر تنظیم گرد کردن یا مالیات عوض شده، سند را دستی ثبت کنید.`);
+      const tax = JSON.parse(db.get('SELECT tax_json FROM bk_docs WHERE id=?', t.id).tax_json);
+      tax.restoredBy = out.id;
+      db.run('UPDATE bk_docs SET tax_json=? WHERE id=?', JSON.stringify(tax), t.id);
+      log(user, 'doc.restore', t.id, { to: out.id, replaced: replaced?.id ?? null, type: t.type, fy: t.fy, no: t.no, reason: why, changes: replaced ? docDiff(replaced, out).slice(0, 200) : [] });
+      return docOut(db.get('SELECT * FROM bk_docs WHERE id=?', out.id), { restored: t.id, replaced: replaced?.id ?? null });
+    });
+  }
+  on('POST', '/api/books/docs/:id/restore', 'auth', ({ user, params, body }) => {
+    guardAdmin(user);
+    // an approval the restore needs is asked before the transaction, so the request is not rolled back (as for a void)
+    const row = db.get('SELECT * FROM bk_docs WHERE id=?', params.id);
+    if (row && restorable(row) && String(body.reason ?? '').trim().length >= 3) {
+      const c = contentOf(docOut(row));
+      let calc = null;
+      try {
+        calc = B.calcDoc(c, { vatPct: settings().vatPct, round: settings().tradeRound });
+      } catch {
+        /* the restore itself reports what is wrong */
+      }
+      if (calc) control?.hooks.check(user, c, calc, null, { approval: body.approval ?? null });
+    }
+    return restore(user, params.id, body.reason);
+  });
+  /** Changes in words, with names and the shop's money unit (spec 0024). */
+  function diffWords(list) {
+    const money = settings().money;
+    const names = new Map();
+    const party = (id) => {
+      if (!names.has(id)) {
+        const p = id ? db.get('SELECT * FROM bk_parties WHERE id=?', id) : null;
+        names.set(id, p ? TR.partyLabel(p) : 'مشتری گذری');
+      }
+      return names.get(id);
+    };
+    const accounts = Object.fromEntries(db.all('SELECT id, title FROM bk_accounts').map((a) => [a.id, a.title]));
+    const day = (iso) => {
+      const [y, mo, d] = jalaliOf(String(iso).slice(0, 10));
+      return B.faNum(`${y}/${String(mo).padStart(2, '0')}/${String(d).padStart(2, '0')}`);
+    };
+    const item = (id) => db.get('SELECT code FROM bk_items WHERE id=?', id)?.code ?? id;
+    return list.map((c) => changeText(c, { money: (r) => B.fmtMoney(r, money), party, account: (id) => accounts[id] ?? id, item, date: day }));
+  }
+  /** What a document changed: an amendment against the document it replaced, a restore against the one it replaced. */
+  function changesOf(row) {
+    const d = docOut(row);
+    const before = d.amends ? db.get('SELECT * FROM bk_docs WHERE id=?', d.amends) : null;
+    if (!before) return null;
+    const list = docDiff(docOut(before), d);
+    return { from: { id: before.id, track: B.trackCode(before.type, before.fy, before.no) }, list, words: diffWords(list) };
+  }
+  /** Each stored version against the one before it (a draft's edits, an in-place note or seller change). */
+  function versionChanges(docId) {
+    const rows = db.all('SELECT version, status, data_json, calc_json FROM bk_versions WHERE doc_id=? ORDER BY version', docId);
+    const out = {};
+    for (let i = 1; i < rows.length; i++) {
+      const a = { ...JSON.parse(rows[i - 1].data_json), calc: JSON.parse(rows[i - 1].calc_json) };
+      const b = { ...JSON.parse(rows[i].data_json), calc: JSON.parse(rows[i].calc_json) };
+      const list = docDiff(a, b);
+      if (list.length) out[rows[i].version] = diffWords(list);
+    }
+    return out;
+  }
   on('POST', '/api/books/docs/:id/finalize', 'auth', ({ user, params }) => {
     const cur = db.get('SELECT * FROM bk_docs WHERE id=?', params.id);
     if (!cur) throw notFound('سند پیدا نشد.');
@@ -1070,7 +1194,9 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const names = Object.fromEntries(db.all('SELECT id, name FROM users WHERE id IN (?,?)', r.created_by ?? '', r.updated_by ?? '').map((u) => [u.id, u.name]));
     const cheques = db.all('SELECT * FROM bk_cheques WHERE doc_id=?', r.id).map(chequeOut);
     const returns = db.all("SELECT id, fy, no, status FROM bk_docs WHERE type='return' AND data_json LIKE ?", `%"ref":"${r.id}"%`);
-    return docOut(r, { party, versions, cheques, returns, createdByName: names[r.created_by] ?? null, updatedByName: names[r.updated_by] ?? null });
+    const vch = versionChanges(r.id);
+    for (const v of versions) v.changes = vch[v.version] ?? [];
+    return docOut(r, { party, versions, cheques, returns, changes: changesOf(r), restorable: restorable(r), createdByName: names[r.created_by] ?? null, updatedByName: names[r.updated_by] ?? null });
   });
   on('GET', '/api/books/docs/:id/versions/:v', 'auth', ({ params }) => {
     const v = db.get('SELECT * FROM bk_versions WHERE doc_id=? AND version=?', params.id, Number(params.v));
@@ -1427,6 +1553,131 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const pnl = core.positions(day).byDay[day] ?? 0;
     return { day, entries, totals: { ...T, realized: pnl } };
   });
+  /* ---------------- جستجوی عدد در روزنگار (spec 0023) ---------------- */
+  // every figure of every document (final, voided, replaced), sorted per unit, so a band is two binary searches. Each
+  // document's figures are kept until that document changes, so after a write only it is read again; the display
+  // summary is made only for the documents shown.
+  const figCache = new Map(); // doc id -> { status, version, updated, rec, figs }
+  const kindWords = (d) => {
+    const c = d.calc ?? {};
+    const w = (c.lines ?? []).map((l) => (l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : TR.TRADE_KINDS[l.kind] ?? B.KIND_LABEL[l.kind] ?? ''));
+    for (const p of c.payments ?? []) w.push(B.payMethod(p.method)?.label ?? '', p.dir === 'in' ? 'دریافت' : 'پرداخت');
+    return w.join(' ');
+  };
+  function figureIndex() {
+    return core.memo('dayfind', '', () => {
+      const rows = db.all("SELECT id, status, version, updated_at, COALESCE(issued_at, created_at) AS at, created_by, tax_json FROM bk_docs WHERE status<>'draft' ORDER BY date, COALESCE(issued_at, created_at)");
+      // a few changed documents are read on their own; a cold start shares the parsed documents of the one core
+      const same = (c, r) => c && c.status === r.status && c.version === r.version && c.updated === r.updated_at;
+      let stale = 0;
+      for (const r of rows) if (!same(figCache.get(r.id), r)) stale++;
+      let finals = stale > 200 ? null : new Map();
+      const recs = [];
+      for (const r of rows) {
+        let c = figCache.get(r.id);
+        if (!same(c, r)) {
+          let ev = null;
+          if (r.status === 'final') ev = (finals ??= new Map(core.events().map((e) => [e.id, e]))).get(r.id);
+          if (!ev) {
+            const x = db.get('SELECT type, fy, no, date, party_id, data_json, calc_json FROM bk_docs WHERE id=?', r.id);
+            ev = { id: r.id, track: B.trackCode(x.type, x.fy, x.no), type: x.type, date: x.date, partyId: x.party_id, data: JSON.parse(x.data_json), calc: JSON.parse(x.calc_json) };
+          }
+          const data = ev.data ?? {};
+          const doc = { ...data, type: ev.type, calc: ev.calc };
+          const refs = [...(data.payments ?? []).flatMap((p) => [p.ref, p.chequeNo, p.sayad, p.card && String(p.card).slice(-4)]), ...(data.lines ?? []).map((l) => l.serial)].filter(Boolean).join(' ');
+          const tax = r.status === 'void' ? JSON.parse(r.tax_json) : {};
+          c = {
+            status: r.status, version: r.version, updated: r.updated_at,
+            rec: { id: r.id, track: ev.track, type: ev.type, date: ev.date, at: r.at, byId: r.created_by, status: r.status, superseded: tax.supersededBy ?? null, partyId: ev.partyId ?? null, hawala: ev.calc?.hawala ? [ev.calc.hawala.from, ev.calc.hawala.to] : null, doc, text: TR.normName([data.note, data.category, refs, ev.track, kindWords(doc)].filter(Boolean).join(' ')).toLowerCase() },
+            figs: DS.figuresOf(doc),
+          };
+          figCache.set(r.id, c);
+        }
+        recs.push(c);
+      }
+      if (figCache.size > recs.length) {
+        const live = new Set(rows.map((r) => r.id));
+        for (const id of figCache.keys()) if (!live.has(id)) figCache.delete(id);
+      }
+      // one sorted column per unit: values, the document they belong to, and the figure's name
+      const count = {};
+      for (const c of recs) for (const f of c.figs) count[f.u] = (count[f.u] ?? 0) + 1;
+      const cols = {};
+      for (const [u, n] of Object.entries(count)) cols[u] = { vals: new Float64Array(n), doc: new Int32Array(n), label: new Array(n), n: 0 };
+      recs.forEach((c, di) => {
+        for (const f of c.figs) {
+          const col = cols[f.u];
+          col.vals[col.n] = f.v;
+          col.doc[col.n] = di;
+          col.label[col.n++] = f.label;
+        }
+      });
+      for (const col of Object.values(cols)) {
+        const order = Uint32Array.from({ length: col.n }, (_, i) => i).sort((a, b) => col.vals[a] - col.vals[b]);
+        const vals = new Float64Array(col.n), doc = new Int32Array(col.n), label = new Array(col.n);
+        for (let i = 0; i < col.n; i++) (vals[i] = col.vals[order[i]]), (doc[i] = col.doc[order[i]]), (label[i] = col.label[order[i]]);
+        Object.assign(col, { vals, doc, label });
+      }
+      return { docs: recs.map((c) => c.rec), cols, figures: Object.values(count).reduce((a, b) => a + b, 0) };
+    });
+  }
+  const lowerBound = (a, x) => {
+    let lo = 0, hi = a.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (a[mid] < x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  on('GET', '/api/books/daybook/find', 'auth', ({ user, url }) => {
+    const t0 = performance.now();
+    const q = DS.readQuery(url.searchParams.get('q') ?? '');
+    if (!q.amounts.length) throw bad('عددی در جستجو نیست؛ مثلاً «۶۰۰ میلیون تومان»، «۱۲۰ گرم» یا «۳ تا سکه».');
+    const s = settings();
+    const { tol, bands } = DS.bandsOf(q, { shopMoney: s.money, unit: url.searchParams.get('unit'), tol: url.searchParams.get('tol') });
+    // the same reach as روزنگار: a seller without back-dating sees today only
+    const limited = !isAdmin(user) && !s.staffBackdate;
+    const today = tehranDay();
+    const ix = figureIndex();
+    const labels = core.partyLabels();
+    const names = userNames();
+    const words = q.words.map((w) => TR.normName(w).toLowerCase());
+    // a document's words: its own text, and the names of its customers and of who entered it, as they are today
+    const wordsOk = (d) => {
+      if (!words.length) return true;
+      const who = TR.normName([labels.get(d.partyId), ...(d.hawala ?? []).map((id) => labels.get(id)), names[d.byId]].filter(Boolean).join(' ')).toLowerCase();
+      return words.every((x) => d.text.includes(x) || who.includes(x));
+    };
+    const best = new Map(), skip = new Set();
+    for (const b of bands) {
+      const col = ix.cols[b.u];
+      if (!col) continue;
+      for (let i = lowerBound(col.vals, b.lo - b.eps); i < col.vals.length && col.vals[i] <= b.hi + b.eps; i++) {
+        const di = col.doc[i];
+        if (skip.has(di)) continue;
+        const d = ix.docs[di];
+        if ((limited && d.date !== today) || (!best.has(di) && !wordsOk(d))) {
+          skip.add(di);
+          continue;
+        }
+        const v = col.vals[i], diff = v - b.target, rel = b.target ? Math.abs(diff) / b.target : 0;
+        const cur = best.get(di);
+        if (!cur || rel < cur.rel) best.set(di, { rel, diff, v, label: col.label[i], u: b.u });
+      }
+    }
+    // nearest first, then newest; days appear in the order of their nearest figure
+    const hits = [...best].map(([di, m]) => ({ d: ix.docs[di], m })).sort((a, b) => a.m.rel - b.m.rel || b.d.date.localeCompare(a.d.date) || String(b.d.at ?? '').localeCompare(String(a.d.at ?? '')) || a.d.id.localeCompare(b.d.id));
+    const days = new Map();
+    for (const { d, m } of hits.slice(0, 300)) {
+      if (!days.has(d.date)) days.set(d.date, []);
+      days.get(d.date).push({ id: d.id, track: d.track, type: d.type, typeLabel: B.DOC_TYPES[d.type]?.label ?? d.type, status: d.status, superseded: d.superseded, at: d.at, by: names[d.byId] ?? null, party: d.partyId ? { id: d.partyId, label: labels.get(d.partyId) ?? '' } : null, summary: DS.summaryOf(d.doc), match: { label: m.label, value: m.v, unit: m.u, diff: m.diff, pct: Math.round(m.rel * 10000) / 100 } });
+    }
+    return {
+      q: url.searchParams.get('q') ?? '', tol, bands: bands.map(({ u, lo, hi, target, said, money, typedUnit }) => ({ u, lo, hi, target, said, money: money ?? null, typedUnit: !!typedUnit })), words: q.words, price: q.price, limited,
+      total: hits.length, shown: Math.min(hits.length, 300), items: [...days].map(([day, docs]) => ({ day, docs })), searched: { docs: ix.docs.length, figures: ix.figures }, ms: Math.round(performance.now() - t0),
+    };
+  });
   const finalEvents = (upto = '9999-12-31') => core.events(upto);
   const livePrices = () => {
     const p750 = pricing().p750 * 10; // rial per gram of 750
@@ -1618,7 +1869,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   });
 
   /* ---------------- رهگیری: any code → the document's whole life ---------------- */
-  const trace = makeTrace({ db, docOut, verifyCode });
+  const trace = makeTrace({ db, docOut, verifyCode, diffWords, changesOf });
   on('GET', '/api/books/trace', 'auth', ({ url }) => trace.search(url.searchParams.get('q') ?? ''));
   // printing, sharing and exporting a document are part of its history too
   on('POST', '/api/books/docs/:id/event', 'auth', ({ user, params, body }) => {
@@ -1660,6 +1911,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   core.warm = () => {
     control?.pulse();
     dashboard.build({ range: '7' });
+    figureIndex(); // the روزنگار number search answers at once after a write too
   };
   core.warmSoon(4000); // the first look after a restart
   on('GET', '/api/books/dashboard', 'auth', ({ user, url }) => {

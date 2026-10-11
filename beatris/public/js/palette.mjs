@@ -89,7 +89,9 @@ function local(q) {
   const words = norm(q).split(/\s+/).filter(Boolean);
   const list = COMMANDS.filter((c) => admin || !c[4]);
   if (!words.length) return list.slice(0, 9).map((c) => ({ kind: 'page', title: c[0], sub: c[3], href: c[1] }));
-  return list
+  // a figure typed here is looked up in every day of روزنگار (spec 0023)
+  const day = /[0-9۰-۹٠-٩]/.test(q) ? [{ kind: 'page', title: `«${q.trim()}» در روزنگار همه روزها`, sub: 'جستجوی عدد', href: `/books/day?find=${encodeURIComponent(q.trim())}` }] : [];
+  return day.concat(list
     .map((c) => {
       const hay = norm(`${c[0]} ${c[2]}`);
       const hits = words.filter((w) => hay.includes(w)).length;
@@ -98,7 +100,7 @@ function local(q) {
     .filter((x) => x.hits)
     .sort((a, b) => b.hits - a.hits)
     .slice(0, 6)
-    .map(({ c }) => ({ kind: 'page', title: c[0], sub: c[3], href: c[1] }));
+    .map(({ c }) => ({ kind: 'page', title: c[0], sub: c[3], href: c[1] })));
 }
 function search(q) {
   state.q = q;

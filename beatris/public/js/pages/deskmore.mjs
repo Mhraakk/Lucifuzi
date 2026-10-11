@@ -7,6 +7,7 @@ import * as TR from '../trade.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { booksPrefs, R, G, jd, jdLong, jdInput, parseDay, today, addDays, timeFa, modal, confirmBox, balChips, unitLabel, unitAmt, describeLine, lineVerb, exportButtons, wireExport, statusChip } from '../bk.mjs';
 import { booksNav } from './books.mjs';
+import { hasNumber, TOLERANCES } from '../daysearch.mjs';
 
 const money = (v) => R(v);
 const sg = (n) => (n < 0 ? raw(`<bdi dir="ltr">−${fa(-n)}</bdi>`) : fa(n));
@@ -70,7 +71,8 @@ export async function dayPage(root) {
       ${store.isAdmin() ? html`<div class="${t.realized < 0 ? 'bad' : 'good'}"><b>${sgm(t.realized)}</b><span>سود/زیان تحقق‌یافته امروز (میانگین موزون)</span></div>` : ''}
     </div>
     ${moneyRows.length ? html`<section class="tray dy-money"><h3 class="bk-h">گردش وجه به تفکیک روش</h3><div class="dy-methods">${moneyRows.map(([m, a, b]) => html`<div><span>${m.label}</span>${a ? html`<b class="in">+${money(a)}</b>` : ''}${b ? html`<b class="out">−${money(b)}</b>` : ''}</div>`)}</div></section>` : ''}
-    <div class="dy-tools"><div class="chips" id="dyf">${FILTERS.map(([k, l]) => html`<button class="chip" data-f="${k}" aria-pressed="${state.f === k}">${l}</button>`)}</div><input class="input" id="dyq" placeholder="جستجوی نام مشتری، شماره سند، سریال…">${exportButtons('dy')}</div>
+    <div class="dy-tools"><div class="chips" id="dyf">${FILTERS.map(([k, l]) => html`<button class="chip" data-f="${k}" aria-pressed="${state.f === k}">${l}</button>`)}</div><input class="input" id="dyq" type="search" value="${qs.get('find') ?? ''}" placeholder="نام، شماره سند، سریال… یا یک عدد برای همه روزها (۶۰۰ میلیون تومان)" aria-label="جستجو در روزنگار؛ با یک عدد، همه روزها">${exportButtons('dy')}</div>
+    <section class="tray dy-find" id="dyfind" hidden aria-live="polite"></section>
     <ol class="dy-list" id="dyl"></ol></div>`);
 
   const list = $('#dyl', root);
@@ -106,10 +108,64 @@ export async function dayPage(root) {
     $$('[data-f]', root).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     draw();
   });
-  $('#dyq', root).addEventListener('input', (ev) => {
-    state.q = ev.target.value;
-    draw();
+  // a number in the box searches every day (spec 0023); words alone still filter the day shown
+  const finder = { tol: null, unit: null, timer: 0, seq: 0 };
+  const findBox = $('#dyfind', root);
+  const fig = (u, v) => (u === 'IRR' || u === 'RATE' ? R(Math.round(v)) : u === 'G' ? `${G(v)} گرم` : u === 'MQ' ? `${G(v)} مثقال` : fa(v));
+  async function find(q) {
+    const seq = ++finder.seq;
+    const p = new URLSearchParams({ q });
+    if (finder.tol !== null) p.set('tol', finder.tol);
+    if (finder.unit) p.set('unit', finder.unit);
+    let r;
+    try {
+      r = await api(`/api/books/daybook/find?${p}`);
+    } catch (e) {
+      if (seq === finder.seq) findBox.innerHTML = String(html`<p class="small">${e.message}</p>`);
+      return;
+    }
+    if (seq !== finder.seq) return;
+    const free = r.bands.some((b) => (b.u === 'IRR' || b.u === 'RATE') && !b.typedUnit);
+    const bandText = (b) => (b.lo === b.hi || r.tol === 0 ? `دقیقاً ${fig(b.u, b.target)}` : `${fig(b.u, b.lo)} تا ${fig(b.u, b.hi)}`);
+    findBox.innerHTML = String(html`<div class="dy-find-h"><h3 class="bk-h">این عدد در همه روزها</h3>
+        <p class="small">${r.bands.map((b) => html`<span class="dy-band">«${fa(b.said)}»${b.money && !b.typedUnit ? ` به ${b.money === 'toman' ? 'تومان' : 'ریال'}` : ''}: <b>${bandText(b)}</b></span>`)}${r.price ? ' · فقط مظنه و قیمت‌ها' : ''}</p>
+        <div class="chips" role="group" aria-label="دقت">${TOLERANCES.map((t) => html`<button class="chip" data-tol="${t}" aria-pressed="${r.tol === t}">${t ? `±${fa(t)}٪` : 'دقیق'}</button>`)}</div>
+        ${free ? html`<div class="chips" role="group" aria-label="واحد عدد">${[['rial', 'ریال'], ['toman', 'تومان']].map(([k, l]) => html`<button class="chip" data-unit="${k}" aria-pressed="${r.bands.find((b) => b.money)?.money === k}">${l}</button>`)}</div>` : ''}
+        ${r.words.length ? html`<p class="small">فقط اسنادی که این کلمه‌ها را دارند: ${r.words.map((w) => html`<b class="dy-word">${w}</b> `)}</p>` : ''}
+        ${r.limited ? html`<p class="small">روزهای گذشته را مدیر می‌بیند؛ این نتیجه فقط امروز است.</p>` : ''}</div>
+      ${r.items.length ? r.items.map((g) => html`<div class="dy-find-day"><h4><a href="/books/day?day=${g.day}" data-link>${jdLong(g.day)}</a></h4><ul>${g.docs.map((d) => html`<li class="dy-fr ${d.status}">
+          <span class="dy-fr-t">${d.at ? timeFa(d.at) : ''}</span>
+          <span class="dy-fr-d"><a href="/books/doc/${d.id}" data-link>${d.typeLabel}</a> <a class="ltr-num small" href="/books/trace?q=${d.track}" data-link>${d.track}</a> ${d.status !== 'final' ? html`<span class="bk-st void">${d.superseded ? 'جایگزین‌شده با اصلاحیه' : 'باطل'}</span>` : ''}<br><span>${d.party?.label ?? 'مشتری گذری'}</span> · <span class="small">${d.summary}</span></span>
+          <span class="dy-fr-m">${d.match.label}<b>${fig(d.match.unit, d.match.value)}</b><small>${d.match.pct === 0 ? 'دقیقاً همین عدد' : `${fa(String(d.match.pct).replace('.', '٫'))}٪ ${d.match.diff > 0 ? 'بیشتر' : 'کمتر'}`}</small></span></li>`)}</ul></div>`) : html`<p class="small">در این بازه رقمی پیدا نشد.${r.tol < 10 ? ' دقت را بازتر کنید.' : ''}${free ? ' یا واحد را عوض کنید.' : ''}</p>`}
+      <p class="small dy-find-f">${fa(r.total)} سند${r.total > r.shown ? ` (${fa(r.shown)} نمایش داده شد)` : ''} · در ${fa(r.searched.docs)} سند و ${fa(r.searched.figures)} رقم · ${fa(r.ms)} میلی‌ثانیه</p>`);
+  }
+  function onQuery(v, now = false) {
+    state.q = v;
+    clearTimeout(finder.timer);
+    if (hasNumber(v)) {
+      findBox.hidden = false;
+      state.q = ''; // the day list stays whole under the all-days results
+      draw();
+      finder.timer = setTimeout(() => find(v), now ? 0 : 250);
+    } else {
+      findBox.hidden = true;
+      findBox.innerHTML = '';
+      draw();
+    }
+  }
+  $('#dyq', root).addEventListener('input', (ev) => onQuery(ev.target.value));
+  $('#dyq', root).addEventListener('keydown', (ev) => ev.key === 'Enter' && onQuery(ev.target.value, true));
+  findBox.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-tol],[data-unit]');
+    if (!b) return;
+    if (b.dataset.tol !== undefined) finder.tol = Number(b.dataset.tol);
+    if (b.dataset.unit) finder.unit = b.dataset.unit;
+    find($('#dyq', root).value);
   });
+  if (qs.get('find')) {
+    onQuery(qs.get('find'), true);
+    findBox.scrollIntoView({ block: 'start' }); // from Ctrl+K: the answer, not the day's tiles, comes first
+  }
   $('#dday', root).addEventListener('change', (ev) => {
     const d = parseDay(ev.target.value);
     if (d) go(d);

@@ -5,14 +5,15 @@
 import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../public/js/coins.mjs';
+import { docDiff } from '../public/js/docdiff.mjs';
 
 export const ACTION_FA = {
-  'doc.create': 'ثبت سند', 'doc.update': 'ویرایش / نسخه جدید', 'doc.void': 'ابطال', 'doc.tax': 'مالیات / مودیان', 'doc.print': 'چاپ',
+  'doc.create': 'ثبت سند', 'doc.update': 'ویرایش / نسخه جدید', 'doc.void': 'ابطال', 'doc.amend': 'اصلاحیه', 'doc.restore': 'برگرداندن', 'doc.tax': 'مالیات / مودیان', 'doc.print': 'چاپ',
   'doc.share': 'ارسال رسید', 'doc.pdf': 'خروجی PDF', 'doc.view': 'مشاهده', 'cheque.status': 'تغییر وضعیت چک', 'bank.recon': 'تطبیق بانک',
 };
 const latin = (s) => String(s ?? '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
 
-export function makeTrace({ db, docOut, verifyCode }) {
+export function makeTrace({ db, docOut, verifyCode, diffWords = () => [], changesOf = () => null }) {
   const names = () => Object.fromEntries(db.all('SELECT id, name FROM users').map((u) => [u.id, u.name]));
   const party = (id) => {
     const p = id && db.get('SELECT * FROM bk_parties WHERE id=?', id);
@@ -43,8 +44,17 @@ export function makeTrace({ db, docOut, verifyCode }) {
     const recon = db.all('SELECT * FROM bk_recon WHERE src=? OR src LIKE ?', r.id, `${r.id}#%`).map((x) => ({ trace: x.src.includes('#') ? `${track}/P${Number(x.src.split('#')[1]) + 1}` : track, ref: x.ref, at: x.at, by: nm[x.by] ?? '' }));
     const postings = db.all('SELECT acct, unit, SUM(amt) AS amt FROM bk_postings WHERE src=? GROUP BY acct, unit ORDER BY acct', r.id).filter((x) => Math.abs(x.amt) > 1e-9).map((x) => ({ acct: x.acct, label: acctLabel(x.acct, acc), unit: x.unit, amt: x.unit === 'G750' ? B.r3(x.amt) : x.unit === 'FX' || x.unit.startsWith('FX:') ? Math.round(x.amt * 100) / 100 : Math.round(x.amt) }));
     const versions = db.all('SELECT * FROM bk_versions WHERE doc_id=? ORDER BY version', r.id).map((v) => ({ version: v.version, status: v.status, at: v.at, by: nm[v.by] ?? '', reason: v.reason, verify: verifyCode(v.hash) }));
-    const events = db.all('SELECT * FROM bk_log WHERE ref=? ORDER BY seq', r.id).map((e) => ({ seq: e.seq, at: e.at, by: nm[e.user_id] ?? '', action: e.action, label: ACTION_FA[e.action] ?? e.action, detail: JSON.parse(e.detail_json), hash: e.hash.slice(0, 12) }));
-    return { kind: 'doc', id: r.id, track, part, type: r.type, typeLabel: B.DOC_TYPES[r.type]?.label ?? r.type, status: r.status, date: r.date, version: r.version, verify: d.verify, party: party(r.party_id), hawala: c.hawala ? { ...c.hawala, fromLabel: party(c.hawala.from)?.label, toLabel: party(c.hawala.to)?.label } : null, convert: c.convert ?? null, by: nm[r.created_by] ?? '', createdAt: r.created_at, issuedAt: r.issued_at, net: c.net, credit: c.credit, lines, payments, recon, postings, versions, events, note: d.note ?? '' };
+    const events = db.all('SELECT * FROM bk_log WHERE ref=? ORDER BY seq', r.id).map((e) => {
+      const detail = JSON.parse(e.detail_json);
+      // what the event changed (spec 0024); an amendment logged before the change list existed is compared from the rows
+      let list = Array.isArray(detail.changes) ? detail.changes : null;
+      if (!list && e.action === 'doc.amend' && detail.by) {
+        const next = db.get('SELECT * FROM bk_docs WHERE id=?', detail.by);
+        if (next) list = docDiff(docOut(r), docOut(next));
+      }
+      return { seq: e.seq, at: e.at, by: nm[e.user_id] ?? '', action: e.action, label: ACTION_FA[e.action] ?? e.action, detail, changes: list?.length ? diffWords(list) : [], hash: e.hash.slice(0, 12) };
+    });
+    return { kind: 'doc', id: r.id, track, part, changes: changesOf(r), restoredBy: JSON.parse(r.tax_json).restoredBy ?? null, restores: d.restores ?? null, amends: d.amends ?? null, supersededBy: JSON.parse(r.tax_json).supersededBy ?? null, type: r.type, typeLabel: B.DOC_TYPES[r.type]?.label ?? r.type, status: r.status, date: r.date, version: r.version, verify: d.verify, party: party(r.party_id), hawala: c.hawala ? { ...c.hawala, fromLabel: party(c.hawala.from)?.label, toLabel: party(c.hawala.to)?.label } : null, convert: c.convert ?? null, by: nm[r.created_by] ?? '', createdAt: r.created_at, issuedAt: r.issued_at, net: c.net, credit: c.credit, lines, payments, recon, postings, versions, events, note: d.note ?? '' };
   }
   function search(qRaw) {
     const q = latin(qRaw);

@@ -3557,3 +3557,32 @@ html[data-tone='light'] .dock-tray { background: rgba(255, 255, 255, 0.97); box-
 .cl-code .field { max-width: 180px; margin: 0; }
 .cl-code #clCode { text-align: center; font-size: 18px; font-variant-numeric: tabular-nums; }
 .cl-code small { flex-basis: 100%; color: var(--dust); }
+/* spec 0024: what a correction changed, line by line; the basis of a simulation */
+.bk-changes { margin: 6px 0 0; padding: 0 18px 0 0; display: grid; gap: 4px; font-size: 13px; line-height: 1.9; }
+.bk-changes li::marker { color: var(--gold); }
+.bk-amend { display: grid; gap: 4px; }
+.bk-amend h4 { margin: 6px 0 0; font-size: 13.5px; }
+.bk-vchg td { padding-top: 0; border-top: 0; }
+.tc-tl .bk-changes { font-size: 12.5px; }
+.ctl-basis { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair-2); display: grid; gap: 6px; }
+.ctl-basis p { margin: 0; }
+.ctl-basis code { font-size: 11.5px; color: var(--dust-2); }
+.ok-line { color: var(--turq); }
+/* spec 0023: a number in the روزنگار box searches every day, with its band in plain sight */
+.dy-find { display: grid; gap: 10px; margin: 0 0 14px; }
+.dy-find-h { display: grid; gap: 6px; }
+.dy-find-h .bk-h, .dy-find-h p { margin: 0; }
+.dy-band { display: inline-block; margin-inline-end: 12px; }
+.dy-word { padding: 0 6px; border-radius: 6px; background: rgba(var(--gold-rgb), 0.12); }
+.dy-find-day h4 { margin: 8px 0 4px; font-size: 13.5px; }
+.dy-find-day ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dy-fr { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: var(--r-md); border: 1px solid var(--hair-2); background: var(--vault-3); }
+.dy-fr.void { opacity: 0.8; }
+.dy-fr-t { color: var(--dust); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.dy-fr-d { line-height: 1.8; }
+.dy-fr-m { display: grid; justify-items: end; font-size: 12px; color: var(--dust); text-align: end; }
+.dy-fr-m b { font-size: 14px; color: var(--bone); font-variant-numeric: tabular-nums; }
+.dy-find-f { color: var(--dust-2); }
+@media (max-width: 640px) { .dy-fr { grid-template-columns: 1fr; } .dy-fr-m { justify-items: start; text-align: start; } }
+/* on a phone the official A4 form scrolls inside its own sheet; the page itself never slides sideways */
+@media screen and (max-width: 760px) { .bk-paper.std { overflow-x: auto; } }

@@ -1735,6 +1735,62 @@ async function loginUI(page, phone = PHONE) {
     });
 
   if (!live)
+    await step('corrections and day search (specs 0023, 0024): a figure found on any day, what an amendment changed, a safe restore, a repeatable simulation', async () => {
+      const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);
+      const todayIso = await page.evaluate(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(new Date()));
+      const back = new Date(Date.parse(`${todayIso}T00:00:00Z`) - 45 * 86400000).toISOString().slice(0, 10);
+      const party = await auth('/api/books/parties', { method: 'POST', body: JSON.stringify({ name: 'یوسف یادآوری' }) });
+      const bank = (await auth('/api/books/accounts')).items.find((a) => a.kind === 'bank');
+      const orig = await auth('/api/books/docs', { method: 'POST', body: JSON.stringify({ type: 'trade', date: back, partyId: party.id, payments: [{ method: 'c2c', dir: 'out', amount: 6000000000, account: bank.id }] }) });
+      // a remembered figure, typed in روزنگار, found 45 days back with the band in plain sight
+      await page.goto(`${base}/books/day`);
+      await page.waitForSelector('#dyq', { timeout: 15000 }).catch(async (e) => {
+        throw new Error(`no search box at ${page.url()}: ${(await text(page, 'main')).slice(0, 200).replace(/\n/g, ' ')}`);
+      });
+      await page.fill('#dyq', '۶۰۰ میلیون تومان');
+      await page.waitForFunction(() => /یوسف یادآوری/.test(document.querySelector('#dyfind')?.textContent ?? ''), null, { timeout: 8000 });
+      const f1 = await text(page, '#dyfind');
+      check('day search: «۶۰۰ میلیون تومان» finds the payment on its own day, months back', /دقیقاً ۶٬۰۰۰٬۰۰۰٬۰۰۰ ریال/.test(f1) && /پرداخت کارت به کارت/.test(f1) && /دقیقاً همین عدد/.test(f1), f1.slice(0, 160));
+      await page.click('#dyfind [data-tol="5"]');
+      await page.waitForFunction(() => /۵٬۷۰۰٬۰۰۰٬۰۰۰ ریال تا ۶٬۳۰۰٬۰۰۰٬۰۰۰ ریال/.test(document.querySelector('#dyfind')?.textContent ?? ''), null, { timeout: 8000 });
+      check('day search: ±۵٪ shows its band and keeps the same payment first', /یوسف یادآوری/.test(await text(page, '#dyfind .dy-fr')));
+      // a wrong amendment says exactly what it changed
+      const amended = await auth(`/api/books/docs/${orig.id}`, { method: 'PUT', body: JSON.stringify({ ...orig, payments: [{ method: 'c2c', dir: 'out', amount: 5400000000, account: bank.id }], reason: 'رقم اشتباه' }) });
+      await page.goto(`${base}/books/doc/${amended.id}`);
+      await page.waitForSelector('.bk-amend');
+      check('corrections: the amendment lists the change with before and after', /مبلغ — قبل: ۶٬۰۰۰٬۰۰۰٬۰۰۰ ریال؛ بعد: ۵٬۴۰۰٬۰۰۰٬۰۰۰ ریال/.test(await text(page, '.bk-amend')), await text(page, '.bk-amend'));
+      // and the original comes back in one step, with the same figures
+      await page.goto(`${base}/books/doc/${orig.id}`);
+      await page.click('[data-act=restore]');
+      await page.fill('.modal [name=reason]', 'اصلاحیه اشتباه بود');
+      await page.click('.modal [data-ok]');
+      await page.waitForFunction((id) => location.pathname.startsWith('/books/doc/') && !location.pathname.endsWith(id), orig.id, { timeout: 10000 });
+      await page.waitForSelector('.bk-amend');
+      const restored = await page.evaluate(() => location.pathname.split('/').pop());
+      const rdoc = await auth(`/api/books/docs/${restored}`);
+      check('corrections: the restore is an amendment with the original figures', rdoc.restores === orig.id && rdoc.calc.paidOut === 6000000000 && /برگرداندهٔ/.test(await text(page, 'main')), `${rdoc.restores} ${rdoc.calc?.paidOut}`);
+      // a simulation names its basis and repeats exactly
+      await page.goto(`${base}/books/control?t=simulate`);
+      await page.waitForSelector('#simF');
+      await page.fill('#simF [name=mazaneh]', '400000000');
+      await page.click('#simF [data-act=run]');
+      await page.waitForSelector('.ctl-basis [data-repeat]', { timeout: 10000 });
+      const fp = /اثر انگشت ([0-9A-F]{12})/.exec(await text(page, '.ctl-basis'))?.[1];
+      await page.click('.ctl-basis [data-repeat]');
+      await page.waitForFunction(() => /همان مبنا، همان نتیجه/.test(document.querySelector('.ctl-basis')?.textContent ?? ''), null, { timeout: 10000 });
+      check('simulation: the same basis gives the same answer and fingerprint', !!fp && (await text(page, '.ctl-basis')).includes(fp));
+      // Ctrl+K: a figure goes to the day search
+      await page.keyboard.press('Control+k');
+      await page.waitForSelector('#palQ');
+      await page.keyboard.type('۵۴۰ میلیون تومان');
+      await page.waitForTimeout(300);
+      check('palette: a figure offers «در روزنگار همه روزها»', /در روزنگار همه روزها/.test(await text(page, '#palL')));
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => /یوسف یادآوری/.test(document.querySelector('#dyfind')?.textContent ?? ''), null, { timeout: 8000 });
+      check('palette → روزنگار: the amendment of 540 million is found, the replaced one marked', /جایگزین‌شده با اصلاحیه/.test(await text(page, '#dyfind')) || /۵٬۴۰۰٬۰۰۰٬۰۰۰/.test(await text(page, '#dyfind')));
+    });
+
+  if (!live)
     await step('accounting trainer (spec 0015): a case, the right entry, graded by the kernel; manager view', async () => {
       await go(page, '/train/accounting', 1500);
       check('trainer: the page opens with the tutor\'s suggestion', /یک رویداد، یک سند/.test(await text(page, '.at-head')));

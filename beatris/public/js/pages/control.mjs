@@ -161,8 +161,8 @@ export async function controlPage(root) {
       const btn = e.submitter;
       busy(btn, true);
       try {
-        const r = await api('/api/books/control/simulate', { method: 'POST', body: { partyId: f.partyId.value || null, lines: [line], payments } });
-        drawSim(r);
+        const req = { partyId: f.partyId.value || null, lines: [line], payments };
+        drawSim(await api('/api/books/control/simulate', { method: 'POST', body: req }), req);
       } catch (err) {
         $('#simOut', body).innerHTML = String(html`<p class="err">${err.message}</p>`);
       } finally {
@@ -170,7 +170,14 @@ export async function controlPage(root) {
       }
     });
   }
-  function drawSim(r) {
+  // the basis of a run (spec 0024): the same input on the same basis gives the same answer; what moved is said
+  function simBasis(r, req, first) {
+    const p = r.basis.prices;
+    const moved = r.since && (r.since.events || r.since.dayChanged);
+    return html`<div class="ctl-basis"><p class="small">مبنای این نتیجه: دفتر تا رویداد <b class="ltr-num">#${fa(r.basis.seq)}</b>${r.basis.head ? html` <code class="ltr-num">${r.basis.head}</code>` : ''} · ${jd(r.basis.day)}${p.mazaneh ? html` · مظنه ${R(p.mazaneh)}` : ''}${r.basis.pinned ? ' (قیمت‌های همان اجرا)' : p.sample ? ' (قیمت نمونه)' : ' (تابلوی زنده)'} · اثر انگشت <b class="ltr-num">${r.fingerprint}</b></p>
+      ${first ? (moved ? html`<p class="notice">${r.since.events ? `از آن مبنا ${fa(r.since.events)} سند تازه ثبت یا اصلاح شده` : ''}${r.since.events && r.since.dayChanged ? ' و ' : ''}${r.since.dayChanged ? 'روز عوض شده است' : ''}؛ این نتیجه با دفتر امروز و همان قیمت‌هاست.</p>` : html`<p class="small ok-line">${r.fingerprint === first.fingerprint ? '✓ همان مبنا، همان نتیجه و همان اثر انگشت.' : 'مبنا همان است ولی نتیجه فرق کرد.'}</p>`) : html`<button class="btn small ghost" type="button" data-repeat>تکرار دقیق با همین مبنا</button>`}</div>`;
+  }
+  function drawSim(r, req, first = null) {
     const row = (label, b, a, fmt) => html`<tr><td>${label}</td><td class="num">${fmt(b)}</td><td class="num">${fmt(a)}</td><td class="num ${a - b > 0 ? 'pos' : a - b < 0 ? 'neg' : ''}">${a - b > 0 ? '+' : a - b < 0 ? '−' : ''}${fmt(Math.abs(a - b))}</td></tr>`;
     const coinKeys = [...new Set([...Object.keys(r.before.coins), ...Object.keys(r.after.coins)])];
     const partyUnits = r.before.party || r.after.party ? [...new Set([...Object.keys(r.before.party ?? {}), ...Object.keys(r.after.party ?? {})])] : [];
@@ -181,7 +188,16 @@ export async function controlPage(root) {
         ${row('نقد صندوق', r.before.cash, r.after.cash, R)}${row('بانک', r.before.bank, r.after.bank, R)}${row('طلای آبشده (گرم ۷۵۰)', r.before.gold, r.after.gold, G)}
         ${coinKeys.map((k) => row(`سکه ${COIN_TYPES[k]?.short ?? k}`, r.before.coins[k] ?? 0, r.after.coins[k] ?? 0, fa))}
         ${partyUnits.map((u) => row(`مانده مشتری · ${unitLabel(u)}`, r.before.party?.[u] ?? 0, r.after.party?.[u] ?? 0, (v) => (u === 'IRR' ? R(v) : u === 'G750' ? G(v) : fa(v))))}
-      </tbody></table></div>${r.verdict.choice !== 'stop' ? html`<a class="btn ghost" href="/books/desk" data-link>رفتن به میز معامله برای ثبت</a>` : ''}</article>`);
+      </tbody></table></div>${r.verdict.choice !== 'stop' ? html`<a class="btn ghost" href="/books/desk" data-link>رفتن به میز معامله برای ثبت</a>` : ''}
+      ${r.basis ? simBasis(r, req, first) : ''}</article>`);
+    $('[data-repeat]', body)?.addEventListener('click', async (e) => {
+      busy(e.currentTarget, true);
+      try {
+        drawSim(await api('/api/books/control/simulate', { method: 'POST', body: { ...req, basis: { day: r.basis.day, seq: r.basis.seq, prices: r.basis.prices } } }), req, r);
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
   }
   function partyPicker(f, box) {
     let t = null;

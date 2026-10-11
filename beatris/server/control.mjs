@@ -474,6 +474,15 @@ export function makeControl({ db, on, call, core, auditShared = null, settings, 
   });
 
   /* ------------------------------------------------------------------ شبیه‌ساز معامله و محاسبه فروش امن */
+  // a simulation names its basis (the day, the ledger position, the prices) so it can be repeated exactly (spec 0024)
+  const LEDGER_ACTIONS = "('doc.create','doc.update','doc.void','doc.amend','doc.restore')";
+  const ledgerHead = () => db.get(`SELECT seq, hash FROM bk_log WHERE action IN ${LEDGER_ACTIONS} ORDER BY seq DESC LIMIT 1`) ?? { seq: 0, hash: '' };
+  function pinnedPrices(p) {
+    if (!p || typeof p !== 'object') return null;
+    const ok = (v) => Number.isFinite(Number(v)) && Number(v) > 0;
+    const price = Object.fromEntries(Object.entries(p.price ?? {}).filter(([k, v]) => /^(G750|COIN:\w+|FX:[A-Z]+)$/.test(k) && ok(v)).map(([k, v]) => [k, Math.round(Number(v))]));
+    return { mazaneh: ok(p.mazaneh) ? Math.round(Number(p.mazaneh)) : null, price, sample: p.sample === true };
+  }
   function simulate(user, body) {
     const today = tehranDay();
     const doc = { type: 'trade', date: today, partyId: body.partyId || null, lines: Array.isArray(body.lines) ? body.lines.slice(0, 40) : [], payments: Array.isArray(body.payments) ? body.payments.slice(0, 20) : [] };
@@ -542,8 +551,9 @@ export function makeControl({ db, on, call, core, auditShared = null, settings, 
       check('cost', 'stop', profit >= 0, profit >= 0 ? `بالاتر از بهای تمام‌شده؛ سود تقریبی ${R(profit)}` : `زیر بهای تمام‌شده: زیان ${R(-profit)} (بها ${R(costOut)})`);
       if (profit >= 0) check('margin', 'caution', margin >= minMargin, margin >= minMargin ? `حاشیه سود ${pf(margin * 100, 2)}٪` : `حاشیه سود فقط ${pf(margin * 100, 2)}٪ (کمتر از ${pf(minMargin * 100, 2)}٪)`);
     }
-    // 4. price against the live board
-    const lp = livePrices();
+    // 4. price against the live board, or against the prices the scenario was first run with
+    const pinned = pinnedPrices(body.basis?.prices);
+    const lp = pinned ?? livePrices();
     for (const l of calc.lines ?? []) {
       if (!l.priced) continue;
       if (l.kind === 'melt' && lp.mazaneh && B.num(l.mazaneh)) {
@@ -586,8 +596,17 @@ export function makeControl({ db, on, call, core, auditShared = null, settings, 
     const avail = checks.filter((c) => c.available);
     const stops = avail.filter((c) => c.level === 'stop').length, cautions = avail.filter((c) => c.level === 'caution').length;
     const verdict = typedChoice(['safe', 'caution', 'stop'], [1.5 - cautions * 0.8 - stops * 3, 0.2 + cautions * 1.2 - stops * 0.5, -2 + stops * 4], { coverage: avail.length / checks.length, ordered: true });
+    const head = ledgerHead();
+    const basis = { day: today, seq: head.seq, head: head.hash.slice(0, 12), prices: { mazaneh: lp.mazaneh ?? null, price: lp.price ?? {}, sample: !!lp.sample }, pinned: !!pinned };
+    const fingerprint = createHash('sha256').update(JSON.stringify({ partyId: doc.partyId, lines: doc.lines, payments: doc.payments, day: basis.day, seq: basis.seq, prices: basis.prices })).digest('hex').slice(0, 12).toUpperCase();
+    // what moved since the basis it is repeating: documents booked after it, or another day
+    const asked = Number.isInteger(body.basis?.seq) ? body.basis : null;
+    const since = asked ? { events: db.get(`SELECT COUNT(*) AS n FROM bk_log WHERE seq>? AND action IN ${LEDGER_ACTIONS}`, asked.seq).n, dayChanged: !!asked.day && asked.day !== today } : null;
     return {
       saved: false,
+      basis,
+      fingerprint,
+      since,
       verdict,
       summary: { stop: 'این معامله را این‌طور ثبت نکنید', caution: 'با احتیاط؛ موارد زرد را ببینید', safe: 'امن است' }[verdict.choice],
       before: b, after: a,
