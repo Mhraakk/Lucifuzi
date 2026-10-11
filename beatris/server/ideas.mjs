@@ -12,7 +12,6 @@ import { createHash, randomBytes, randomUUID, generateKeyPairSync, createPrivate
 import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
 import { TRADE_COINS as COIN_TYPES } from '../public/js/coins.mjs';
-import { verifyPin } from './auth.mjs';
 import { tehranHour } from './tz.mjs';
 
 export const IDEAS_SCHEMA = `
@@ -63,7 +62,7 @@ export function barSimilarity(a, b) {
   return { score: Math.round(score * 1000) / 1000, hash: Math.round(s1 * 1000) / 1000, blocks: Math.round(s2 * 1000) / 1000, verdict: score >= 0.85 ? 'match' : score >= 0.7 ? 'unsure' : 'mismatch' };
 }
 
-export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, sealer, shopId, partyRow, verifyLog }) {
+export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, sealer, shopId, partyRow, verifyLog, signCheck = null }) {
   db.raw.exec(IDEAS_SCHEMA);
   const SYS = { id: null, role: 'owner', name: 'سامانه' };
   const forbid = (m) => new HttpError(403, m);
@@ -525,21 +524,22 @@ export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, liv
     const day = /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get('day') ?? '') ? url.searchParams.get('day') : tehranDay();
     return closeView(day);
   });
-  on('POST', '/api/books/close', 'auth', ({ user, body }) => {
+  on('POST', '/api/books/close', 'auth', ({ user, body, ip }) => {
     guardAdmin(user);
     const day = /^\d{4}-\d{2}-\d{2}$/.test(body.day ?? '') ? body.day : tehranDay();
     if (day > tehranDay()) throw bad('روز آینده را نمی‌توان بست.');
     const cur = db.get('SELECT * FROM bk_closes WHERE day=?', day);
     if (cur && !cur.reopened_at) throw new HttpError(409, 'این روز قبلاً بسته شده است.');
-    // the signature: the manager types their own password again
-    const u = db.get('SELECT pin_hash FROM users WHERE id=?', user.id);
-    if (!u || !verifyPin(String(body.password ?? ''), u.pin_hash)) throw forbid('رمز امضاکننده درست نیست.');
     const view = closeView(day);
     const open = view.checks.filter((c) => !c.ok);
     const acks = new Set(Array.isArray(body.ack) ? body.ack : []);
     const missing = open.filter((c) => !acks.has(c.key));
     if (missing.length) throw new HttpError(409, `پیش از بستن، این موارد را برطرف یا تأیید کنید: ${missing.map((c) => c.title).join('، ')}.`);
     if (open.length && txt(body.note, 600).length < 3) throw bad('برای مواردی که باز می‌مانند توضیح بنویسید.');
+    // the signature (spec 0022): a fresh SMS code sent to the signer's own mobile, checked after every other refusal so
+    // a right code is never used up by a request that fails anyway
+    if (!signCheck) throw forbid('امضای روز در دسترس نیست.');
+    signCheck({ user, code: body.code, ip });
     const prev = db.get('SELECT hash FROM bk_closes WHERE day<? ORDER BY day DESC LIMIT 1', day);
     const data = { day, totals: view.totals, entries: view.entries, cash: view.cash, count: view.counts[0]?.lines ?? null, checks: view.checks.map((c) => ({ key: c.key, ok: c.ok, warn: c.warn })), acknowledged: open.map((c) => c.key), note: txt(body.note, 600), signer: { id: user.id, name: user.name, role: user.role }, at: now(), shop: shopId };
     const hash = sha(`${prev?.hash ?? ''}|${canon(data)}`);

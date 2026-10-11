@@ -8,13 +8,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { imageInfo } from '../server/media.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, mediaDir;
 const call = async (method, path, body, token) => {
   const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
   return { status: r.status, body: await r.json() };
 };
-const login = async (phone) => (await call('POST', '/api/auth/login', { phone, pin: '۱۲۳۴' })).body.token;
+const login = (phone) => smsLogin(base, phone);
 
 before(async () => {
   const db = openDb(':memory:');
@@ -29,8 +30,10 @@ after(() => {
   rmSync(mediaDir, { recursive: true, force: true });
 });
 
-test('ورود: رمز غلط ۴۰۱، ارقام فارسی پذیرفته', async () => {
-  assert.equal((await call('POST', '/api/auth/login', { phone: '09120000004', pin: '0000' })).status, 401);
+test('ورود: کد غلط ۴۰۱، ارقام فارسی پذیرفته، ورود با رمز برداشته شده', async () => {
+  const sent = await call('POST', '/api/auth/code', { phone: '09120000004' });
+  assert.equal((await call('POST', '/api/auth/verify', { phone: '09120000004', code: sent.body.code === '000000' ? '111111' : '000000' })).status, 401);
+  assert.equal((await call('POST', '/api/auth/login', { phone: '09120000004', pin: '1234' })).status, 410);
   assert.ok(await login('۰۹۱۲۰۰۰۰۰۰۴'));
   assert.equal((await call('GET', '/api/me')).status, 401);
 });
@@ -80,13 +83,20 @@ test('کار عملی: درخواست، عدم تأیید خود، تأیید م
   const me = (await call('GET', '/api/me', null, e)).body;
   assert.equal(me.progress.floor.find((f) => f.taskId === 'ft-scale').status, 'verified');
 });
-test('غیرفعال‌سازی و تغییر رمز توکن قبلی را باطل می‌کند', async () => {
+test('عوض کردن موبایل و غیرفعال‌سازی توکن قبلی را باطل می‌کند', async () => {
   const m = await login('09120000002');
   const t = await login('09120000006');
   const team = (await call('GET', '/api/team', null, m)).body.members;
   const ali = team.find((x) => x.phone === '09120000006');
-  await call('PATCH', `/api/team/${ali.id}`, { pin: '5678' }, m);
+  await call('PATCH', `/api/team/${ali.id}`, { pin: '5678' }, m); // passwords no longer exist: ignored
+  assert.equal((await call('GET', '/api/me', null, t)).status, 200);
+  assert.equal((await call('PATCH', `/api/team/${ali.id}`, { phone: '09120000005' }, m)).status, 409);
+  await call('PATCH', `/api/team/${ali.id}`, { phone: '09120000066' }, m);
   assert.equal((await call('GET', '/api/me', null, t)).status, 401);
+  const t2 = await login('09120000066');
+  await call('PATCH', `/api/team/${ali.id}`, { active: false }, m);
+  assert.equal((await call('GET', '/api/me', null, t2)).status, 401);
+  await call('PATCH', `/api/team/${ali.id}`, { active: true, phone: '09120000006' }, m);
 });
 test('سناریو و کارت و تنظیمات', async () => {
   const t = await login('09120000004');
@@ -101,16 +111,20 @@ test('سناریو و کارت و تنظیمات', async () => {
   assert.equal(p.body.pricing.p750, 9_100_000);
   assert.equal((await call('PUT', '/api/settings/pricing', { p750: 1 }, t)).status, 403);
 });
-test('رمز تا ۱۲ رقم؛ خاموش شدن دمو حساب‌های نمایشی را غیرفعال می‌کند', async () => {
+test('مالک از متغیرها ساخته می‌شود بی‌آنکه رمزی نگه داشته شود؛ خاموش شدن دمو حساب‌های نمایشی را غیرفعال می‌کند', async () => {
   const db = openDb(':memory:');
   seedUsers(db, {}, true);
   seedUsers(db, { BEATRIS_OWNER_PHONE: '+989121234567', BEATRIS_OWNER_PIN: '123456789' }, false);
-  const s = createServer({ db, secret: 'test-secret-0123456789', demo: false, quiet: true });
+  assert.equal(db.get("SELECT pin_hash FROM users WHERE phone='09121234567'").pin_hash, '-');
+  const s = createServer({ db, secret: 'test-secret-0123456789', demo: false, quiet: true, env: {} });
   await new Promise((r) => s.listen(0, '127.0.0.1', r));
   const b = `http://127.0.0.1:${s.address().port}`;
-  const post = (body) => fetch(b + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.status);
-  assert.equal(await post({ phone: '09121234567', pin: '123456789' }), 200);
-  assert.equal(await post({ phone: '09120000001', pin: '1234' }), 401);
+  assert.ok(await smsLogin(b, '09121234567'));
+  // a deactivated demo account: no session (sign-up is open, so the number would only be offered a new shop)
+  const sent = await (await fetch(b + '/api/auth/code', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '09120000001' }) })).json();
+  const v = await (await fetch(b + '/api/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '09120000001', code: sent.code }) })).json();
+  assert.equal(v.token, undefined);
+  assert.equal(v.signup, true);
   s.close();
 });
 test('گالری طرح: ذخیره، فهرست، باز کردن، حذف با مجوز', async () => {

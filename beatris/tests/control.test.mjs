@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, db, O, M, E;
 const call = async (method, p, body, token) => {
@@ -25,7 +26,7 @@ before(async () => {
   server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
-  const login = async (phone) => (await ok('POST', '/api/auth/login', { phone, pin: '1234' })).token;
+  const login = (phone) => smsLogin(base, phone);
   [O, M, E] = [await login('09120000001'), await login('09120000002'), await login('09120000004')];
   const cap = await ok('POST', '/api/books/parties', { name: 'صاحب سرمایه' }, M);
   P = (await ok('POST', '/api/books/parties', { name: 'مهران رضایی', mobile: '09121234567' }, M)).party ?? null;

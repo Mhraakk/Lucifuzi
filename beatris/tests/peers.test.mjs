@@ -4,6 +4,7 @@ import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
 import { comparePeer, normCode } from '../server/peers.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, V;
 const call = async (method, path, body, token) => {
@@ -22,7 +23,7 @@ before(async () => {
   server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
-  V = (await ok('POST', '/api/auth/login', { phone: '09120000001', pin: '1234' })).token;
+  V = (await smsLogin(base, '09120000001'));
 });
 after(() => server.close());
 
@@ -42,14 +43,14 @@ test('pairing: opposite amounts of the same unit within the date window', () => 
 });
 
 test('تطبیق با همکار: دو فروشگاه حساب متقابل را زنده مقایسه می‌کنند', async () => {
-  const made = await ok('POST', '/api/vendor/tenants', { name: 'زرگری الماس', plan: 'base', ownerName: 'نادر', username: 'nader' }, V);
-  const T = (await ok('POST', '/api/auth/login', { login: 'nader', password: made.password })).token;
+  const made = await ok('POST', '/api/vendor/tenants', { name: 'زرگری الماس', plan: 'base', ownerName: 'نادر', phone: '09364000001' }, V);
+  const T = await smsLogin(base, '09364000001');
   const p1 = (await ok('POST', '/api/books/parties', { name: 'زرگری الماس (همکار)' }, V)).party ?? (await ok('GET', '/api/books/parties', null, V)).items.find((p) => p.name === 'زرگری الماس (همکار)');
   const p2 = (await ok('POST', '/api/books/parties', { name: 'خانه تاج (همکار)' }, T)).party ?? (await ok('GET', '/api/books/parties', null, T)).items.find((p) => p.name === 'خانه تاج (همکار)');
   assert.ok(p1?.id && p2?.id);
 
   // only owner/manager; the code is made in one shop and typed in the other
-  const emp = (await ok('POST', '/api/auth/login', { phone: '09120000003', pin: '1234' })).token;
+  const emp = (await smsLogin(base, '09120000003'));
   assert.equal((await call('POST', '/api/peers/invite', { partyId: p1.id }, emp)).status, 403);
   assert.equal((await call('GET', '/api/peers', null)).status, 401);
   const inv = await ok('POST', '/api/peers/invite', { partyId: p1.id }, V);

@@ -11,6 +11,7 @@ import { desCbc, mac, pack, unpack, fakeTerminal } from './helpers/ssp1126.mjs';
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 // first POS response of a real purchase, header stripped (SSP1126 log 2110104747): DE39=15, MAC D59FF4AB7C17E07F
 const REAL = '030020380000028002E1000000000002104831102331353431363734313237001131302E3035342E3031504F000856312E342E302E34001030383030303030313735001032313130323331303438D59FF4AB7C17E07F';
@@ -163,7 +164,7 @@ before(async () => {
   server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
-  M = (await (await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '09120000002', pin: '1234' }) })).json()).token;
+  M = await smsLogin(base, '09120000002');
 });
 after(() => {
   server?.close();

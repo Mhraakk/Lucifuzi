@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync, mkdirSync, readdirSync, renameSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { smsLogin } from '../tests/helpers/login.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public', 'media', 'compare');
@@ -138,7 +139,7 @@ const CAPTION = (text) => {
   el.textContent = text;
 };
 
-const TOKEN = (await (await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '09120000002', pin: '1234' }) })).json()).token;
+const TOKEN = await smsLogin(base, '09120000002'); // sign-in by SMS code (spec 0022); a demo server returns the code
 async function record(name, viewport, fn) {
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const ctx = await browser.newContext({ viewport, recordVideo: { dir: rawDir, size: viewport }, deviceScaleFactor: 1 });

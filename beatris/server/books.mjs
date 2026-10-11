@@ -86,7 +86,7 @@ export const DEFAULT_BOOKS = {
   edition: 'full', money: 'rial', tradeRound: 10000, spreadBuy: 0, spreadSell: 0, coinSpreadBuy: 0, coinSpreadSell: 0, groups: {},
 };
 
-export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market, sealer = null, shopId = 'main', onEvent = () => {}, flag = () => true }) {
+export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin, market, sealer = null, shopId = 'main', onEvent = () => {}, flag = () => true, signCheck = null }) {
   // every handler is also kept by name, so the auditor and the assistant reuse exactly the logic (and the checks) of the API
   const handlers = new Map();
   let ideas = null; // the seven tools hook into saving (locked quotes, closed days); set once they are registered
@@ -1769,7 +1769,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   on('POST', '/api/books/oneline/understand', 'auth', async ({ body }) => understandLine(body?.text, { provider: providerFromAssistant(assistant) }));
 
   /* ---------------- the seven tools: locked quotes, price-move risk, bar cards, counts, shared statements, forecast, day close ---------------- */
-  ideas = makeIdeas({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, sealer, shopId, partyRow, verifyLog });
+  ideas = makeIdeas({ db, on, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, sealer, shopId, partyRow, verifyLog, signCheck });
   // کنترل: pulse, changes, exceptions, simulator, twin, lots, story, dual trial, forecast, explain (spec 0002)
   control = makeControl({ db, on, call, core, auditShared, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, partyRow, market, dashboard, audit: { run: (u) => audit.run(u) }, risk: () => ideas.risk(), shopId, closeSystem: (day, recon) => ideas.closeSystem(day, recon) });
 

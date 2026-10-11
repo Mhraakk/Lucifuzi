@@ -4,8 +4,9 @@ import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
 import { barSimilarity } from '../server/ideas.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
-let server, base, V, O, E, PW;
+let server, base, V, O, E;
 const call = async (method, path, body, token) => {
   const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
   return { status: r.status, body: await r.json().catch(() => null) };
@@ -25,12 +26,11 @@ before(async () => {
   server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
-  V = (await ok('POST', '/api/auth/login', { phone: '09120000001', pin: '1234' })).token;
-  const shop = await ok('POST', '/api/vendor/tenants', { name: 'طلای نو', username: 'nou' }, V);
-  PW = shop.password;
-  O = (await ok('POST', '/api/auth/login', { login: 'nou', password: PW })).token;
-  const emp = await ok('POST', `/api/vendor/tenants/${shop.tenant.id}/users`, { name: 'فروشنده', username: 'nou.emp', role: 'employee' }, V);
-  E = (await ok('POST', '/api/auth/login', { login: 'nou.emp', password: emp.password })).token;
+  V = (await smsLogin(base, '09120000001'));
+  const shop = await ok('POST', '/api/vendor/tenants', { name: 'طلای نو', ownerName: 'مالک طلای نو', phone: '09361000001' }, V);
+  O = await smsLogin(base, '09361000001');
+  await ok('POST', `/api/vendor/tenants/${shop.tenant.id}/users`, { name: 'فروشنده', phone: '09361000002', role: 'employee' }, V);
+  E = await smsLogin(base, '09361000002');
   await ok('POST', '/api/books/setup', {
     gold: { grams: 200, avgPrice: 90000000 },
     coins: [{ coin: 'emami', count: 10, avgPrice: 1000000000 }],
@@ -156,15 +156,22 @@ test('۶) پیش‌بینی نقدینگی از همان روزهای هفته',
   assert.equal((await call('GET', '/api/books/forecast', null, E)).status, 403);
 });
 
-test('۷) بستن روز با امضای دیجیتال؛ روز بسته قفل است تا مالک آن را باز کند', async () => {
+test('۷) بستن روز با امضای دیجیتال و کد پیامکی امضاکننده؛ روز بسته قفل است تا مالک آن را باز کند', async () => {
   const v = await ok('GET', `/api/books/close?day=${today}`, null, O);
   assert.ok(v.checks.some((c) => c.key === 'count' && !c.ok)); // the count above is off
-  assert.equal((await call('POST', '/api/books/close', { day: today, password: 'wrong-pass' }, O)).status, 403);
-  const blocked = await call('POST', '/api/books/close', { day: today, password: PW }, O);
+  // the signature is a fresh SMS code to the signer's own mobile (spec 0022), checked after every other refusal
+  const sign = await ok('POST', '/api/auth/sign-code', {}, O);
+  assert.match(sign.code, /^\d{6}$/);
+  assert.equal(sign.phone, '0936…001');
+  const blocked = await call('POST', '/api/books/close', { day: today, code: sign.code }, O);
   assert.equal(blocked.status, 409);
   const open = v.checks.filter((c) => !c.ok).map((c) => c.key);
-  assert.equal((await call('POST', '/api/books/close', { day: today, password: PW, ack: open }, O)).status, 400); // a note is required
-  const c = await ok('POST', '/api/books/close', { day: today, password: PW, ack: open, note: 'کسری طلا فردا با مالک بررسی می‌شود' }, O);
+  assert.equal((await call('POST', '/api/books/close', { day: today, code: sign.code, ack: open }, O)).status, 400); // a note is required
+  const wrong = await call('POST', '/api/books/close', { day: today, code: sign.code === '000000' ? '111111' : '000000', ack: open, note: 'کسری طلا فردا با مالک بررسی می‌شود' }, O);
+  assert.equal(wrong.status, 403, 'a wrong code is a refusal, not a lost session');
+  assert.equal((await call('POST', '/api/books/close', { day: today, ack: open, note: 'بدون کد' }, O)).status, 403);
+  const c = await ok('POST', '/api/books/close', { day: today, code: sign.code, ack: open, note: 'کسری طلا فردا با مالک بررسی می‌شود' }, O);
+  assert.equal((await ok('GET', `/api/books/close/${today}/verify`, null, O)).signer, 'مالک طلای نو');
   assert.match(c.hash, /^[0-9a-f]{64}$/);
   const ver = await ok('GET', `/api/books/close/${today}/verify`, null, O);
   assert.equal(ver.valid, true);

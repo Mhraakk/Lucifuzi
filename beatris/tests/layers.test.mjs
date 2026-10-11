@@ -6,6 +6,7 @@ import { seedUsers } from '../server/api.mjs';
 import { capsOf, can } from '../server/rbac.mjs';
 import { createFlags } from '../server/flags.mjs';
 import { backtest } from '../public/js/backtest.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, db, V, M, E;
 const call = async (method, p, body, token) => {
@@ -23,9 +24,9 @@ before(async () => {
   server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
-  V = (await ok('POST', '/api/auth/login', { phone: '09120000001', pin: '1234' })).token;
-  M = (await ok('POST', '/api/auth/login', { phone: '09120000002', pin: '1234' })).token;
-  E = (await ok('POST', '/api/auth/login', { phone: '09120000003', pin: '1234' })).token;
+  V = (await smsLogin(base, '09120000001'));
+  M = (await smsLogin(base, '09120000002'));
+  E = (await smsLogin(base, '09120000003'));
 });
 after(() => {
   server.close();
@@ -56,8 +57,8 @@ test('flags: default → global → per shop, enforced on the server', async () 
   assert.equal(f.on('t_x', 'peers'), false);
   assert.throws(() => f.set('all', 'nope', true), /ناشناخته/);
   // through the vendor's ops API
-  const shop = await ok('POST', '/api/vendor/tenants', { name: 'فروشگاه پرچم', username: 'flagshop' }, V);
-  const T = (await ok('POST', '/api/auth/login', { login: 'flagshop', password: shop.password })).token;
+  const shop = await ok('POST', '/api/vendor/tenants', { name: 'فروشگاه پرچم', phone: '09365000001' }, V);
+  const T = await smsLogin(base, '09365000001');
   assert.equal((await ok('GET', '/api/me', null, T)).flags.peers, true);
   assert.equal((await call('PUT', '/api/ops/flags', { scope: 't_000000000000', key: 'peers', value: false }, V)).status, 400);
   await ok('PUT', '/api/ops/flags', { scope: shop.tenant.id, key: 'peers', value: false }, V);

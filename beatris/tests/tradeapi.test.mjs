@@ -4,6 +4,7 @@ import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
 import * as T from '../public/js/trade.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, M, E;
 const call = async (method, path, body, token) => {
@@ -15,7 +16,7 @@ const ok = async (...a) => {
   assert.ok(r.status < 300, `${a[0]} ${a[1]} → ${r.status} ${JSON.stringify(r.body)}`);
   return r.body;
 };
-const login = async (phone) => (await call('POST', '/api/auth/login', { phone, pin: '1234' })).body.token;
+const login = (phone) => smsLogin(base, phone);
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(new Date());
 const bal = async (id) => (await ok('GET', `/api/books/parties/${id}`, null, M)).balance;
 const MAZ = 400000000;

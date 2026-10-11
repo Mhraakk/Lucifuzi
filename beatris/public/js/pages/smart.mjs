@@ -84,8 +84,10 @@ async function closeTab(box) {
       <section class="tray"><h3 class="bk-h">وارسی پیش از بستن</h3><ul class="cl-checks">${v.checks.map((c) => html`<li class="${c.ok ? 'ok' : 'warn'}"><span>${c.ok ? '✓' : '!'}</span><div><b>${c.title}</b>${c.warn ? html`<small>${c.warn}</small>` : ''}</div>${c.ok ? '' : html`<label class="check"><input type="checkbox" data-ack="${c.key}"> باز بماند</label>`}</li>`)}</ul></section>
       ${v.closed && !v.closed.reopened
         ? html`<section class="tray cl-sign"><h3 class="bk-h">امضا</h3><p class="small ltr-num">${v.closed.hash}</p><div class="actions"><button class="btn small" data-verify>وارسی امضا</button><button class="btn small ghost" data-print>چاپ گزارش بستن</button>${store.me.user.role === 'owner' ? html`<button class="btn small danger" data-reopen>باز کردن روز</button>` : ''}</div><div id="clVer"></div></section>`
-        : html`<section class="tray cl-sign"><h3 class="bk-h">بستن و امضای روز</h3><p class="small">با رمز خودتان امضا می‌کنید؛ امضا با کلید دیجیتال فروشگاه (Ed25519) ثبت و به روز قبل زنجیر می‌شود. پس از بستن، هیچ سندی در این روز ثبت یا ویرایش نمی‌شود مگر مالک آن را با دلیل باز کند.</p>
-            <label class="field">توضیح (برای مواردی که باز می‌مانند)<input class="input" id="clNote" maxlength="600"></label><label class="field">رمز شما<input class="input ltr" id="clPw" type="password" autocomplete="current-password"></label><p class="err" id="clErr" role="alert"></p><button class="btn" data-close-day>بستن روز ${jd(day)}</button></section>`}</div>`);
+        : html`<section class="tray cl-sign"><h3 class="bk-h">بستن و امضای روز</h3><p class="small">با کدی که به موبایل خودتان پیامک می‌شود امضا می‌کنید؛ امضا با کلید دیجیتال فروشگاه (Ed25519) ثبت و به روز قبل زنجیر می‌شود. پس از بستن، هیچ سندی در این روز ثبت یا ویرایش نمی‌شود مگر مالک آن را با دلیل باز کند.</p>
+            <label class="field">توضیح (برای مواردی که باز می‌مانند)<input class="input" id="clNote" maxlength="600"></label>
+            <div class="cl-code"><button class="btn small ghost" type="button" data-sign-code>گرفتن کد امضا</button><label class="field">کد امضا<input class="input ltr" id="clCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="۶ رقم"></label><small id="clSent"></small></div>
+            <p class="err" id="clErr" role="alert"></p><button class="btn" data-close-day>بستن روز ${jd(day)}</button></section>`}</div>`);
   }
   // a connected scale over Web Serial: reads lines like «ST,GS,+  123.456 g», keeps the last stable reading
   async function connectScale() {
@@ -147,11 +149,27 @@ async function closeTab(box) {
         toast(r.balanced ? 'شمارش با دفتر برابر است. ✓' : `${fa(r.lines.filter((l) => l.diff).length)} قلم اختلاف دارد.`, r.balanced ? 'ok' : 'error');
         return load();
       }
-      if (b.hasAttribute('data-close-day')) {
-        const ack = $$('[data-ack]:checked', box).map((i) => i.dataset.ack);
+      if (b.hasAttribute('data-sign-code')) {
+        // the signature (spec 0022): a fresh SMS code to the signer's own mobile
         busy(b, true);
         try {
-          await api('/api/books/close', { method: 'POST', body: { day, ack, note: $('#clNote', box).value, password: $('#clPw', box).value } });
+          const r = await api('/api/auth/sign-code', { method: 'POST' });
+          $('#clSent', box).textContent = r.code ? `کد ${r.via === 'demo' ? 'حساب نمایشی' : 'آزمایشی'}: ${fa(r.code)}` : `کد به ${fa(r.phone)} پیامک شد.`;
+          if (r.code) $('#clCode', box).value = fa(r.code);
+          $('#clCode', box).focus();
+        } catch (err) {
+          $('#clErr', box).textContent = err.message;
+        }
+        busy(b, false);
+        return;
+      }
+      if (b.hasAttribute('data-close-day')) {
+        const ack = $$('[data-ack]:checked', box).map((i) => i.dataset.ack);
+        const code = $('#clCode', box).value.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g, '');
+        if (code.length !== 6) return ($('#clErr', box).textContent = 'اول «گرفتن کد امضا» را بزنید و کد ۶ رقمی را وارد کنید.');
+        busy(b, true);
+        try {
+          await api('/api/books/close', { method: 'POST', body: { day, ack, note: $('#clNote', box).value, code } });
           toast(`روز ${jd(day)} بسته و امضا شد.`, 'ok');
           return load();
         } catch (err) {

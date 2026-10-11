@@ -7,7 +7,7 @@ import { confirmBox, askBox } from '../dialog.mjs';
 const ROLE_ORDER = { owner: 0, manager: 1, trainer: 2, employee: 3 };
 
 export async function teamPage(root) {
-  const [{ members, pendingFloor }, access] = await Promise.all([api('/api/team'), store.isAdmin() ? api('/api/access/admin').catch(() => null) : null]);
+  const { members, pendingFloor } = await api('/api/team');
   const list = members.sort((a, b) => b.active - a.active || ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.name.localeCompare(b.name, 'fa'));
   const active = list.filter((m) => m.active);
   const present = active.filter((m) => m.today?.inAt && !m.today?.outAt).length;
@@ -22,7 +22,6 @@ export async function teamPage(root) {
     </div>
     <div class="actions">
       <a class="btn ${pendingFloor ? '' : 'ghost'}" href="/staff/queue" data-link>بررسی کارهای عملی${pendingFloor ? ` (${fa(pendingFloor)})` : ''}</a>
-      ${access ? html`<a class="btn ${access.pending ? '' : 'ghost'}" href="/staff/access" data-link>درخواست‌های حساب${access.pending ? ` (${fa(access.pending)})` : ''}</a>` : ''}
       ${store.me?.vendor ? html`<a class="btn" href="/vendor" data-link>کنسول ارائه‌دهنده (فروشگاه‌ها و حساب‌ها)</a>` : ''}
       ${store.isAdmin() && store.me?.tenant?.main !== false ? html`<a class="btn ghost" href="/staff/settings" data-link>قیمت مرجع و تنظیمات</a><a class="btn ghost" href="/staff/leads" data-link>درخواست‌های نمایش</a>` : ''}
     </div>
@@ -38,14 +37,13 @@ export async function teamPage(root) {
         <td>${m.sopMissing ? html`<span class="stamp red">${fa(m.sopMissing)}</span>` : html`<span class="stamp jade">کامل</span>`}</td>
         <td class="small">${m.today?.inAt ? html`<span class="dot on"></span>${faTime(m.today.inAt)}${m.today.outAt ? ` تا ${faTime(m.today.outAt)}` : ''}` : html`<span class="dot"></span>—`}</td></tr>`)}</tbody></table></div>
 
-    ${store.isAdmin() && store.me?.tenant?.main === false ? html`<p class="small tray">همکار تازه: کد یا لینک <a href="/staff/access" data-link>درخواست حساب</a> را به او بدهید؛ در صفحه ورود درخواست می‌دهد، شما تأیید می‌کنید و نام کاربری و رمز روی دستگاه خودش ساخته می‌شود.</p>` : ''}
-    ${store.isAdmin() && store.me?.tenant?.main !== false ? html`<h2>افزودن همکار</h2>
+    ${store.isAdmin() ? html`<h2>افزودن همکار</h2>
+      <p class="small">همکار با همین شماره موبایل و کد پیامکی وارد می‌شود؛ نام کاربری و رمز لازم نیست.${store.me?.tenant?.maxUsers ? ` سقف کاربران این فروشگاه: ${fa(store.me.tenant.maxUsers)}.` : ''}</p>
       <form class="tray form cols" id="add">
         <label class="field">نام و نام خانوادگی<input class="input" name="name" required></label>
         <label class="field">موبایل<input class="input ltr" name="phone" inputmode="tel" required placeholder="۰۹…"></label>
         <label class="field">نقش<select class="input" name="role"><option value="employee">فروشنده</option><option value="trainer">مربی</option><option value="manager">مدیر</option>${store.me.user.role === 'owner' ? html`<option value="owner">مالک</option>` : ''}</select></label>
         <label class="field">شعبه<input class="input" name="branch" value="${store.me.user.branch}"></label>
-        <label class="field">رمز اولیه (۴ تا ۱۲ رقم)<input class="input ltr" name="pin" inputmode="numeric" maxlength="12" required></label>
         <div style="align-self:end"><button class="btn block" type="submit">افزودن</button></div>
       </form>` : ''}`);
 
@@ -56,7 +54,7 @@ export async function teamPage(root) {
     busy(btn, true);
     try {
       await api('/api/team', { method: 'POST', body: Object.fromEntries(new FormData(f)) });
-      toast('همکار اضافه شد؛ شماره و رمز را به او بدهید', 'ok');
+      toast('همکار اضافه شد؛ با شماره موبایل خودش و کد پیامکی وارد می‌شود', 'ok');
       render();
     } catch (err) {
       toast(err.message, 'error');
@@ -105,7 +103,7 @@ export async function memberPage(root, { id }) {
       <div class="tray form cols">
         <label class="field">نقش<select class="input" id="role">${['employee', 'trainer', 'manager', ...(store.me.user.role === 'owner' ? ['owner'] : [])].map((r) => html`<option value="${r}" ${r === u.role ? 'selected' : ''}>${ROLE_FA[r]}</option>`)}</select></label>
         <label class="field">شعبه<input class="input" id="branch" value="${u.branch}"></label>
-        <label class="field">رمز جدید<input class="input ltr" id="npin" inputmode="numeric" maxlength="12" placeholder="خالی = بدون تغییر"></label>
+        <label class="field">موبایل (کلید ورود)<input class="input ltr" id="nphone" inputmode="tel" value="${fa(u.phone)}"></label>
         <div style="align-self:end"><button class="btn block" data-act="save">ذخیره</button></div>
       </div>
       <div class="actions"><button class="btn ${u.active ? 'danger' : ''}" data-act="toggle">${u.active ? 'غیرفعال کردن حساب' : 'فعال کردن حساب'}</button></div>` : ''}`);
@@ -142,9 +140,10 @@ export async function memberPage(root, { id }) {
     },
     save: (el) => {
       const body = { role: $('#role', root).value, branch: $('#branch', root).value };
-      const pin = $('#npin', root).value.trim();
-      if (pin) body.pin = pin;
-      patch(el, body, pin ? 'ذخیره شد؛ همکار باید با رمز جدید وارد شود' : 'ذخیره شد');
+      const phone = $('#nphone', root).value.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g, '');
+      const moved = phone && phone !== u.phone;
+      if (moved) body.phone = phone;
+      patch(el, body, moved ? 'ذخیره شد؛ همکار از این به بعد با شماره تازه وارد می‌شود' : 'ذخیره شد');
     },
     toggle: async (el) => {
       if (u.active && !(await confirmBox('غیرفعال کردن حساب', `حساب ${u.name} غیرفعال شود؟ پیشرفت او حفظ می‌شود.`, { danger: true, ok: 'غیرفعال کن' }))) return;

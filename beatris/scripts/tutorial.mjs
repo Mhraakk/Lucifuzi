@@ -34,7 +34,7 @@ const ago = (n) => new Date(Date.parse(`${today}T00:00:00Z`) - n * 864e5).toISOS
 
 /* ---------------- the overlay: narration bar, chapter title, cursor, click ring ---------------- */
 const OVERLAY = () => {
-  const css = `#tt-cap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(1120px,calc(100vw - 48px));z-index:2147483646;padding:14px 26px 16px;border-radius:18px;background:rgba(12,11,10,.86);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border:1px solid rgba(232,200,135,.22);color:#fff;font:500 21px/1.8 Estedad,Tahoma,sans-serif;direction:rtl;text-align:right;box-shadow:0 24px 60px -20px rgba(0,0,0,.7);transition:opacity .35s;pointer-events:none}#tt-cap b{display:block;font-size:14px;color:#e8c887;font-weight:700;letter-spacing:0}#tt-cap:empty{opacity:0}#tt-cap .w{display:inline-block;white-space:pre;will-change:transform,filter,opacity}#tt-cur{position:fixed;z-index:2147483647;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:rgba(232,200,135,.55);border:2px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none;transition:left .55s cubic-bezier(.3,.8,.3,1),top .55s cubic-bezier(.3,.8,.3,1);left:50%;top:40%}#tt-ring{position:fixed;z-index:2147483645;pointer-events:none;border:3px solid #e8c887;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18);transition:all .35s;opacity:0}.tt-title{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#2a2419,#0c0b09 70%);color:#fff;font-family:Estedad,Vazirmatn,Tahoma,sans-serif;direction:rtl;text-align:center;pointer-events:none}.tt-title small{display:block;color:#e8c887;font-size:18px;margin-bottom:10px}.tt-title h1{margin:0;font-size:44px;font-weight:800}.tt-title p{margin:12px 0 0;color:#cbbd9f;font-size:20px}`;
+  const css = `#tt-cap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(1120px,calc(100vw - 48px));z-index:2147483646;padding:14px 26px 16px;border-radius:18px;background:rgba(12,11,10,.86);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border:1px solid rgba(232,200,135,.22);color:#fff;font:500 21px/1.8 Estedad,Tahoma,sans-serif;direction:rtl;text-align:right;box-shadow:0 24px 60px -20px rgba(0,0,0,.7);transition:opacity .35s;pointer-events:none}#tt-cap b{display:block;font-size:14px;color:#e8c887;font-weight:700;letter-spacing:0}#tt-cap:empty{opacity:0}#tt-cap .w{display:inline-block;white-space:pre;will-change:transform,filter,opacity}#tt-cur{position:fixed;z-index:2147483647;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:rgba(232,200,135,.55);border:2px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none;transition:left .55s cubic-bezier(.3,.8,.3,1),top .55s cubic-bezier(.3,.8,.3,1);left:50%;top:40%}#tt-ring{position:fixed;z-index:2147483645;pointer-events:none;border:3px solid #e8c887;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18);transition:all .35s;opacity:0}.tt-title{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#2a2419,#0c0b09 70%);color:#fff;font-family:Estedad,Vazirmatn,Tahoma,sans-serif;direction:rtl;text-align:center;pointer-events:none}.tt-title small{display:block;color:#e8c887;font-size:18px;margin-bottom:10px}.tt-title h1{margin:0;font-size:44px;font-weight:800}.tt-title p{margin:12px 0 0;color:#cbbd9f;font-size:20px}.lg-dev,#clSent{display:none!important}`;
   const boot = () => {
     if (document.getElementById('tt-cap')) return;
     const st = document.createElement('style');
@@ -91,6 +91,15 @@ const OVERLAY = () => {
 };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Sign-in by SMS code (spec 0022): this demo server hands the code back, as the page does in development. */
+const codeLogin = async (phone) => {
+  const sent = await J('POST', '/api/auth/code', { phone });
+  let v = await J('POST', '/api/auth/verify', { phone, code: sent.code });
+  if (v.shops) v = await J('POST', '/api/auth/finish', { ticket: v.ticket, tenant: v.shops[0].tenant });
+  return v.token;
+};
+/** The code the page received (hidden in the film; typed into the six cells like the SMS a person reads). */
+const codeOf = (page) => page.$eval('.lg-dev', (b) => b.dataset.code);
 let pace = 1; // chapters outside --only still run (they build the shop's state) but unrecorded and fast
 function director(page, title) {
   const wait = (ms) => new Promise((r) => setTimeout(r, Math.max(120, ms * pace)));
@@ -143,11 +152,10 @@ async function prepControl() {
   const faD = (iso) => toJalali(+iso.slice(0, 4), +iso.slice(5, 7), +iso.slice(8, 10)).map((x, i) => String(x).padStart(i ? 2 : 4, '0')).join('/').replace(/\d/g, (x) => '۰۱۲۳۴۵۶۷۸۹'[x]);
   S.pastDayFa = faD(ago(10));
   S.pastDay2Fa = faD(ago(20));
-  const vendor = (await J('POST', '/api/auth/login', { login: '09120000001', password: '1234' })).token;
+  const vendor = await codeLogin('09120000001');
   const shop = (await J('GET', '/api/vendor/tenants', null, vendor)).items.find((t) => t.name === 'طلا و سکه امید');
-  const pw = 'Sara-manager-2026';
-  await J('POST', `/api/vendor/tenants/${shop.id}/users`, { name: 'سارا احمدی', username: 'sara.ahmadi', password: pw, role: 'manager' }, vendor);
-  S.managerToken = (await J('POST', '/api/auth/login', { login: 'sara.ahmadi', password: pw })).token;
+  await J('POST', `/api/vendor/tenants/${shop.id}/users`, { name: 'سارا احمدی', phone: '09120000011', role: 'manager' }, vendor);
+  S.managerToken = await codeLogin('09120000011');
   const parties = (await J('GET', '/api/books/parties?q=', null, S.token)).items;
   const reza = parties.find((p) => p.name === 'رضا تهرانی') ?? parties[0];
   const doc = await J('POST', '/api/books/docs', { type: 'trade', date: today, partyId: reza.id, lines: [{ kind: 'melt', dir: 'in', weight: 1.2, fineness: 750, mazaneh: 405000000 }], payments: [{ method: 'cash', dir: 'out', amount: 112190000 }] }, S.token);
@@ -158,42 +166,43 @@ async function prepControl() {
 }
 const CHAPTERS = [
   {
-    n: 1, slug: 'vendor', title: 'ورود و صدور حساب فروشگاه', sub: 'ارائه‌دهنده برای هر خریدار نام کاربری و رمز می‌سازد',
-    steps: ['در صفحه ورود نام کاربری یا موبایل و رمز را بزنید.', 'ارائه‌دهنده در «کنسول ارائه‌دهنده» فروشگاه تازه می‌سازد: نام، نسخه، نام کاربری مدیر و پایان اشتراک.', 'رمز فقط یک بار نمایش داده می‌شود؛ آن را کپی یا «برگه تحویل» را چاپ کنید.', 'همین حساب روی گوشی، تبلت و کامپیوتر کار می‌کند؛ تعلیق، تمدید، رمز تازه و خروج از همه دستگاه‌ها هم همین‌جاست.'],
+    n: 1, slug: 'vendor', title: 'ورود با موبایل و ساخت فروشگاه', sub: 'بدون نام کاربری و رمز: شماره موبایل و کد پیامکی',
+    steps: ['در صفحه ورود فقط شماره موبایل را بزنید؛ کد ۶ رقمی پیامک می‌شود و با زدن آن وارد می‌شوید.', 'ارائه‌دهنده در «کنسول ارائه‌دهنده ← پیامک ورود» پنل پیامک خودش را وصل می‌کند (SMS.ir، کاوه‌نگار، IPPanel و فراز، قاصدک یا ملی‌پیامک) و با «پیامک آزمایشی» امتحان می‌کند.', 'فروشگاه تازه فقط با نام فروشگاه و موبایل مدیرش ساخته می‌شود؛ متن آماده «نشانی ورود و شماره» برای صاحب مغازه فرستاده می‌شود.', 'هر شماره فروشگاه خودش را پیدا می‌کند؛ شماره‌ای که در چند فروشگاه است بعد از کد انتخاب می‌کند؛ با «ثبت‌نام آزاد» شماره تازه فروشگاه خودش را می‌سازد.', 'همین حساب روی گوشی، تبلت و کامپیوتر کار می‌کند؛ تعلیق، تمدید، عوض کردن موبایل و خروج از همه دستگاه‌ها هم در کنسول است.'],
     async run(page, d) {
       await d.go('/login', 800);
-      await d.say('به نرم‌افزار حسابداری طلا، سکه و شمش خوش آمدید. ورود فقط با نام کاربری و رمزی است که ارائه‌دهنده صادر می‌کند.');
-      await d.type('input[name=login]', '09120000001');
-      await d.type('input[name=password]', '1234');
-      await d.say('ارائه‌دهنده (فروشنده نرم‌افزار) وارد می‌شود تا برای یک مغازه خریدار حساب بسازد.', 2600);
-      await d.click('button[type=submit]', 1500);
-      await d.go('/vendor');
-      await d.say('این «کنسول ارائه‌دهنده» است: همه فروشگاه‌ها، وضعیت اشتراک، تعداد کاربران و اسناد هر کدام.');
+      await d.say('به بئاتریس خوش آمدید. ورود فقط با شماره موبایل است؛ نام کاربری و رمزی در کار نیست.', 3800);
+      await d.type('#pf input[name=phone]', '09120000001');
+      await d.click('#pf button[type=submit]', 1200);
+      await d.say('کد ۶ رقمی به همین شماره پیامک می‌شود. همان را بزنید؛ با رقم ششم خودبه‌خود وارد می‌شوید.', 3600);
+      await d.type('.otp-input', await codeOf(page), 2000);
+      await d.go('/vendor', 1600);
+      await d.say('کنسول ارائه‌دهنده: همه فروشگاه‌ها، اشتراک‌ها و کاربران هر کدام.', 3600);
+      await d.point('#vdSms');
+      await d.say('کارت «پیامک ورود»: پنل پیامک خودتان را وصل کنید — SMS.ir، کاوه‌نگار، IPPanel و فراز، قاصدک یا ملی‌پیامک — و با «پیامک آزمایشی» امتحانش کنید. کلید رمزشده نگه داشته می‌شود و دیگر نمایش داده نمی‌شود.', 6400);
       await d.click('[data-act=new]');
       await d.type('#sf [name=name]', 'طلا و سکه امید');
       await d.say('نسخه پایه برای مغازه‌های سکه، آبشده، شمش و ارز است؛ نسخه کامل فروش مصنوعات را هم دارد.', 3200);
       await d.type('#sf [name=ownerName]', 'امید رحیمی');
-      await d.type('#sf [name=username]', 'omid.rahimi');
-      await d.say('رمز را خالی بگذارید تا خودکار یک رمز ۱۰ نویسه‌ای محکم ساخته شود.', 3000);
+      await d.type('#sf [name=phone]', '09120000010');
+      await d.say('فقط موبایل مدیر فروشگاه لازم است؛ با همین شماره وارد می‌شود.', 2800);
       await d.type('#sf [name=expires]', '۱۴۰۶/۰۷/۰۶');
       await d.click('#sf button.btn:not(.ghost)', 1500);
-      S.password = (await page.textContent('.vd-pw')).trim();
-      await d.point('.vd-cred');
-      await d.say('رمز فقط همین یک بار دیده می‌شود. «کپی» یا «چاپ برگه تحویل» را بزنید و به صاحب مغازه بدهید. با همین نام کاربری و رمز، روی گوشی و کامپیوتر وارد می‌شود.', 6000);
+      await d.point('.vd-hand pre');
+      await d.say('به جای رمز، این متن را برای صاحب مغازه بفرستید: نشانی ورود و شماره‌ای که با آن وارد می‌شود. همکارانش را خودش در «تیم» با موبایل اضافه می‌کند.', 6200);
       await d.click('.modal [data-close]');
       await d.click('.vd-shop:not(:first-child) [data-act=users]', 1200);
-      await d.say('کاربران هر فروشگاه، آخرین ورود و دستگاه‌شان. «رمز تازه»، «خروج از همه دستگاه‌ها» و «غیرفعال» هم همین‌جاست. فروشگاه‌ها خودشان کاربر یا رمز نمی‌سازند.', 6000);
+      await d.say('کاربران هر فروشگاه با شماره موبایل، آخرین ورود و دستگاه‌شان. «موبایل»، «خروج از همه دستگاه‌ها» و «غیرفعال» هم همین‌جاست.', 5800);
     },
   },
   {
     n: 2, slug: 'setup', title: 'راه‌اندازی فروشگاه', sub: 'وضعیت واقعی امروز مغازه، یک بار و درست',
-    steps: ['مدیر فروشگاه تازه بعد از اولین ورود به «راه‌اندازی» می‌رود.', 'مشخصات فروشگاه، واحد پول و تاریخ شروع دفتر.', 'صندوق‌های نقد و حساب‌های بانکی با موجودی امروز.', 'طلای آبشده، سکه‌ها، شمش‌های پلمپ و ارز با میانگین بهای خرید (یا «قیمت امروز»).', 'مشتریان و مانده مالی و جنسی هر کدام؛ از اکسل هم می‌شود چسباند.', 'بازبینی و ثبت: یک «سند افتتاحیه» با کد رهگیری ساخته می‌شود و همه داشبوردها از همین نقطه شروع می‌کنند.'],
+    steps: ['مدیر فروشگاه تازه بعد از اولین ورود (با موبایل و کد پیامکی) به «راه‌اندازی» می‌رود.', 'مشخصات فروشگاه، واحد پول و تاریخ شروع دفتر.', 'صندوق‌های نقد و حساب‌های بانکی با موجودی امروز.', 'طلای آبشده، سکه‌ها، شمش‌های پلمپ و ارز با میانگین بهای خرید (یا «قیمت امروز»).', 'مشتریان و مانده مالی و جنسی هر کدام؛ از اکسل هم می‌شود چسباند.', 'بازبینی و ثبت: یک «سند افتتاحیه» با کد رهگیری ساخته می‌شود و همه داشبوردها از همین نقطه شروع می‌کنند.'],
     async run(page, d) {
       await d.go('/login', 600);
-      await d.say('صاحب مغازه با نام کاربری و رمزی که گرفته وارد می‌شود.', 2600);
-      await d.type('input[name=login]', 'omid.rahimi');
-      await d.type('input[name=password]', S.password);
-      await d.click('button[type=submit]', 2500);
+      await d.say('صاحب مغازه با همان شماره موبایلی که ارائه‌دهنده ثبت کرده وارد می‌شود.', 2800);
+      await d.type('#pf input[name=phone]', '09120000010');
+      await d.click('#pf button[type=submit]', 1000);
+      await d.type('.otp-input', await codeOf(page), 2500);
       await d.say('اولین بار، نرم‌افزار مستقیم به «راه‌اندازی فروشگاه» می‌رود تا وضعیت واقعی امروز مغازه ثبت شود. هیچ عدد ساختگی در کار نیست.');
       await d.type('[data-path="identity.address"]', 'تهران، بازار بزرگ، راسته زرگرها');
       await d.type('[data-path="identity.phone"]', '02155667788');
@@ -431,7 +440,7 @@ const CHAPTERS = [
   },
   {
     n: 11, slug: 'smart', title: 'ابزارهای هوشمند و بستن روز', sub: 'نقدینگی فردا، هشدار نوسان و امضای دیجیتال روز',
-    steps: ['نقدینگی فردا: نقد، طلا و سکه لازم با اطمینان ۹۰٪ از روزهای هم‌نام هفته، با سنجش دقت.', 'هشدار نوسان: مشتریانی که با بالا یا پایین رفتن قیمت، وثیقه‌شان بدهی را پوشش نمی‌دهد و قیمت شکست.', 'بستن روز: شمارش (با ترازوی متصل یا دستی)، وارسی بانک، ممیز و موارد باز، سپس امضا با رمز؛ روز بسته قفل می‌شود.'],
+    steps: ['نقدینگی فردا: نقد، طلا و سکه لازم با اطمینان ۹۰٪ از روزهای هم‌نام هفته، با سنجش دقت.', 'هشدار نوسان: مشتریانی که با بالا یا پایین رفتن قیمت، وثیقه‌شان بدهی را پوشش نمی‌دهد و قیمت شکست.', 'بستن روز: شمارش (با ترازوی متصل یا دستی)، وارسی بانک، ممیز و موارد باز، سپس امضا با کدی که به موبایل خودتان پیامک می‌شود؛ روز بسته قفل می‌شود.'],
     async run(page, d) {
       await d.go('/books/smart?t=forecast', 2200);
       await d.say('نقدینگی فردا: از همین روز هفته در ۱۲ هفته اخیر، چقدر نقد، طلا و سکه باید صبح آماده باشد؛ کمبود را هم می‌گوید و دقت پیش‌بینی‌های قبلی را نشان می‌دهد.', 6000);
@@ -440,18 +449,19 @@ const CHAPTERS = [
       await d.click('[data-tab=close]', 2000);
       await d.say('بستن روز: شمارش گاوصندوق و صندوق نقد (با ترازوی متصل به کامپیوتر یا دستی)، وارسی تطبیق بانک، ممیز، پیش‌نویس‌ها و قیمت‌های قفل‌شده باز.', 6000);
       await d.scroll(500, 1200);
-      await d.say('در پایان با رمز خودتان امضا می‌کنید؛ امضای دیجیتال فروشگاه ثبت و روز قفل می‌شود. فقط مالک می‌تواند روز بسته را با دلیل دوباره باز کند.', 5600);
+      await d.click('[data-sign-code]', 1400);
+      await d.say('در پایان «گرفتن کد امضا» را می‌زنید؛ کدی که به موبایل خودتان پیامک می‌شود امضای شماست. امضای دیجیتال فروشگاه ثبت و روز قفل می‌شود. فقط مالک می‌تواند روز بسته را با دلیل دوباره باز کند.', 6400);
     },
   },
   {
     n: 12, slug: 'phone', title: 'روی گوشی و پوسته روشن', sub: 'همان حساب، همان داده‌ها؛ طراحی مخصوص صفحه کوچک',
     viewport: { width: 390, height: 844 },
-    steps: ['با همان نام کاربری و رمز روی گوشی وارد شوید.', 'نبض، میز معامله و گاوصندوق برای صفحه کوچک چیده شده‌اند.', 'دکمه پوسته بالای صفحه فهرست پوسته‌ها را باز می‌کند: «شب آرام» برای ساعت‌های طولانی، «روز» برای مغازه روشن و پوسته‌های دیگر.'],
+    steps: ['با همان شماره موبایل و کد پیامکی روی گوشی وارد شوید.', 'نبض، میز معامله و گاوصندوق برای صفحه کوچک چیده شده‌اند.', 'دکمه پوسته بالای صفحه فهرست پوسته‌ها را باز می‌کند: «شب آرام» برای ساعت‌های طولانی، «روز» برای مغازه روشن و پوسته‌های دیگر.'],
     async run(page, d) {
       await d.go('/login', 600);
-      await d.type('input[name=login]', 'omid.rahimi');
-      await d.type('input[name=password]', S.password);
-      await d.click('button[type=submit]', 2200);
+      await d.type('#pf input[name=phone]', '09120000010');
+      await d.click('#pf button[type=submit]', 1000);
+      await d.type('.otp-input', await codeOf(page), 2200);
       await d.go('/books/pulse', 2000);
       await d.say('روی گوشی با همان حساب: نبض امروز، قیمت‌ها و آخرین رویدادها.', 4200);
       await d.go('/books/desk', 1800);

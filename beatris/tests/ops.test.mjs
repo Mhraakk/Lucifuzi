@@ -8,6 +8,7 @@ import { openDb } from '../server/db.mjs';
 import { backupAll, listBackups } from '../server/backup.mjs';
 import { createMetrics, routeKey, quantile } from '../server/metrics.mjs';
 import { createCache } from '../server/cache.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 test('backup: a consistent, checked copy of each database; only the newest are kept', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'bk-'));
@@ -84,8 +85,8 @@ test('gateway + ops: request id, timing, per-IP ceiling, deep health, vendor-onl
     return { r, body: await r.json().catch(() => null) };
   };
   try {
-    const V = (await call('POST', '/api/auth/login', { phone: '09120000001', pin: '1234' })).body.token;
-    const M = (await call('POST', '/api/auth/login', { phone: '09120000002', pin: '1234' })).body.token;
+    const V = (await smsLogin(base, '09120000001'));
+    const M = (await smsLogin(base, '09120000002'));
     // request id: echoed when well-formed, generated otherwise; also in error bodies
     const a = await call('GET', '/api/me', null, V, { 'x-request-id': 'trace-12345678' });
     assert.equal(a.r.headers.get('x-request-id'), 'trace-12345678');
@@ -103,8 +104,8 @@ test('gateway + ops: request id, timing, per-IP ceiling, deep health, vendor-onl
     // ops: vendor only
     assert.equal((await call('GET', '/api/ops/metrics', null, M)).r.status, 403);
     assert.equal((await call('GET', '/api/ops/metrics')).r.status, 401);
-    const shop = await call('POST', '/api/vendor/tenants', { name: 'فروشگاه دوم', username: 'second' }, V);
-    const T = (await call('POST', '/api/auth/login', { login: 'second', password: shop.body.password })).body.token;
+    const shop = await call('POST', '/api/vendor/tenants', { name: 'فروشگاه دوم', phone: '09367000001' }, V);
+    const T = await smsLogin(base, '09367000001');
     assert.equal((await call('GET', '/api/ops/metrics', null, T)).r.status, 403);
     const b = await call('POST', '/api/ops/backup', null, V);
     assert.equal(b.r.status, 200);

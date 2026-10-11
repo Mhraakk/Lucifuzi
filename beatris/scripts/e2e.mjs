@@ -3,7 +3,8 @@
 //
 //   npm run e2e                       # uses the globally installed playwright
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run e2e
-//   E2E_BASE=https://... E2E_PHONE=... E2E_PIN=... npm run e2e   # smoke-test a live deploy (read-only checks)
+//   E2E_BASE=https://... E2E_PHONE=... E2E_PIN=... npm run e2e   # smoke-test a live deploy (read-only checks; E2E_PIN is the
+//                                                                 # owner's BEATRIS_OWNER_PIN while SMS is not set up)
 //   E2E_ONLY='melted|mobile pages' npm run e2e                     # only the steps whose name matches (login always runs)
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -30,7 +31,7 @@ if (!live) {
   }
 }
 const PHONE = process.env.E2E_PHONE || '09120000002'; // demo manager
-const PIN = process.env.E2E_PIN || '1234';
+const PIN = process.env.E2E_PIN || ''; // only for a live server whose owner signs in with BEATRIS_OWNER_PIN (spec 0022)
 
 const results = [];
 const errors = [];
@@ -63,7 +64,7 @@ async function session(viewport) {
     if (m.type() !== 'error' || offline) return;
     const t = m.text();
     if (/favicon|preload/.test(t)) return;
-    if (/status of 401/.test(t) && page.url().includes('/login')) return; // the deliberate wrong-PIN attempt
+    if (/status of 401/.test(t) && page.url().includes('/login')) return; // the deliberate wrong code
     if (expectedError?.test(t)) return;
     errors.push(`[${label}] ${page.url()} console: ${t.slice(0, 240)}`);
   });
@@ -94,17 +95,30 @@ const freshDesk = async (page) => {
 };
 const noBadNumbers = (s) => !/NaN|undefined|Infinity/.test(s);
 
-async function loginUI(page) {
+/** Sign in the way people do (spec 0022): the number, then the code. Demo accounts see their code on the page. */
+async function loginUI(page, phone = PHONE) {
   await go(page, '/login', 800);
-  await page.fill('input[name=login]', PHONE);
-  await page.fill('input[name=password]', '0000');
-  await page.click('button[type=submit]');
-  await page.waitForTimeout(600);
-  if (!live) check('login: wrong PIN shows an error', (await text(page, '#err')).length > 3);
-  await page.fill('input[name=password]', PIN);
-  await page.click('button[type=submit]');
+  await page.fill('#pf input[name=phone]', phone);
+  await page.click('#pf button[type=submit]');
+  await page.waitForSelector('#cf', { timeout: 15000 });
+  const dev = await page.$('.lg-dev');
+  if (dev) {
+    const code = (await page.$eval('.lg-dev', (b) => b.dataset.code)).trim();
+    if (!live) {
+      // a wrong code: an error under the cells, the row shakes and empties
+      await page.fill('.otp-input', code === '000000' ? '111111' : '000000');
+      await page.waitForTimeout(700);
+      check('login: a wrong code shows an error and empties the cells', (await text(page, '#err')).length > 3 && (await page.$eval('.otp-input', (i) => i.value)) === '' && !!(await page.$('.otp.bad')));
+    }
+    await dev.click(); // the demo chip types the code; six digits sign in by themselves
+  } else if (await page.$('#cf input[type=password]')) {
+    await page.fill('#cf input[name=code]', PIN);
+    await page.click('#cf button[type=submit]');
+  } else throw new Error('no code on the page: a live server with SMS needs a real phone');
+  // a number in several shops picks one after the code (spec 0022): the first is the main shop
+  await Promise.race([page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 }), page.waitForSelector('.lg-shops [data-act=pick]', { timeout: 15000 }).then((b) => b.click())]);
   await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 });
-  check('login: correct PIN reaches home', true);
+  check('login: number → code reaches home', true);
 }
 
 /* ======================================================= desktop, full walk */
@@ -627,7 +641,7 @@ async function loginUI(page) {
     // without JavaScript the browser posts the form itself: urlencoded body, answered by a redirect back to the page
     const plain = await p2.evaluate(async () => {
       const r = await fetch('/api/leads', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ name: 'سارا بی‌اسکریپت', shop: 'گالری فرم ساده', phone: '09131234568', branches: '۲', pack: 'زنجیره‌ای', website: '' }) });
-      const other = await fetch('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'username=a&password=b' });
+      const other = await fetch('/api/auth/code', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'phone=09120000002' });
       return { type: r.type, other: other.status };
     });
     check('intro: plain form post is redirected (303), other form posts refused (415)', plain.type === 'opaqueredirect' && plain.other === 415, JSON.stringify(plain));
@@ -655,49 +669,110 @@ async function loginUI(page) {
     check('owner marks the request as contacted', (await page.$eval('[data-status="contacted"]', (b) => b.getAttribute('aria-pressed'))) === 'true');
   });
 
-  await step('account request: sign-in page → manager approves in the app → same device gets username and password', async () => {
+  if (!live) await step('sign-in by SMS (spec 0022): a colleague added by mobile, a new shop by sign-up, two shops, the vendor console', async () => {
+    // the manager adds a colleague with a mobile only — no username, no password
     await go(page, '/staff', 1200);
-    check('team page links to account requests', !!(await page.$('a[href="/staff/access"]')));
-    await go(page, '/staff/access', 1200);
-    const code = (await text(page, '#acCode')).trim();
-    check('access: invite code with link and QR', /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code) && !!(await page.$('.ac-qr svg')), code);
+    check('team: no account-request page any more', !(await page.$('a[href="/staff/access"]')));
+    await page.fill('#add input[name=name]', 'ترانه آزمون');
+    await page.fill('#add input[name=phone]', '۰۹۱۳۵۵۵۱۲۱۲');
+    await page.selectOption('#add select[name=role]', 'trainer');
+    check('team: the add form asks for no password', !(await page.$('#add input[name=pin]')));
+    await page.click('#add button[type=submit]');
+    await page.waitForTimeout(1200);
+    check('team: the colleague is listed', /ترانه آزمون/.test(await text(page, '#main')));
+    // she signs in on her phone with that number and the code
     const pub = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const p3 = await pub.newPage();
-    p3.on('pageerror', (e) => errors.push(`[join] pageerror: ${e.message}`));
-    await p3.goto(base + '/login');
-    await p3.waitForTimeout(1000);
-    await p3.click('a[href="/join"]');
-    await p3.waitForTimeout(800);
-    await p3.fill('#jf input[name=code]', code.toLowerCase().replace('-', ''));
+    p3.on('pageerror', (e) => errors.push(`[sms] pageerror: ${e.message}`));
+    p3.on('console', (m) => m.type() === 'error' && !/status of 40[13]/.test(m.text()) && errors.push(`[sms] console: ${m.text().slice(0, 200)}`));
+    await p3.goto(base + '/join');
     await p3.waitForTimeout(900);
-    check('join: the shop name appears for a right code', /فروشگاه:/.test(await text(p3, '#jshop')), await text(p3, '#jshop'));
-    await p3.fill('#jf input[name=name]', 'ترانه آزمون');
-    await p3.fill('#jf input[name=phone]', '۰۹۱۳۵۵۵۱۲۱۲');
-    await p3.selectOption('#jf select[name=role]', 'trainer');
-    await p3.fill('#jf input[name=username]', 'taraneh.test');
-    await p3.click('#jf button[type=submit]');
-    await p3.waitForTimeout(1200);
-    check('join: request waits for the manager on this device', /در انتظار تأیید/.test(await text(p3, 'h1')));
-    check('join: no sideways scroll on a phone', await p3.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-    await go(page, '/staff/access', 1200);
-    const req = page.locator('.ac-req', { hasText: 'ترانه آزمون' });
-    check('access: the request is listed with the wished username', (await req.locator('input[name=username]').inputValue()) === 'taraneh.test');
-    await req.locator('button[type=submit]').click();
-    await page.waitForTimeout(1200);
-    check('access: approved, waiting for pickup on their device', /منتظر دریافت روی دستگاه/.test(await text(page, '#main')));
-    await p3.click('[data-j=check]');
-    await p3.waitForTimeout(1200);
-    const pw = (await text(p3, '.vd-pw')).trim();
-    check('join: the same device shows username and a fresh password once', /taraneh\.test/.test(await text(p3, '.join-cred')) && pw.length === 10, pw);
-    await p3.click('[data-j=login]');
-    await p3.waitForTimeout(1200);
-    check('login form filled from the approved request', (await p3.inputValue('input[name=login]')) === 'taraneh.test' && (await p3.inputValue('input[name=password]')) === pw);
-    await p3.click('button[type=submit]');
+    check('old /join links land on the sign-in page', new URL(p3.url()).pathname === '/login');
+    check('login: one field, the mobile number, no password anywhere', !!(await p3.$('#pf input[name=phone]')) && !(await p3.$('input[type=password]')) && !(await p3.$('a[href="/join"]')));
+    await p3.fill('#pf input[name=phone]', '09135551212');
+    await p3.click('#pf button[type=submit]');
+    await p3.waitForSelector('#cf', { timeout: 10000 });
+    check('code step: six cells, the number shown, a resend timer', (await p3.$$eval('.otp-cells i', (x) => x.length)) === 6 && /۰۹۱۳ ۵۵۵ ۱۲۱۲/.test(await text(p3, '.lg-step')) && /ارسال دوباره تا/.test(await text(p3, '[data-act=resend]')));
+    check('code step: no sideways scroll on a phone', await p3.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    const code = await p3.$eval('.lg-dev', (b) => b.dataset.code);
+    await p3.fill('.otp-input', [...code].map((d) => '۰۱۲۳۴۵۶۷۸۹'[d]).join('')); // Persian digits are fine
     await p3.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 }).catch(() => {});
-    check('the new colleague signs in with that account', !new URL(p3.url()).pathname.startsWith('/login'), p3.url());
+    check('the new colleague is in, with her own number', !new URL(p3.url()).pathname.startsWith('/login') && (await p3.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).user.phone)) === '09135551212');
     await pub.close();
-    await go(page, '/staff/access', 1200);
-    check('access: shows the password was delivered', /تحویل شد/.test(await text(page, '#main')));
+    // a number with no account opens its own shop
+    const sCtx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+    const p4 = await sCtx.newPage();
+    p4.on('pageerror', (e) => errors.push(`[signup] pageerror: ${e.message}`));
+    await p4.goto(base + '/login');
+    await p4.waitForTimeout(900);
+    await p4.fill('#pf input[name=phone]', '09135550000');
+    await p4.click('#pf button[type=submit]');
+    await p4.waitForSelector('.lg-dev', { timeout: 10000 });
+    await p4.click('.lg-dev');
+    await p4.waitForSelector('#sf', { timeout: 10000 });
+    check('sign-up: an unknown number is offered its own shop', /حسابی ندارد/.test(await text(p4, '.lg-step')));
+    await p4.fill('#sf input[name=name]', 'کاوه آزمون');
+    await p4.fill('#sf input[name=shopName]', 'گالری ثبت‌نام');
+    await p4.click('#sf button[type=submit]');
+    await p4.waitForURL((u) => u.pathname === '/setup', { timeout: 15000 }).catch(() => {});
+    check('sign-up: the new owner lands in the setup wizard of the new shop', new URL(p4.url()).pathname === '/setup', p4.url());
+    // the new owner adds the demo manager's number: that number now has two shops
+    const added = await p4.evaluate(async () => (await fetch('/api/team', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('beatris.token')}` }, body: JSON.stringify({ name: 'سارا در گالری دوم', phone: '09120000002', role: 'manager' }) })).status);
+    check('sign-up: the new owner adds staff by mobile', added === 200, String(added));
+    await sCtx.close();
+    const two = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const p5 = await two.newPage();
+    p5.on('pageerror', (e) => errors.push(`[two shops] pageerror: ${e.message}`));
+    await p5.goto(base + '/login');
+    await p5.waitForTimeout(900);
+    await p5.fill('#pf input[name=phone]', '09120000002');
+    await p5.click('#pf button[type=submit]');
+    await p5.waitForSelector('.lg-dev', { timeout: 10000 });
+    await p5.click('.lg-dev');
+    await p5.waitForSelector('.lg-shops', { timeout: 10000 });
+    const shops = await p5.$$eval('.lg-shops [data-act=pick]', (b) => b.map((x) => x.innerText));
+    check('two shops: the number picks one after the code', shops.length === 2 && shops.some((x) => /گالری ثبت‌نام/.test(x)), shops.join(' | '));
+    await p5.click('.lg-shops [data-act=pick]:has-text("گالری ثبت‌نام")');
+    await p5.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 }).catch(() => {});
+    check('two shops: the picked shop opens', !new URL(p5.url()).pathname.startsWith('/login') && (await p5.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).tenant.name)) === 'گالری ثبت‌نام');
+    await two.close();
+    // the vendor console: the SMS card, a shop made with a mobile only, and its owner signs in
+    const vCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const pv = await vCtx.newPage();
+    pv.on('pageerror', (e) => errors.push(`[vendor] pageerror: ${e.message}`));
+    await loginUI(pv, '09120000001');
+    await go(pv, '/vendor', 1500);
+    check('vendor: the SMS card says no panel is set (development shows the code on the page)', /پیامک ورود/.test(await text(pv, '#vdSms')) && !!(await pv.$('#smsF select[name=provider]')) && /محیط توسعه/.test(await text(pv, '#vdSms')));
+    await pv.selectOption('#smsF select[name=provider]', 'smsir');
+    await pv.waitForTimeout(300);
+    check('vendor: choosing SMS.ir shows its own fields and hint', !!(await pv.$('#smsF input[name=key]')) && !!(await pv.$('#smsF input[name=template]')) && /#Code#/.test(await text(pv, '#vdSms')));
+    await pv.selectOption('#smsF select[name=provider]', '');
+    await pv.click('[data-act=new]');
+    await pv.waitForSelector('#sf');
+    check('vendor: a new shop asks for no username or password', !(await pv.$('#sf input[name=username]')) && !(await pv.$('#sf input[name=password]')));
+    await pv.fill('#sf input[name=name]', 'زرگری موبایلی');
+    await pv.fill('#sf input[name=ownerName]', 'امید آزمون');
+    await pv.fill('#sf input[name=phone]', '09136660000');
+    await pv.click('#sf button:not([type=button])');
+    await pv.waitForSelector('.vd-hand pre', { timeout: 10000 });
+    const hand = await text(pv, '.vd-hand pre');
+    check('vendor: the hand-over text has the sign-in address and the number, no password', /\/login/.test(hand) && /۰۹۱۳ ۶۶۶ ۰۰۰۰/.test(hand) && !/رمز:/.test(hand), hand.replace(/\n/g, ' | '));
+    await pv.click('.modal [data-close]');
+    await vCtx.close();
+    const oCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const po = await oCtx.newPage();
+    await loginUI(po, '09136660000');
+    await po.waitForURL((u) => u.pathname === '/setup', { timeout: 15000 }).catch(() => {});
+    check('vendor: the new shop owner signs in with that number', new URL(po.url()).pathname === '/setup', po.url());
+    await oCtx.close();
+    // signing the day close is a fresh code to the signer's own mobile
+    await go(page, '/books/smart?t=close', 1800);
+    const sign = await page.$('[data-sign-code]');
+    if (sign) {
+      await sign.click();
+      await page.waitForTimeout(900);
+      check('day close: «گرفتن کد امضا» brings a six-digit code (shown for a demo account)', /^[0-9۰-۹]{6}$/.test(await page.inputValue('#clCode')) && /کد حساب نمایشی/.test(await text(page, '#clSent')), await page.inputValue('#clCode'));
+    } else check('day close: the day is open with a sign-by-code form', false, 'no [data-sign-code]');
   });
 
   await step('light layer: hand light, ripple, sunrise theme switch, stillness when asked (spec 0012)', async () => {

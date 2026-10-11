@@ -4,6 +4,7 @@ import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
 import { makeAssistant } from '../server/assistant.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, M, E;
 const call = async (method, path, body, token) => {
@@ -16,7 +17,7 @@ const ok = async (...a) => {
   return r.body;
 };
 const ask = async (question, token = M) => (await ok('POST', '/api/books/assistant', { question }, token)).answer;
-const login = async (phone) => (await call('POST', '/api/auth/login', { phone, pin: '1234' })).body.token;
+const login = (phone) => smsLogin(base, phone);
 const MAZ = 400000000;
 
 before(async () => {

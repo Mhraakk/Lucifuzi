@@ -23,6 +23,8 @@ export function verifyPin(pin, stored) {
   return got.length === expect.length && timingSafeEqual(got, expect);
 }
 export const validPin = (pin) => /^[0-9]{4,12}$/.test(digits(pin));
+/** Accounts sign in with their mobile and an SMS code (spec 0022): the password column holds this, which matches nothing. */
+export const NO_PIN = '-';
 export function normalizePhone(p) {
   const d = String(p ?? '')
     .replace(/[۰-۹]/g, (c) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))

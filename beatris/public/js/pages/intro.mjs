@@ -127,7 +127,7 @@ export async function introPage(root, params = {}) {
         <div style="grid-column:1/-1"><button class="btn" type="submit">ارسال درخواست</button> <span class="small" id="lmsg" role="status" aria-live="polite"></span></div>
       </form>
       <aside class="lux-card lux-next"><h2>بعد از ارسال</h2><ol>${NEXT_STEPS.map(([t, d]) => html`<li><b>${t}</b><span>${d}</span></li>`)}</ol>
-        <p class="small">کارکنان فروشگاهی که حساب دارند: برای ورود یا رمز فراموش‌شده از <a href="/login" data-link>صفحه ورود</a> و ارائه‌دهنده نرم‌افزار کمک بگیرید.</p></aside>
+        <p class="small">کارکنان فروشگاهی که حساب دارند: در <a href="/login" data-link>صفحه ورود</a> شماره موبایل خود را بزنید و با کد پیامکی وارد شوید؛ رمزی برای فراموش کردن نیست.</p></aside>
     </section>
     <section class="intro-sec"><h2 class="reveal">پرسش‌های رایج</h2>${FAQ.map(([q, a]) => html`<details class="lux-card intro-faq reveal"><summary>${q}</summary><p>${a}</p></details>`)}</section>
     </div>`;

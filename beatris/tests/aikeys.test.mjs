@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 // the providers are faked at the network edge: every other request goes to the real test server
 const realFetch = globalThis.fetch;
@@ -43,11 +44,11 @@ before(async () => {
   server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
-  V = (await ok('POST', '/api/auth/login', { phone: '09120000001', pin: '1234' })).token;
-  const shop = await ok('POST', '/api/vendor/tenants', { name: 'فروشگاه کلید', username: 'keys.shop' }, V);
-  T = (await ok('POST', '/api/auth/login', { login: 'keys.shop', password: shop.password })).token;
-  const emp = await ok('POST', `/api/vendor/tenants/${shop.tenant.id}/users`, { name: 'فروشنده', username: 'keys.emp', role: 'employee' }, V);
-  E = (await ok('POST', '/api/auth/login', { login: 'keys.emp', password: emp.password })).token;
+  V = (await smsLogin(base, '09120000001'));
+  const shop = await ok('POST', '/api/vendor/tenants', { name: 'فروشگاه کلید', phone: '09366000001' }, V);
+  T = await smsLogin(base, '09366000001');
+  await ok('POST', `/api/vendor/tenants/${shop.tenant.id}/users`, { name: 'فروشنده', phone: '09366000002', role: 'employee' }, V);
+  E = await smsLogin(base, '09366000002');
 });
 after(() => {
   server.close();

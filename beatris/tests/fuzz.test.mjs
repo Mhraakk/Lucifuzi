@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 const N = Number(process.env.FUZZ_N ?? 400);
 let seed = Number(process.env.FUZZ_SEED ?? 20260929);
@@ -36,8 +37,7 @@ before(async () => {
   server = createServer({ db, secret: 'fuzz-secret-0123456789', demo: true, quiet: true, rateLimit: 1e9, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
-  const r = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '09120000002', pin: '1234' }) });
-  M = (await r.json()).token;
+  M = await smsLogin(base, '09120000002');
 });
 after(() => {
   server.close();

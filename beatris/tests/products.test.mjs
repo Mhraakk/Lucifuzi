@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, V, A, B2, E;
 const call = async (method, path, body, token) => {
@@ -21,13 +22,13 @@ before(async () => {
   server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
-  V = (await ok('POST', '/api/auth/login', { phone: '09120000001', pin: '1234' })).token;
-  const a = await ok('POST', '/api/vendor/tenants', { name: 'فروشگاه الف', username: 'shop.a' }, V);
-  const b = await ok('POST', '/api/vendor/tenants', { name: 'فروشگاه ب', username: 'shop.b' }, V);
-  A = (await ok('POST', '/api/auth/login', { login: 'shop.a', password: a.password })).token;
-  B2 = (await ok('POST', '/api/auth/login', { login: 'shop.b', password: b.password })).token;
-  const e = await ok('POST', `/api/vendor/tenants/${a.tenant.id}/users`, { name: 'فروشنده', username: 'shop.a.emp', role: 'employee' }, V);
-  E = (await ok('POST', '/api/auth/login', { login: 'shop.a.emp', password: e.password })).token;
+  V = (await smsLogin(base, '09120000001'));
+  const a = await ok('POST', '/api/vendor/tenants', { name: 'فروشگاه الف', phone: '09362000001' }, V);
+  await ok('POST', '/api/vendor/tenants', { name: 'فروشگاه ب', phone: '09362000002' }, V);
+  A = await smsLogin(base, '09362000001');
+  B2 = await smsLogin(base, '09362000002');
+  await ok('POST', `/api/vendor/tenants/${a.tenant.id}/users`, { name: 'فروشنده', phone: '09362000003', role: 'employee' }, V);
+  E = await smsLogin(base, '09362000003');
   await ok('POST', '/api/books/setup', { gold: { grams: 100, avgPrice: 90000000 }, coins: [{ coin: 'emami', count: 10, avgPrice: 1000000000 }], cash: [{ title: 'صندوق', amount: 5000000000 }] }, A);
 });
 after(() => server.close());

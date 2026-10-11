@@ -4,13 +4,14 @@ import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
 import * as MELT from '../public/js/melt.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, token;
 const call = async (method, path, body, auth) => {
   const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(auth ? { authorization: `Bearer ${auth}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
   return { status: r.status, body: await r.json().catch(() => null), headers: r.headers };
 };
-const login = async (phone) => (await call('POST', '/api/auth/login', { phone, pin: '1234' })).body.token;
+const login = (phone) => smsLogin(base, phone);
 const rpc = async (msg, headers = {}) => {
   const r = await fetch(`${base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${token}`, ...headers }, body: JSON.stringify(msg) });
   return { status: r.status, body: r.status === 202 ? null : await r.json() };

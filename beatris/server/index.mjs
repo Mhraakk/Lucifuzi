@@ -10,6 +10,7 @@ import { createApi, seedUsers, HttpError } from './api.mjs';
 import { validateContent } from '../content/index.mjs';
 import { MEDIA_NAME } from './media.mjs';
 import { createPlatform, PlatformError, MAIN } from './platform.mjs';
+import { createOtp, OtpError } from './otp.mjs';
 import { createPeers } from './peers.mjs';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
@@ -52,19 +53,24 @@ export function parseRange(h, size) {
   return start <= end && start < size ? [start, end] : null;
 }
 
-export function createServer({ db, secret, demo, quiet = false, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts, tenantsDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'tenants') : ':memory:', backupDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'backups') : null, rateLimit = 1500, accessLog = process.env.BEATRIS_ACCESS_LOG === '1' }) {
+export function createServer({ db, secret, demo, quiet = false, env = process.env, smsOpts = {}, otpOpts = {}, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts, tenantsDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'tenants') : ':memory:', backupDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'backups') : null, rateLimit = 1500, accessLog = process.env.BEATRIS_ACCESS_LOG === '1' }) {
   const signer = makeSigner(secret);
   const sealer = makeSealer(secret);
   const metrics = createMetrics();
   const onEvent = (name) => metrics.inc(`ai.${name}`); // model gateway and guardrail events, all shops together
   const flags = createFlags({ db });
-  const handle = createApi({ db, signer, demo, mediaDir, marketOpts, sealer, onEvent, flags: () => flags.forShop(MAIN) });
+  // کد یک‌بارمصرف (spec 0022): one code service for every shop, its records in the main database
+  const otp = createOtp({ db, secret, sealer, env, quiet, smsOpts, ...otpOpts });
+  const handle = createApi({ db, signer, demo, mediaDir, marketOpts, sealer, onEvent, flags: () => flags.forShop(MAIN), otp });
   // every other shop: its own database file under tenants/, the shared price feed of the main shop
   const platform = createPlatform({
     mainDb: db,
     signer,
     mainHandle: handle,
-    openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market, sealer, onEvent, flags: () => flags.forShop(row.id) }),
+    openTenant: (row) => createApi({ db: openDb(tenantsDir, `${row.id}.db`), signer, demo: false, mediaDir, tenant: row, sharedMarket: handle.market, sealer, onEvent, flags: () => flags.forShop(row.id), otp }),
+    otp,
+    demo,
+    env,
   });
 
   const peers = createPeers({ mainDb: db, platform, enabled: (tn) => flags.on(tn, 'peers') });
@@ -379,7 +385,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       try {
         return marketStream(req, res);
       } catch (e) {
-        if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message, requestId: rid, ...(e.extra ?? {}) });
+        if (e instanceof HttpError || e instanceof PlatformError || e instanceof OtpError) return send(e.status, { error: e.message, requestId: rid, ...(e.extra ?? {}) });
         throw e;
       }
     }
@@ -403,7 +409,12 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       const auth = String(req.headers.authorization ?? '');
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
       let out;
-      if (url.pathname === '/api/auth/login' && req.method === 'POST') out = platform.login(body, ip, req.headers['user-agent']);
+      const ua = req.headers['user-agent'];
+      // ورود با پیامک (spec 0022): number → code → (shop or new shop); no shop code, no password
+      if (url.pathname === '/api/auth/code' && req.method === 'POST') out = await platform.sendLoginCode(body, ip);
+      else if (url.pathname === '/api/auth/verify' && req.method === 'POST') out = platform.verifyLogin(body, ip, ua);
+      else if (url.pathname === '/api/auth/finish' && req.method === 'POST') out = platform.finishLogin(body, ip, ua);
+      else if (url.pathname === '/api/auth/login') throw new HttpError(410, 'ورود با نام کاربری و رمز برداشته شد؛ با شماره موبایل و کد پیامکی وارد شوید.');
       else if (url.pathname.startsWith('/api/ops/')) {
         if (token && platform.tenantOfToken(token) && platform.tenantOfToken(token) !== MAIN) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
         out = ops(req.method, url.pathname, req, body);
@@ -412,12 +423,9 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
         if (token && platform.tenantOfToken(token) && platform.tenantOfToken(token) !== MAIN) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
         const user = handle.authenticate(req);
         if (!user) throw new HttpError(401, 'ورود لازم است.');
-        out = platform.vendor(req.method, url.pathname, body, user);
+        out = await platform.vendor(req.method, url.pathname, body, user, ip);
       } else if (url.pathname.startsWith('/api/access/')) {
-        // account requests (spec 0011): public from the sign-in page, approved by the shop's owner or manager
-        const tn = (token && platform.tenantOfToken(token)) || MAIN;
-        const user = token ? platform.handleFor(tn).authenticate(req) : null;
-        out = platform.access(req.method, url.pathname, body, { ip, user, tn, query: url.searchParams });
+        out = platform.access(); // account requests with a shop code (spec 0011) are retired by spec 0022
       } else if (url.pathname === '/api/peers' || url.pathname.startsWith('/api/peers/')) {
         // تطبیق با همکار spans two shops: the registry is in the main database, each side's books in its own
         const tn = (token && platform.tenantOfToken(token)) || MAIN;
@@ -447,7 +455,7 @@ export function createServer({ db, secret, demo, quiet = false, mediaDir = path.
       }
       send(200, out);
     } catch (e) {
-      if (e instanceof HttpError || e instanceof PlatformError) return send(e.status, { error: e.message, requestId: rid, ...(e.extra ?? {}) });
+      if (e instanceof HttpError || e instanceof PlatformError || e instanceof OtpError) return send(e.status, { error: e.message, requestId: rid, ...(e.extra ?? {}) });
       if (!quiet) console.error('[beatris]', rid, req.method, url.pathname, e);
       send(500, { error: 'خطای داخلی سرور. دوباره تلاش کنید.', requestId: rid });
     }

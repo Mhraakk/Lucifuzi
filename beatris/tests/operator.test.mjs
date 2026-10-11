@@ -6,6 +6,7 @@ import { parseLine, readNumber, normalize, describe } from '../public/js/oneline
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 test('برگشت سریع: هر تغییر یک گام؛ تایپ پشت‌سرهم یک خانه یک گام؛ undo و redo؛ تغییر تازه شاخه redo را می‌برد', () => {
   let t = 0;
@@ -124,7 +125,7 @@ const ok = async (...a) => {
   assert.ok(r.status < 300, `${a[0]} ${a[1]} → ${r.status} ${JSON.stringify(r.body)}`);
   return r.body;
 };
-const login = async (phone) => (await call('POST', '/api/auth/login', { phone, pin: '1234' })).body.token;
+const login = (phone) => smsLogin(base, phone);
 before(async () => {
   const db = openDb(':memory:');
   seedUsers(db, {}, true);

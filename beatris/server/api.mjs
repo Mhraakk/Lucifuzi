@@ -6,7 +6,7 @@ import { backtest } from '../public/js/backtest.mjs';
 import path from 'node:path';
 import * as C from '../content/index.mjs';
 import { checkNumeric, RECORD_KINDS } from '../public/js/calc.mjs';
-import { ROLES, STAFF_ROLES, ADMIN_ROLES, hashPin, verifyPin, validPin, normalizePhone, validPhone, makeLimiter } from './auth.mjs';
+import { ROLES, STAFF_ROLES, ADMIN_ROLES, NO_PIN, normalizePhone, validPhone, makeLimiter } from './auth.mjs';
 import { COIN_TYPES } from '../public/js/coins.mjs';
 import { SHOP_NAME } from '../public/js/crown.mjs';
 import { PHOTO_KINDS, PHOTO_SIDES, checkTexture, storeFiles, removeFiles, builtinPhotos } from './media.mjs';
@@ -57,14 +57,12 @@ function grade(q, answer) {
 }
 const reveal = (q) => (q.o ? { answer: q.a, answerText: q.o[q.a] } : { answer: q.n, unit: q.unit });
 
-export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media'), marketOpts = {}, tenant = null, sharedMarket = null, sealer = null, onEvent = () => {}, flags = () => ({}) }) {
+export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'media'), marketOpts = {}, tenant = null, sharedMarket = null, sealer = null, onEvent = () => {}, flags = () => ({}), otp = null }) {
   // one handler per shop: the main shop (tenant null) owns the price feed, the registry and the vendor console;
   // every other shop runs on its own database, reads the shared price feed and has its accounts issued by the vendor
   let T = tenant;
   const isMain = !T || T.id === 'main';
   const tenantId = isMain ? 'main' : T.id;
-  const loginByPhone = makeLimiter(6, 10 * 60 * 1000);
-  const loginByIp = makeLimiter(30, 10 * 60 * 1000);
   const audit = (uid, action, detail = {}) => db.run('INSERT INTO audit(user_id,action,detail_json,created_at) VALUES (?,?,?,?)', uid, action, JSON.stringify(detail), now());
 
   const getSetting = (key, fallback) => {
@@ -149,44 +147,37 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   on('GET', '/api/config', 'public', () => ({
     demo,
     shopName: brand().shopName,
-    demoAccounts: demo ? db.all("SELECT name, phone, role FROM users WHERE demo=1 AND active=1 ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'trainer' THEN 2 ELSE 3 END").map((u) => ({ ...u, pin: '1234' })) : [],
+    demoAccounts: demo ? db.all("SELECT name, phone, role FROM users WHERE demo=1 AND active=1 ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'trainer' THEN 2 ELSE 3 END") : [],
   }));
-
-  on('POST', '/api/auth/login', 'public', ({ body, ip }) => {
-    const phone = normalizePhone(body.phone);
-    if (loginByIp.blocked(ip) || loginByPhone.blocked(phone)) throw new HttpError(429, 'تلاش‌های ناموفق زیاد بود. ده دقیقه دیگر دوباره امتحان کنید.');
-    const u = db.get('SELECT * FROM users WHERE phone=?', phone);
-    if (!u || !u.active || !verifyPin(String(body.pin ?? ''), u.pin_hash)) {
-      loginByIp.fail(ip);
-      loginByPhone.fail(phone);
-      throw new HttpError(401, 'شماره یا رمز درست نیست.');
-    }
-    loginByPhone.reset(phone);
-    db.run('UPDATE users SET last_login_at=? WHERE id=?', now(), u.id);
-    const token = signer.sign({ t: 'session', uid: u.id, tv: u.token_version }, 30 * 86400);
-    return { token, user: publicUser(u) };
-  });
 
   on('POST', '/api/auth/logout-all', 'auth', ({ user }) => {
     db.run('UPDATE users SET token_version=token_version+1 WHERE id=?', user.id);
     return { ok: true };
   });
 
-  on('POST', '/api/auth/pin', 'auth', ({ user, body }) => {
-    if (!isMain && !T.allow_pw_change) throw new HttpError(403, 'رمز این حساب را فقط ارائه‌دهنده عوض می‌کند.');
-    const u = db.get('SELECT pin_hash FROM users WHERE id=?', user.id);
-    if (!verifyPin(String(body.current ?? ''), u.pin_hash)) throw bad('رمز فعلی درست نیست.');
-    if (user.username ? !(String(body.next ?? '').length >= 8 && String(body.next).length <= 64) : !validPin(body.next)) throw bad(user.username ? 'رمز جدید باید دست‌کم ۸ نویسه باشد.' : 'رمز جدید باید ۴ تا ۱۲ رقم باشد.');
-    db.run('UPDATE users SET pin_hash=?, token_version=token_version+1 WHERE id=?', hashPin(body.next), user.id);
-    const fresh = db.get('SELECT * FROM users WHERE id=?', user.id);
-    return { token: signer.sign({ t: 'session', uid: fresh.id, tv: fresh.token_version, tn: tenantId }, 30 * 86400) };
+  // کد امضا (spec 0022): a signed act (the day close) is confirmed with a fresh SMS code to the signer's own mobile
+  on('POST', '/api/auth/sign-code', 'auth', async ({ user, ip }) => {
+    if (!otp) throw new HttpError(503, 'کد امضا در دسترس نیست.');
+    if (!validPhone(user.phone)) throw bad('برای امضا، شماره موبایل حساب شما لازم است؛ از مدیر یا ارائه‌دهنده بخواهید آن را ثبت کند.');
+    const r = await otp.send({ phone: user.phone, purpose: 'sign', ip, mode: demo && user.demo ? 'demo' : 'auto' });
+    return { ...r, phone: `${user.phone.slice(0, 4)}…${user.phone.slice(-3)}` };
   });
+  const signCheck = ({ user, code, ip }) => {
+    if (!otp) throw new HttpError(503, 'کد امضا در دسترس نیست.');
+    if (!validPhone(user.phone)) throw bad('برای امضا، شماره موبایل حساب شما لازم است.');
+    try {
+      otp.check({ phone: user.phone, purpose: 'sign', code, ip });
+    } catch (e) {
+      // a wrong signing code is a refusal, not a lost session (401 would send the signer back to the sign-in page)
+      throw new HttpError(e.status === 401 ? 403 : e.status ?? 403, e.message);
+    }
+  };
 
   on('GET', '/api/me', 'auth', ({ user }) => {
     const today = db.get('SELECT in_at, out_at FROM attendance WHERE user_id=? AND day=?', user.id, tehranDay());
     return {
       user: publicUser(user), pricing: pricing(), brand: brand(), progress: progressFor(user.id), attendance: today ? { inAt: today.in_at, outAt: today.out_at } : null,
-      tenant: { id: tenantId, main: isMain, name: isMain ? brand().shopName : T.name, plan: isMain ? 'full' : T.plan, expiresAt: isMain ? null : T.expires_at, allowPasswordChange: isMain || !!T.allow_pw_change },
+      tenant: { id: tenantId, main: isMain, name: isMain ? brand().shopName : T.name, plan: isMain ? 'full' : T.plan, expiresAt: isMain ? null : T.expires_at, maxUsers: isMain ? 0 : T.max_users },
       vendor: isMain && user.role === 'owner',
       setupDone: !!getSetting('setup', { done: false }).done || isMain,
       caps: capsOf(user.role, { main: isMain }),
@@ -479,19 +470,21 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     return { user: publicUser(u), progress: progressFor(u.id), attendance, recentExams };
   });
 
+  // همکار تازه (spec 0022): a name, a mobile and a role; they sign in with that mobile and an SMS code. Every shop's
+  // owner or manager adds their own people, inside the cap the vendor set for the shop (0 = unlimited).
   on('POST', '/api/team', 'admin', ({ user, body }) => {
-    if (!isMain) throw new HttpError(403, 'حساب کاربری جدید را فقط ارائه‌دهنده صادر می‌کند؛ از او بخواهید.');
     const phone = normalizePhone(body.phone);
-    const name = String(body.name ?? '').trim();
+    const name = String(body.name ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 60);
     const role = String(body.role ?? 'employee');
     if (name.length < 2) throw bad('نام را کامل وارد کنید.');
     if (!validPhone(phone)) throw bad('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');
     if (!ROLES.includes(role)) throw bad('نقش نامعتبر.');
     if (role === 'owner' && user.role !== 'owner') throw new HttpError(403, 'فقط مالک می‌تواند مالک جدید تعریف کند.');
-    if (!validPin(body.pin)) throw bad('رمز اولیه باید ۴ تا ۱۲ رقم باشد.');
-    if (db.get('SELECT 1 FROM users WHERE phone=?', phone)) throw new HttpError(409, 'این شماره قبلاً ثبت شده.');
+    if (db.get('SELECT 1 FROM users WHERE phone=?', phone)) throw new HttpError(409, 'این شماره قبلاً در همین فروشگاه ثبت شده.');
+    const cap = isMain ? 0 : Number(T.max_users) || 0;
+    if (cap > 0 && db.get('SELECT COUNT(*) AS n FROM users WHERE active=1').n >= cap) throw new HttpError(409, `سقف کاربران این فروشگاه (${cap}) پر است؛ برای افزایش با ارائه‌دهنده تماس بگیرید.`);
     const id = randomUUID();
-    db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,created_at) VALUES (?,?,?,?,?,?,?)', id, name, phone, role, String(body.branch ?? '').trim(), hashPin(body.pin), now());
+    db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,created_at) VALUES (?,?,?,?,?,?,?)', id, name, phone, role, String(body.branch ?? '').trim().slice(0, 40), NO_PIN, now());
     audit(user.id, 'user.create', { id, role });
     return { user: publicUser(db.get('SELECT * FROM users WHERE id=?', id)) };
   });
@@ -512,10 +505,16 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
       if (u.id === user.id) throw bad('حساب خودتان را نمی‌توانید غیرفعال کنید.');
       db.run('UPDATE users SET active=?, token_version=token_version+1 WHERE id=?', body.active ? 1 : 0, u.id);
     }
-    if (body.pin !== undefined) {
-      if (!isMain) throw new HttpError(403, 'رمز کاربران را فقط ارائه‌دهنده صادر می‌کند.');
-      if (!validPin(body.pin)) throw bad('رمز باید ۴ تا ۱۲ رقم باشد.');
-      db.run('UPDATE users SET pin_hash=?, token_version=token_version+1 WHERE id=?', hashPin(body.pin), u.id);
+    if (body.phone !== undefined) {
+      const phone = normalizePhone(body.phone);
+      if (!validPhone(phone)) throw bad('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');
+      if (u.id === user.id) throw bad('شماره خودتان را از این‌جا نمی‌توانید عوض کنید؛ از مالک یا ارائه‌دهنده بخواهید.');
+      if (isMain && u.phone === normalizePhone(process.env.BEATRIS_OWNER_PHONE)) throw bad('شماره مالک اصلی از متغیر BEATRIS_OWNER_PHONE در Railway می‌آید؛ همان‌جا عوض کنید.');
+      if (phone !== u.phone) {
+        if (db.get('SELECT 1 FROM users WHERE phone=? AND id<>?', phone, u.id)) throw new HttpError(409, 'این شماره در همین فروشگاه حساب دیگری دارد.');
+        // the mobile is the key to the account: whoever signed in with the old number is signed out
+        db.run('UPDATE users SET phone=?, token_version=token_version+1 WHERE id=?', phone, u.id);
+      }
     }
     audit(user.id, 'user.update', { id: u.id, fields: Object.keys(body) });
     return { user: publicUser(db.get('SELECT * FROM users WHERE id=?', u.id)) };
@@ -720,7 +719,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   /* ---------------- shop books (accounting) ---------------- */
   const saveSetting = (key, value, by) =>
     db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', key, JSON.stringify(value), now(), by);
-  const books = registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin: (u) => ADMIN_ROLES.has(u.role), market, sealer, shopId: tenantId, onEvent, flag: (k) => flags()[k] !== false });
+  const books = registerBooks({ on, db, bad, notFound, HttpError, pricing, getSetting, saveSetting, isAdmin: (u) => ADMIN_ROLES.has(u.role), market, sealer, shopId: tenantId, onEvent, flag: (k) => flags()[k] !== false, signCheck });
 
   /* ---------------- agentic accounting training (spec 0015): tutor, auditor, coach; approvals for real books ---------------- */
   const agents = createAgentSystem({ db, books, can: (u, cap) => can(u, cap, { main: isMain }), phrase: (i, t) => books.assistant.phrase(i, t), provider: providerFromAssistant(books.assistant), onEvent: (e) => onEvent(e.type) });
@@ -790,8 +789,8 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
 export function seedUsers(db, env = process.env, demo = false) {
   const count = db.get('SELECT COUNT(*) AS n FROM users').n;
   const ownerPhone = normalizePhone(env.BEATRIS_OWNER_PHONE);
-  if (validPhone(ownerPhone) && validPin(env.BEATRIS_OWNER_PIN) && !db.get('SELECT 1 FROM users WHERE phone=?', ownerPhone)) {
-    db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,created_at) VALUES (?,?,?,?,?,?,?)', randomUUID(), env.BEATRIS_OWNER_NAME || 'مالک', ownerPhone, 'owner', 'شعبه مرکزی', hashPin(env.BEATRIS_OWNER_PIN), now());
+  if (validPhone(ownerPhone) && !db.get('SELECT 1 FROM users WHERE phone=?', ownerPhone)) {
+    db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,created_at) VALUES (?,?,?,?,?,?,?)', randomUUID(), env.BEATRIS_OWNER_NAME || 'مالک', ownerPhone, 'owner', 'شعبه مرکزی', NO_PIN, now());
     console.log('[beatris] owner account created from env.');
   }
   if (demo) {
@@ -803,14 +802,13 @@ export function seedUsers(db, env = process.env, demo = false) {
       ['زهرا حسینی', '09120000005', 'employee', 'شعبه بازار'],
       ['علی رضایی', '09120000006', 'employee', 'شعبه بازار'],
     ];
-    const pin = hashPin('1234');
     for (const [name, phone, role, branch] of people) {
-      if (!db.get('SELECT 1 FROM users WHERE phone=?', phone)) db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,demo,created_at) VALUES (?,?,?,?,?,?,1,?)', randomUUID(), name, phone, role, branch, pin, now());
+      if (!db.get('SELECT 1 FROM users WHERE phone=?', phone)) db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,demo,created_at) VALUES (?,?,?,?,?,?,1,?)', randomUUID(), name, phone, role, branch, NO_PIN, now());
     }
   }
   if (!demo) {
     const off = db.run('UPDATE users SET active=0, token_version=token_version+1 WHERE demo=1 AND active=1');
     if (off.changes) console.log(`[beatris] demo off — deactivated ${off.changes} demo account(s).`);
   }
-  if (!count && !demo && !validPhone(ownerPhone)) console.warn('[beatris] No users. Set BEATRIS_OWNER_PHONE + BEATRIS_OWNER_PIN (or BEATRIS_DEMO=true) and restart.');
+  if (!count && !demo && !validPhone(ownerPhone)) console.warn('[beatris] No users. Set BEATRIS_OWNER_PHONE (and BEATRIS_OWNER_PIN until SMS is set up) or BEATRIS_DEMO=true, then restart.');
 }

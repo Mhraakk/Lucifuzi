@@ -5,6 +5,7 @@
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
+import { smsLogin } from '../tests/helpers/login.mjs';
 
 const N = Number(process.env.BENCH_DOCS ?? 20000);
 const RUNS = Number(process.env.BENCH_RUNS ?? 7);
@@ -17,7 +18,7 @@ seedUsers(db, {}, true);
 const server = createServer({ db, secret: 'bench-secret-0123456789', demo: true, quiet: true, rateLimit: 1e9, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}`;
-const M = (await (await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '09120000002', pin: '1234' }) })).json()).token;
+const M = await smsLogin(base, '09120000002'); // sign-in by SMS code (spec 0022); a demo server returns the code
 const call = async (method, p, body) => {
   const r = await fetch(base + p, { method, headers: { 'content-type': 'application/json', authorization: `Bearer ${M}` }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => null);

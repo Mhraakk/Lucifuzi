@@ -10,7 +10,7 @@ Node 22، `node:http` + `node:sqlite`، **بدون وابستگی runtime**؛ SP
 ## فرمان‌ها
 - `npm test` واحد · `npm run check` ماژول‌ها و محتوا · `npm run gate` check + test + eval (لازم پیش از commit)
 - `npm run e2e` مرورگر (پیش از دیپلوی؛ `E2E_ONLY='…'` برای چند مرحله)
-- `npm run dev` → http://localhost:3000 (دمو 09120000001 / 1234)
+- `npm run dev` → http://localhost:3000 (دمو: شماره 09120000001؛ کد ورود روی همان صفحه نشان داده می‌شود)
 
 ## ممنوع (do not)
 - منطق حسابداری (`public/js/books.mjs`، `trade.mjs`، `server/books.mjs`) را بدون spec و تست تغییر نده؛ سند قطعی حذف نمی‌شود.
@@ -23,7 +23,7 @@ Node 22، `node:http` + `node:sqlite`، **بدون وابستگی runtime**؛ SP
 - UI فارسی RTL، ارقام فارسی. مبالغ ذخیره‌شده ریال صحیح.
 - مالیات ۱۴۰۵ = ۱۰٪ فقط روی اجرت + سود (+ حق‌العمل)؛ اصل طلا، سنگ و سکه معاف.
 - معادل ۷۵۰ گرد به ۳ رقم، سپس مبلغ؛ `MAZANEH_TO_G750 = 4.331802`.
-- هر فروشگاه دیتابیس جدا (`tenants/<id>.db`)؛ حساب‌ها فقط از `/vendor`.
+- هر فروشگاه دیتابیس جدا (`tenants/<id>.db`)؛ حساب = نام + موبایل؛ ورود فقط با کد پیامکی (spec 0022)؛ نام کاربری و رمز صادر نمی‌شود.
 
 ## استقرار
-Railway، service `beatris`، Root `/beatris`، push روی شاخه متصل = دیپلوی. متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`. پس از دیپلوی: هش فایل زنده و `/api/health?deep=1`.
+Railway، service `beatris`، Root `/beatris`، push روی شاخه متصل = دیپلوی. متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`؛ پیامک ورود از کنسول یا `BEATRIS_SMS_PROVIDER`/`_API_KEY`/`_TEMPLATE` (`_SENDER`، `_PARAM`، `_USERNAME`، `_BASE_URL`). پس از دیپلوی: هش فایل زنده و `/api/health?deep=1`.

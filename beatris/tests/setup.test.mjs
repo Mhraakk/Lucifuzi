@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, V, O, E;
 const call = async (method, path, body, token) => {
@@ -21,11 +22,11 @@ before(async () => {
   server = createServer({ db, secret: 'test-secret-0123456789', demo: true, quiet: true, tenantsDir: ':memory:', marketOpts: { fetchImpl: async () => new Response('{}', { status: 404 }), defaultMode: 'off' } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
-  V = (await ok('POST', '/api/auth/login', { phone: '09120000001', pin: '1234' })).token;
-  const shop = await ok('POST', '/api/vendor/tenants', { name: 'زرگری امید', plan: 'base', username: 'omid', ownerName: 'امید' }, V);
-  O = (await ok('POST', '/api/auth/login', { login: 'omid', password: shop.password })).token;
-  const emp = await ok('POST', `/api/vendor/tenants/${shop.tenant.id}/users`, { name: 'کارمند', username: 'omid.emp', role: 'employee' }, V);
-  E = (await ok('POST', '/api/auth/login', { login: 'omid.emp', password: emp.password })).token;
+  V = (await smsLogin(base, '09120000001'));
+  const shop = await ok('POST', '/api/vendor/tenants', { name: 'زرگری امید', plan: 'base', ownerName: 'امید', phone: '09363000001' }, V);
+  O = await smsLogin(base, '09363000001');
+  await ok('POST', `/api/vendor/tenants/${shop.tenant.id}/users`, { name: 'کارمند', phone: '09363000002', role: 'employee' }, V);
+  E = await smsLogin(base, '09363000002');
 });
 after(() => server.close());
 
@@ -106,8 +107,8 @@ test('راه‌اندازی: وضعیت واقعی مغازه یک بار ثبت
 });
 
 test('رد کردن راه‌اندازی و مغازه اصلی', async () => {
-  const shop = await ok('POST', '/api/vendor/tenants', { name: 'دفتر خالی', username: 'empty.shop' }, V);
-  const t = (await ok('POST', '/api/auth/login', { login: 'empty.shop', password: shop.password })).token;
+  await ok('POST', '/api/vendor/tenants', { name: 'دفتر خالی', phone: '09363000003' }, V);
+  const t = await smsLogin(base, '09363000003');
   await ok('POST', '/api/books/setup/skip', null, t);
   assert.equal((await ok('GET', '/api/me', null, t)).setupDone, true);
   assert.equal((await ok('GET', '/api/me', null, V)).setupDone, true);

@@ -60,7 +60,8 @@ export async function api(path, { method = 'GET', body } = {}) {
     throw new ApiError(0, 'اتصال به سرور برقرار نشد. اینترنت را بررسی کنید.');
   }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && path !== '/api/auth/login') {
+  // a wrong sign-in code is an answer to show, not a lost session (spec 0022)
+  if (res.status === 401 && !/^\/api\/auth\/(code|verify|finish)$/.test(path)) {
     auth.token = null;
     store.me = null;
     navigate('/login');

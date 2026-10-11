@@ -1,4 +1,4 @@
-import { html, store, api, fa, $, actions, toast, busy, auth, navigate, ROLE_FA } from '../core.mjs';
+import { html, store, api, fa, actions, auth, navigate, ROLE_FA } from '../core.mjs';
 import { ICON, ringEl, courseTitle, faDate } from '../ui.mjs';
 import { statusStamp } from './learn.mjs';
 import { toggleSkinPicker, skinName } from '../skinpicker.mjs';
@@ -25,29 +25,9 @@ export function mePage(root) {
     <ul class="rows">${tasks.map((t) => html`<li><a class="row" href="/lesson/${t.lessonId}#${t.id}" data-link><span class="row-main"><span class="row-t">${t.title}</span><span class="row-s">${courseTitle(t.courseId)}${fl.get(t.id)?.reviewerNote ? ` · ${fl.get(t.id).reviewerNote}` : ''}</span></span>${statusStamp(fl.get(t.id)?.status)}</a></li>`)}</ul>
 
     <h2>امنیت حساب</h2>
-    <form class="tray form cols" id="pin">
-      <label class="field">رمز فعلی<input class="input ltr" name="current" type="password" inputmode="numeric" maxlength="12" autocomplete="current-password"></label>
-      <label class="field">رمز جدید (۴ تا ۱۲ رقم)<input class="input ltr" name="next" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password"></label>
-      <div style="align-self:end"><button class="btn block" type="submit">تغییر رمز</button></div>
-    </form>
+    <p class="small">این حساب با شماره <bdi class="ltr-num">${fa(user.phone)}</bdi> و کد پیامکی باز می‌شود؛ رمزی ندارد که فراموش یا لو برود. برای عوض کردن شماره از مدیر فروشگاه بخواهید.</p>
     <div class="actions"><button class="btn ghost" data-act="logout">خروج از این دستگاه</button><button class="btn danger" data-act="logoutAll">خروج از همه دستگاه‌ها</button></div>`);
 
-  $('#pin', root).addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const f = e.target;
-    const btn = f.querySelector('button');
-    busy(btn, true);
-    try {
-      const r = await api('/api/auth/pin', { method: 'POST', body: { current: f.current.value, next: f.next.value } });
-      auth.token = r.token;
-      f.reset();
-      toast('رمز تغییر کرد', 'ok');
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      busy(btn, false);
-    }
-  });
   const out = () => {
     auth.token = null;
     store.me = null;

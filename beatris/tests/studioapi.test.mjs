@@ -8,6 +8,7 @@ import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
 import { EXERCISE } from '../public/js/studio/exercises.mjs';
+import { smsLogin } from './helpers/login.mjs';
 
 let server, base, E, E2, M, O;
 const call = async (method, path, body, token) => {
@@ -19,7 +20,7 @@ const ok = async (...a) => {
   assert.ok(r.status < 300, `${a[0]} ${a[1]} → ${r.status} ${JSON.stringify(r.body)}`);
   return r.body;
 };
-const login = async (phone) => (await call('POST', '/api/auth/login', { phone, pin: '1234' })).body.token;
+const login = (phone) => smsLogin(base, phone);
 
 before(async () => {
   const db = openDb(':memory:');
