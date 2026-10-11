@@ -41,9 +41,11 @@ export async function loginPage(root) {
 
   const step = $('#step', root);
   const S = { phone: '', timer: 0, webotp: null, code: null, left: false };
-  // the turning coin loads beside the form, never in front of it
+  // the turning coin is decoration: it is built only after the form is on screen and the page is idle, so the number
+  // field never waits for it (building its geometry takes a moment on a slow phone)
   let cleanupArt = null;
-  coinArt($('#art', root)).then((c) => (S.left ? c?.() : (cleanupArt = c)));
+  const startArt = () => !S.left && coinArt($('#art', root)).then((c) => (S.left ? c?.() : (cleanupArt = c)));
+  requestAnimationFrame(() => setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(startArt, { timeout: 1500 }) : startArt()), 60));
   const stop = () => {
     clearInterval(S.timer);
     S.webotp?.abort();

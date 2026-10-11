@@ -133,7 +133,9 @@ function director(page, title) {
   };
   const go = async (p, after = 1400) => {
     await page.goto(base + p);
-    await page.waitForLoadState('networkidle').catch(() => {});
+    // pages with live prices keep a stream open, so «network idle» may never come: wait for it 4 s at most, never
+    // the 30 s default (that showed as a frozen screen in the film)
+    await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
     await wait(after);
   };
   const scroll = async (y, after = 900) => {
@@ -187,6 +189,11 @@ const CHAPTERS = [
       await d.say('فقط موبایل مدیر فروشگاه لازم است؛ با همین شماره وارد می‌شود.', 2800);
       await d.type('#sf [name=expires]', '۱۴۰۶/۰۷/۰۶');
       await d.click('#sf button.btn:not(.ghost)', 1500);
+      // the film runs on a local server: the hand-over text shows the address customers really use
+      await page.evaluate(() => {
+        const pre = document.querySelector('.vd-hand pre');
+        if (pre) pre.textContent = pre.textContent.replace(/https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/, 'https://beatris-production-68ac.up.railway.app');
+      });
       await d.point('.vd-hand pre');
       await d.say('به جای رمز، این متن را برای صاحب مغازه بفرستید: نشانی ورود و شماره‌ای که با آن وارد می‌شود. همکارانش را خودش در «تیم» با موبایل اضافه می‌کند.', 6200);
       await d.click('.modal [data-close]');
