@@ -2173,7 +2173,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   control = makeControl({ db, on, call, core, auditShared, settings, getSetting, saveSetting, livePrices, tehranDay, bad, notFound, HttpError, isAdmin, guardAdmin, log, partyRow, market, dashboard, audit: { run: (u) => audit.run(u) }, risk: () => ideas.risk(), shopId, closeSystem: (day, recon) => ideas.closeSystem(day, recon) });
 
   // کارتخوان: what the card reader answered for each desk charge, and the document it landed on (spec 0005)
-  makePos({ db, on, bad, notFound, tehranDay, log });
+  makePos({ db, on, bad, notFound, HttpError, tehranDay, log });
 
   /* ---------------- راه‌اندازی فروشگاه: the real opening state of a new shop in one step ---------------- */
   const setup = makeSetup({ db, call, settings, getSetting, saveSetting, livePrices, tehranDay, bad, HttpError, isAdmin });

@@ -33,6 +33,18 @@ onOutbox(() => netPill());
 addEventListener('online', netPill);
 addEventListener('offline', netPill);
 
+// ورود با پیوند ایمیل (spec 0034): Supabase sends the person back with the session in the #fragment; it is taken once,
+// before any route can drop it, and handed to the sign-in page
+{
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('access_token') || h.get('error_description')) {
+    try {
+      sessionStorage.setItem('beatris.emailLink', JSON.stringify({ token: h.get('access_token') ?? '', error: h.get('error_description') ?? '' }));
+    } catch {}
+    history.replaceState(null, '', '/login');
+  }
+}
+
 const lazy = (mod, fn) => async (root, params) => (await import(mod))[fn](root, params);
 
 route('/login', lazy('./pages/login.mjs', 'loginPage'), { public: true, bare: true, tone: 'full' });
@@ -123,7 +135,17 @@ const TABS = [
   ['team', '/staff', 'تیم', TAB_ICON.team, 'همکاران، پیشرفت آموزش و دسترسی‌ها'],
   ['me', '/me', 'من', TAB_ICON.me, 'حساب من، پوسته و پیشرفت شخصی'],
 ];
+// کارتخوان پیشخوان (spec 0035): the counter computer keeps charging for the shop's phones and tablets while the app is
+// open on it; the module loads only on that computer
+const posStation = () => {
+  try {
+    const c = JSON.parse(localStorage.getItem('beatris.pos') || '{}');
+    if (c.on && c.station) import('./pos.mjs').then((m) => m.initPosStation());
+  } catch {}
+};
+
 setShell((opts) => {
+  posStation();
   const top = $('#topbar');
   const nav = $('#tabbar');
   document.body.classList.toggle('bare', !!opts.bare);

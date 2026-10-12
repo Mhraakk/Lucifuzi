@@ -25,7 +25,10 @@ const { chromium } = pw.default ?? pw;
 
 const dataDir = mkdtempSync(path.join(tmpdir(), 'btut-'));
 const port = 5600 + Math.floor(Math.random() * 300);
-const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.mjs'], { cwd: ROOT, env: { ...process.env, BEATRIS_DEMO: 'true', BEATRIS_DATA_DIR: dataDir, PORT: String(port), NODE_ENV: 'test', BEATRIS_TOKEN_SECRET: 'tutorial-secret-0123456789abcdef' }, stdio: ['ignore', 'ignore', 'inherit'] });
+// Supabase (spec 0034) reaches the film server only when chapter 1 is recorded alone: its demo owner gets the code on the
+// page and the email card shows the real service; no other chapter may send a real email to an example address
+const supaEnv = only.length === 1 && only[0] === 1 ? {} : { BEATRIS_SUPABASE_URL: '', BEATRIS_SUPABASE_KEY: '' };
+const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.mjs'], { cwd: ROOT, env: { ...process.env, ...supaEnv, BEATRIS_DEMO: 'true', BEATRIS_DATA_DIR: dataDir, PORT: String(port), NODE_ENV: 'test', BEATRIS_TOKEN_SECRET: 'tutorial-secret-0123456789abcdef' }, stdio: ['ignore', 'ignore', 'inherit'] });
 const base = `http://127.0.0.1:${port}`;
 const J = (m, p, b, t) => fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(t ? { authorization: `Bearer ${t}` } : {}) }, body: b ? JSON.stringify(b) : undefined }).then(async (r) => {
   const j = await r.json();
@@ -174,26 +177,27 @@ async function prepControl() {
 }
 const CHAPTERS = [
   {
-    n: 1, slug: 'vendor', title: 'ورود با موبایل و ساخت فروشگاه', sub: 'بدون نام کاربری و رمز: شماره موبایل و کد پیامکی',
-    steps: ['در صفحه ورود فقط شماره موبایل را بزنید؛ کد ۶ رقمی پیامک می‌شود و با زدن آن وارد می‌شوید.', 'ارائه‌دهنده در «کنسول ارائه‌دهنده ← پیامک ورود» پنل پیامک خودش را وصل می‌کند (SMS.ir، کاوه‌نگار، IPPanel و فراز، قاصدک یا ملی‌پیامک) و با «پیامک آزمایشی» امتحان می‌کند.', 'فروشگاه تازه فقط با نام فروشگاه و موبایل مدیرش ساخته می‌شود؛ متن آماده «نشانی ورود و شماره» برای صاحب مغازه فرستاده می‌شود.', 'هر شماره فروشگاه خودش را پیدا می‌کند؛ شماره‌ای که در چند فروشگاه است بعد از کد انتخاب می‌کند؛ با «ثبت‌نام آزاد» شماره تازه فروشگاه خودش را می‌سازد.', 'همین حساب روی گوشی، تبلت و کامپیوتر کار می‌کند؛ تعلیق، تمدید، عوض کردن موبایل و خروج از همه دستگاه‌ها هم در کنسول است.'],
+    n: 1, slug: 'vendor', title: 'ورود با ایمیل و ساخت فروشگاه', sub: 'بدون نام کاربری و رمز: ایمیل و کدی که به همان ایمیل می‌رسد',
+    steps: ['در صفحه ورود فقط ایمیل‌تان را بزنید؛ کد ۶ رقمی به همان ایمیل می‌رسد و با زدن آن وارد می‌شوید. پیوند «ورود» داخل همان ایمیل هم شما را وارد می‌کند.', 'کد و پیوند ورود را Supabase می‌فرستد؛ وضعیتش، تعداد ایمیل‌های ۲۴ ساعت گذشته و آخرین خطا در «کنسول ارائه‌دهنده ← ورود با ایمیل» دیده می‌شود.', 'فروشگاه تازه با نام فروشگاه و ایمیل و موبایل مدیرش ساخته می‌شود؛ متن آماده «نشانی ورود و ایمیل» برای صاحب مغازه فرستاده می‌شود.', 'هر ایمیل فروشگاه خودش را پیدا می‌کند؛ ایمیلی که در چند فروشگاه است بعد از کد انتخاب می‌کند؛ با «ثبت‌نام آزاد» ایمیل تازه فروشگاه خودش را می‌سازد.', 'همین حساب روی گوشی، تبلت و کامپیوتر کار می‌کند؛ تعلیق، تمدید، عوض کردن ایمیل و خروج از همه دستگاه‌ها هم در کنسول است.'],
     async run(page, d) {
       await d.go('/login', 800);
-      await d.say('به بئاتریس خوش آمدید. ورود فقط با شماره موبایل است؛ نام کاربری و رمزی در کار نیست.', 3800);
-      await d.type('#pf input[name=phone]', '09120000001');
-      await d.click('#pf button[type=submit]', 1200);
-      await d.say('کد ۶ رقمی به همین شماره پیامک می‌شود. همان را بزنید؛ با رقم ششم خودبه‌خود وارد می‌شوید.', 3600);
+      await d.say('به بئاتریس خوش آمدید. ورود فقط با ایمیل است؛ نام کاربری و رمزی در کار نیست.', 3800);
+      await d.type('#ef input[name=email]', 'owner@demo.beatris.ir');
+      await d.click('#ef button[type=submit]', 1200);
+      await d.say('کد ۶ رقمی به همین ایمیل فرستاده می‌شود؛ پیوند «ورود» داخل همان ایمیل هم کار می‌کند. کد را بزنید؛ با رقم ششم خودبه‌خود وارد می‌شوید.', 5200);
       await d.type('.otp-input', await codeOf(page), 2000);
       await signedIn(page);
       await d.go('/vendor', 1600);
       await d.say('کنسول ارائه‌دهنده: همه فروشگاه‌ها، اشتراک‌ها و کاربران هر کدام.', 3600);
-      await d.point('#vdSms');
-      await d.say('کارت «پیامک ورود»: پنل پیامک خودتان را وصل کنید — SMS.ir، کاوه‌نگار، IPPanel و فراز، قاصدک یا ملی‌پیامک — و با «پیامک آزمایشی» امتحانش کنید. کلید رمزشده نگه داشته می‌شود و دیگر نمایش داده نمی‌شود.', 6400);
+      await d.point('#vdMail');
+      await d.say('کارت «ورود با ایمیل»: کد و پیوند ورود را Supabase می‌فرستد. وضعیت، تعداد ایمیل‌های ۲۴ ساعت گذشته و آخرین خطا همین‌جا دیده می‌شود.', 6000);
       await d.click('[data-act=new]');
       await d.type('#sf [name=name]', 'طلا و سکه امید');
       await d.say('نسخه پایه برای مغازه‌های سکه، آبشده، شمش و ارز است؛ نسخه کامل فروش مصنوعات را هم دارد.', 3200);
       await d.type('#sf [name=ownerName]', 'امید رحیمی');
+      await d.type('#sf [name=ownerEmail]', 'omid@example.com');
       await d.type('#sf [name=phone]', '09120000010');
-      await d.say('فقط موبایل مدیر فروشگاه لازم است؛ با همین شماره وارد می‌شود.', 2800);
+      await d.say('ایمیل و موبایل مدیر فروشگاه لازم است؛ با همین ایمیل وارد می‌شود.', 3000);
       await d.type('#sf [name=expires]', '۱۴۰۶/۰۷/۰۶');
       await d.click('#sf button.btn:not(.ghost)', 1500);
       // the film runs on a local server: the hand-over text shows the address customers really use
@@ -202,10 +206,10 @@ const CHAPTERS = [
         if (pre) pre.textContent = pre.textContent.replace(/https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/, 'https://beatris-production-68ac.up.railway.app');
       });
       await d.point('.vd-hand pre');
-      await d.say('به جای رمز، این متن را برای صاحب مغازه بفرستید: نشانی ورود و شماره‌ای که با آن وارد می‌شود. همکارانش را خودش در «تیم» با موبایل اضافه می‌کند.', 6200);
+      await d.say('به جای رمز، این متن را برای صاحب مغازه بفرستید: نشانی ورود و ایمیلی که با آن وارد می‌شود. همکارانش را خودش در «تیم» با ایمیل اضافه می‌کند.', 6200);
       await d.click('.modal [data-close]');
       await d.click('.vd-shop:not(:first-child) [data-act=users]', 1200);
-      await d.say('کاربران هر فروشگاه با شماره موبایل، آخرین ورود و دستگاه‌شان. «موبایل»، «خروج از همه دستگاه‌ها» و «غیرفعال» هم همین‌جاست.', 5800);
+      await d.say('کاربران هر فروشگاه با ایمیل، موبایل، آخرین ورود و دستگاه‌شان. «ایمیل»، «خروج از همه دستگاه‌ها» و «غیرفعال» هم همین‌جاست.', 5800);
     },
   },
   {
@@ -213,9 +217,9 @@ const CHAPTERS = [
     steps: ['مدیر فروشگاه تازه بعد از اولین ورود (با موبایل و کد پیامکی) به «راه‌اندازی» می‌رود.', 'مشخصات فروشگاه، واحد پول و تاریخ شروع دفتر.', 'صندوق‌های نقد و حساب‌های بانکی با موجودی امروز.', 'طلای آبشده، سکه‌ها، شمش‌های پلمپ و ارز با میانگین بهای خرید (یا «قیمت امروز»).', 'مشتریان و مانده مالی و جنسی هر کدام؛ از اکسل هم می‌شود چسباند.', 'بازبینی و ثبت: یک «سند افتتاحیه» با کد رهگیری ساخته می‌شود و همه داشبوردها از همین نقطه شروع می‌کنند.'],
     async run(page, d) {
       await d.go('/login', 600);
-      await d.say('صاحب مغازه با همان شماره موبایلی که ارائه‌دهنده ثبت کرده وارد می‌شود.', 2800);
-      await d.type('#pf input[name=phone]', '09120000010');
-      await d.click('#pf button[type=submit]', 1000);
+      await d.say('صاحب مغازه با همان ایمیلی که ارائه‌دهنده ثبت کرده وارد می‌شود.', 2800);
+      await d.type('#ef input[name=email]', 'omid@example.com');
+      await d.click('#ef button[type=submit]', 1000);
       await d.type('.otp-input', await codeOf(page), 2500);
       await signedIn(page);
       await d.say('اولین بار، نرم‌افزار مستقیم به «راه‌اندازی فروشگاه» می‌رود تا وضعیت واقعی امروز مغازه ثبت شود. هیچ عدد ساختگی در کار نیست.');
@@ -474,8 +478,8 @@ const CHAPTERS = [
     steps: ['با همان شماره موبایل و کد پیامکی روی گوشی وارد شوید.', 'نبض، میز معامله و گاوصندوق برای صفحه کوچک چیده شده‌اند.', 'دکمه پوسته بالای صفحه فهرست پوسته‌ها را باز می‌کند: «شب آرام» برای ساعت‌های طولانی، «روز» برای مغازه روشن و پوسته‌های دیگر.'],
     async run(page, d) {
       await d.go('/login', 600);
-      await d.type('#pf input[name=phone]', '09120000010');
-      await d.click('#pf button[type=submit]', 1000);
+      await d.type('#ef input[name=email]', 'omid@example.com');
+      await d.click('#ef button[type=submit]', 1000);
       await d.type('.otp-input', await codeOf(page), 2200);
       await signedIn(page);
       await d.go('/books/pulse', 2000);

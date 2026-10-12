@@ -8,7 +8,7 @@ import { TRADE_KINDS as TR_KINDS } from '../trade.mjs';
 import { booksNav } from './books.mjs';
 import { writeoffDialog } from './bookops.mjs';
 import { wireSort, wireSorts } from '../sorting.mjs';
-import { DRIVERS, posConfig, savePosConfig, posProblem, bridgeStatus, testTerminal, STATE_TEXT } from '../pos.mjs';
+import { DRIVERS, posConfig, savePosConfig, posProblem, bridgeStatus, testTerminal, STATE_TEXT, initPosStation } from '../pos.mjs';
 
 /* ---------------- customers ---------------- */
 const partyForm = (p = {}) => html`<form class="form" id="pf">
@@ -670,9 +670,13 @@ export async function settingsPage(root) {
 function posSettings(root) {
   const c = posConfig();
   root.insertAdjacentHTML('beforeend', String(html`<section class="tray bk-sec" id="posSec"><div class="bk-head"><h3 class="bk-h">کارتخوان این رایانه</h3><span class="chip" id="posBridge">پل: …</span></div>
-    <p class="small">با روشن بودن، «ثبت» در میز معامله مبلغ ردیف «کارتخوان» را خودکار به دستگاه می‌فرستد و سند فقط پس از تأیید بانک ثبت می‌شود؛ شماره پیگیری و ۴ رقم آخر کارت خودکار می‌نشیند. این تنظیم فقط برای همین رایانه است (هر پیشخوان کارتخوان خودش را دارد).</p>
+    <p class="small">با روشن بودن، دکمه «پرداخت با کارتخوان» در میز معامله و فاکتور، مبلغ باقی‌مانده را دقیق به دستگاه می‌فرستد؛ مشتری فقط کارت می‌کشد و رمز می‌زند. سند فقط پس از تأیید بانک ثبت می‌شود و شماره پیگیری و ۴ رقم آخر کارت خودکار می‌نشیند. این تنظیم فقط برای همین دستگاه است.</p>
     <form class="form" id="posF">
-      <label class="segopt"><input type="checkbox" name="on" ${c.on ? 'checked' : ''}><span>ارسال خودکار مبلغ به کارتخوان</span></label>
+      <label class="segopt"><input type="checkbox" name="on" ${c.on ? 'checked' : ''}><span>کارتخوان به همین رایانه وصل است (ارسال خودکار مبلغ)</span></label>
+      <label class="segopt"><input type="checkbox" name="station" ${c.station ? 'checked' : ''}><span>این رایانه کارتخوان پیشخوان است؛ پرداخت گوشی‌ها و تبلت‌های فروشگاه هم از همین کارتخوان</span></label>
+      <label class="field">نام این پیشخوان (روی گوشی‌ها دیده می‌شود)<input class="input" name="stationName" value="${c.stationName}" maxlength="40" placeholder="پیشخوان اصلی"></label>
+      <label class="segopt"><input type="checkbox" name="relay" ${c.relay ? 'checked' : ''}><span>این دستگاه کارتخوان ندارد؛ پرداخت را به کارتخوان پیشخوان بفرست</span></label>
+      <p class="small" id="posStations" aria-live="polite"></p>
       <div class="form cols"><label class="field">نوع کارتخوان<select class="input" name="driver">${DRIVERS.map(([v, l]) => html`<option value="${v}" ${c.driver === v ? 'selected' : ''}>${l}</option>`)}</select></label>
         <label class="field">IP کارتخوان<input class="input ltr" name="host" value="${c.host}" placeholder="192.168.1.50"></label>
         <label class="field">پورت کارتخوان<input class="input ltr" name="port" value="${c.port}" inputmode="numeric"></label>
@@ -687,7 +691,17 @@ function posSettings(root) {
     </form>
     <div id="posLog"></div></section>`));
   const f = $('#posF', root);
-  const read = () => ({ on: f.elements.on.checked, driver: f.elements.driver.value, host: f.elements.host.value, port: f.elements.port.value, bridge: f.elements.bridge.value });
+  const read = () => ({ on: f.elements.on.checked, driver: f.elements.driver.value, host: f.elements.host.value, port: f.elements.port.value, bridge: f.elements.bridge.value, station: f.elements.station.checked, stationName: f.elements.stationName.value, relay: f.elements.relay.checked });
+  // the counter and the relay exclude each other: a device either has the card reader or asks the one that has it
+  f.addEventListener('change', (e) => {
+    if (e.target.name === 'relay' && e.target.checked) (f.elements.on.checked = false), (f.elements.station.checked = false);
+    if ((e.target.name === 'on' || e.target.name === 'station') && e.target.checked) f.elements.relay.checked = false;
+    if (e.target.name === 'station' && e.target.checked) f.elements.on.checked = true;
+  });
+  const stations = () =>
+    api('/api/books/pos/station')
+      .then((r) => ($('#posStations', root).textContent = r.online.length ? `کارتخوان پیشخوان روشن: ${r.online.map((x) => x.name).join('، ')}` : 'هیچ کارتخوان پیشخوانی الان روشن نیست.'))
+      .catch(() => {});
   const out = (t, cls = '') => {
     const o = $('#posOut', root);
     o.className = `small ${cls}`;
@@ -702,8 +716,10 @@ function posSettings(root) {
     e.preventDefault();
     const v = savePosConfig(read());
     const bad = v.on && posProblem(v);
-    out(bad || 'ذخیره شد.', bad ? 'err' : 'ok');
+    out(bad || (v.relay ? 'ذخیره شد؛ پرداخت این دستگاه به کارتخوان پیشخوان می‌رود.' : v.station ? 'ذخیره شد؛ این رایانه از حالا کارتخوان پیشخوان است (تا وقتی بئاتریس روی آن باز است).' : 'ذخیره شد.'), bad ? 'err' : 'ok');
+    initPosStation();
     ping();
+    setTimeout(stations, 1500);
   });
   f.addEventListener('click', async (e) => {
     if (e.target.closest('[data-pos=test]')) {
@@ -720,6 +736,7 @@ function posSettings(root) {
     }
   });
   ping();
+  stations();
   api(`/api/books/pos?day=${today()}`)
     .then((r) => {
       if (!r.items.length && !r.orphans.length) return;

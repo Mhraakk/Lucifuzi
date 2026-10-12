@@ -113,7 +113,11 @@ test('bridge: decline, customer cancel and a bad MAC are never approvals', { ski
 test('bridge: waiting can be cancelled from the app; only one charge at a time', { skip }, async () => {
   plans.set(330000, { rc: '00', delay: 4000 });
   await sep('t-wait-0001', 330000);
-  await new Promise((r) => setTimeout(r, 400));
+  // the first charge must really be in progress (sent, the terminal waiting for the card) before the second is tried;
+  // a fixed sleep was too short when the whole suite loads the machine
+  let st = '';
+  for (let i = 0; i < 80 && (st = (await get('/charge/t-wait-0001')).body?.state) !== 'waiting'; i++) await new Promise((r) => setTimeout(r, 100));
+  assert.equal(st, 'waiting', 'the first charge reaches the terminal');
   const busy = await sep('t-wait-0002', 440000);
   assert.equal(busy.status, 409);
   assert.equal(busy.body.id, 't-wait-0001');

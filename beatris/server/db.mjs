@@ -188,6 +188,9 @@ function migrate(db) {
   if (!cols.includes('username')) db.exec('ALTER TABLE users ADD COLUMN username TEXT');
   if (!cols.includes('last_login_ua')) db.exec('ALTER TABLE users ADD COLUMN last_login_ua TEXT');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL');
+  // ورود با ایمیل (spec 0034): an optional email per account, lower-case, one account per email in a shop
+  if (!cols.includes('email')) db.exec('ALTER TABLE users ADD COLUMN email TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 }
 
 function wrap(db) {

@@ -25,7 +25,7 @@ export function mePage(root) {
     <ul class="rows">${tasks.map((t) => html`<li><a class="row" href="/lesson/${t.lessonId}#${t.id}" data-link><span class="row-main"><span class="row-t">${t.title}</span><span class="row-s">${courseTitle(t.courseId)}${fl.get(t.id)?.reviewerNote ? ` · ${fl.get(t.id).reviewerNote}` : ''}</span></span>${statusStamp(fl.get(t.id)?.status)}</a></li>`)}</ul>
 
     <h2>امنیت حساب</h2>
-    <p class="small">این حساب با شماره <bdi class="ltr-num">${fa(user.phone)}</bdi> و کد پیامکی باز می‌شود؛ رمزی ندارد که فراموش یا لو برود. برای عوض کردن شماره از مدیر فروشگاه بخواهید.</p>
+    <p class="small">${user.email ? html`این حساب با ایمیل <bdi dir="ltr">${user.email}</bdi> و کدی که به همان ایمیل می‌رسد باز می‌شود؛ رمزی ندارد که فراموش یا لو برود.` : html`این حساب هنوز ایمیل ندارد و از دستگاه تازه نمی‌توانید وارد شوید؛ از مدیر فروشگاه بخواهید ایمیل‌تان را در «تیم» ثبت کند.`} برای عوض کردن ایمیل یا موبایل (<bdi class="ltr-num">${fa(user.phone)}</bdi>) از مدیر فروشگاه بخواهید.</p>
     <div class="actions"><button class="btn ghost" data-act="logout">خروج از این دستگاه</button><button class="btn danger" data-act="logoutAll">خروج از همه دستگاه‌ها</button></div>`);
 
   const out = () => {

@@ -38,8 +38,8 @@ try {
     const ctx = await browser.newContext(wide ? { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2, colorScheme: 'dark' } : { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, colorScheme: 'dark' });
     const page = await ctx.newPage();
     await page.goto(base + '/login');
-    await page.fill('#pf input[name=phone]', '09120000001'); // the demo owner
-    await page.click('#pf button[type=submit]');
+    await page.fill('#ef input[name=email]', 'owner@demo.beatris.ir'); // the demo owner
+    await page.click('#ef button[type=submit]');
     await page.waitForSelector('.lg-dev', { timeout: 20000 });
     await page.click('.lg-dev');
     await Promise.race([page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 20000 }), page.waitForSelector('.lg-shops [data-act=pick]', { timeout: 20000 }).then((b) => b.click())]);

@@ -9,6 +9,7 @@ import { booksNav } from './books.mjs';
 import { createHistory, mountDock } from '../undo.mjs';
 import { drafts, submit } from '../outbox.mjs';
 import { confirmBox } from '../dialog.mjs';
+import { posConfig, posProblem, posMode, cardWindow, linkCharge } from '../pos.mjs';
 
 // one list of categories for the form and the reports (books.mjs); an income document mirrors an expense
 const CATS = { expense: B.EXPENSE_CATS, income: B.INCOME_CATS };
@@ -386,8 +387,22 @@ export async function docEditorPage(root, params) {
         ? html`<div class="bk-cu"><span>مانده به حساب</span><div class="seg"><button data-cu="IRR" aria-pressed="${S.creditUnit === 'IRR'}">ریالی</button><button data-cu="G750" aria-pressed="${S.creditUnit === 'G750'}">طلایی (گرم ۷۵۰)</button></div>${S.creditUnit === 'G750' ? html`<label class="field xs">قیمت گرم ۱۸ تبدیل<input class="input ltr" data-cp value="${S.creditP750}" inputmode="decimal"></label><b>${G(calc.creditG)} گرم</b>` : ''}</div>`
         : ''}
       ${type === 'sale' && calc.sales % 10000 && S.lines.some((l) => l.kind === 'jewel') ? html`<button class="chip" data-act="round">گرد کردن به هزار ${unitName()} (تخفیف از سود)</button>` : ''}
-      ${type === 'sale' && calc.sales ? html`<p class="small">مبلغ به حروف: ${moneyWords(calc.sales)}</p>` : ''}`);
+      ${type === 'sale' && calc.sales ? html`<p class="small">مبلغ به حروف: ${moneyWords(calc.sales)}</p>` : ''}
+      ${type === 'sale' && credit > 0 && posMode() ? html`<button class="btn block pos-pay bk-paycard" data-act="paycard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h4"/></svg>پرداخت با کارتخوان ${TU(credit)}</button>` : ''}`);
     return calc;
+  }
+  /** پرداخت یک‌کلیکی (spec 0035): what the customer still owes goes on a card row, to the card reader, then the invoice is booked. */
+  function payByCard(btn) {
+    const { calc, error } = safeCalc(docBody());
+    if (!calc) return toast(error, 'error');
+    if (!(calc.credit > 0)) return toast('مبلغی برای دریافت از مشتری نمانده است.', 'info');
+    const add = (calc.credit / 10) * k; // the engine's rial, in the unit people type here
+    const open = S.payments.findIndex((p) => p.method === 'pos' && p.dir !== 'out' && !String(p.ref ?? '').trim() && !p.posId);
+    if (open >= 0) S.payments[open].amount = String((B.num(S.payments[open].amount) || 0) + add);
+    else S.payments.push({ method: 'pos', dir: 'in', account: banks[0]?.id, amount: String(add) });
+    drawPays();
+    recalc();
+    return save('final', btn);
   }
 
   /* ---------------- save ---------------- */
@@ -402,10 +417,26 @@ export async function docEditorPage(root, params) {
       body.reason = $('[name=reason]', root).value.trim();
       if (body.reason.length < 3) return (toast('دلیل ویرایش را بنویسید.', 'error'), $('[name=reason]', root).focus());
     }
-    const { error } = safeCalc(body);
+    const { calc: cc, error } = safeCalc(body);
     if (error) return toast(error, 'error');
     busy(btn, true);
     try {
+      // کارتخوان (spec 0005, 0035): a final invoice charges each open card receipt first, at the engine's exact rial
+      // amount; it is booked only when every one is approved (an approved row keeps its RRN: a retry never charges twice)
+      const pc = posConfig();
+      if (status === 'final' && posMode(pc)) {
+        for (const [i, p] of S.payments.entries()) {
+          if (p.posId && p.posAmount !== cc.payments[i].value) return toast(`مبلغ ردیف کارتخوان با مبلغی که از کارت کم شد (${TU(p.posAmount)}) فرق دارد.`, 'error');
+          if (p.method !== 'pos' || p.dir === 'out' || String(p.ref ?? '').trim()) continue;
+          const bad = posMode(pc) === 'local' ? posProblem(pc) : '';
+          if (bad) return toast(bad, 'error');
+          const j = await cardWindow(pc, cc.payments[i].value);
+          if (!j) return;
+          Object.assign(S.payments[i], { ref: j.rrn, card: j.card || undefined, posId: j.id, posAmount: cc.payments[i].value });
+          body.payments[i] = { ...body.payments[i], ref: j.rrn, ...(j.card ? { card: j.card } : {}) };
+          drawPays();
+        }
+      }
       let doc;
       if (editing) doc = await api(`/api/books/docs/${editing.id}`, { method: 'PUT', body });
       else {
@@ -419,6 +450,7 @@ export async function docEditorPage(root, params) {
         doc = r.doc;
       }
       drafts.set(`doc:${type}`, null);
+      for (const p of S.payments) if (p.posId && doc?.id) linkCharge(p.posId, doc.id);
       toast(doc.amends ? `اصلاحیه ثبت شد: ${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} جای سند قبلی را گرفت.` : `${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} ثبت شد.`, 'ok');
       for (const w of doc.warnings ?? []) toast(w);
       navigate(`/books/doc/${doc.id}${doc.status === 'final' && ['sale', 'buy', 'return', 'proforma', 'receipt', 'payment'].includes(doc.type) ? '?print=1' : ''}`);
@@ -601,6 +633,7 @@ export async function docEditorPage(root, params) {
       recalc();
       toast(`تخفیف ${TU(B.rnd(d * 10))} روی «${src.title}» نشست؛ جمع گرد شد.`, 'ok');
     } else if (act === 'save') save('final', b);
+    else if (act === 'paycard') payByCard(b);
     else if (act === 'drop') {
       Object.assign(S, { partyId: null, party: null, lines: [], payments: [], note: '', balances: [], ref: null });
       $('.bk-draft', root)?.remove();

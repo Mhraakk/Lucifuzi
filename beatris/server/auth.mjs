@@ -36,6 +36,9 @@ export function normalizePhone(p) {
   return d;
 }
 export const validPhone = (p) => /^09\d{9}$/.test(p);
+/** An email as it is stored and compared (spec 0034): trimmed, lower-case, without invisible characters. */
+export const normalizeEmail = (e) => String(e ?? '').replace(/[​-‏‪-‮⁠﻿\s]/g, '').toLowerCase().slice(0, 254);
+export const validEmail = (e) => /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,24}$/.test(e);
 
 export function makeSigner(secret) {
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');

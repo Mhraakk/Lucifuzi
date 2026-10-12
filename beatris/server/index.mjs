@@ -133,6 +133,9 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
     out.queue = { queued: q.queued, dead: q.dead };
     const b = backupDir ? listBackups(backupDir)[0] : null;
     out.backup = b ? { stamp: b.stamp, files: b.files } : null;
+    // ورود با ایمیل (spec 0034): Supabase configured, or not (sign-in by SMS and the owner's PIN still work)
+    const em = otp.emailView();
+    out.email = em.ready ? 'supabase' : em.error ? 'invalid' : 'off';
     return out;
   }
   const mainDb = db;
@@ -329,6 +332,15 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
     json(out.status, out.body);
   }
 
+  /** This server as people reach it (behind Railway's proxy): for the link in the sign-in email. */
+  function publicOrigin(req) {
+    const set = String(env.BEATRIS_PUBLIC_URL ?? '').trim().replace(/\/+$/, '');
+    if (/^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(set)) return set;
+    const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? '').split(',')[0].trim();
+    const proto = String(req.headers['x-forwarded-proto'] ?? (req.socket.encrypted ? 'https' : 'http')).split(',')[0].trim();
+    return /^[a-z0-9.-]+(:\d+)?$/i.test(host) && /^https?$/.test(proto) ? `${proto}://${host}` : '';
+  }
+
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://local');
     const ip = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim();
@@ -411,8 +423,8 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
       let out;
       const ua = req.headers['user-agent'];
       // ورود با پیامک (spec 0022): number → code → (shop or new shop); no shop code, no password
-      if (url.pathname === '/api/auth/code' && req.method === 'POST') out = await platform.sendLoginCode(body, ip);
-      else if (url.pathname === '/api/auth/verify' && req.method === 'POST') out = platform.verifyLogin(body, ip, ua);
+      if (url.pathname === '/api/auth/code' && req.method === 'POST') out = await platform.sendLoginCode(body, ip, publicOrigin(req));
+      else if (url.pathname === '/api/auth/verify' && req.method === 'POST') out = await platform.verifyLogin(body, ip, ua);
       else if (url.pathname === '/api/auth/finish' && req.method === 'POST') out = platform.finishLogin(body, ip, ua);
       else if (url.pathname === '/api/auth/login') throw new HttpError(410, 'ورود با نام کاربری و رمز برداشته شد؛ با شماره موبایل و کد پیامکی وارد شوید.');
       else if (url.pathname.startsWith('/api/ops/')) {

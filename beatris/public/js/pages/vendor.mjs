@@ -12,10 +12,10 @@ const phoneFa = (p) => (p ? fa(`${p.slice(0, 4)} ${p.slice(4, 7)} ${p.slice(7)}`
 const toLatin = (s) => String(s ?? '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
 
 /** What the vendor sends the new customer: where to go and which number signs in. */
-function handoff(shop, name, phone) {
-  const text = `${shop}\n${name ? `${name} عزیز، ` : ''}حساب بئاتریس شما آماده است.\nورود: ${loginUrl()}\nبا شماره ${phoneFa(phone)} وارد شوید؛ کد ورود پیامک می‌شود. نام کاربری و رمز لازم نیست.`;
+function handoff(shop, name, phone, email = '') {
+  const text = `${shop}\n${name ? `${name} عزیز، ` : ''}حساب بئاتریس شما آماده است.\nورود: ${loginUrl()}\n${email ? `با ایمیل ${email} وارد شوید؛ کد ورود به همان ایمیل می‌رسد.` : `ایمیل‌تان را برای ما بفرستید تا ثبت شود؛ ورود با ایمیل و کدی است که به همان ایمیل می‌رسد.`} نام کاربری و رمز لازم نیست.`;
   modal(
-    String(html`<h3 class="bk-h">فروشگاه ساخته شد</h3><div class="vd-hand"><p class="small">این متن را برای صاحب فروشگاه بفرستید. با همان شماره روی گوشی و کامپیوتر وارد می‌شود و همکارانش را خودش در «تیم» با شماره موبایل اضافه می‌کند.</p><pre>${text}</pre></div>
+    String(html`<h3 class="bk-h">فروشگاه ساخته شد</h3><div class="vd-hand"><p class="small">این متن را برای صاحب فروشگاه بفرستید. با همان ایمیل روی گوشی و کامپیوتر وارد می‌شود و همکارانش را خودش در «تیم» با ایمیل و موبایل اضافه می‌کند.</p><pre>${text}</pre></div>
       <div class="actions"><button class="btn" data-copy>کپی متن</button>${navigator.share ? html`<button class="btn ghost" data-share>ارسال</button>` : ''}<button class="btn ghost" data-close>بستن</button></div>`),
     (m) => {
       m.querySelector('[data-copy]').addEventListener('click', () =>
@@ -32,8 +32,9 @@ function handoff(shop, name, phone) {
 export async function vendorPage(root) {
   const S = { items: [], open: null, users: {}, sms: null, test: null };
   root.innerHTML = String(html`<div class="vd">
-    <header class="bk-head"><div><h1>کنسول ارائه‌دهنده</h1><p class="small">فروشگاه‌ها، کاربران و اشتراک‌ها. هر کس با شماره موبایل خودش و کد پیامکی وارد می‌شود؛ نام کاربری و رمزی صادر نمی‌شود.</p></div>
+    <header class="bk-head"><div><h1>کنسول ارائه‌دهنده</h1><p class="small">فروشگاه‌ها، کاربران و اشتراک‌ها. هر کس با ایمیل خودش و کدی که Supabase به همان ایمیل می‌فرستد وارد می‌شود؛ نام کاربری و رمزی صادر نمی‌شود.</p></div>
       <div class="actions"><a class="btn ghost" href="/ops" data-link>عملیات و سلامت سرور</a><button class="btn" data-act="new">+ فروشگاه تازه</button></div></header>
+    <section class="tray vd-sms" id="vdMail"><div class="loading"><span></span></div></section>
     <section class="tray vd-sms" id="vdSms"><div class="loading"><span></span></div></section>
     <section class="vd-kpis" id="vdK"></section>
     <section class="vd-list" id="vdL"><div class="loading"><span></span></div></section></div>`);
@@ -41,7 +42,22 @@ export async function vendorPage(root) {
   /* ---------------- پیامک ورود ---------------- */
   async function loadSms() {
     S.sms = await api('/api/vendor/sms');
+    drawMail();
     drawSms();
+  }
+  /* ---------------- ورود با ایمیل (spec 0034) ---------------- */
+  function drawMail() {
+    const m = S.sms.email ?? {};
+    const state = m.ready
+      ? html`<span class="vd-sms-state ok">فعال · Supabase · <bdi dir="ltr">${m.host}</bdi></span>`
+      : html`<span class="vd-sms-state warn">${m.error ?? (m.ownerPin ? 'هنوز تنظیم نشده — تا آن موقع فقط شما با ایمیل و رمز Railway وارد می‌شوید' : 'هنوز تنظیم نشده — BEATRIS_SUPABASE_URL و BEATRIS_SUPABASE_KEY را در Railway بگذارید')}</span>`;
+    $('#vdMail', root).innerHTML = String(html`<div class="vd-sms-head"><h2 class="bk-h" style="margin:0">ورود با ایمیل</h2>${state}</div>
+      <p class="small">کد ${fa(m.len ?? 6)} رقمی و پیوند ورود را Supabase به ایمیل هر کاربر می‌فرستد. ${m.sent24h || m.failed24h ? `۲۴ ساعت گذشته: ${fa(m.sent24h)} ایمیل رفت${m.failed24h ? `، ${fa(m.failed24h)} ناموفق` : ''}.` : ''}</p>
+      ${m.lastError ? html`<p class="small vd-sms-out bad">آخرین خطا (${jd(m.lastError.at.slice(0, 10))} ${timeFa(m.lastError.at)}): ${m.lastError.error}</p>` : ''}
+      <details class="small"><summary>تنظیم یک‌باره در داشبورد Supabase</summary><ol>
+        <li>Authentication → Emails → Templates: در «Magic Link» و «Confirm signup» عبارت <code dir="ltr">{{ .Token }}</code> را بگذارید تا کد هم در ایمیل بیاید.</li>
+        <li>Authentication → URL Configuration: Site URL را <code dir="ltr">${location.origin}</code> بگذارید تا پیوند ایمیل به همین‌جا برگردد.</li>
+        <li>Authentication → Emails → SMTP Settings: ایمیل پیش‌فرض Supabase فقط به اعضای تیم پروژه و چند نامه در ساعت می‌رسد؛ برای همکاران، SMTP اختصاصی (مثلاً Resend یا Gmail) را وصل کنید.</li></ol></details>`);
   }
   function drawSms() {
     const v = S.sms;
@@ -109,11 +125,11 @@ export async function vendorPage(root) {
     if (!box) return;
     box.hidden = false;
     const list = S.users[id] ?? (S.users[id] = (await api(`/api/vendor/tenants/${id}/users`)).items);
-    box.innerHTML = String(html`<div class="scrollx"><table class="table-plain vd-ut"><thead><tr><th>نام</th><th>موبایل</th><th>نقش</th><th>آخرین ورود</th><th>دستگاه</th><th></th></tr></thead><tbody>${list.map(
-      (u) => html`<tr class="${u.active ? '' : 'off'}"><td>${u.name}</td><td class="ltr-num">${u.noPhone ? html`<span class="vd-nophone">بدون موبایل — نمی‌تواند وارد شود</span>` : phoneFa(u.phone)}</td><td>${ROLE_FA[u.role]}</td><td>${u.lastLoginAt ? `${jd(u.lastLoginAt.slice(0, 10))} ${timeFa(u.lastLoginAt)}` : 'هنوز وارد نشده'}</td><td>${u.lastDevice || '—'}</td>
-        <td class="vd-uact"><button class="chip" data-act="phone" data-t="${id}" data-u="${u.id}">${u.noPhone ? 'افزودن موبایل' : 'موبایل'}</button><button class="chip" data-act="out" data-t="${id}" data-u="${u.id}">خروج از همه دستگاه‌ها</button><button class="chip ${u.active ? 'danger' : ''}" data-act="uact" data-t="${id}" data-u="${u.id}" data-on="${u.active ? 0 : 1}">${u.active ? 'غیرفعال' : 'فعال'}</button></td></tr>`,
+    box.innerHTML = String(html`<div class="scrollx"><table class="table-plain vd-ut"><thead><tr><th>نام</th><th>ایمیل (ورود)</th><th>موبایل</th><th>نقش</th><th>آخرین ورود</th><th>دستگاه</th><th></th></tr></thead><tbody>${list.map(
+      (u) => html`<tr class="${u.active ? '' : 'off'}"><td>${u.name}</td><td>${u.email ? html`<bdi dir="ltr">${u.email}</bdi>` : html`<span class="vd-nophone">بدون ایمیل — نمی‌تواند وارد شود</span>`}</td><td class="ltr-num">${u.noPhone ? html`<span class="vd-nophone">بدون موبایل — نمی‌تواند وارد شود</span>` : phoneFa(u.phone)}</td><td>${ROLE_FA[u.role]}</td><td>${u.lastLoginAt ? `${jd(u.lastLoginAt.slice(0, 10))} ${timeFa(u.lastLoginAt)}` : 'هنوز وارد نشده'}</td><td>${u.lastDevice || '—'}</td>
+        <td class="vd-uact"><button class="chip" data-act="email" data-t="${id}" data-u="${u.id}">${u.email ? 'ایمیل' : 'افزودن ایمیل'}</button><button class="chip" data-act="phone" data-t="${id}" data-u="${u.id}">${u.noPhone ? 'افزودن موبایل' : 'موبایل'}</button><button class="chip" data-act="out" data-t="${id}" data-u="${u.id}">خروج از همه دستگاه‌ها</button><button class="chip ${u.active ? 'danger' : ''}" data-act="uact" data-t="${id}" data-u="${u.id}" data-on="${u.active ? 0 : 1}">${u.active ? 'غیرفعال' : 'فعال'}</button></td></tr>`,
     )}</tbody></table></div>
-      <form class="vd-add" data-t="${id}"><b>کاربر تازه</b><input class="input" name="name" placeholder="نام و نام خانوادگی" required><input class="input ltr" name="phone" inputmode="tel" placeholder="موبایل ۰۹…" required><select class="input" name="role">${['employee', 'manager', 'owner', 'trainer'].map((r) => html`<option value="${r}">${ROLE_FA[r]}</option>`)}</select><button class="btn small">افزودن</button></form>`);
+      <form class="vd-add" data-t="${id}"><b>کاربر تازه</b><input class="input" name="name" placeholder="نام و نام خانوادگی" required><input class="input ltr" name="email" type="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="ایمیل (ورود)" required><input class="input ltr" name="phone" inputmode="tel" placeholder="موبایل ۰۹…" required><select class="input" name="role">${['employee', 'manager', 'owner', 'trainer'].map((r) => html`<option value="${r}">${ROLE_FA[r]}</option>`)}</select><button class="btn small">افزودن</button></form>`);
   }
   function shopForm(t = null) {
     modal(
@@ -121,7 +137,8 @@ export async function vendorPage(root) {
         <label class="field">نام فروشگاه<input class="input" name="name" value="${t?.name ?? ''}" required></label>
         <label class="field">نسخه<select class="input" name="plan">${Object.entries(PLAN_FA).map(([k, l]) => html`<option value="${k}" ${t?.plan === k ? 'selected' : ''}>${l}</option>`)}</select></label>
         ${t ? '' : html`<label class="field">نام مدیر فروشگاه<input class="input" name="ownerName" placeholder="مثلاً حسن کریمی"></label>
-        <label class="field">موبایل مدیر (با همین شماره وارد می‌شود)<input class="input ltr" name="phone" inputmode="tel" placeholder="۰۹۱۲…" required></label>`}
+        <label class="field">ایمیل مدیر (با همین ایمیل وارد می‌شود)<input class="input ltr" name="ownerEmail" type="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="name@gmail.com" required></label>
+        <label class="field">موبایل مدیر<input class="input ltr" name="phone" inputmode="tel" placeholder="۰۹۱۲…" required></label>`}
         <label class="field">پایان اشتراک (خالی = نامحدود)<input class="input ltr" name="expires" placeholder="${jd(addDays(today(), 365))}" value="${t?.expiresAt ? jd(t.expiresAt) : ''}"></label>
         <label class="field">سقف کاربران (۰ = نامحدود)<input class="input ltr" name="maxUsers" inputmode="numeric" value="${fa(t?.maxUsers ?? 0)}"></label>
         <label class="field">تماس<input class="input" name="contact" value="${t?.contact ?? ''}"></label>
@@ -141,9 +158,9 @@ export async function vendorPage(root) {
               close();
               toast('ذخیره شد.', 'ok');
             } else {
-              const r = await api('/api/vendor/tenants', { method: 'POST', body: { ...body, ownerName: f.ownerName, phone: f.phone } });
+              const r = await api('/api/vendor/tenants', { method: 'POST', body: { ...body, ownerName: f.ownerName, phone: f.phone, ownerEmail: f.ownerEmail } });
               close();
-              handoff(r.tenant.name, r.owner.name, r.owner.phone);
+              handoff(r.tenant.name, r.owner.name, r.owner.phone, r.owner.email);
             }
             await load();
           } catch (err) {
@@ -180,9 +197,19 @@ export async function vendorPage(root) {
         return load();
       }
       const tn = b.dataset.t, uid = b.dataset.u;
+      if (act === 'email') {
+        const u = S.users[tn]?.find((x) => x.id === uid);
+        const next = await askBox('ایمیل', 'این ایمیل کلید ورود همین حساب است؛ کد ورود به آن می‌رسد. با عوض شدنش، دستگاه‌هایی که با ایمیل قبلی وارد شده‌اند خارج می‌شوند. خالی = برداشتن ایمیل.', { label: 'ایمیل', value: u?.email ?? '', placeholder: 'name@gmail.com', dir: 'ltr', ok: 'ثبت' });
+        if (next === null) return;
+        const r = await api(`/api/vendor/tenants/${tn}/users/${uid}`, { method: 'PATCH', body: { email: next } });
+        if (r.token) auth.token = r.token; // your own email: this device stays signed in
+        delete S.users[tn];
+        toast(next.trim() ? 'ایمیل ثبت شد.' : 'ایمیل برداشته شد.', 'ok');
+        return load();
+      }
       if (act === 'phone') {
         const u = S.users[tn]?.find((x) => x.id === uid);
-        const next = await askBox('موبایل', 'این شماره کلید ورود همین حساب است؛ با عوض شدنش، دستگاه‌هایی که با شماره قبلی وارد شده‌اند خارج می‌شوند.', { label: 'شماره موبایل', value: u?.phone ? fa(u.phone) : '', placeholder: '۰۹۱۲…', dir: 'ltr', ok: 'ثبت' });
+        const next = await askBox('موبایل', 'موبایل شناسه این حساب در فروشگاه است؛ با عوض شدنش، دستگاه‌هایی که با شماره قبلی وارد شده‌اند خارج می‌شوند.', { label: 'شماره موبایل', value: u?.phone ? fa(u.phone) : '', placeholder: '۰۹۱۲…', dir: 'ltr', ok: 'ثبت' });
         if (next === null) return;
         const r = await api(`/api/vendor/tenants/${tn}/users/${uid}`, { method: 'PATCH', body: { phone: next } });
         if (r.token) auth.token = r.token; // your own number: this device stays signed in
@@ -241,7 +268,7 @@ export async function vendorPage(root) {
       const d = Object.fromEntries(new FormData(add));
       await api(`/api/vendor/tenants/${add.dataset.t}/users`, { method: 'POST', body: d });
       delete S.users[add.dataset.t];
-      toast(`${d.name} اضافه شد؛ با موبایل خودش و کد پیامکی وارد می‌شود.`, 'ok');
+      toast(`${d.name} اضافه شد؛ با ایمیل خودش و کد ایمیل‌شده وارد می‌شود.`, 'ok');
       await load();
     } catch (err) {
       toast(err.message, 'error');

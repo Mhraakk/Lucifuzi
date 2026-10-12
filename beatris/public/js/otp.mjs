@@ -8,7 +8,7 @@ const faDigit = (d) => '۰۱۲۳۴۵۶۷۸۹'[d] ?? '';
 
 /** The markup: a label, six cells and the input that owns the value. */
 export function codeBox({ name = 'code', length = 6, label = 'کد پیامک‌شده' } = {}) {
-  return html`<label class="otp" data-otp data-len="${length}"><span class="otp-label">${label}</span>
+  return html`<label class="otp" data-otp data-len="${length}" style="--otp-n:${length}"><span class="otp-label">${label}</span>
     <span class="otp-cells" dir="ltr" aria-hidden="true">${Array.from({ length }, () => html`<i></i>`)}</span>
     <input class="otp-input" name="${name}" dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="${length * 2}" spellcheck="false" aria-label="${label}، ${length} رقم" required></label>`;
 }

@@ -38,9 +38,10 @@ export async function teamPage(root) {
         <td class="small">${m.today?.inAt ? html`<span class="dot on"></span>${faTime(m.today.inAt)}${m.today.outAt ? ` تا ${faTime(m.today.outAt)}` : ''}` : html`<span class="dot"></span>—`}</td></tr>`)}</tbody></table></div>
 
     ${store.isAdmin() ? html`<h2>افزودن همکار</h2>
-      <p class="small">همکار با همین شماره موبایل و کد پیامکی وارد می‌شود؛ نام کاربری و رمز لازم نیست.${store.me?.tenant?.maxUsers ? ` سقف کاربران این فروشگاه: ${fa(store.me.tenant.maxUsers)}.` : ''}</p>
+      <p class="small">همکار با ایمیل خودش و کدی که به همان ایمیل می‌رسد وارد می‌شود؛ نام کاربری و رمز لازم نیست. موبایل، شناسه حساب در همین فروشگاه است.${store.me?.tenant?.maxUsers ? ` سقف کاربران این فروشگاه: ${fa(store.me.tenant.maxUsers)}.` : ''}</p>
       <form class="tray form cols" id="add">
         <label class="field">نام و نام خانوادگی<input class="input" name="name" required></label>
+        <label class="field">ایمیل (ورود)<input class="input ltr" name="email" type="email" inputmode="email" autocapitalize="off" spellcheck="false" required placeholder="name@gmail.com"></label>
         <label class="field">موبایل<input class="input ltr" name="phone" inputmode="tel" required placeholder="۰۹…"></label>
         <label class="field">نقش<select class="input" name="role"><option value="employee">فروشنده</option><option value="trainer">مربی</option><option value="manager">مدیر</option>${store.me.user.role === 'owner' ? html`<option value="owner">مالک</option>` : ''}</select></label>
         <label class="field">شعبه<input class="input" name="branch" value="${store.me.user.branch}"></label>
@@ -54,7 +55,7 @@ export async function teamPage(root) {
     busy(btn, true);
     try {
       await api('/api/team', { method: 'POST', body: Object.fromEntries(new FormData(f)) });
-      toast('همکار اضافه شد؛ با شماره موبایل خودش و کد پیامکی وارد می‌شود', 'ok');
+      toast('همکار اضافه شد؛ با ایمیل خودش و کد ایمیل‌شده وارد می‌شود', 'ok');
       render();
     } catch (err) {
       toast(err.message, 'error');
@@ -70,7 +71,7 @@ export async function memberPage(root, { id }) {
   const self = u.id === store.me.user.id;
   const assigned = new Map(p.assignments.map((a) => [a.courseId, a]));
   root.innerHTML = String(html`${back('/staff', 'تیم')}
-    <div class="head"><div><h1>${u.name}</h1><p class="lead">${ROLE_FA[u.role]}${u.branch ? ` · ${u.branch}` : ''} · ${fa(u.phone)} · آخرین ورود ${u.lastLoginAt ? faDate(u.lastLoginAt) : '—'}${u.active ? '' : ' · غیرفعال'}</p></div>${ringEl(p.overall, 'lg')}</div>
+    <div class="head"><div><h1>${u.name}</h1><p class="lead">${ROLE_FA[u.role]}${u.branch ? ` · ${u.branch}` : ''} · ${fa(u.phone)}${u.email ? html` · <bdi dir="ltr">${u.email}</bdi>` : html` · <span class="stamp red">بدون ایمیل — نمی‌تواند وارد شود</span>`} · آخرین ورود ${u.lastLoginAt ? faDate(u.lastLoginAt) : '—'}${u.active ? '' : ' · غیرفعال'}</p></div>${ringEl(p.overall, 'lg')}</div>
     <div class="stats">
       <div><b>${fa(p.lessonsDone.length)}/${fa(p.totals.lessons)}</b><span>درس</span></div>
       <div><b>${fa(p.quiz.firstTry)}/${fa(p.quiz.answered)}</b><span>درست در اولین تلاش</span></div>
@@ -103,7 +104,8 @@ export async function memberPage(root, { id }) {
       <div class="tray form cols">
         <label class="field">نقش<select class="input" id="role">${['employee', 'trainer', 'manager', ...(store.me.user.role === 'owner' ? ['owner'] : [])].map((r) => html`<option value="${r}" ${r === u.role ? 'selected' : ''}>${ROLE_FA[r]}</option>`)}</select></label>
         <label class="field">شعبه<input class="input" id="branch" value="${u.branch}"></label>
-        <label class="field">موبایل (کلید ورود)<input class="input ltr" id="nphone" inputmode="tel" value="${fa(u.phone)}"></label>
+        <label class="field">ایمیل (ورود)<input class="input ltr" id="nemail" type="email" inputmode="email" autocapitalize="off" spellcheck="false" value="${u.email ?? ''}" placeholder="name@gmail.com"></label>
+        <label class="field">موبایل<input class="input ltr" id="nphone" inputmode="tel" value="${fa(u.phone)}"></label>
         <div style="align-self:end"><button class="btn block" data-act="save">ذخیره</button></div>
       </div>
       <div class="actions"><button class="btn ${u.active ? 'danger' : ''}" data-act="toggle">${u.active ? 'غیرفعال کردن حساب' : 'فعال کردن حساب'}</button></div>` : ''}`);
@@ -141,9 +143,11 @@ export async function memberPage(root, { id }) {
     save: (el) => {
       const body = { role: $('#role', root).value, branch: $('#branch', root).value };
       const phone = $('#nphone', root).value.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g, '');
-      const moved = phone && phone !== u.phone;
-      if (moved) body.phone = phone;
-      patch(el, body, moved ? 'ذخیره شد؛ همکار از این به بعد با شماره تازه وارد می‌شود' : 'ذخیره شد');
+      if (phone && phone !== u.phone) body.phone = phone;
+      const email = $('#nemail', root).value.replace(/\s/g, '').toLowerCase();
+      const moved = email !== (u.email ?? '');
+      if (moved) body.email = email;
+      patch(el, body, moved ? (email ? 'ذخیره شد؛ همکار از این به بعد با ایمیل تازه وارد می‌شود' : 'ایمیل برداشته شد؛ همکار تا ثبت ایمیل تازه نمی‌تواند وارد شود') : 'ذخیره شد');
     },
     toggle: async (el) => {
       if (u.active && !(await confirmBox('غیرفعال کردن حساب', `حساب ${u.name} غیرفعال شود؟ پیشرفت او حفظ می‌شود.`, { danger: true, ok: 'غیرفعال کن' }))) return;

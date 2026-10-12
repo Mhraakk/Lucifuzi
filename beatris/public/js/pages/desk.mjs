@@ -15,7 +15,7 @@ import { track } from '../harness.mjs';
 import { barcodeSvg } from '../barcode.mjs';
 import { qrSvg } from '../qr.mjs';
 import { pickerHtml, productModal, templateModal, canManageProducts } from '../deskproducts.mjs';
-import { posConfig, posProblem, startCharge, newChargeId, logCharge, linkCharge, STATE_TEXT, chargeLine } from '../pos.mjs';
+import { posConfig, posProblem, posMode, cardWindow, linkCharge } from '../pos.mjs';
 import { createHistory, mountDock } from '../undo.mjs';
 import { morphText } from '../motion.mjs';
 import { parseLine, describe as describeParsed, resolveMazaneh, explainMazaneh, missing as missingOf } from '../oneline.mjs';
@@ -33,6 +33,7 @@ const KINDS = [
   ['bar', 'شمش پلمپ'],
   ['fx', 'ارز'],
 ];
+const CARD_ICON = raw('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h4"/></svg>');
 const MONEY_METHODS = ['cash', 'pos', 'c2c', 'slip', 'a2a', 'satna', 'paya', 'pol', 'havale', 'cheque', 'gateway', 'offset'];
 const COIN_BOARD = { bahar: 'sekeb', emami: 'sekee', halfOld: 'nim', half: 'nim', quarterOld: 'rob', quarter: 'rob', gerami: 'gerami' };
 const FINENESS_QUICK = [705, 720, 730, 735, 740, 745, 750, 900, 995];
@@ -127,7 +128,7 @@ export async function deskPage(root) {
           <label class="field">یادداشت<input class="input" id="note" maxlength="600" placeholder="مثلاً: تحویل فردا، آزمایشگاه عیار…"></label></section>
         <section class="dk-more"><button class="btn ghost small" data-act="hawala">حواله بین دو طرف حساب</button><button class="btn ghost small" data-act="convert">تبدیل مانده جنسی به ریال</button><a class="btn ghost small" href="/books/day" data-link>روزنگار امروز</a><a class="btn ghost small" href="/books/vault" data-link>گاوصندوق</a></section>
       </div>
-      <aside class="dk-side"><section class="dk-rpanel" id="dkReceipt" hidden aria-label="رسید سند ثبت‌شده"></section><p class="dk-sentence" id="dkSentence" aria-live="polite"></p><div class="tray dk-sum" id="sum"></div><div class="dk-save"><button class="btn block" data-act="save">ثبت سند <kbd>Ctrl+Enter</kbd></button></div></aside>
+      <aside class="dk-side"><section class="dk-rpanel" id="dkReceipt" hidden aria-label="رسید سند ثبت‌شده"></section><p class="dk-sentence" id="dkSentence" aria-live="polite"></p><div class="tray dk-sum" id="sum"></div><div class="dk-save"><button class="btn block pos-pay" data-act="paycard" hidden></button><button class="btn block" data-act="save">ثبت سند <kbd>Ctrl+Enter</kbd></button></div></aside>
     </div>
     <div class="dk-bar" id="bar"></div>`);
 
@@ -544,7 +545,14 @@ export async function deskPage(root) {
       ${row(c.credit === 0 ? 'تسویه ریالی کامل' : c.credit > 0 ? 'می‌ماند به بدهی ریالی مشتری' : 'می‌ماند به طلب ریالی مشتری', c.credit === 0 ? '✓' : R(Math.abs(c.credit)), c.credit ? 'warn' : 'ok')}
       ${Object.keys(c.goods).length ? html`<div class="kv"><span>جابه‌جایی جنسی</span><b>${Object.entries(c.goods).map(([u, v]) => `${v > 0 ? 'بدهکار' : 'بستانکار'} ${unitAmt(u, Math.abs(v))}`).join(' · ')}</b></div>` : ''}
       ${S.party ? html`<div class="dk-after"><span>مانده ${S.party.name} پس از این سند</span>${balChips(after)}</div>` : ''}`);
-    bar.innerHTML = String(html`<span>${c.net >= 0 ? 'دریافتنی' : 'پرداختنی'} <b>${R(Math.abs(c.net))}</b>${c.credit ? html` · مانده ${R(Math.abs(c.credit))}` : ''}</span><button class="btn small" data-act="save">ثبت</button>`);
+    // پرداخت یک‌کلیکی (spec 0035): what is left to receive, exactly, goes to the card reader in one tap
+    const card = !!posMode() && c.credit > 0;
+    bar.innerHTML = String(html`<span>${c.net >= 0 ? 'دریافتنی' : 'پرداختنی'} <b>${R(Math.abs(c.net))}</b>${c.credit ? html` · مانده ${R(Math.abs(c.credit))}` : ''}</span>${card ? html`<button class="btn small pos-pay" data-act="paycard">${CARD_ICON}کارتخوان</button>` : ''}<button class="btn small" data-act="save">ثبت</button>`);
+    const side = $('.dk-save [data-act=paycard]', root);
+    if (side) {
+      side.hidden = !card;
+      if (card) side.innerHTML = String(html`${CARD_ICON}پرداخت با کارتخوان ${R(c.credit)} <kbd>Alt+K</kbd>`);
+    }
     if (c.net !== lastNet) box.classList.remove('flash'), void box.offsetWidth, box.classList.add('flash');
     lastNet = c.net;
     sentence(c);
@@ -563,6 +571,21 @@ export async function deskPage(root) {
   }
 
   /* ---------------- save and receipt ---------------- */
+  /** پرداخت یک‌کلیکی (spec 0035): the remaining amount on a card row, charged on the card reader, then the document booked. */
+  function payByCard(btn) {
+    const { c, err } = calc();
+    if (!c) return toast(err, 'error');
+    if (!posMode()) return toast('برای این دستگاه کارتخوانی تنظیم نشده است («تنظیمات ← کارتخوان این رایانه»).', 'error');
+    if (!(c.credit > 0)) return toast('مبلغی برای دریافت از مشتری نمانده است.', 'info');
+    // the open card row (no reference yet) takes the rest; a charged row is never touched
+    const open = S.payments.findIndex((p) => p.method === 'pos' && p.dir !== 'out' && !String(p.ref ?? '').trim() && !p.posId);
+    if (open >= 0) S.payments[open].amount = String((B.num(S.payments[open].amount) || 0) + c.credit);
+    else S.payments.push({ method: 'pos', dir: 'in', account: banks[0]?.id, amount: String(c.credit) });
+    drawPays();
+    recalc();
+    track('desk.paycard', { amount: c.credit, via: posMode() });
+    return save(btn);
+  }
   async function save(btn) {
     const { c, err } = calc();
     if (!c) return toast(err, 'error');
@@ -573,11 +596,11 @@ export async function deskPage(root) {
       // کارتخوان (spec 0005): each card-reader receipt without a reference goes to the terminal first; the document is
       // booked only when every one is approved (an approved one keeps its RRN, so a retry never charges twice)
       const pc = posConfig();
-      if (pc.on) {
+      if (posMode(pc)) {
         for (const [i, p] of S.payments.entries()) {
           if (p.posId && p.posAmount !== c.payments[i].value) return toast(`مبلغ ردیف کارتخوان با مبلغی که از کارت کم شد (${R(p.posAmount)}) فرق دارد؛ همان مبلغ را بنویسید و مابقی را ردیف جدا کنید.`, 'error');
           if (p.method !== 'pos' || p.dir === 'out' || String(p.ref ?? '').trim()) continue;
-          const bad = posProblem(pc);
+          const bad = posMode(pc) === 'local' ? posProblem(pc) : '';
           if (bad) return toast(bad, 'error');
           const j = await chargeModal(pc, c.payments[i].value);
           if (!j) return;
@@ -639,77 +662,8 @@ export async function deskPage(root) {
       busy(btn, false);
     }
   }
-  /** The card-reader window: follows one charge; resolves the approved charge, or null (declined, cancelled, closed). */
-  function chargeModal(pc, amount) {
-    return new Promise((resolve) => {
-      const id = newChargeId();
-      let run = null, result = null, retrying = false, last = { id, amount, driver: pc.driver, state: 'connecting' };
-      const close = modal(
-        String(html`<div class="pos-box" role="status"><h3 class="bk-h">کارتخوان</h3><div class="pos-amt">${R(amount)}</div>
-          <div class="pos-st connecting" id="posSt" aria-live="assertive"><i class="pos-dot"></i><span>${STATE_TEXT.connecting}</span></div>
-          <p class="small pos-msg" id="posMsg">${pc.driver === 'sim' ? 'شبیه‌ساز: پولی جابه‌جا نمی‌شود.' : ''}</p>
-          <div class="pos-manual" id="posManual" hidden><label class="field">شماره پیگیری روی رسید کارتخوان<input class="input ltr" id="posRrn" inputmode="numeric" maxlength="20"></label></div>
-          <div class="actions" id="posAct"><button class="btn ghost" data-pos="cancel">انصراف</button></div></div>`),
-        (m) =>
-          m.addEventListener('click', (e) => {
-            const b = e.target.closest('[data-pos]');
-            if (!b) return;
-            const a = b.dataset.pos;
-            if (a === 'cancel') {
-              if (run && !result) {
-                run.cancel();
-                show({ ...last, state: last.state }, 'در حال لغو… اگر کارت کشیده شده، صبر کنید.');
-              } else close();
-            } else if (a === 'retry') {
-              retrying = true;
-              close();
-              chargeModal(pc, amount).then(resolve);
-            } else if (a === 'manual') {
-              const rrn = $('#posRrn', m).value.replace(/[^\d۰-۹]/g, '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
-              if (rrn.length < 6) return toast('شماره پیگیری رسید کارتخوان را کامل وارد کنید.', 'error');
-              result = { ...last, state: 'approved', rrn, message: 'ثبت دستی از روی رسید کارتخوان' };
-              logCharge(result);
-              close();
-            }
-          }),
-        () => {
-          if (run && !result && !['declined', 'cancelled', 'error', 'unknown'].includes(last.state)) run.cancel();
-          if (!retrying) resolve(result?.state === 'approved' ? result : null);
-        },
-      );
-      const show = (j, extra) => {
-        const st = document.getElementById('posSt');
-        if (!st) return;
-        st.className = `pos-st ${j.state}`;
-        st.innerHTML = `<i class="pos-dot"></i><span>${String(chargeLine(j))}</span>`;
-        document.getElementById('posMsg').textContent = extra ?? (j.state === 'approved' ? '' : j.message || '');
-        const act = document.getElementById('posAct');
-        if (['declined', 'cancelled', 'error'].includes(j.state)) act.innerHTML = String(html`<button class="btn" data-pos="retry">دوباره بفرست</button><button class="btn ghost" data-close>بستن</button>`);
-        if (j.state === 'unknown') {
-          document.getElementById('posManual').hidden = false;
-          act.innerHTML = String(html`<button class="btn" data-pos="manual">پرداخت شده؛ ثبت با این شماره</button><button class="btn ghost" data-pos="retry">دوباره بفرست</button><button class="btn ghost" data-close>بستن</button>`);
-        }
-      };
-      run = startCharge(pc, { id, amount }, (j) => {
-        last = j;
-        show(j);
-      });
-      run.done
-        .then((j) => {
-          last = j;
-          show(j);
-          logCharge(j);
-          if (j.state === 'approved') {
-            result = j;
-            setTimeout(close, 900);
-          }
-        })
-        .catch((e) => {
-          last = { ...last, state: 'error', message: e.message };
-          show(last);
-        });
-    });
-  }
+  /** The card-reader window (pos.mjs): resolves the approved charge, or null (declined, cancelled, closed). */
+  const chargeModal = (pc, amount) => cardWindow(pc, amount);
   async function orphans() {
     const r = await api('/api/books/pos').catch(() => null);
     const box = $('#posOrphans', root);
@@ -751,7 +705,7 @@ export async function deskPage(root) {
         ${party ? html`<p><b>مشتری:</b> ${party.party.label} · کد ${fa(party.party.code)}</p>` : ''}
         <table class="table-plain dk-r-t">${body.map((r) => html`<tr><td><em class="ltr-num">${r[0].replace(doc.track, '') || '—'}</em>${r[1]}<small>${r[2]}</small></td><td class="num">${r[3]}</td></tr>`)}</table>
         ${who.map((x) => html`<div class="dk-after"><span>مانده ${x.party?.name ?? x.label} پس از این سند</span>${balChips(x.balance)}</div>`)}
-        <p class="small ltr-num">کد اصالت ${doc.verify}</p></div>
+        <p class="small">کد اصالت <b class="ltr-num">${doc.verify}</b></p></div>
       ${warn.length ? html`<div class="dk-warn" role="alert"><b>ممیز:</b>${warn.map((f) => html`<p class="${f.sev}">${f.sev === 'high' ? '⛔' : '⚠'} ${f.title} — ${f.detail}</p>`)}</div>` : ''}
       <div class="actions"><button class="btn small" data-r="print">چاپ رسید</button><button class="btn small ghost" data-r="share">ارسال / کپی متن</button>${doc.type === 'trade' ? html`<button class="btn small ghost" data-r="amend" title="سند تازه‌ای می‌سازد که جای این سند را می‌گیرد">اصلاح این سند</button>` : ''}<a class="btn small ghost" href="/books/trace?q=${doc.track}" data-link>رهگیری</a><a class="btn small ghost" href="/books/doc/${doc.id}" data-link>سند کامل</a></div>`);
     panel._share = { text, note };
@@ -1131,7 +1085,7 @@ export async function deskPage(root) {
       ['Alt+1 … Alt+4', 'خرید، فروش، دریافت جنس، تحویل جنس'], ['Alt+5 … Alt+8', 'آبشده، سکه، شمش، ارز'],
       ['Enter', 'خانه ضروری بعدی؛ وقتی ردیف کامل است: افزودن به سند؛ در فرم خالی: رفتن به پرداخت'], ['Alt+P', 'پرداخت پیشنهادی با باقی‌مانده'],
       ['Alt+R', 'مثل معامله قبلی'], ['۱ … ۹ در خط سریع', 'اجرای ماکرو'], ['Ctrl+Z', 'برگشت یک گام (مکان‌نما روی همان خانه)'], ['Ctrl+Shift+Z', 'جلو'],
-      ['Ctrl+Enter', 'ثبت نهایی'], ['Esc', 'بستن رسید یا فرم کوچک'], ['? یا F1', 'همین راهنما'],
+      ['Ctrl+Enter', 'ثبت نهایی'], ['Alt+K', 'پرداخت با کارتخوان: مبلغ باقی‌مانده به کارتخوان، سپس ثبت'], ['Esc', 'بستن رسید یا فرم کوچک'], ['? یا F1', 'همین راهنما'],
     ];
     box.innerHTML = String(html`<dl class="dk-keys">${K.map(([k, d]) => html`<div><dt><kbd>${k}</kbd></dt><dd>${d}</dd></div>`)}</dl>`);
     drawQuick();
@@ -1338,6 +1292,10 @@ export async function deskPage(root) {
       e.preventDefault();
       const d = S.defPay ?? S.habits?.pay ?? null;
       addPayment(d?.method ?? 'cash', { account: d?.account ?? undefined });
+    } else if (e.altKey && !e.ctrlKey && e.code === 'KeyK') {
+      e.preventDefault();
+      const b = $('.dk-save [data-act=paycard]', root);
+      if (b && !b.hidden) payByCard(b);
     } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       save($('.dk-save [data-act=save]', root));
@@ -1504,6 +1462,7 @@ export async function deskPage(root) {
     const act = b.dataset.act;
     if (act === 'add') addLine();
     else if (act === 'save') save(b);
+    else if (act === 'paycard') payByCard(b);
     else if (act === 'pnew') {
       partyForm = partyForm === 'new' ? null : 'new';
       drawParty();

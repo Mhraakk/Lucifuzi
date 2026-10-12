@@ -6,7 +6,7 @@ import { backtest } from '../public/js/backtest.mjs';
 import path from 'node:path';
 import * as C from '../content/index.mjs';
 import { checkNumeric, RECORD_KINDS } from '../public/js/calc.mjs';
-import { ROLES, STAFF_ROLES, ADMIN_ROLES, NO_PIN, normalizePhone, validPhone, makeLimiter } from './auth.mjs';
+import { ROLES, STAFF_ROLES, ADMIN_ROLES, NO_PIN, normalizePhone, validPhone, normalizeEmail, validEmail, makeLimiter } from './auth.mjs';
 import { COIN_TYPES } from '../public/js/coins.mjs';
 import { SHOP_NAME } from '../public/js/crown.mjs';
 import { PHOTO_KINDS, PHOTO_SIDES, checkTexture, storeFiles, removeFiles, builtinPhotos } from './media.mjs';
@@ -39,6 +39,13 @@ export class HttpError extends Error {
   }
 }
 const bad = (m) => new HttpError(400, m);
+/** An optional email field (spec 0034): '' or absent → null, otherwise a valid lower-case address. */
+const optEmail = (raw) => {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const e = normalizeEmail(raw);
+  if (!validEmail(e)) throw bad('نشانی ایمیل درست نیست.');
+  return e;
+};
 const notFound = (m = 'پیدا نشد.') => new HttpError(404, m);
 
 function shuffle(a) {
@@ -73,7 +80,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   const savePricing = (next, by) =>
     db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', 'pricing', JSON.stringify(next), now(), by);
 
-  const publicUser = (u) => ({ id: u.id, name: u.name, phone: /^09\d{9}$/.test(u.phone) ? u.phone : '', username: u.username ?? null, role: u.role, branch: u.branch, active: !!u.active, lastLoginAt: u.last_login_at, createdAt: u.created_at });
+  const publicUser = (u) => ({ id: u.id, name: u.name, phone: /^09\d{9}$/.test(u.phone) ? u.phone : '', email: u.email ?? '', username: u.username ?? null, role: u.role, branch: u.branch, active: !!u.active, lastLoginAt: u.last_login_at, createdAt: u.created_at });
   const mainOnly = () => {
     if (!isMain) throw new HttpError(403, 'این بخش فقط در دست ارائه‌دهنده است.');
   };
@@ -147,7 +154,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   on('GET', '/api/config', 'public', () => ({
     demo,
     shopName: brand().shopName,
-    demoAccounts: demo ? db.all("SELECT name, phone, role FROM users WHERE demo=1 AND active=1 ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'trainer' THEN 2 ELSE 3 END") : [],
+    demoAccounts: demo ? db.all("SELECT name, phone, email, role FROM users WHERE demo=1 AND active=1 ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'trainer' THEN 2 ELSE 3 END") : [],
   }));
 
   on('POST', '/api/auth/logout-all', 'auth', ({ user }) => {
@@ -481,11 +488,13 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     if (!ROLES.includes(role)) throw bad('نقش نامعتبر.');
     if (role === 'owner' && user.role !== 'owner') throw new HttpError(403, 'فقط مالک می‌تواند مالک جدید تعریف کند.');
     if (db.get('SELECT 1 FROM users WHERE phone=?', phone)) throw new HttpError(409, 'این شماره قبلاً در همین فروشگاه ثبت شده.');
+    const email = optEmail(body.email);
+    if (email && db.get('SELECT 1 FROM users WHERE email=?', email)) throw new HttpError(409, 'این ایمیل قبلاً در همین فروشگاه ثبت شده.');
     const cap = isMain ? 0 : Number(T.max_users) || 0;
     if (cap > 0 && db.get('SELECT COUNT(*) AS n FROM users WHERE active=1').n >= cap) throw new HttpError(409, `سقف کاربران این فروشگاه (${cap}) پر است؛ برای افزایش با ارائه‌دهنده تماس بگیرید.`);
     const id = randomUUID();
-    db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,created_at) VALUES (?,?,?,?,?,?,?)', id, name, phone, role, String(body.branch ?? '').trim().slice(0, 40), NO_PIN, now());
-    audit(user.id, 'user.create', { id, role });
+    db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,created_at,email) VALUES (?,?,?,?,?,?,?,?)', id, name, phone, role, String(body.branch ?? '').trim().slice(0, 40), NO_PIN, now(), email);
+    audit(user.id, 'user.create', { id, role, email: !!email });
     return { user: publicUser(db.get('SELECT * FROM users WHERE id=?', id)) };
   });
 
@@ -514,6 +523,16 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
         if (db.get('SELECT 1 FROM users WHERE phone=? AND id<>?', phone, u.id)) throw new HttpError(409, 'این شماره در همین فروشگاه حساب دیگری دارد.');
         // the mobile is the key to the account: whoever signed in with the old number is signed out
         db.run('UPDATE users SET phone=?, token_version=token_version+1 WHERE id=?', phone, u.id);
+      }
+    }
+    // ورود با ایمیل (spec 0034): the email opens the account too; a change signs out whoever came in with the old one
+    if (body.email !== undefined) {
+      const email = optEmail(body.email);
+      if (email !== (u.email ?? null)) {
+        if (u.id === user.id) throw bad('ایمیل خودتان را از این‌جا نمی‌توانید عوض کنید؛ از مالک یا ارائه‌دهنده بخواهید.');
+        if (isMain && u.phone === normalizePhone(process.env.BEATRIS_OWNER_PHONE) && validEmail(normalizeEmail(process.env.BEATRIS_OWNER_EMAIL))) throw bad('ایمیل مالک اصلی از متغیر BEATRIS_OWNER_EMAIL در Railway می‌آید؛ همان‌جا عوض کنید.');
+        if (email && db.get('SELECT 1 FROM users WHERE email=? AND id<>?', email, u.id)) throw new HttpError(409, 'این ایمیل در همین فروشگاه حساب دیگری دارد.');
+        db.run('UPDATE users SET email=?, token_version=token_version+1 WHERE id=?', email, u.id);
       }
     }
     audit(user.id, 'user.update', { id: u.id, fields: Object.keys(body) });
@@ -793,17 +812,26 @@ export function seedUsers(db, env = process.env, demo = false) {
     db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,created_at) VALUES (?,?,?,?,?,?,?)', randomUUID(), env.BEATRIS_OWNER_NAME || 'مالک', ownerPhone, 'owner', 'شعبه مرکزی', NO_PIN, now());
     console.log('[beatris] owner account created from env.');
   }
+  // ورود با ایمیل (spec 0034): the main owner's email follows BEATRIS_OWNER_EMAIL, as the mobile follows BEATRIS_OWNER_PHONE
+  const ownerEmail = normalizeEmail(env.BEATRIS_OWNER_EMAIL);
+  if (validPhone(ownerPhone) && validEmail(ownerEmail)) {
+    const holder = db.get('SELECT id, phone FROM users WHERE email=?', ownerEmail);
+    if (holder && holder.phone !== ownerPhone) db.run('UPDATE users SET email=NULL, token_version=token_version+1 WHERE id=?', holder.id);
+    const r = db.run('UPDATE users SET email=?, token_version=token_version+1 WHERE phone=? AND (email IS NULL OR email<>?)', ownerEmail, ownerPhone, ownerEmail);
+    if (r.changes) console.log('[beatris] owner email set from env.');
+  }
   if (demo) {
     const people = [
-      ['مهرداد آریایی', '09120000001', 'owner', 'شعبه مرکزی'],
-      ['سارا موسوی', '09120000002', 'manager', 'شعبه مرکزی'],
-      ['نیلوفر احمدی', '09120000003', 'trainer', 'شعبه مرکزی'],
-      ['نیما صالحی', '09120000004', 'employee', 'شعبه مرکزی'],
-      ['زهرا حسینی', '09120000005', 'employee', 'شعبه بازار'],
-      ['علی رضایی', '09120000006', 'employee', 'شعبه بازار'],
+      ['مهرداد آریایی', '09120000001', 'owner', 'شعبه مرکزی', 'owner@demo.beatris.ir'],
+      ['سارا موسوی', '09120000002', 'manager', 'شعبه مرکزی', 'manager@demo.beatris.ir'],
+      ['نیلوفر احمدی', '09120000003', 'trainer', 'شعبه مرکزی', 'trainer@demo.beatris.ir'],
+      ['نیما صالحی', '09120000004', 'employee', 'شعبه مرکزی', 'nima@demo.beatris.ir'],
+      ['زهرا حسینی', '09120000005', 'employee', 'شعبه بازار', 'zahra@demo.beatris.ir'],
+      ['علی رضایی', '09120000006', 'employee', 'شعبه بازار', 'ali@demo.beatris.ir'],
     ];
-    for (const [name, phone, role, branch] of people) {
-      if (!db.get('SELECT 1 FROM users WHERE phone=?', phone)) db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,demo,created_at) VALUES (?,?,?,?,?,?,1,?)', randomUUID(), name, phone, role, branch, NO_PIN, now());
+    for (const [name, phone, role, branch, email] of people) {
+      if (!db.get('SELECT 1 FROM users WHERE phone=?', phone)) db.run('INSERT INTO users(id,name,phone,role,branch,pin_hash,demo,created_at,email) VALUES (?,?,?,?,?,?,1,?,?)', randomUUID(), name, phone, role, branch, NO_PIN, now(), db.get('SELECT 1 FROM users WHERE email=?', email) ? null : email);
+      else db.run('UPDATE users SET email=? WHERE phone=? AND demo=1 AND email IS NULL AND NOT EXISTS (SELECT 1 FROM users WHERE email=?)', email, phone, email);
     }
   }
   if (!demo) {

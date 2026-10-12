@@ -3,8 +3,8 @@
 //
 //   npm run e2e                       # uses the globally installed playwright
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run e2e
-//   E2E_BASE=https://... E2E_PHONE=... E2E_PIN=... npm run e2e   # smoke-test a live deploy (read-only checks; E2E_PIN is the
-//                                                                 # owner's BEATRIS_OWNER_PIN while SMS is not set up)
+//   E2E_BASE=https://... E2E_EMAIL=... E2E_PIN=... npm run e2e   # smoke-test a live deploy (read-only checks; E2E_PIN is the
+//                                                                 # owner's BEATRIS_OWNER_PIN while email sign-in is not set up)
 //   E2E_ONLY='melted|mobile pages' npm run e2e                     # only the steps whose name matches (login always runs)
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -30,7 +30,7 @@ if (!live) {
     await new Promise((r) => setTimeout(r, 250));
   }
 }
-const PHONE = process.env.E2E_PHONE || '09120000002'; // demo manager
+const EMAIL = process.env.E2E_EMAIL || 'manager@demo.beatris.ir'; // demo manager (spec 0034)
 const PIN = process.env.E2E_PIN || ''; // only for a live server whose owner signs in with BEATRIS_OWNER_PIN (spec 0022)
 
 const results = [];
@@ -47,7 +47,7 @@ const step = async (name, fn) => {
   try {
     await fn();
   } catch (e) {
-    check(name, false, e.message.split('\n')[0]);
+    check(name, false, process.env.E2E_DEBUG ? e.message.slice(0, 2000) : e.message.split('\n')[0]);
   }
 };
 
@@ -95,11 +95,11 @@ const freshDesk = async (page) => {
 };
 const noBadNumbers = (s) => !/NaN|undefined|Infinity/.test(s);
 
-/** Sign in the way people do (spec 0022): the number, then the code. Demo accounts see their code on the page. */
-async function loginUI(page, phone = PHONE) {
+/** Sign in the way people do (spec 0034): the email, then the code. Demo accounts see their code on the page. */
+async function loginUI(page, email = EMAIL) {
   await go(page, '/login', 800);
-  await page.fill('#pf input[name=phone]', phone);
-  await page.click('#pf button[type=submit]');
+  await page.fill('#ef input[name=email]', email);
+  await page.click('#ef button[type=submit]');
   await page.waitForSelector('#cf', { timeout: 15000 });
   const dev = await page.$('.lg-dev');
   if (dev) {
@@ -114,11 +114,11 @@ async function loginUI(page, phone = PHONE) {
   } else if (await page.$('#cf input[type=password]')) {
     await page.fill('#cf input[name=code]', PIN);
     await page.click('#cf button[type=submit]');
-  } else throw new Error('no code on the page: a live server with SMS needs a real phone');
-  // a number in several shops picks one after the code (spec 0022): the first is the main shop
+  } else throw new Error('no code on the page: a live server with Supabase needs a real inbox');
+  // an email in several shops picks one after the code (spec 0034): the first is the main shop
   await Promise.race([page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 }), page.waitForSelector('.lg-shops [data-act=pick]', { timeout: 15000 }).then((b) => b.click())]);
   await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 });
-  check('login: number → code reaches home', true);
+  check('login: email → code reaches home', true);
 }
 
 /* ======================================================= desktop, full walk */
@@ -669,79 +669,103 @@ async function loginUI(page, phone = PHONE) {
     check('owner marks the request as contacted', (await page.$eval('[data-status="contacted"]', (b) => b.getAttribute('aria-pressed'))) === 'true');
   });
 
-  if (!live) await step('sign-in by SMS (spec 0022): a colleague added by mobile, a new shop by sign-up, two shops, the vendor console', async () => {
-    // the manager adds a colleague with a mobile only — no username, no password
+  if (!live) await step('sign-in by email (spec 0034): a colleague added by email, a new shop by sign-up, two shops, the email link, the vendor console', async () => {
+    // the manager adds a colleague with an email and a mobile — no username, no password
     await go(page, '/staff', 1200);
     check('team: no account-request page any more', !(await page.$('a[href="/staff/access"]')));
     await page.fill('#add input[name=name]', 'ترانه آزمون');
+    await page.fill('#add input[name=email]', ' Taraneh@Mail.com ');
     await page.fill('#add input[name=phone]', '۰۹۱۳۵۵۵۱۲۱۲');
     await page.selectOption('#add select[name=role]', 'trainer');
     check('team: the add form asks for no password', !(await page.$('#add input[name=pin]')));
     await page.click('#add button[type=submit]');
     await page.waitForTimeout(1200);
     check('team: the colleague is listed', /ترانه آزمون/.test(await text(page, '#main')));
-    // she signs in on her phone with that number and the code
+    // she signs in on her phone with that email and the code
     const pub = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const p3 = await pub.newPage();
     p3.on('pageerror', (e) => errors.push(`[sms] pageerror: ${e.message}`));
-    p3.on('console', (m) => m.type() === 'error' && !/status of 40[13]/.test(m.text()) && errors.push(`[sms] console: ${m.text().slice(0, 200)}`));
+    p3.on('console', (m) => m.type() === 'error' && !/status of 40[13]|status of 503/.test(m.text()) && errors.push(`[sms] console: ${m.text().slice(0, 200)}`));
     await p3.goto(base + '/join');
     await p3.waitForTimeout(900);
     check('old /join links land on the sign-in page', new URL(p3.url()).pathname === '/login');
-    check('login: one field, the mobile number, no password anywhere', !!(await p3.$('#pf input[name=phone]')) && !(await p3.$('input[type=password]')) && !(await p3.$('a[href="/join"]')));
-    await p3.fill('#pf input[name=phone]', '09135551212');
-    await p3.click('#pf button[type=submit]');
+    check('login: one field, the email, no password and no mobile anywhere', !!(await p3.$('#ef input[name=email][type=email]')) && !(await p3.$('input[type=password]')) && !(await p3.$('input[name=phone]')) && !(await p3.$('a[href="/join"]')));
+    await p3.fill('#ef input[name=email]', 'not-an-email');
+    await p3.click('#ef button[type=submit]');
+    await p3.waitForTimeout(300);
+    check('login: a malformed email is stopped on the page', /ایمیل/.test(await text(p3, '#err')) && !(await p3.$('#cf')));
+    await p3.fill('#ef input[name=email]', 'TARANEH@mail.com');
+    await p3.click('#ef button[type=submit]');
     await p3.waitForSelector('#cf', { timeout: 10000 });
-    check('code step: six cells, the number shown, a resend timer', (await p3.$$eval('.otp-cells i', (x) => x.length)) === 6 && /۰۹۱۳ ۵۵۵ ۱۲۱۲/.test(await text(p3, '.lg-step')) && /ارسال دوباره تا/.test(await text(p3, '[data-act=resend]')));
+    check('code step: six cells, the email shown, a resend timer, where to look', (await p3.$$eval('.otp-cells i', (x) => x.length)) === 6 && (await text(p3, '.lg-mail')) === 'taraneh@mail.com' && /ارسال دوباره تا/.test(await text(p3, '[data-act=resend]')) && /هرزنامه/.test(await text(p3, '.lg-step')));
     check('code step: no sideways scroll on a phone', await p3.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     const code = await p3.$eval('.lg-dev', (b) => b.dataset.code);
     await p3.fill('.otp-input', [...code].map((d) => '۰۱۲۳۴۵۶۷۸۹'[d]).join('')); // Persian digits are fine
     await p3.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 }).catch(() => {});
-    check('the new colleague is in, with her own number', !new URL(p3.url()).pathname.startsWith('/login') && (await p3.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).user.phone)) === '09135551212');
+    const her = await p3.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).user);
+    check('the new colleague is in, with her own email and number', !new URL(p3.url()).pathname.startsWith('/login') && her.email === 'taraneh@mail.com' && her.phone === '09135551212', JSON.stringify(her));
     await pub.close();
-    // a number with no account opens its own shop
+    // the link in the email: Supabase sends the person back with the session in the address; this server has no
+    // Supabase, so the page says so plainly — and the session never stays in the address bar
+    const lCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const pl = await lCtx.newPage();
+    pl.on('pageerror', (e) => errors.push(`[link] pageerror: ${e.message}`));
+    await pl.goto(`${base}/#access_token=aaa.bbb.ccc&expires_in=3600&refresh_token=x&token_type=bearer&type=magiclink`);
+    await pl.waitForSelector('#ef', { timeout: 10000 });
+    await pl.waitForTimeout(400);
+    check('email link: taken from the address, checked on the server, then gone from the address bar', new URL(pl.url()).pathname === '/login' && !pl.url().includes('access_token') && /Supabase|ایمیل/.test(await text(pl, '#err')), `${pl.url()} ${await text(pl, '#err')}`);
+    await pl.goto(`${base}/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired`);
+    await pl.waitForSelector('#ef', { timeout: 10000 });
+    check('email link: an expired link says so and asks for a fresh code', /گذشته/.test(await text(pl, '#err')) && !pl.url().includes('error'));
+    await lCtx.close();
+    // an email with no account opens its own shop (the mobile too: the account's key inside the shop)
     const sCtx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
     const p4 = await sCtx.newPage();
     p4.on('pageerror', (e) => errors.push(`[signup] pageerror: ${e.message}`));
     await p4.goto(base + '/login');
     await p4.waitForTimeout(900);
-    await p4.fill('#pf input[name=phone]', '09135550000');
-    await p4.click('#pf button[type=submit]');
+    await p4.fill('#ef input[name=email]', 'kaveh@mail.com');
+    await p4.click('#ef button[type=submit]');
     await p4.waitForSelector('.lg-dev', { timeout: 10000 });
     await p4.click('.lg-dev');
     await p4.waitForSelector('#sf', { timeout: 10000 });
-    check('sign-up: an unknown number is offered its own shop', /حسابی ندارد/.test(await text(p4, '.lg-step')));
+    check('sign-up: an unknown email is offered its own shop, and asked for a mobile', /حسابی ندارد/.test(await text(p4, '.lg-step')) && !!(await p4.$('#sf input[name=phone]')));
     await p4.fill('#sf input[name=name]', 'کاوه آزمون');
     await p4.fill('#sf input[name=shopName]', 'گالری ثبت‌نام');
     await p4.click('#sf button[type=submit]');
+    await p4.waitForTimeout(400);
+    check('sign-up: no mobile, no shop', /موبایل/.test(await text(p4, '#err')) && new URL(p4.url()).pathname === '/login');
+    await p4.fill('#sf input[name=phone]', '۰۹۱۳۵۵۵۰۰۰۰');
+    await p4.click('#sf button[type=submit]');
     await p4.waitForURL((u) => u.pathname === '/setup', { timeout: 15000 }).catch(() => {});
     check('sign-up: the new owner lands in the setup wizard of the new shop', new URL(p4.url()).pathname === '/setup', p4.url());
-    // the new owner adds the demo manager's number: that number now has two shops
-    const added = await p4.evaluate(async () => (await fetch('/api/team', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('beatris.token')}` }, body: JSON.stringify({ name: 'سارا در گالری دوم', phone: '09120000002', role: 'manager' }) })).status);
-    check('sign-up: the new owner adds staff by mobile', added === 200, String(added));
+    // the new owner adds the demo manager's email: that email now has two shops
+    const added = await p4.evaluate(async () => (await fetch('/api/team', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('beatris.token')}` }, body: JSON.stringify({ name: 'سارا در گالری دوم', phone: '09120000002', email: 'manager@demo.beatris.ir', role: 'manager' }) })).status);
+    check('sign-up: the new owner adds staff by email', added === 200, String(added));
     await sCtx.close();
     const two = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const p5 = await two.newPage();
     p5.on('pageerror', (e) => errors.push(`[two shops] pageerror: ${e.message}`));
     await p5.goto(base + '/login');
     await p5.waitForTimeout(900);
-    await p5.fill('#pf input[name=phone]', '09120000002');
-    await p5.click('#pf button[type=submit]');
+    await p5.fill('#ef input[name=email]', 'manager@demo.beatris.ir');
+    await p5.click('#ef button[type=submit]');
     await p5.waitForSelector('.lg-dev', { timeout: 10000 });
     await p5.click('.lg-dev');
     await p5.waitForSelector('.lg-shops', { timeout: 10000 });
     const shops = await p5.$$eval('.lg-shops [data-act=pick]', (b) => b.map((x) => x.innerText));
-    check('two shops: the number picks one after the code', shops.length === 2 && shops.some((x) => /گالری ثبت‌نام/.test(x)), shops.join(' | '));
+    check('two shops: the email picks one after the code', shops.length === 2 && shops.some((x) => /گالری ثبت‌نام/.test(x)), shops.join(' | '));
     await p5.click('.lg-shops [data-act=pick]:has-text("گالری ثبت‌نام")');
     await p5.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 }).catch(() => {});
     check('two shops: the picked shop opens', !new URL(p5.url()).pathname.startsWith('/login') && (await p5.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).tenant.name)) === 'گالری ثبت‌نام');
     await two.close();
-    // the vendor console: the SMS card, a shop made with a mobile only, and its owner signs in
+    // the vendor console: the email card, the SMS card, a shop made with its owner's email, and the owner signs in
     const vCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const pv = await vCtx.newPage();
     pv.on('pageerror', (e) => errors.push(`[vendor] pageerror: ${e.message}`));
-    await loginUI(pv, '09120000001');
+    await loginUI(pv, 'owner@demo.beatris.ir');
     await go(pv, '/vendor', 1500);
+    check('vendor: the email card says Supabase is not set up yet and how to set it', /ورود با ایمیل/.test(await text(pv, '#vdMail')) && /BEATRIS_SUPABASE_URL/.test(await text(pv, '#vdMail')) && (await pv.$eval('#vdMail details', (d) => d.textContent)).includes('{{ .Token }}'));
     check('vendor: the SMS card says no panel is set (development shows the code on the page)', /پیامک ورود/.test(await text(pv, '#vdSms')) && !!(await pv.$('#smsF select[name=provider]')) && /محیط توسعه/.test(await text(pv, '#vdSms')));
     await pv.selectOption('#smsF select[name=provider]', 'smsir');
     await pv.waitForTimeout(300);
@@ -752,18 +776,34 @@ async function loginUI(page, phone = PHONE) {
     check('vendor: a new shop asks for no username or password', !(await pv.$('#sf input[name=username]')) && !(await pv.$('#sf input[name=password]')));
     await pv.fill('#sf input[name=name]', 'زرگری موبایلی');
     await pv.fill('#sf input[name=ownerName]', 'امید آزمون');
+    await pv.fill('#sf input[name=ownerEmail]', 'omid@mail.com');
     await pv.fill('#sf input[name=phone]', '09136660000');
     await pv.click('#sf button:not([type=button])');
     await pv.waitForSelector('.vd-hand pre', { timeout: 10000 });
     const hand = await text(pv, '.vd-hand pre');
-    check('vendor: the hand-over text has the sign-in address and the number, no password', /\/login/.test(hand) && /۰۹۱۳ ۶۶۶ ۰۰۰۰/.test(hand) && !/رمز:/.test(hand), hand.replace(/\n/g, ' | '));
+    check('vendor: the hand-over text has the sign-in address and the email, no password', /\/login/.test(hand) && /omid@mail\.com/.test(hand) && !/رمز:/.test(hand), hand.replace(/\n/g, ' | '));
     await pv.click('.modal [data-close]');
-    await vCtx.close();
     const oCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const po = await oCtx.newPage();
-    await loginUI(po, '09136660000');
+    await loginUI(po, 'omid@mail.com');
     await po.waitForURL((u) => u.pathname === '/setup', { timeout: 15000 }).catch(() => {});
-    check('vendor: the new shop owner signs in with that number', new URL(po.url()).pathname === '/setup', po.url());
+    check('vendor: the new shop owner signs in with that email', new URL(po.url()).pathname === '/setup', po.url());
+    // the vendor gives an account a new email in «کاربران»; the account signs in with it
+    await go(pv, '/vendor', 1500);
+    const tid = await pv.evaluate(async () => (await (await fetch('/api/vendor/tenants', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).items.find((t) => t.name === 'زرگری موبایلی')?.id);
+    check('vendor: the new shop is listed', !!tid && !!(await pv.$(`[data-act=users][data-id="${tid}"]`)), `${tid} ${pv.url()}`);
+    await pv.click(`[data-act=users][data-id="${tid}"]`);
+    await pv.waitForSelector(`#u-${tid} [data-act=email]`, { timeout: 10000 });
+    await pv.click(`#u-${tid} [data-act=email]`);
+    await pv.waitForSelector('.modal input', { timeout: 5000 });
+    await pv.fill('.modal input', 'Omid.New@Mail.com');
+    await pv.click('.modal [data-ask] button[type=submit]');
+    await pv.waitForTimeout(1500);
+    check('vendor: the account shows its new email', /omid\.new@mail\.com/.test(await text(pv, `#u-${tid}`)), await text(pv, `#u-${tid}`));
+    await vCtx.close();
+    await loginUI(po, 'omid.new@mail.com');
+    await po.waitForURL((u) => u.pathname === '/setup', { timeout: 15000 }).catch(() => {});
+    check('vendor: the account signs in with the email the vendor set', new URL(po.url()).pathname === '/setup', po.url());
     await oCtx.close();
     // signing the day close is a fresh code to the signer's own mobile
     await go(page, '/books/smart?t=close', 1800);
@@ -2138,7 +2178,7 @@ async function loginUI(page, phone = PHONE) {
     check('desk products: deleted product is gone', !(await text(page, '#dkPick')).includes('پلاک ز ۱'));
   });
 
-  if (!live) await step('pos: card reader charge before booking (mock bridge), decline, settings, reconciliation', async () => {
+  if (!live) await step('pos: card reader charge before booking (mock bridge), decline, one tap, phone through the counter, invoice, reconciliation', async () => {
     const auth = (path) => page.evaluate(async (p) => (await fetch(p, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), path);
     // a stand-in for desktop/windows/pos-bridge.ps1 (the real bridge is tested against a simulated terminal in tests/pos.test.mjs)
     const { createServer } = await import('node:http');
@@ -2213,6 +2253,104 @@ async function loginUI(page, phone = PHONE) {
       const log = await auth('/api/books/pos');
       const ok = log.items.find((x) => x.state === 'approved');
       check('pos log: approval linked to its document, decline recorded, no orphans', !!ok?.docId && ok.card === '1234' && log.items.some((x) => x.state === 'declined' && x.code === '51') && log.orphans.length === 0, JSON.stringify(log.items.map((x) => [x.state, !!x.docId])));
+
+      // one tap (spec 0035): the amount is known; «پرداخت با کارتخوان» sends exactly what is left and books the document
+      const fresh = () => [...jobs.values()].filter((j) => !seen.has(j.id));
+      let seen = new Set(jobs.keys());
+      await freshDesk(page);
+      await page.click('[data-act=pnew]');
+      await page.fill('#np [name=name]', 'نگار یک‌ضرب');
+      await page.fill('#np [name=mobile]', '09121119977');
+      await page.click('#np button:not([type])');
+      await page.waitForSelector('.dk-who');
+      await page.click('[data-mode=sell]');
+      await page.click('[data-kind=coin]');
+      await page.click('[data-coin=emami]');
+      await page.fill('[data-f=count]', '1');
+      await page.fill('[data-f=price]', '987650000');
+      await page.click('[data-act=add]');
+      await page.click('[data-pm=cash]');
+      await page.fill('[data-p="0"][data-k=amount]', '7650000');
+      await page.waitForTimeout(250);
+      check('one tap: the button shows the exact amount left (987,650,000 − 7,650,000 cash)', (await text(page, '.dk-save [data-act=paycard]')).includes('۹۸۰٬۰۰۰٬۰۰۰') && !!(await page.$('#bar [data-act=paycard]')), await text(page, '.dk-save [data-act=paycard]'));
+      await page.click('.dk-save [data-act=paycard]');
+      await page.waitForSelector('.pos-box');
+      check('one tap: the card window shows that amount', (await text(page, '.pos-box')).includes('۹۸۰٬۰۰۰٬۰۰۰'));
+      await page.waitForSelector('.dk-receipt', { timeout: 15000 });
+      check('one tap: the card reader got exactly the remaining rial, once', fresh().length === 1 && fresh()[0].amount === 980000000, JSON.stringify(fresh()));
+      const lastDoc = async () => {
+        const id = (await auth('/api/books/docs?limit=1')).items[0].id;
+        return auth(`/api/books/docs/${id}`);
+      };
+      const d1 = await lastDoc();
+      const pos1 = d1.payments.find((p) => p.method === 'pos');
+      check('one tap: booked, settled to the rial, the RRN on the card row', d1.calc.credit === 0 && pos1?.ref === '863583063456' && d1.calc.payments.find((p) => p.method === 'pos').value === 980000000, JSON.stringify({ credit: d1.calc.credit, pos: pos1 }));
+      await page.keyboard.press('Escape');
+
+      // phones and tablets (spec 0035): this computer becomes the counter; a phone with no card reader sends its sale here
+      await go(page, '/books/settings', 1500);
+      await page.check('#posF [name=station]');
+      await page.fill('#posF [name=stationName]', 'پیشخوان آزمون');
+      await page.click('#posF button:not([type])');
+      await page.waitForSelector('.pos-station', { timeout: 8000 });
+      check('counter: the badge says it is ready', /آماده/.test(await text(page, '.pos-station')));
+      await freshDesk(page); // the counter page stays open on the desk, as at a real counter
+      const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+      const pp = await phone.newPage();
+      pp.on('pageerror', (e) => errors.push(`[relay phone] pageerror: ${e.message}`));
+      await loginUI(pp, 'owner@demo.beatris.ir');
+      await pp.evaluate(() => localStorage.setItem('beatris.pos', JSON.stringify({ relay: true })));
+      await freshDesk(pp);
+      await pp.click('[data-act=pnew]');
+      await pp.fill('#np [name=name]', 'کیان از گوشی');
+      await pp.fill('#np [name=mobile]', '09121119966');
+      await pp.click('#np button:not([type])');
+      await pp.waitForSelector('.dk-who');
+      await pp.click('[data-mode=sell]');
+      await pp.click('[data-kind=coin]');
+      await pp.click('[data-coin=emami]');
+      await pp.fill('[data-f=count]', '2');
+      await pp.fill('[data-f=price]', '987650000');
+      await pp.click('[data-act=add]');
+      await pp.waitForSelector('#bar [data-act=paycard]');
+      seen = new Set(jobs.keys());
+      await pp.click('#bar [data-act=paycard]');
+      await pp.waitForSelector('.pos-box');
+      check('relay: the phone says the counter will take the card', /پیشخوان/.test(await text(pp, '.pos-box')));
+      const busyBadge = await page.waitForFunction(() => /کارت را بکشید/.test(document.querySelector('.pos-station')?.textContent ?? ''), null, { timeout: 15000 }).then(() => true, () => false);
+      check('relay: the counter computer shows the amount and «swipe the card»', busyBadge);
+      await pp.waitForSelector('.dk-receipt', { timeout: 25000 });
+      check('relay: the counter charged exactly the phone sale (2 × 987,650,000), once', fresh().length === 1 && fresh()[0].amount === 1975300000, JSON.stringify(fresh()));
+      const d2 = await pp.evaluate(async () => {
+        const h = { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } };
+        const id = (await (await fetch('/api/books/docs?limit=1', h)).json()).items[0].id;
+        return (await fetch(`/api/books/docs/${id}`, h)).json();
+      });
+      check('relay: the phone booked its document, settled, with the RRN from the counter', d2.calc.credit === 0 && d2.payments.find((p) => p.method === 'pos')?.ref === '863583063456', JSON.stringify(d2.payments));
+      const rlog = await auth('/api/books/pos');
+      const rrow = rlog.items.find((x) => x.amount === 1975300000);
+      check('relay: the reconciliation log has it approved and linked to the phone document', rrow?.state === 'approved' && rrow.docId === d2.id, JSON.stringify(rrow));
+      await phone.close();
+      await page.waitForFunction(() => /آماده/.test(document.querySelector('.pos-station')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => {});
+      check('counter: ready again after the charge', /آماده/.test(await text(page, '.pos-station')));
+
+      // the invoice editor: one tap charges the invoice total and books the final invoice
+      await go(page, '/books/new/sale', 1200);
+      await page.click('[data-act=party-new]');
+      await page.fill('#np [name=name]', 'فاکتور یک‌ضرب');
+      await page.fill('#np [name=mobile]', '09121119955');
+      await page.click('#np button:not([type])');
+      await page.waitForSelector('.bk-party-sel');
+      await page.click('[data-act=catalog]');
+      await page.fill('#tq', 'ربع');
+      await page.click('[data-tpl=coin-quarter]');
+      await page.waitForSelector('#totals [data-act=paycard]');
+      seen = new Set(jobs.keys());
+      await page.click('#totals [data-act=paycard]');
+      await page.waitForURL(/\/books\/doc\//, { timeout: 20000 });
+      const d3 = await page.evaluate(async () => (await fetch(`/api/books/docs/${location.pathname.split('/').pop()}`, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json());
+      const p3v = d3.calc.payments.find((p) => p.method === 'pos')?.value;
+      check('invoice: one tap charged exactly the invoice total and booked it final and settled', d3.status === 'final' && d3.calc.credit === 0 && fresh().length === 1 && fresh()[0].amount === p3v && p3v === d3.calc.sales && d3.payments.find((p) => p.method === 'pos')?.ref === '863583063456', JSON.stringify({ status: d3.status, credit: d3.calc.credit, sales: d3.calc.sales, charged: fresh().map((j) => j.amount) }));
     } finally {
       await page.evaluate(() => localStorage.removeItem('beatris.pos'));
       mock.close();
