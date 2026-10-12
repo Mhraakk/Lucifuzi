@@ -56,8 +56,10 @@ function ticks(lo, hi, target, log) {
   return out.length >= 2 ? out : ticks(lo, hi, target, false);
 }
 
+// an image export draws once at the density it asks for (spec 0025: 8K = 7680 px wide), then the screen's comes back
+let exportDensity = null;
 function setupCanvas(cv, w, h) {
-  const dpr = canvasDensity(w, h); // the screen's own density, up to 4×, within the browser's canvas limit
+  const dpr = exportDensity ?? canvasDensity(w, h); // the screen's own density, up to 4×, within the browser's canvas limit
   cv.width = Math.round(w * dpr);
   cv.height = Math.round(h * dpr);
   cv.style.width = `${w}px`;
@@ -694,8 +696,21 @@ export function createChart(host, { height = 420, label = 'نمودار', onHove
     },
     redraw: draw,
     canvas: () => [base, top],
-    /** A PNG of the chart as drawn (base + crosshair layers). */
-    toBlob() {
+    /**
+     * A PNG of the chart. width: the picture's width in pixels (7680 for 8K); the chart is drawn again at that density
+     * (never above the browser's canvas area), not scaled up, so lines and figures stay sharp; then drawn back for the
+     * screen.
+     */
+    async toBlob({ width } = {}) {
+      const scale = width && W ? Math.min(width / W, Math.sqrt(250_000_000 / (W * H))) : 0;
+      if (scale > base.width / W) {
+        exportDensity = scale;
+        try {
+          draw();
+        } finally {
+          exportDensity = null;
+        }
+      }
       const c = document.createElement('canvas');
       c.width = base.width;
       c.height = base.height;
@@ -703,6 +718,7 @@ export function createChart(host, { height = 420, label = 'نمودار', onHove
       g.fillStyle = '#0f0c08';
       g.fillRect(0, 0, c.width, c.height);
       g.drawImage(base, 0, 0);
+      if (exportDensity === null && base.width !== Math.round(W * canvasDensity(W, H))) draw();
       return new Promise((r) => c.toBlob(r, 'image/png'));
     },
     destroy() {

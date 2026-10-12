@@ -6,7 +6,7 @@ import { html, raw, fa } from './core.mjs';
 import * as B from './books.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from './coins.mjs';
 import { qrSvg } from './qr.mjs';
-import { T, TU, G, jd, timeFa, EX, unitName, moneyWords, K, booksPrefs, prefs, lineVerb, unitAmt, unitVal } from './bk.mjs';
+import { T, TU, G, jd, timeFa, EX, unitName, moneyWords, K, booksPrefs, prefs, lineVerb, unitAmt, unitVal, unitLabel } from './bk.mjs';
 import { TRADE_KINDS, FX_CODES } from './trade.mjs';
 
 export const THEMES = [
@@ -92,6 +92,32 @@ const miniBar = (l) => {
   return raw(`<span class="mbar" aria-hidden="true">${SERIES.map(([k, , c]) => (l[k] > 0 ? `<i style="width:${pct(l[k], tot).toFixed(2)}%;background:${c}"></i>` : '')).join('')}</span>`);
 };
 
+/* ---------------- the account kinds (spec 0026) ---------------- */
+/** A ledger account in words: «طلای آبشده»، «سکه امامی»، «شمش ۱۲۳۴»، «صندوق». */
+const acctName = (a) => (a === 'gold' ? 'طلای آبشده (گرم ۷۵۰)' : a.startsWith('coin:') ? `سکه ${COIN_TYPES[a.slice(5)]?.short ?? ''}` : a.startsWith('fx:') ? FX_CODES[a.slice(3)] ?? a : a.startsWith('bar:') ? `شمش ${fa(a.slice(4))}` : a.startsWith('cash:') ? 'صندوق' : a.startsWith('bank:') ? 'بانک' : a.startsWith('party:') ? 'طرف حساب' : a);
+const balAmt = (b) => (b.unit === 'IRR' ? `${T(b.amt)} ${unitName()}` : b.unit === 'G750' ? `${G(b.amt)} گرم` : b.unit.startsWith('FX:') ? unitVal(b.unit, b.amt) : `${fa(b.amt)} عدد`);
+/** The body of a document that is not an invoice or a trade: what moved, in one ruled table. */
+function acctTable(d, c) {
+  const head = (cols) => html`<thead><tr>${cols.map((x) => html`<th>${x}</th>`)}</tr></thead>`;
+  const what = (l) => `${l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : TRADE_KINDS[l.kind]}${l.kind === 'bar' ? ` · سریال ${fa(l.serial)}` : ''}`;
+  if (d.type === 'transform')
+    return html`<table class="sf-items"><caption>اقلام ذوب و تبدیل</caption>${head(['ردیف', 'کد ردیف', 'جهت', 'شرح', 'مقدار / تعداد', 'واحد', 'عیار', 'معادل ۷۵۰ (گرم)'])}
+      <tbody>${c.lines.map((l, i) => html`<tr><td>${fa(i + 1)}</td><td class="ltr-num">${d.track}/L${i + 1}</td><td>${l.dir === 'out' ? 'به ذوب' : 'از ذوب'}</td><td class="d">${what(l)}</td><td>${l.kind === 'coin' || l.kind === 'bar' ? fa(l.count) : G(l.weight)}</td><td>${l.kind === 'coin' || l.kind === 'bar' ? 'عدد' : 'گرم'}</td><td>${l.fineness ? fa(l.fineness) : '—'}</td><td>${G(l.eq750)}</td></tr>`)}</tbody>
+      <tfoot><tr><td colspan="7">به ذوب / از ذوب (معادل ۷۵۰)</td><td>${G(c.inputs)} / ${G(c.outputs)}</td></tr><tr><td colspan="7">${c.wastage < 0 ? 'اضافه عیار' : 'افت ذوب'} (معادل ۷۵۰)</td><td>${G(Math.abs(c.wastage))}</td></tr>${c.fee ? html`<tr><td colspan="7">اجرت ذوب (${unitName()})</td><td>${T(c.fee)}</td></tr>` : ''}</tfoot></table>`;
+  if (d.type === 'writeoff' && c.writeoff)
+    return html`<table class="sf-items"><caption>سوخت یا بخشودگی مانده</caption>${head(['شرح', 'مانده', 'مقدار'])}<tbody><tr><td class="d">${c.writeoff.amount > 0 ? 'سوخت و بخشودگی بدهی مشتری' : 'رها کردن طلب مشتری'}</td><td>${unitLabel(c.writeoff.unit)}</td><td>${unitAmt(c.writeoff.unit, Math.abs(c.writeoff.amount))}</td></tr></tbody></table>`;
+  if (d.type === 'hawala' && c.hawala)
+    return html`<table class="sf-items"><caption>حواله</caption>${head(['شرح', 'مقدار'])}<tbody><tr><td class="d">از حساب طرف اول به حساب طرف دوم؛ مانده ریالی هیچ‌کدام تغییر نمی‌کند</td><td>${unitAmt(c.hawala.unit, c.hawala.amount)}</td></tr></tbody></table>`;
+  if (d.type === 'convert' && c.convert)
+    return html`<table class="sf-items"><caption>تبدیل مانده جنسی به وجه</caption>${head(['مانده', 'مقدار', 'مظنه / نرخ', `مبلغ (${unitName()})`])}<tbody><tr><td>${unitLabel(c.convert.unit)}</td><td>${unitAmt(c.convert.unit, Math.abs(c.convert.amount))}</td><td>${d.convert?.mazaneh ? T(d.convert.mazaneh) : d.convert?.price ? T(d.convert.price) : '—'}</td><td>${T(Math.abs(c.convert.value))}</td></tr></tbody></table>`;
+  if (d.type === 'opening' || d.type === 'adjust')
+    return html`<table class="sf-items"><caption>${B.DOC_TYPES[d.type].label}</caption>${head(['ردیف', 'حساب', 'مقدار', 'بهای تمام‌شده'])}<tbody>${(d.balances ?? []).map((b, i) => html`<tr><td>${fa(i + 1)}</td><td class="d">${acctName(b.acct)}</td><td>${balAmt(b)}</td><td>${b.cost ? T(b.cost) : '—'}</td></tr>`)}</tbody></table>`;
+  // money in or out: one row per payment, under the category
+  const cat = d.category ? ` · ${d.category === 'other' ? 'سایر' : d.category}` : '';
+  return html`<table class="sf-items"><caption>${B.DOC_TYPES[d.type]?.label ?? ''}${cat}</caption>${head(['ردیف', 'روش', 'جهت', 'پیگیری / حساب', `مبلغ (${unitName()})`])}<tbody>${c.payments.map((p, i) => html`<tr><td>${fa(i + 1)}</td><td>${B.payMethod(p.method)?.label ?? p.method}</td><td>${p.dir === 'in' ? 'دریافت' : 'پرداخت'}</td><td class="ltr-num">${[d.payments[i]?.ref, d.payments[i]?.account].filter(Boolean).join(' · ')}</td><td>${T(p.value)}</td></tr>`)}</tbody></table>`;
+}
+const ACCT_PAPER = new Set(['transform', 'writeoff', 'hawala', 'convert', 'income', 'expense', 'receipt', 'payment', 'transfer', 'opening', 'adjust']);
+
 /* ---------------- the document ---------------- */
 export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verifyUrl, brandName = '' }) {
   const c = d.calc;
@@ -106,6 +132,19 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
   const w750 = out.reduce((a, { l }) => a + (l.kind === 'jewel' ? (l.weight * l.fineness) / 750 : l.kind === 'melt' ? l.g750 : 0), 0);
   const p750 = d.lines.find((l) => l.kind === 'jewel' && l.p750)?.p750;
   const amount = Math.abs(c.net || c.paidIn || c.paidOut);
+  // what the bottom line of each kind says (spec 0026): money that came in or went out, a write-off, a melting
+  const trade = d.type === 'trade';
+  const catName = (k) => (k === 'other' ? 'سایر' : k);
+  const ACCOUNT_KINDS = ['expense', 'income', 'writeoff', 'receipt', 'payment', 'hawala', 'convert'];
+  const partyHead = d.type === 'buy' ? 'فروشنده کالا (مشتری)' : trade || ACCOUNT_KINDS.includes(d.type) ? 'طرف حساب' : 'خریدار';
+  const showParties = !['transfer', 'opening', 'adjust', 'transform'].includes(d.type) && (party || !['expense', 'income', 'writeoff'].includes(d.type));
+  const grandLabel = { income: 'دریافت شد', expense: 'پرداخت شد', receipt: 'دریافت از طرف حساب', payment: 'پرداخت به طرف حساب', transfer: 'مبلغ انتقال', transform: 'اجرت ذوب پرداخت شد' }[d.type] ?? (c.net >= 0 ? (trade ? 'قابل دریافت از مشتری' : 'قابل پرداخت خریدار') : 'قابل پرداخت به مشتری');
+  const wo = d.type === 'writeoff' ? c.writeoff : null;
+  const opNote = wo
+    ? `${wo.amount > 0 ? 'سوخت و بخشودگی بدهی مشتری' : 'رها کردن طلب مشتری'}: ${unitAmt(wo.unit, Math.abs(wo.amount))}`
+    : d.type === 'transform'
+      ? `به ذوب ${G(c.inputs)} گرم ۷۵۰ · از ذوب ${G(c.outputs)} گرم ۷۵۰ · ${c.wastage < 0 ? 'اضافه' : 'افت'} ${G(Math.abs(c.wastage))} گرم ۷۵۰${c.fee ? ` · اجرت ${TU(c.fee)}` : ''}`
+      : ['income', 'expense'].includes(d.type) && d.category ? `${d.type === 'income' ? 'درآمد' : 'هزینه'}: ${catName(d.category)}` : '';
   const parts = SERIES.map(([k, label, color]) => ({ k, label, color, v: c[k] ?? 0 })).map((p) => (p.k === 'principal' ? { ...p, v: c.principal } : p));
   const partsTotal = parts.reduce((a, p) => a + Math.max(0, p.v), 0);
   const flag = d.status !== 'final' ? (d.status === 'void' ? 'باطل شده' : 'پیش‌نویس · معتبر نیست') : '';
@@ -130,11 +169,13 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
       <header class="r-head">${crown({ size: 64 })}<b class="shop">${shop}</b><span class="r-title">${title}</span>${typeNote ? html`<small>${typeNote}</small>` : ''}${flag ? html`<em class="bk-p-flag">${flag}</em>` : ''}
         <div class="r-meta"><span>رهگیری <b class="ltr-num">${d.track}</b></span><span>${jd(d.date)} ${d.issuedAt ? timeFa(d.issuedAt) : ''}</span>${d.tax?.taxId ? html`<span class="ltr-num">${d.tax.taxId}</span>` : ''}</div></header>
       ${guilloche(300, 12, 5)}
-      ${party || official ? html`<p class="r-party"><b>${d.type === 'buy' ? 'فروشنده' : 'خریدار'}:</b> ${party ? html`${party.name}${party.nid ? ` · ${fa(party.nid)}` : ''}` : 'مصرف‌کننده نهایی'}</p>` : ''}
+      ${party || official ? html`<p class="r-party"><b>${d.type === 'buy' ? 'فروشنده' : partyHead}:</b> ${party ? html`${party.name}${party.nid ? ` · ${fa(party.nid)}` : ''}` : 'مصرف‌کننده نهایی'}</p>` : ''}
+      ${opNote ? html`<p class="r-party">${opNote}</p>` : ''}
+      ${d.type === 'transform' ? html`<table class="bk-p-table roll"><tbody>${c.lines.map((l) => html`<tr><td>${l.dir === 'out' ? 'به ذوب' : 'از ذوب'} · ${l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : TRADE_KINDS[l.kind]}<small>${l.weight ? ` · ${G(l.weight)} گرم` : ''}${l.fineness ? ` · عیار ${fa(l.fineness)}` : ''}${l.kind === 'bar' ? ` · سریال ${fa(l.serial)}` : ''}${l.kind === 'coin' ? ` · ${fa(l.count)} عدد` : ''}</small></td><td class="num"><b>${G(l.eq750)}</b></td></tr>`)}</tbody></table>` : ''}
       ${out.length ? html`<table class="bk-p-table roll"><tbody>${out.map(({ l, src }) => html`<tr><td>${src.title || B.KIND_LABEL[l.kind]}<small>${l.weight ? ` · ${G(l.weight)} گرم` : ''}${l.fineness ? ` · عیار ${fa(l.fineness)}` : ''}${l.kind === 'coin' ? ` · ${fa(l.count)} عدد` : ''}${l.kind === 'jewel' ? ` · طلا ${T(l.principal)} · اجرت ${T(l.consfee)} · سود ${T(l.spro)}${l.stones ? ` · سنگ ${T(l.stones)}` : ''} · مالیات ${T(l.vat)}` : l.vat ? ` · مالیات ${T(l.vat)}` : ''}</small>${miniBar(l)}</td><td class="num"><b>${T(l.total)}</b></td></tr>`)}</tbody><tfoot><tr><td>جمع (${unitName()}) · مالیات ${T(c.vat)}</td><td class="num"><b>${T(c.sales)}</b></td></tr></tfoot></table>` : ''}
       ${d.type === 'trade' ? html`<table class="bk-p-table roll"><tbody>${c.lines.map((l, i) => html`<tr><td>${lineVerb(l)} · ${l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : l.kind === 'fx' ? FX_CODES[l.code] : TRADE_KINDS[l.kind]}<small>${l.weight ? ` · ${G(l.weight)} گرم` : ''}${l.fineness ? ` · عیار ${fa(l.fineness)}` : ''}${l.eq750 ? ` · ۷۵۰: ${G(l.eq750)}` : ''}${l.kind === 'bar' ? ` · سریال ${fa(l.serial)}` : ''}${l.kind === 'coin' ? ` · ${fa(l.count)} عدد` : ''}${l.mazaneh ? ` · مظنه ${T(l.mazaneh)}` : ''}</small></td><td class="num"><b>${l.priced ? T(l.value) : unitAmt(l.unit, l.amt)}</b></td></tr>`)}</tbody></table>` : ''}
       ${inn.length ? html`<table class="bk-p-table roll in"><tbody>${inn.map(({ l, src }) => html`<tr><td>↺ ${src.title || B.KIND_LABEL[l.kind]}<small>${l.weight ? ` · ${G(l.weight)} گرم` : ''}${l.fineness ? ` · عیار ${fa(l.fineness)}` : ''}</small></td><td class="num">${T(l.total)}</td></tr>`)}</tbody></table>` : ''}
-      <div class="r-total"><span>${c.net >= 0 ? 'قابل پرداخت' : 'پرداختی به مشتری'}</span><b>${TU(amount)}</b></div>
+      ${wo ? '' : html`<div class="r-total"><span>${{ income: 'دریافت شد', expense: 'پرداخت شد', receipt: 'دریافت', payment: 'پرداخت', transfer: 'انتقال', transform: 'اجرت ذوب' }[d.type] ?? (c.net >= 0 ? 'قابل پرداخت' : 'پرداختی به مشتری')}</span><b>${TU(amount)}</b></div>`}
       ${c.payments.length ? html`<ul class="r-pay">${c.payments.map((p, i) => html`<li>${B.payMethod(p.method).label} <b>${T(p.value)}</b></li>`)}</ul>` : ''}
       ${c.credit ? html`<p class="r-credit">${c.credit > 0 ? 'نسیه' : 'بستانکار'}: ${c.creditUnit === 'G750' ? `${G(Math.abs(c.creditG))} گرم ۷۵۰` : TU(Math.abs(c.credit))}</p>` : ''}
       ${verify}
@@ -142,7 +183,6 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
     </article>`;
 
   /* ---- A4 / A5 ---- */
-  const trade = d.type === 'trade';
   const tl = trade ? c.lines.map((l, i) => ({ l, src: d.lines[i] ?? {} })) : [];
   const sumEq = (dir) => B.r3(tl.filter(({ l }) => l.dir === dir && l.eq750).reduce((a, { l }) => a + l.eq750, 0));
   const tradeKpis = trade && [
@@ -151,7 +191,15 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
     tl.some(({ l }) => l.kind === 'coin') && ['سکه', tl.filter(({ l }) => l.kind === 'coin').map(({ l }) => `${l.dir === 'in' ? '↓' : '↑'}${fa(l.count)} ${COIN_TYPES[l.coin]?.short}`).join(' · ')],
     [c.net >= 0 ? 'قابل دریافت از مشتری' : 'قابل پرداخت به مشتری', TU(amount)],
   ].filter(Boolean);
-  const kpis = trade ? tradeKpis : [
+  const opKpis =
+    d.type === 'transform'
+      ? [['به ذوب (معادل ۷۵۰)', `${G(c.inputs)} گرم`], ['از ذوب (معادل ۷۵۰)', `${G(c.outputs)} گرم`], c.fee && ['اجرت ذوب', TU(c.fee)], [c.wastage < 0 ? 'اضافه عیار' : 'افت ذوب', `${G(Math.abs(c.wastage))} گرم ۷۵۰`]].filter(Boolean)
+      : wo
+        ? [['مانده', unitLabel(wo.unit)], [wo.amount > 0 ? 'سوخت از بدهی مشتری' : 'رهاشده از طلب مشتری', unitAmt(wo.unit, Math.abs(wo.amount))]]
+        : ['income', 'expense'].includes(d.type)
+          ? [d.category && ['دسته', catName(d.category)], [grandLabel, TU(amount)]].filter(Boolean)
+          : null;
+  const kpis = trade ? tradeKpis : opKpis ?? [
     out.some(({ l }) => l.weight) && ['وزن طلا', `${G(weight)} گرم`],
     w750 && ['معادل ۱۸ عیار', `${G(B.r3(w750))} گرم`],
     p750 && ['نرخ روز گرم ۱۸', TU(B.rnd(p750 * 10))],
@@ -171,10 +219,10 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
     </header>
     ${d.tax?.taxId ? html`<div class="i-taxid"><span>شماره منحصربه‌فرد مالیاتی</span><b class="ltr-num">${d.tax.taxId}</b></div>` : ''}
     <section class="i-kpis">${kpis.map(([k, v], i) => html`<div class="${i === kpis.length - 1 ? 'hl' : ''}"><span>${k}</span><b>${v}</b></div>`)}</section>
-    ${d.type !== 'transfer' && d.type !== 'expense' && d.type !== 'opening'
+    ${showParties
       ? html`<section class="i-parties">
           <div class="icard"><h4>فروشنده</h4><b>${shop}</b>${sellerLines.map((x) => html`<span>${x}</span>`)}</div>
-          <div class="icard"><h4>${d.type === 'buy' ? 'فروشنده کالا (مشتری)' : trade ? 'طرف معامله' : 'خریدار'}</h4>${party ? html`<b>${party.name}</b>${party.nid ? html`<span>${party.kind === 'company' ? 'شناسه ملی' : 'کد ملی'} ${fa(party.nid)}</span>` : ''}${party.eco ? html`<span>شماره اقتصادی ${fa(party.eco)}</span>` : ''}<span>${[party.mobile && fa(party.mobile), party.postal && `کد پستی ${fa(party.postal)}`].filter(Boolean).join(' · ')}</span>${party.address ? html`<span>${party.address}</span>` : ''}` : html`<b>مصرف‌کننده نهایی</b><span>فروش بی‌نام (صورتحساب نوع دوم)</span>`}</div>
+          <div class="icard"><h4>${trade ? 'طرف معامله' : partyHead}</h4>${party ? html`<b>${party.name}</b>${party.nid ? html`<span>${party.kind === 'company' ? 'شناسه ملی' : 'کد ملی'} ${fa(party.nid)}</span>` : ''}${party.eco ? html`<span>شماره اقتصادی ${fa(party.eco)}</span>` : ''}<span>${[party.mobile && fa(party.mobile), party.postal && `کد پستی ${fa(party.postal)}`].filter(Boolean).join(' · ')}</span>${party.address ? html`<span>${party.address}</span>` : ''}` : html`<b>مصرف‌کننده نهایی</b><span>فروش بی‌نام (صورتحساب نوع دوم)</span>`}</div>
         </section>`
       : ''}
     ${out.length
@@ -197,7 +245,13 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
       : ''}
     ${d.type === 'hawala' && c.hawala ? html`<p class="i-note">حواله ${unitAmt(c.hawala.unit, c.hawala.amount)} از حساب طرف اول به حساب طرف دوم؛ مانده ریالی هیچ‌کدام تغییر نمی‌کند.</p>` : ''}
     ${d.type === 'convert' && c.convert ? html`<p class="i-note">تبدیل ${unitAmt(c.convert.unit, Math.abs(c.convert.amount))} مانده جنسی به ${T(Math.abs(c.convert.value))} ${unitName()}${c.convert.mazaneh ? ` روی مظنه ${T(c.convert.mazaneh)}` : ''}.</p>` : ''}
-    ${d.type === 'opening' ? html`<table class="bk-p-table"><thead><tr><th>حساب</th><th>مقدار</th></tr></thead><tbody>${(d.balances ?? []).map((b) => html`<tr><td>${b.acct}</td><td class="num">${b.unit === 'IRR' ? T(b.amt) : fa(b.amt)} ${b.unit === 'IRR' ? `${unitName()}` : b.unit === 'G750' ? 'گرم' : 'عدد'}</td></tr>`)}</tbody></table>` : ''}
+    ${d.type === 'transform' && c.lines.length
+      ? html`<table class="bk-p-table i-items i-trade"><thead><tr><th>ردیف</th><th>جهت</th><th>کالا و مشخصات</th><th>وزن (گرم)</th><th>عیار</th><th>معادل ۷۵۰</th><th>تعداد</th></tr></thead>
+          <tbody>${c.lines.map((l, i) => html`<tr class="${l.dir}"><td class="n">${fa(i + 1)}</td><td><span class="i-verb ${l.dir}">${l.dir === 'out' ? 'به ذوب' : 'از ذوب'}</span></td><td class="desc"><b>${l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : TRADE_KINDS[l.kind]}</b><small>${[l.kind === 'bar' && `سریال ${fa(l.serial)}`, d.lines[i]?.brand].filter(Boolean).join(' · ')}</small></td><td class="num">${l.weight ? G(l.weight) : '—'}</td><td class="num">${l.fineness ? fa(l.fineness) : '—'}</td><td class="num">${G(l.eq750)}</td><td class="num">${l.kind === 'coin' || l.kind === 'bar' ? fa(l.count) : '—'}</td></tr>`)}</tbody>
+          <tfoot><tr><td colspan="5">به ذوب / از ذوب (معادل ۷۵۰)</td><td class="num tot">${G(c.inputs)} / ${G(c.outputs)}</td><td></td></tr><tr><td colspan="5">${c.wastage < 0 ? 'اضافه عیار' : 'افت ذوب'} (معادل ۷۵۰)</td><td class="num tot">${G(Math.abs(c.wastage))}</td><td></td></tr></tfoot></table>`
+      : ''}
+    ${opNote && d.type !== 'transform' ? html`<p class="i-note">${opNote}</p>` : ''}
+    ${d.type === 'opening' || d.type === 'adjust' ? html`<table class="bk-p-table"><thead><tr><th>حساب</th><th>مقدار</th><th>بهای تمام‌شده</th></tr></thead><tbody>${(d.balances ?? []).map((b) => html`<tr><td>${acctName(b.acct)}</td><td class="num">${balAmt(b)}</td><td class="num">${b.cost ? T(b.cost) : '—'}</td></tr>`)}</tbody></table>` : ''}
     <section class="i-analysis">
       ${partsTotal && out.length
         ? html`<div class="icard i-chart"><h4>ترکیب مبلغ فاکتور</h4><div class="i-donut">${donut(parts, partsTotal, format === 'a5' ? 120 : 140)}<div class="center"><small>جمع</small><b>${T(c.sales)}</b><small>${unitName()}</small></div></div>
@@ -212,8 +266,10 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
         ${c.sales ? html`<div class="row"><span>${trade ? 'فروش به مشتری' : 'جمع فاکتور'}</span><b>${TU(c.sales)}</b></div>` : ''}
         ${c.tradeIn && d.type !== 'buy' ? html`<div class="row"><span>${trade ? 'کسر: خرید از مشتری' : 'کسر: طلای دریافتی'}</span><b>− ${TU(c.tradeIn)}</b></div>` : ''}
         ${d.type === 'buy' ? html`<div class="row"><span>جمع خرید</span><b>${TU(c.tradeIn)}</b></div>` : ''}
-        <div class="grand"><span>${c.net >= 0 ? (trade ? 'قابل دریافت از مشتری' : 'قابل پرداخت خریدار') : 'قابل پرداخت به مشتری'}</span><b>${TU(amount)}</b></div>
-        <small class="words">${moneyWords(amount)}</small>
+        ${wo
+          ? html`<div class="grand"><span>${wo.amount > 0 ? 'سوخت از بدهی مشتری' : 'رهاشده از طلب مشتری'}</span><b>${unitAmt(wo.unit, Math.abs(wo.amount))}</b></div>${wo.unit === 'IRR' ? html`<small class="words">${moneyWords(Math.abs(wo.amount))}</small>` : ''}`
+          : html`<div class="grand"><span>${grandLabel}</span><b>${TU(amount)}</b></div>
+        <small class="words">${moneyWords(amount)}</small>`}
       </div>
     </section>
     ${c.payments.length || c.credit
@@ -244,14 +300,16 @@ function stdPaper({ d, s, shop, verifyUrl, official, flag }) {
   const cell = (k, v) => html`<td><span>${k}</span><b>${v || '—'}</b></td>`;
   const title = official && d.type !== 'proforma' ? (d.type === 'return' ? 'صورتحساب برگشت از فروش' : 'صورتحساب فروش کالا و خدمات') : trade ? 'برگ معامله (سکه، طلای آبشده، شمش، ارز)' : B.DOC_TYPES[d.type]?.label;
   const cash = !c.credit;
-  const seller = html`<table class="sf-block"><caption>مشخصات ${trade ? 'مغازه' : 'فروشنده'}</caption><tbody>
+  const seller = html`<table class="sf-block"><caption>مشخصات ${trade || ACCT_PAPER.has(d.type) ? 'مغازه' : 'فروشنده'}</caption><tbody>
     <tr>${cell('نام شخص حقیقی / حقوقی', shop)}${cell('شماره اقتصادی', fa(s.economicCode ?? ''))}${cell('شماره ثبت / شناسه ملی', fa(s.nationalId || s.regNo || ''))}</tr>
     <tr>${cell('نشانی کامل', s.address)}${cell('کد پستی ۱۰ رقمی', fa(s.postal ?? ''))}${cell('تلفن / نمابر', fa(s.phone ?? ''))}</tr></tbody></table>`;
-  const buyer = html`<table class="sf-block"><caption>مشخصات ${d.type === 'buy' ? 'فروشنده کالا (مشتری)' : trade ? 'طرف معامله' : 'خریدار'}</caption><tbody>
+  const acct = ACCT_PAPER.has(d.type);
+  const buyer = acct && !party ? '' : html`<table class="sf-block"><caption>مشخصات ${d.type === 'buy' ? 'فروشنده کالا (مشتری)' : trade ? 'طرف معامله' : acct ? 'طرف حساب' : 'خریدار'}</caption><tbody>
     <tr>${cell('نام شخص حقیقی / حقوقی', party?.name ?? (d.hawala ? '' : 'مصرف‌کننده نهایی'))}${cell('شماره اقتصادی', fa(party?.eco ?? ''))}${cell(party?.kind === 'company' ? 'شناسه ملی' : 'کد ملی', fa(party?.nid ?? ''))}</tr>
     <tr>${cell('نشانی کامل', party?.address)}${cell('کد پستی ۱۰ رقمی', fa(party?.postal ?? ''))}${cell('تلفن همراه', fa(party?.mobile ?? ''))}</tr></tbody></table>`;
   let items;
-  if (trade) {
+  if (acct) items = acctTable(d, c);
+  else if (trade) {
     items = html`<table class="sf-items"><caption>مشخصات کالا یا خدمات مورد معامله</caption><thead><tr><th>ردیف</th><th>کد ردیف</th><th>شرح کالا</th><th>مقدار / تعداد</th><th>واحد</th><th>عیار</th><th>معادل ۷۵۰ (گرم)</th><th>مظنه / فی (${unitName()})</th><th>مبلغ خرید از مشتری (${unitName()})</th><th>مبلغ فروش به مشتری (${unitName()})</th></tr></thead>
       <tbody>${c.lines.map((l, i) => html`<tr><td>${fa(i + 1)}</td><td class="ltr-num">${d.track}/L${i + 1}</td><td class="d">${lineVerb(l)} · ${l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}` : l.kind === 'fx' ? FX_CODES[l.code] : TRADE_KINDS[l.kind]}${l.kind === 'bar' ? ` · سریال ${fa(l.serial)}` : ''}${l.priced ? '' : ' (روی حساب جنسی)'}</td><td>${l.kind === 'coin' || l.kind === 'bar' ? fa(l.count) : l.kind === 'fx' ? unitVal(l.unit, l.amt) : G(l.weight)}</td><td>${l.kind === 'coin' || l.kind === 'bar' ? 'عدد' : l.kind === 'fx' ? FX_CODES[l.code] : 'گرم'}</td><td>${l.fineness ? fa(l.fineness) : '—'}</td><td>${l.eq750 ? G(l.eq750) : '—'}</td><td>${l.mazaneh ? T(l.mazaneh) : l.priced && l.kind === 'coin' ? T(Math.round(l.value / l.count)) : l.priced && l.kind === 'fx' ? T(Math.round(l.value / l.amt)) : '—'}</td><td>${l.priced && l.dir === 'in' ? T(l.value) : ''}</td><td>${l.priced && l.dir === 'out' ? T(l.value) : ''}</td></tr>`)}</tbody>
       <tfoot><tr><td colspan="8">جمع</td><td>${T(c.buys)}</td><td>${T(c.sells)}</td></tr><tr><td colspan="8">خالص (${c.net >= 0 ? 'قابل دریافت از مشتری' : 'قابل پرداخت به مشتری'})</td><td colspan="2">${T(Math.abs(c.net))}</td></tr></tfoot></table>`;
@@ -268,10 +326,12 @@ function stdPaper({ d, s, shop, verifyUrl, official, flag }) {
     <header class="sf-head"><div class="sf-mark">${crown({ size: 58, ring: false })}<b>${shop}</b></div><div class="sf-title"><h2>${title}</h2>${official ? html`<small>الگوی طلا، جواهر و پلاتین${d.tax?.taxId ? html` · شماره منحصربه‌فرد مالیاتی <b class="ltr-num">${d.tax.taxId}</b>` : ''}</small>` : html`<small>سند داخلی قابل رهگیری · کد اصالت ${d.verify}</small>`}</div>
       <table class="sf-meta"><tbody><tr><td>شماره سریال</td><td class="ltr-num">${d.serial ? fa(d.serial) : d.track}</td></tr><tr><td>کد رهگیری</td><td class="ltr-num">${d.track}</td></tr><tr><td>تاریخ</td><td>${jd(d.date)} ${d.issuedAt ? timeFa(d.issuedAt) : ''}</td></tr>${d.version > 1 ? html`<tr><td>نسخه</td><td>${fa(d.version)}</td></tr>` : ''}</tbody></table></header>
     ${seller}${buyer}${items}
-    <table class="sf-terms"><tbody><tr><td>شرایط و نحوه ${d.type === 'buy' || trade ? 'تسویه' : 'فروش'}: <span class="box">${cash ? '☒' : '☐'}</span> نقدی <span class="box">${cash ? '☐' : '☒'}</span> غیرنقدی (نسیه${c.credit ? `: ${T(Math.abs(c.credit))} ${unitName()} ${c.credit > 0 ? 'بدهی خریدار' : 'طلب مشتری'}` : ''})</td>
+    ${acct
+      ? html`<table class="sf-terms"><tbody><tr><td colspan="2">${(c.paidIn || c.paidOut || c.net) ? `مبلغ به حروف: ${moneyWords(Math.abs(c.net || c.paidIn || c.paidOut))}` : ''}${d.note ? `${c.paidIn || c.paidOut || c.net ? ' · ' : ''}توضیحات: ${d.note}` : ''}</td></tr></tbody></table>`
+      : html`<table class="sf-terms"><tbody><tr><td>شرایط و نحوه ${d.type === 'buy' || trade ? 'تسویه' : 'فروش'}: <span class="box">${cash ? '☒' : '☐'}</span> نقدی <span class="box">${cash ? '☐' : '☒'}</span> غیرنقدی (نسیه${c.credit ? `: ${T(Math.abs(c.credit))} ${unitName()} ${c.credit > 0 ? 'بدهی خریدار' : 'طلب مشتری'}` : ''})</td>
       <td>${c.payments.length ? c.payments.map((p, i) => `${B.payMethod(p.method)?.label} ${T(p.value)}${d.payments[i]?.ref ? ` (پیگیری ${fa(d.payments[i].ref)})` : ''}`).join(' · ') : '—'}</td></tr>
-      <tr><td colspan="2">مبلغ به حروف: ${moneyWords(Math.abs(trade ? c.net : c.net || c.sales))}${d.note ? ` · توضیحات: ${d.note}` : ''}</td></tr></tbody></table>
-    <footer class="sf-foot"><div><span>مهر و امضای ${trade ? 'مغازه' : 'فروشنده'}</span></div><div><span>مهر و امضای ${d.type === 'buy' ? 'فروشنده (مشتری)' : trade ? 'طرف معامله' : 'خریدار'}</span></div>
+      <tr><td colspan="2">مبلغ به حروف: ${moneyWords(Math.abs(trade ? c.net : c.net || c.sales))}${d.note ? ` · توضیحات: ${d.note}` : ''}</td></tr></tbody></table>`}
+    <footer class="sf-foot"><div><span>مهر و امضای ${trade || acct ? 'مغازه' : 'فروشنده'}</span></div><div><span>${acct && !party ? 'امضای تنظیم‌کننده' : `مهر و امضای ${d.type === 'buy' ? 'فروشنده (مشتری)' : trade ? 'طرف معامله' : acct ? 'طرف حساب' : 'خریدار'}`}</span></div>
       <div class="sf-qr">${raw(qrSvg(verifyUrl, { size: 84 }))}<small>استعلام اصالت<br><b class="ltr-num">${d.verify}</b></small></div></footer>
   </article>`;
 }

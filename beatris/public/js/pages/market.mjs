@@ -516,7 +516,8 @@ export async function marketPage(root) {
       save();
       drawMain({ keepView: true });
     } else if (t.id === 'png') {
-      chart.toBlob().then((blob) => {
+      // an 8K picture (7680 px wide), drawn at that size, not enlarged (spec 0025)
+      chart.toBlob({ width: 7680 }).then((blob) => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `beatris-${S.symbol}-${new Date().toISOString().slice(0, 10)}.png`;

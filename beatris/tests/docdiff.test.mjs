@@ -82,3 +82,18 @@ test('hawala amounts are read by their unit', () => {
   const d = docDiff(h(10), h(12.5));
   assert.deepEqual([at(d, 'hawala', 'amount').type, at(d, 'hawala', 'amount').from, at(d, 'hawala', 'amount').to], ['G', 10, 12.5]);
 });
+
+test('spec 0026: a write-off and the rows of a count adjustment say what changed', () => {
+  const wo = (amount, unit = 'G750') => ({ type: 'writeoff', date: '2026-10-01', partyId: 'p1', note: 'تسویه', writeoff: { unit, amount }, lines: [], payments: [], calc: { net: 0, paidIn: 0, paidOut: 0, credit: 0 } });
+  const d = docDiff(wo(1.25), wo(1.5));
+  assert.deepEqual(d.map((c) => [c.at, c.field, c.from, c.to]), [['writeoff', 'amount', 1.25, 1.5]]);
+  assert.match(changeText(d[0]), /سوخت مانده، مقدار — قبل: ۱٫۲۵۰ گرم؛ بعد: ۱٫۵۰۰ گرم/);
+  const u = docDiff(wo(100, 'FX:USD'), wo(100, 'COIN:emami'));
+  assert.equal(u[0].field, 'unit');
+  assert.match(changeText(u[0]), /دلار/);
+  const adj = (balances) => ({ type: 'adjust', date: '2026-10-01', note: 'شمارش', balances, lines: [], payments: [], calc: {} });
+  const a = docDiff(adj([{ acct: 'gold', unit: 'G750', amt: -0.5 }, { acct: 'coin:emami', unit: 'COUNT', amt: 1 }]), adj([{ acct: 'gold', unit: 'G750', amt: -0.75 }, { acct: 'fx:USD', unit: 'FX:USD', amt: 20 }]));
+  assert.deepEqual(a.map((c) => [c.at, c.kind, c.field]), [['balance', 'removed', 'coin:emami|COUNT'], ['balance', 'added', 'fx:USD|FX:USD'], ['balance', 'changed', 'gold|G750']]);
+  assert.equal(changeText(a[2]), 'مانده طلای آبشده — قبل: −۰٫۵۰۰ گرم؛ بعد: −۰٫۷۵۰ گرم');
+  assert.match(changeText(a[0]), /^مانده سکه .*امامی حذف شد: ۱$/);
+});

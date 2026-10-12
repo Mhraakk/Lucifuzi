@@ -927,8 +927,8 @@ export function makeControl({ db, on, call, core, auditShared = null, settings, 
   });
 
   /* ------------------------------------------------------------------ موتور تأیید و کنترل چهار چشم (spec #11) */
-  const RULES_FA = { void: 'ابطال سند', belowCost: 'فروش زیر بهای تمام‌شده', discount: 'تخفیف بالاتر از حد', unlock: 'باز کردن دوره قفل' };
-  const approvalRules = () => ({ enabled: false, void: true, belowCost: true, discount: true, discountPct: 10, unlock: true, ...(getSetting('approvals', {}) ?? {}) });
+  const RULES_FA = { void: 'ابطال سند', belowCost: 'فروش زیر بهای تمام‌شده', discount: 'تخفیف بالاتر از حد', unlock: 'باز کردن دوره قفل' , writeoff: 'سوخت یا بخشودگی مانده' };
+  const approvalRules = () => ({ enabled: false, void: true, belowCost: true, discount: true, discountPct: 10, unlock: true, writeoff: true, ...(getSetting('approvals', {}) ?? {}) });
   const canon = (o) => JSON.stringify(o, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((x) => [x, v[x]])) : v));
   const hashOf = (kind, payload) => createHashHex(`${kind}|${canon(payload)}`);
   /**
@@ -973,7 +973,7 @@ export function makeControl({ db, on, call, core, auditShared = null, settings, 
     if (user.role !== 'owner') throw forbid('قواعد تأیید را فقط مالک تنظیم می‌کند.');
     const cur = approvalRules();
     const next = { ...cur };
-    for (const k of ['enabled', 'void', 'belowCost', 'discount', 'unlock']) if (typeof body[k] === 'boolean') next[k] = body[k];
+    for (const k of ['enabled', 'void', 'belowCost', 'discount', 'unlock', 'writeoff']) if (typeof body[k] === 'boolean') next[k] = body[k];
     if (body.discountPct !== undefined) {
       const v = B.num(body.discountPct);
       if (!(v > 0 && v <= 100)) throw bad('حد تخفیف باید بین ۰ و ۱۰۰ درصد باشد.');
@@ -1024,6 +1024,8 @@ export function makeControl({ db, on, call, core, auditShared = null, settings, 
       }
       if (loss > 0.5) out.push({ kind: 'belowCost', summary: `فروش زیر بها با زیان ${R(loss)}` });
     }
+    // clearing a customer's balance is a loss or a gain the books did not trade for: the second pair of eyes sees it
+    if (rules.writeoff && doc.type === 'writeoff') out.push({ kind: 'writeoff', summary: `سوخت/بخشودگی ${calc.writeoff?.unit === 'IRR' ? R(Math.abs(calc.writeoff.amount)) : `${Math.abs(calc.writeoff?.amount ?? 0)} ${calc.writeoff?.unit ?? ''}`}` });
     if (rules.discount && doc.type === 'sale') {
       for (const l of calc.lines ?? []) {
         const base = (l.goldValue ?? 0) + (l.ojratValue ?? l.ojrat ?? 0);

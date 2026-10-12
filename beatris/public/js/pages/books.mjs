@@ -5,6 +5,7 @@ import * as B from '../books.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { invoicePaper, THEMES } from '../invoice.mjs';
 import { T, TU, G, jd, jdLong, jdInput, parseDay, today, addDays, timeFa, modal, confirmBox, statusChip, exportButtons, wireExport, download, balText, balClass, EX, unitName, moneyWords, K, booksPrefs, prefs } from '../bk.mjs';
+import { wireSort } from '../sorting.mjs';
 
 // one menu for every books page: grouped by what the operator is doing, the same on every screen (a side column on
 // a PC, a fold-out on a phone) so the books feel like one connected place instead of two dozen tabs
@@ -18,6 +19,7 @@ export function booksNav(cur) {
       ['day', '/books/day', 'روزنگار'],
       ['docs', '/books/docs', 'اسناد'],
       ['trace', '/books/trace', 'رهگیری'],
+      ['events', '/books/events', 'هر اتفاق کجا ثبت می‌شود'],
     ]],
     ['حساب‌ها و موجودی', [
       ['parties', '/books/parties', 'مشتریان'],
@@ -109,6 +111,7 @@ export async function docsPage(root) {
   const sel = new Set();
   root.innerHTML = String(html`${booksNav('docs')}
     <div class="bk-head"><h1>اسناد</h1>${exportButtons('ex')}</div>
+    <nav class="chips bk-newdocs" aria-label="سند تازه"><span class="small">ثبت تازه:</span><a class="chip" href="/books/desk" data-link>معامله (میز)</a>${prefs.edition === 'base' ? '' : html`<a class="chip" href="/books/new/sale" data-link>فروش</a><a class="chip" href="/books/new/buy" data-link>خرید</a><a class="chip" href="/books/new/receipt" data-link>دریافت</a><a class="chip" href="/books/new/payment" data-link>پرداخت</a>`}<a class="chip" href="/books/new/income" data-link>درآمد</a><a class="chip" href="/books/new/expense" data-link>هزینه</a><a class="chip" href="/books/new/transfer" data-link>انتقال</a>${admin ? html`<a class="chip" href="/books/vault?act=melt" data-link>ذوب و تبدیل</a><a class="chip" href="/books/vault?act=count" data-link>شمارش و اصلاح موجودی</a><a class="chip" href="/books/parties" data-link>سوخت مانده (از صفحه مشتری)</a>` : ''}<a class="chip" href="/books/events" data-link>هر اتفاق کجا ثبت می‌شود؟</a></nav>
     <form class="bk-filters" id="flt">
       <select class="input" name="type"><option value="">همه انواع</option>${Object.entries(B.DOC_TYPES).map(([k, v]) => html`<option value="${k}" ${F.type === k ? 'selected' : ''}>${v.label}</option>`)}</select>
       <select class="input" name="status"><option value="">همه وضعیت‌ها</option><option value="final" ${F.status === 'final' ? 'selected' : ''}>قطعی</option><option value="draft" ${F.status === 'draft' ? 'selected' : ''}>پیش‌نویس</option><option value="void" ${F.status === 'void' ? 'selected' : ''}>باطل</option></select>
@@ -116,11 +119,11 @@ export async function docsPage(root) {
       <input class="input" name="q" value="${F.q}" placeholder="نام، موبایل، شماره، بارکد، شرح">
       <button class="btn small">نمایش</button></form>
     ${admin ? html`<div class="bk-bulk" id="bulk" hidden></div>` : ''}
-    <div class="scrollx"><table class="table-plain bk-table" id="tbl"></table></div>
+    <div class="scrollx"><table class="table-plain bk-table" id="tbl" data-sort="docs"></table></div>
     <p class="small" id="sum"></p>`);
   const cols = [['type', 'نوع'], ['no', 'شماره'], [(r) => jd(r.date), 'تاریخ'], ['partyName', 'طرف حساب'], [EX((r) => r.sales), `جمع فاکتور (${unitName()})`], [EX((r) => r.net), `خالص (${unitName()})`], [EX((r) => r.vat), `مالیات (${unitName()})`], [EX((r) => r.credit), `نسیه (${unitName()})`], ['status', 'وضعیت'], ['createdBy', 'ثبت‌کننده']];
   const map = {};
-  wireExport(map, 'ex', `asnad-${F.from}-${F.to}`, () => (sel.size ? rows.filter((r) => sel.has(r.id)) : rows).map((r) => ({ ...r, type: B.DOC_TYPES[r.type].label })), cols, 'اسناد');
+  wireExport(map, 'ex', () => `asnad-${F.from}-${F.to}`, () => (sel.size ? rows.filter((r) => sel.has(r.id)) : rows).map((r) => ({ ...r, type: B.DOC_TYPES[r.type].label })), cols, 'اسناد');
   actions(root, map);
   async function load() {
     const p = new URLSearchParams();
@@ -132,7 +135,8 @@ export async function docsPage(root) {
   }
   function draw() {
     $('#tbl', root).innerHTML = String(html`<thead><tr>${admin ? html`<th><input type="checkbox" id="all" aria-label="انتخاب همه" ${rows.length && rows.every((r) => sel.has(r.id)) ? 'checked' : ''}></th>` : ''}<th>سند</th><th>تاریخ</th><th>طرف حساب</th><th>جمع</th><th>خالص</th><th>نسیه</th><th>وضعیت</th><th></th></tr></thead>
-      <tbody>${rows.map((r) => html`<tr class="${r.status}">${admin ? html`<td><input type="checkbox" data-row="${r.id}" ${sel.has(r.id) ? 'checked' : ''} aria-label="انتخاب"></td>` : ''}<td><a href="/books/doc/${r.id}" data-link>${B.DOC_TYPES[r.type].short}</a> <a class="ltr-num rz-track" href="/books/trace?q=${r.track}" data-link>${r.track}</a>${r.version > 1 ? html`<span class="small"> نسخه ${fa(r.version)}</span>` : ''}</td><td>${jd(r.date)}</td><td>${r.partyName ?? html`<span class="small">گذری</span>`}</td><td class="num">${r.sales ? T(r.sales) : '—'}</td><td class="num">${T(r.net)}</td><td class="num ${r.credit > 0 ? 'debt' : ''}">${r.credit ? T(r.credit) : '—'}</td><td>${statusChip(r.status)}${r.tax ? html` <span class="bk-st tax">${{ sent: 'ارسال‌شده', accepted: 'تأیید مودیان', rejected: 'رد مودیان' }[r.tax] ?? ''}</span>` : ''}</td><td class="small">${r.createdBy ?? ''}</td></tr>`)}</tbody>`);
+      <tbody>${rows.map((r) => html`<tr class="${r.status}">${admin ? html`<td><input type="checkbox" data-row="${r.id}" ${sel.has(r.id) ? 'checked' : ''} aria-label="انتخاب"></td>` : ''}<td><a href="/books/doc/${r.id}" data-link>${B.DOC_TYPES[r.type].short}</a> <a class="ltr-num rz-track" href="/books/trace?q=${r.track}" data-link>${r.track}</a>${r.version > 1 ? html`<span class="small"> نسخه ${fa(r.version)}</span>` : ''}</td><td data-v="${r.date}">${jd(r.date)}</td><td>${r.partyName ?? html`<span class="small">گذری</span>`}</td><td class="num" data-v="${r.sales || ''}">${r.sales ? T(r.sales) : '—'}</td><td class="num" data-v="${r.net}">${T(r.net)}</td><td class="num ${r.credit > 0 ? 'debt' : ''}" data-v="${r.credit || ''}">${r.credit ? T(r.credit) : '—'}</td><td>${statusChip(r.status)}${r.tax ? html` <span class="bk-st tax">${{ sent: 'ارسال‌شده', accepted: 'تأیید مودیان', rejected: 'رد مودیان' }[r.tax] ?? ''}</span>` : ''}</td><td class="small">${r.createdBy ?? ''}</td></tr>`)}</tbody>`);
+    wireSort($('#tbl', root));
     const tot = rows.filter((r) => r.status === 'final' && r.type === 'sale').reduce((s, r) => ({ n: s.n + 1, sales: s.sales + r.sales, vat: s.vat + r.vat }), { n: 0, sales: 0, vat: 0 });
     $('#sum', root).textContent = fa(`${rows.length} سند · فروش قطعی: ${tot.n} فاکتور، ${T(tot.sales)} ${unitName()}، مالیات ${T(tot.vat)} ${unitName()}`);
     drawBulk();
@@ -208,6 +212,8 @@ export async function docsPage(root) {
 
 /* ---------------- one document: the official invoice ---------------- */
 const FORMAT_KEY = 'beatris.books.format';
+// kinds recorded from their own dialog (desk حواله/تبدیل, vault ذوب/شمارش, customer سوخت): corrected by void + record again
+const NO_EDITOR = new Set(['hawala', 'convert', 'writeoff', 'transform', 'adjust']);
 export async function docPage(root, { id }) {
   await booksPrefs();
   const [d, s] = await Promise.all([api(`/api/books/docs/${id}`), api('/api/books/settings')]);
@@ -241,7 +247,7 @@ export async function docPage(root, { id }) {
           <div class="seg" role="group" aria-label="قالب چاپ">${[['std', 'قالب استاندارد رسمی'], ['a4', 'A4 نفیس'], ['a5', 'A5'], ['r80', 'رول ۸۰ میلی‌متری']].map(([k, l]) => html`<button data-fmt="${k}" aria-pressed="${format === k}">${l}</button>`)}</div>
           <div class="seg" role="group" aria-label="طرح فاکتور">${THEMES.map(([k, l]) => html`<button data-theme="${k}" aria-pressed="${theme === k}">${l}</button>`)}</div>
           <button class="btn small" data-act="print">چاپ / PDF</button>
-          ${d.status !== 'void' && (admin || d.status === 'draft') ? (d.status === 'final' && d.type !== 'proforma' ? html`<a class="btn small ghost" href="${d.type === 'trade' ? `/books/desk?amend=${d.id}` : `/books/doc/${d.id}/edit`}" data-link title="سند تازه‌ای می‌سازد که جای این سند را می‌گیرد؛ این سند با همان شماره در تاریخچه می‌ماند">اصلاح (اصلاحیه)</a>` : html`<a class="btn small ghost" href="/books/doc/${d.id}/edit" data-link>ویرایش</a>`) : ''}
+          ${d.status !== 'void' && (admin || d.status === 'draft') ? (d.status === 'final' && d.type !== 'proforma' ? (NO_EDITOR.has(d.type) ? html`<span class="small" title="این نوع سند فرم ویرایش ندارد؛ ابطال کنید و دوباره ثبت کنید. هر دو در تاریخچه می‌مانند.">اصلاح: ابطال و ثبت دوباره</span>` : html`<a class="btn small ghost" href="${d.type === 'trade' ? `/books/desk?amend=${d.id}` : `/books/doc/${d.id}/edit`}" data-link title="سند تازه‌ای می‌سازد که جای این سند را می‌گیرد؛ این سند با همان شماره در تاریخچه می‌ماند">اصلاح (اصلاحیه)</a>`) : html`<a class="btn small ghost" href="/books/doc/${d.id}/edit" data-link>ویرایش</a>`) : ''}
           ${d.status === 'draft' ? html`<button class="btn small ghost" data-act="finalize">قطعی کن</button>` : ''}
           ${d.type === 'proforma' && d.status === 'final' && !d.tax?.convertedTo ? html`<button class="btn small ghost" data-act="finalize">تبدیل به فاکتور فروش</button>` : ''}
           ${d.type === 'sale' && d.status === 'final' ? html`<a class="btn small ghost" href="/books/new/return?ref=${d.id}" data-link>برگشت از فروش</a>` : ''}

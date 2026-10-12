@@ -91,9 +91,12 @@ test('راه‌اندازی: وضعیت واقعی مغازه یک بار ثبت
   const pnl = await ok('GET', '/api/books/report/pnl', null, O);
   assert.equal(pnl.missingCost, false);
   const g = pnl.positions.find((p) => p.key === 'G750');
-  // the sealed bar is gold too: its 750-equivalent and its cost join the melt position
-  assert.equal(g.qty, 383.167);
-  assert.equal(g.cost, Math.round(250.5 * 90000000) + 12000000000);
+  // the sealed bar is gold too: its 750-equivalent and its cost join the melt position. What customers owe in grams
+  // (spec 0026 §3) is part of the position as well: −10 owed to the first رضا, +3.2 owed by the other, each valued at
+  // the opening's own average cost of gold, so neither adds nor hides profit
+  assert.equal(g.qty, 376.367);
+  const avg = (Math.round(250.5 * 90000000) + 12000000000) / 383.167;
+  assert.equal(g.cost, Math.round(250.5 * 90000000) + 12000000000 + Math.round(-10 * avg) + Math.round(3.2 * avg));
   // the dashboard reads the same state
   const d = await ok('GET', '/api/books/dashboard?range=7', null, O);
   assert.equal(d.kpi.physical.meltGrams, 250.5);

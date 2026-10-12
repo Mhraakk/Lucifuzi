@@ -241,7 +241,13 @@ export const DOC_TYPES = {
   trade: { label: 'سند معامله (سکه، آبشده، شمش، ارز)', short: 'معامله', sign: 0, prefix: 'M', base: true },
   hawala: { label: 'حواله بین طرف حساب‌ها', short: 'حواله', sign: 0, prefix: 'H', base: true },
   convert: { label: 'تبدیل مانده جنسی به ریال', short: 'تبدیل', sign: 0, prefix: 'C', base: true },
+  income: { label: 'سند درآمد', short: 'درآمد', sign: -1, prefix: 'I' },
+  writeoff: { label: 'سوخت یا بخشودگی مانده', short: 'سوخت', sign: 0, prefix: 'W', base: true },
+  transform: { label: 'ذوب و تبدیل جنس', short: 'ذوب', sign: 0, prefix: 'F', base: true },
 };
+/** Expense and income categories (a document of either kind names one; reports group by them). */
+export const EXPENSE_CATS = ['اجاره', 'حقوق و دستمزد', 'قبوض و شارژ', 'تعمیر و نگهداری', 'حمل و پیک', 'تبلیغات', 'کارمزد بانکی', 'مالیات و عوارض', 'بیمه', 'پذیرایی', 'ذوب و ری‌گیری', 'کمیسیون و حق‌الزحمه', 'خیریه و نذر', 'سایر'];
+export const INCOME_CATS = ['کارمزد عیارسنجی و ری‌گیری', 'کمیسیون و حق‌الزحمه', 'سود بانکی', 'اجاره دریافتی', 'بیمه و خسارت', 'هدیه', 'سایر'];
 // pmt = روش پرداخت in the tax system: 1 چک، 2 تهاتر، 3 وجه نقد، 4 POS، 5 درگاه اینترنتی، 6 کارت به کارت، 7 انتقال به حساب، 8 سایر
 export const PAY_METHODS = [
   { id: 'cash', label: 'نقد', pmt: 3, acct: 'cash' },
@@ -448,7 +454,7 @@ export function calcDoc(doc, { vatPct = 10, round = 10000 } = {}) {
     }
   });
   if (['sale', 'buy', 'return', 'proforma'].includes(doc.type)) need(lines.length, 'سند باید دست‌کم یک ردیف داشته باشد.');
-  if (['receipt', 'payment', 'expense', 'transfer'].includes(doc.type)) need(!lines.length, 'این سند ردیف کالا ندارد.');
+  if (['receipt', 'payment', 'expense', 'income', 'transfer'].includes(doc.type)) need(!lines.length, 'این سند ردیف کالا ندارد.');
   const sum = (arr, k) => arr.reduce((s, x) => s + x[k], 0);
   const outL = lines.filter((l) => l.side === 'out'), inL = lines.filter((l) => l.side === 'in');
   const S = {
@@ -468,7 +474,7 @@ export function calcDoc(doc, { vatPct = 10, round = 10000 } = {}) {
   if (doc.type === 'return') net = -S.sales;
   else if (doc.type === 'buy') net = -S.tradeIn;
   else if (['sale', 'proforma'].includes(doc.type)) net = S.sales - S.tradeIn;
-  else if (doc.type === 'receipt' || doc.type === 'payment' || doc.type === 'expense') net = 0;
+  else if (doc.type === 'receipt' || doc.type === 'payment' || doc.type === 'expense' || doc.type === 'income') net = 0;
   else net = 0;
   const pays = (doc.payments ?? []).map((p, i) => {
     try {
@@ -490,6 +496,9 @@ export function calcDoc(doc, { vatPct = 10, round = 10000 } = {}) {
     credit = paidOut;
   } else if (doc.type === 'expense') {
     need(paidOut > 0 && paidIn === 0, 'هزینه فقط پرداخت دارد.');
+    credit = 0;
+  } else if (doc.type === 'income') {
+    need(paidIn > 0 && paidOut === 0, 'درآمد فقط دریافت دارد.');
     credit = 0;
   } else if (doc.type === 'transfer') {
     need(pays.length === 2 && pays.some((p) => p.dir === 'out') && pays.some((p) => p.dir === 'in'), 'انتقال یک مبدأ و یک مقصد دارد.');
@@ -539,6 +548,7 @@ export function calcPayment(p, docType) {
     need(/^\d{4}-\d{2}-\d{2}$/.test(String(p.due ?? '')), 'تاریخ سررسید چک نامعتبر است.');
   }
   if (docType === 'expense' && dir === 'in') throw new BookError('هزینه دریافت ندارد.');
+  if (docType === 'income' && dir === 'out') throw new BookError('درآمد پرداخت ندارد.');
   return o;
 }
 
@@ -568,7 +578,7 @@ export function postings(doc, calc) {
     const src = doc.payments[i];
     const k = p.dir === 'in' ? 1 : -1;
     const m = payMethod(p.method);
-    if (doc.type !== 'transfer' && doc.type !== 'expense') add(party, 'IRR', -k * p.value);
+    if (doc.type !== 'transfer' && doc.type !== 'expense' && doc.type !== 'income') add(party, 'IRR', -k * p.value);
     if (m.acct === 'cash') add(`cash:${src.account || 'main'}`, 'IRR', k * p.value);
     else if (m.acct === 'bank') add(`bank:${src.account || 'main'}`, 'IRR', k * p.value);
     else if (m.acct === 'cheque') add(`chq:${src.chequeId || 'new'}`, 'IRR', k * p.value);
@@ -577,6 +587,8 @@ export function postings(doc, calc) {
     else if (m.acct === 'party') add(party, 'IRR', k * p.value); // offset: moves nothing but the party's balance (cancels the line above)
   }
   if (doc.type === 'expense') add(`exp:${doc.category || 'other'}`, 'IRR', calc.paidOut);
+  // income: what came in, against its category (an «offset» payment = the party owes it)
+  if (doc.type === 'income') add(`inc:${doc.category || 'سایر'}`, 'IRR', -calc.paidIn);
   if (calc.credit && calc.creditUnit === 'G750') {
     add(party, 'IRR', -calc.credit);
     add(party, 'G750', calc.creditG);

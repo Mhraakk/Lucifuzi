@@ -1791,6 +1791,150 @@ async function loginUI(page, phone = PHONE) {
     });
 
   if (!live)
+    await step('every shop event in one chain (specs 0026, 0027): روزنگار by section with search and tracking, sorting, the guide, melting, write-off, the whole count, income, the net result', async () => {
+      const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);
+      const post = (body) => auth('/api/books/docs', { method: 'POST', body: JSON.stringify(body) });
+      const party = await auth('/api/books/parties', { method: 'POST', body: JSON.stringify({ name: 'سامان بخش‌ها' }) });
+      const cashId = (await auth('/api/books/accounts')).items.find((a) => a.kind === 'cash').id;
+      // money in the box first, so every count below is of a real, positive box: whatever earlier steps paid out, an
+      // income (typed in toman) brings it to at least 2,000,000,000 rial
+      const box0 = (await auth('/api/books/vault')).cash?.[cashId] ?? 0;
+      await post({ type: 'income', category: 'سایر', payments: [{ method: 'cash', dir: 'in', amount: Math.max(100000000, Math.ceil((2000000000 - box0) / 10)), account: cashId }], note: 'موجودی صندوق آزمون' });
+      // a melted-gold line and a coin line worth the same 777,770,000 rial
+      const meltDoc = await post({ type: 'trade', partyId: party.id, lines: [{ kind: 'melt', dir: 'in', weight: 3.333, fineness: 750, basis: 'amount', amount: 777770000 }], payments: [{ method: 'cash', dir: 'out', amount: 777770000, account: cashId }] });
+      const coinDoc = await post({ type: 'trade', partyId: party.id, lines: [{ kind: 'coin', dir: 'out', coin: 'emami', count: 1, price: 777770000 }] });
+      check('setup: two documents of one amount, one in each section', !!meltDoc.track && !!coinDoc.track, `${JSON.stringify(meltDoc).slice(0, 120)} ${JSON.stringify(coinDoc).slice(0, 120)}`);
+      // روزنگار, آبشده only
+      await go(page, '/books/day?sec=melt', 1500);
+      const rows = await text(page, '#dyl');
+      check('روزنگار آبشده: the melted-gold document is listed, the coin one is not', rows.includes(meltDoc.track) && !rows.includes(coinDoc.track), rows.slice(0, 160).replace(/\s+/g, ' '));
+      check('روزنگار: the section chip is pressed and the URL keeps the section', (await page.$eval('#dysec [data-sec=melt]', (b) => b.getAttribute('aria-pressed'))) === 'true' && page.url().includes('sec=melt'));
+      await page.fill('#dyq', '۷۷۷٬۷۷۰٬۰۰۰ ریال');
+      await page.waitForFunction((t) => (document.querySelector('#dyfind')?.textContent ?? '').includes(t), meltDoc.track, { timeout: 8000 });
+      const fm = await text(page, '#dyfind');
+      check('number search inside آبشده: finds the melted-gold line, not the coin line of the same amount', fm.includes(meltDoc.track) && !fm.includes(coinDoc.track) && /فقط بخش آبشده/.test(fm), fm.slice(0, 200).replace(/\s+/g, ' '));
+      await page.click('#dysec [data-sec=coin]');
+      await page.waitForFunction((t) => (document.querySelector('#dyfind')?.textContent ?? '').includes(t), coinDoc.track, { timeout: 8000 });
+      check('number search inside سکه: the same figure now finds the coin line only', !(await text(page, '#dyfind')).includes(meltDoc.track));
+      await page.click('#dysec [data-sec=melt]');
+      await page.fill('#dyq', '');
+      const href = await page.$eval('#dyl a.dy-track', (a) => a.getAttribute('href'));
+      check('روزنگار: a row\'s tracking link keeps the section', href.includes('sec=melt'), href);
+      await page.click('#dyl a.dy-track');
+      await page.waitForSelector('.tc-doc');
+      check('رهگیری: the document opens, inside the same section', (await page.$eval('#tsec [data-sec=melt]', (b) => b.getAttribute('aria-pressed'))) === 'true' && page.url().includes('sec=melt'));
+      // روزنگار in amount order: the first row is the biggest document of the day, by the same rule
+      const day = await auth(`/api/books/daybook?day=${meltDoc.date}`);
+      const amountOf = (e) => Math.max(Math.abs(e.net ?? 0), e.lines.reduce((s, l) => s + (l.value || l.total || 0), 0), e.payments.reduce((s, p) => s + p.value, 0), Math.abs(e.convert?.value ?? 0), e.writeoff?.unit === 'IRR' ? Math.abs(e.writeoff.amount) : 0);
+      const biggest = day.entries.reduce((b, e) => (amountOf(e) > amountOf(b) ? e : b), day.entries[0]);
+      await go(page, '/books/day', 1200);
+      await page.selectOption('#dysort', 'amount-desc');
+      await page.waitForTimeout(200);
+      check('روزنگار: «مبلغ (بیشترین)» puts the biggest document first and keeps the order in the URL', (await page.$eval('#dyl .dy-e a.dy-track', (a) => a.textContent.trim())) === biggest.track && page.url().includes('sort=amount-desc'), `${biggest.track}`);
+      await page.selectOption('#dysort', 'time');
+      // tables sort by their headers: value order both ways, aria-sort says which
+      const sortCol = async (sel, col) => {
+        await page.click(`${sel} thead tr:last-child th:nth-child(${col}) .th-sort`);
+        const a = await page.$$eval(`${sel} tbody tr:not([data-fixed])`, (rs, c) => rs.map((r) => r.cells[c - 1]?.dataset.v), col);
+        const s1 = await page.$eval(`${sel} thead tr:last-child th:nth-child(${col})`, (th) => th.getAttribute('aria-sort'));
+        await page.click(`${sel} thead tr:last-child th:nth-child(${col}) .th-sort`);
+        const d = await page.$$eval(`${sel} tbody tr:not([data-fixed])`, (rs, c) => rs.map((r) => r.cells[c - 1]?.dataset.v), col);
+        const s2 = await page.$eval(`${sel} thead tr:last-child th:nth-child(${col})`, (th) => th.getAttribute('aria-sort'));
+        await page.click(`${sel} thead tr:last-child th:nth-child(${col}) .th-sort`); // back to the natural order
+        const n = (xs) => xs.filter((x) => x !== '' && x != null).map(Number);
+        const up = n(a), down = n(d);
+        return { ok: s1 === 'ascending' && s2 === 'descending' && up.every((v, i) => !i || up[i - 1] <= v) && down.every((v, i) => !i || down[i - 1] >= v), up, down };
+      };
+      await go(page, '/books/vault', 1500);
+      const vs = await sortCol('table[data-sort="vault-cash"]', 2);
+      check('گاوصندوق: cash and bank sort by balance, up and down', vs.ok, JSON.stringify(vs));
+      await page.keyboard.press('Escape');
+      // a second customer with another balance, so the column has something to order whatever ran before this step
+      const party2 = await auth('/api/books/parties', { method: 'POST', body: JSON.stringify({ name: 'رامین بخش‌ها' }) });
+      await post({ type: 'trade', partyId: party2.id, lines: [], payments: [{ method: 'cash', dir: 'in', amount: 300000000, account: cashId }] });
+      await go(page, '/books/parties', 1500);
+      const ps = await sortCol('#tbl', 7);
+      check('مشتریان: «مانده» sorts by the whole balance at today\'s prices', ps.ok && ps.up.length >= 2, JSON.stringify(ps).slice(0, 200));
+      await go(page, '/books/stock', 1500);
+      if (await page.$('#tbl tbody tr')) {
+        const ss = await sortCol('#tbl', 4);
+        check('انبار و ویترین: pieces sort by weight', ss.ok, JSON.stringify(ss));
+      }
+      // the guide: every event, a search, and its button opens the right screen
+      await go(page, '/books/events', 1200);
+      check('guide: every catalogued event is listed', (await page.$$('.ev-e')).length === 90, String((await page.$$('.ev-e')).length));
+      await page.fill('#evq', 'ذوب');
+      const melts = (await page.$$('.ev-e')).length;
+      check('guide: «ذوب» narrows to the melting events', melts >= 3 && melts < 20, String(melts));
+      await page.click('#ev-vault-melt-scrap a[data-link]');
+      await page.waitForSelector('.modal #mo-ins', { timeout: 10000 });
+      check('guide → vault: «ثبت این اتفاق» opens the melting dialog', page.url().includes('/books/vault'));
+      // a melting from the vault: wastage as it is typed, then one ذوب document
+      await page.fill('.modal .mo-row[data-side=ins] [data-k=weight]', '20');
+      await page.fill('.modal .mo-row[data-side=ins] [data-k=fineness]', '740');
+      await page.fill('.modal .mo-row[data-side=outs] [data-k=weight]', '19.5');
+      await page.waitForTimeout(150);
+      const ms = await text(page, '.modal #mo-sum');
+      check('melt: the wastage is computed as it is typed (19.733 → 19.500)', ms.includes('۱۹٫۷۳۳') && ms.includes('۱۹٫۵۰۰') && /افت/.test(ms), ms);
+      await page.fill('.modal [name=note]', 'ذوب آزمون مرورگر');
+      await page.click('.modal [data-save]');
+      await page.waitForSelector('.modal #mo-ins', { state: 'detached', timeout: 10000 });
+      const tx = (await auth('/api/books/docs?type=transform&limit=5')).items[0];
+      check('melt: saved as one ذوب document', tx?.type === 'transform', JSON.stringify(tx).slice(0, 120));
+      await go(page, `/books/doc/${tx.id}`, 1500);
+      if (await page.$('[data-fmt=std]')) await page.click('[data-fmt=std]');
+      const paper = await text(page, '.bk-paper');
+      check('melt: the paper shows its rows, 750-equivalents and the wastage, with no buyer', paper.includes('اقلام ذوب و تبدیل') && paper.includes('۱۹٫۷۳۳') && /افت ذوب/.test(paper) && !/قابل پرداخت خریدار/.test(paper), paper.slice(0, 200).replace(/\s+/g, ' '));
+      // a write-off from the customer's page
+      await go(page, `/books/party/${party.id}`, 1500);
+      await page.click('[data-act=writeoff]');
+      await page.waitForSelector('.modal [name=unit]');
+      await page.selectOption('.modal [name=unit]', 'IRR');
+      await page.fill('.modal [name=amount]', '770000');
+      await page.fill('.modal [name=note]', 'تخفیف تسویه آزمون');
+      await page.click('.modal [data-save]');
+      await page.waitForSelector('.modal [name=unit]', { state: 'detached', timeout: 10000 });
+      const pb = (await auth(`/api/books/parties/${party.id}`)).balance;
+      check('write-off: the customer\'s rial debt is lower by exactly the amount', pb.IRR === 777770000 - 770000, JSON.stringify(pb));
+      // the whole count, with a cash box short by 100,000 rial
+      await go(page, '/books/vault', 1500);
+      const cashBook = await page.evaluate(async (id) => (await (await fetch('/api/books/vault', { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).cash[id], cashId);
+      await page.click('[data-act=count]');
+      await page.waitForSelector(`.modal tr[data-k="cash:${cashId}"] input`);
+      await page.fill(`.modal tr[data-k="cash:${cashId}"] input`, String(cashBook - 100000));
+      await page.waitForTimeout(100);
+      check('count: the cash box shows its shortage', cashBook > 100000 && /کسری/.test(await text(page, `.modal tr[data-k="cash:${cashId}"] .vt-diff`)), String(cashBook));
+      await page.click('.modal [data-adj]');
+      await page.waitForSelector('.modal [data-adj]', { state: 'detached', timeout: 10000 });
+      const cashNow = await page.evaluate(async (id) => (await (await fetch('/api/books/vault', { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).cash[id], cashId);
+      check('count: the adjustment brings the box to what was counted', cashNow === cashBook - 100000, `${cashBook} → ${cashNow}`);
+      // income from صندوق، بانک، چک
+      await go(page, '/books/cash', 1200);
+      await page.click('a[href="/books/new/income"]');
+      await page.waitForSelector('[name=category]');
+      await page.selectOption('[name=category]', 'کارمزد عیارسنجی و ری‌گیری');
+      await page.click('[data-add-pay=cash]');
+      await page.fill('[data-p="0"][data-k=amount]', '5000000');
+      await page.click('[data-act=save]');
+      await page.waitForURL(/\/books\/doc\//, { timeout: 15000 });
+      await page.waitForSelector('.bk-paper');
+      check('income: saved as «سند درآمد» with its category', /سند درآمد/.test(await text(page, 'main')) && /کارمزد عیارسنجی/.test(await text(page, '.bk-paper')), (await text(page, '.bk-paper')).slice(0, 160).replace(/\s+/g, ' '));
+      // the period's net result: trading + income − expenses − write-offs
+      await go(page, '/books/reports?tab=pnl', 2000);
+      const pr = await text(page, '.pl-result');
+      check('P&L: the net result lists income by category, the write-off and the net', /درآمد · کارمزد عیارسنجی و ری‌گیری/.test(pr) && /سوخت بدهی ریالی/.test(pr) && /نتیجه خالص/.test(pr) && !!(await page.$('#pl-net')) && noBadNumbers(pr), pr.slice(0, 200).replace(/\s+/g, ' '));
+      // the documents page offers every kind; the palette finds an event by its story
+      await go(page, '/books/docs', 1200);
+      check('documents: «ثبت تازه» offers melting, the count and the guide', !!(await page.$('.bk-newdocs a[href="/books/vault?act=melt"]')) && !!(await page.$('.bk-newdocs a[href="/books/events"]')));
+      await page.keyboard.press('Control+k');
+      await page.waitForSelector('#palQ');
+      await page.keyboard.type('چک برگشت');
+      await page.waitForTimeout(300);
+      check('palette: «چک برگشت» finds the event and where to record it', /چک برگشت خورد/.test(await text(page, '#palL')), (await text(page, '#palL')).slice(0, 160));
+      await page.keyboard.press('Escape');
+    });
+
+  if (!live)
     await step('accounting trainer (spec 0015): a case, the right entry, graded by the kernel; manager view', async () => {
       await go(page, '/train/accounting', 1500);
       check('trainer: the page opens with the tutor\'s suggestion', /یک رویداد، یک سند/.test(await text(page, '.at-head')));
@@ -2086,7 +2230,7 @@ async function loginUI(page, phone = PHONE) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       // name the widest offender so a failure is actionable
@@ -2150,6 +2294,7 @@ await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a sup
   }
   const { ctx, page } = await open({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
   await loginUI(page);
+  const session = await page.evaluate(() => localStorage.getItem('beatris.token'));
   await go(page, '/market', 2500);
   const charts = await page.$$eval('canvas', (cs) => cs.filter((c) => c.clientWidth > 0).map((c) => [c.width, c.clientWidth, c.height, c.clientHeight]));
   check('quality: market charts are drawn at 2× their CSS size', charts.length >= 2 && charts.every(([w, cw, h, ch]) => w === Math.round(cw * 2) && h === Math.round(ch * 2)), JSON.stringify(charts.slice(0, 3)));
@@ -2157,6 +2302,26 @@ await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a sup
   const ew = await page.$eval('.ew-cv', (c) => [c.width, c.clientWidth]);
   check('quality: the Elliott chart is drawn at 2× its CSS size', ew[0] === Math.round(ew[1] * 2), JSON.stringify(ew));
   await ctx.close();
+  // 8K (spec 0025, amendment 1): 1920×1080 CSS at 4× — charts at the screen's density, an 8K picture, no overflow
+  const k8 = await open({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 4, acceptDownloads: true });
+  // the same session (sign-in is tested above): the sign-in page's 3D coin at 4× on a software GPU is not what is measured
+  await k8.ctx.addInitScript((t) => localStorage.setItem('beatris.token', t), session);
+  await go(k8.page, '/market', 3000);
+  const big = await k8.page.$$eval('canvas', (cs) => cs.filter((c) => c.clientWidth > 0).map((c) => [c.width, c.clientWidth, c.height, c.clientHeight]));
+  // a chart's CSS height can be fractional (688.75 px is shown as 689): one CSS pixel of rounding is allowed
+  check('8K: the market charts are drawn at 4× their CSS size (within the canvas area cap)', big.length >= 2 && big.every(([w, cw, h, ch]) => {
+    const d = Math.min(4, Math.sqrt(16700000 / (cw * ch)));
+    return Math.abs(w - cw * d) <= d && Math.abs(h - ch * d) <= d;
+  }), JSON.stringify(big.filter(([w, cw, h, ch]) => Math.abs(w - cw * Math.min(4, Math.sqrt(16700000 / (cw * ch)))) > 1).slice(0, 3)));
+  const [dl] = await Promise.all([k8.page.waitForEvent('download', { timeout: 30000 }), k8.page.click('#png')]);
+  const png = await (await import('node:fs/promises')).readFile(await dl.path());
+  check('8K: the chart picture is 7680 px wide, drawn at that size', png.readUInt32BE(16) === 7680 && png.readUInt32BE(20) > 1000, `${png.readUInt32BE(16)}×${png.readUInt32BE(20)}`);
+  for (const p of ['/books/day', '/books/vault', '/books/reports?tab=pnl', '/books/events']) {
+    await go(k8.page, p, 1500);
+    const ov = await k8.page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    check(`8K ${p}: no horizontal overflow`, ov <= 1, `${ov}px`);
+  }
+  await k8.ctx.close();
 });
 
 await browser.close();

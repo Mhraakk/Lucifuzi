@@ -1422,6 +1422,56 @@ td.bad, .num.bad { color: var(--carn); }
 .dy-io em { display: block; font-style: normal; }
 @media (min-width: 1000px) { .vt-grid { grid-template-columns: minmax(0, 2.3fr) minmax(0, 1fr); } }
 
+/* sortable headers (spec 0027): the header is a button; the arrow says the order */
+.th-sort { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; margin: -4px -2px; padding: 0 2px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: start; white-space: nowrap; cursor: pointer; }
+.th-sort:hover { color: var(--bone); }
+.th-sort:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.th-arrow { display: inline-block; width: 1em; text-align: center; font-size: 0.95em; line-height: 1; }
+.th-arrow::before { content: '↕'; opacity: 0.35; }
+.th-sort:hover .th-arrow::before { opacity: 0.7; }
+th[aria-sort] { color: var(--gold-hi) !important; }
+th[aria-sort='ascending'] .th-arrow::before { content: '↑'; opacity: 1; }
+th[aria-sort='descending'] .th-arrow::before { content: '↓'; opacity: 1; }
+td[data-v] { font-variant-numeric: tabular-nums lining-nums; }
+
+/* روزنگار by section, its order, and what a section leaves out */
+.dy-secs { margin: 0 0 12px; }
+.dy-secs .chip { min-height: 38px; padding: 0 16px; font-size: 14px; }
+.dy-sort { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dust); white-space: nowrap; }
+.dy-sort .input { width: auto; min-width: 150px; }
+.dy-more { margin: 6px 0 0; color: var(--dust-2); }
+.dy-bal { display: inline-block; padding: 0 8px; border-radius: 99px; border: 1px solid var(--hair-2); font-size: 12.5px; white-space: nowrap; }
+
+/* ذوب و تبدیل جنس, شمارش گاوصندوق */
+.mo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; }
+.mo-row .input { flex: 1 1 96px; min-width: 0; }
+.mo-row select.input { flex-basis: 180px; }
+.mo-sum { margin: 12px 0; padding: 10px 12px; border-radius: var(--r-md); border: 1px dashed var(--hair-2); background: rgba(var(--ink-rgb), 0.3); font-variant-numeric: tabular-nums; }
+.mo-sum:empty { display: none; }
+.mo-sum p { margin: 0; }
+.mo-sum b.good { color: var(--turq); }
+.mo-sum b.bad { color: var(--carn); }
+.vt-bars { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 6px; margin: 6px 0 12px; }
+.vt-bars label { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--hair); border-radius: 10px; font-size: 13px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.vt-bars label:has(input:not(:checked)) { border-color: rgba(var(--bad-rgb), 0.5); color: var(--carn); }
+
+/* «ثبت تازه» beside the document list */
+.bk-newdocs { align-items: center; margin: 0 0 14px; }
+.bk-newdocs .small { margin-inline-end: 4px; }
+
+/* هر اتفاق کجا ثبت می‌شود */
+.ev-tools { display: grid; gap: 10px; margin-bottom: 18px; }
+.ev-tools .input { max-width: 680px; }
+.ev-list { display: grid; gap: 24px; }
+.ev-g ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 10px; }
+.ev-e { display: grid; gap: 6px; align-content: start; padding: 14px 16px; }
+.ev-e h3 { margin: 0; font-size: 15.5px; font-weight: 650; color: var(--gold-hi); }
+.ev-e p { margin: 0; font-size: 13.5px; line-height: 1.9; }
+.ev-m { color: var(--dust); }
+.ev-e .btn, .ev-e > span { justify-self: start; margin-top: 4px; }
+.ev-e:target { border-color: var(--gold); }
+@media print { .dy-secs, .bk-newdocs, .ev-tools { display: none !important; } }
+
 /* header: the house name beside the crown */
 #topbar .brand { gap: 12px; }
 #topbar .brand svg.brand-crown { width: 40px; height: 40px; filter: drop-shadow(0 2px 10px rgba(var(--gold-rgb), 0.35)); transition: transform 0.6s var(--spring); }

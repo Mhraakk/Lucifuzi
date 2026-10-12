@@ -7,25 +7,29 @@ import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { barcodeSvg } from '../barcode.mjs';
 import { booksPrefs, R, G, jd, timeFa, unitAmt, unitLabel, describeLine, lineVerb, statusChip } from '../bk.mjs';
 import { booksNav, changeList } from './books.mjs';
+import { SECTIONS, SECTION_IDS } from '../daysearch.mjs';
 
 const amtOf = (unit, v) => (unit === 'IRR' ? R(Math.abs(v)) : unit === 'G750' ? `${G(Math.abs(v))} گرم` : unit === 'COUNT' || unit === 'FX' ? fa(Math.abs(v)) : unitAmt(unit, Math.abs(v)));
 
 export async function tracePage(root) {
   await booksPrefs();
   const q0 = new URLSearchParams(location.search).get('q') ?? '';
+  // inside a section (spec 0027): only that section's documents; an exact tracking code always opens
+  let sec = SECTION_IDS.has(new URLSearchParams(location.search).get('sec') ?? '') ? new URLSearchParams(location.search).get('sec') : 'all';
   root.innerHTML = String(html`${booksNav('trace')}
     <div class="bk-head"><div><h1>رهگیری</h1><span class="small">هر سند، هر ردیف و هر پرداخت یک کد دارد؛ با هر شماره‌ای که در دست دارید، کل سرگذشتش را ببینید.</span></div></div>
     <form class="tc-find" id="tf"><input class="input" id="tq" value="${q0}" placeholder="کد رهگیری (M1405-00012 یا M1405-00012/P1)، کد اصالت، شماره پیگیری، سریال شمش، شماره چک، کد یا موبایل مشتری" autocomplete="off" autofocus><button class="btn">رهگیری</button></form>
+    <nav class="chips dy-secs" id="tsec" aria-label="بخش">${SECTIONS.map(([k, l]) => html`<button type="button" class="chip" data-sec="${k}" aria-pressed="${sec === k}">${l}</button>`)}</nav>
     <div id="tr"></div>`);
   const box = $('#tr', root);
   async function run(q) {
     if (!q.trim()) return (box.innerHTML = String(html`<p class="small tc-hint">کد را بنویسید یا با بارکدخوان از روی رسید بخوانید.</p>`));
     box.innerHTML = '<p class="small tc-hint">در حال جستجو…</p>';
     try {
-      const r = await api(`/api/books/trace?q=${encodeURIComponent(q)}`);
+      const r = await api(`/api/books/trace?q=${encodeURIComponent(q)}${sec !== 'all' ? `&sec=${sec}` : ''}`);
       if (r.hint) return (box.innerHTML = String(html`<p class="notice">${r.hint}</p>`));
       box.innerHTML = String(html`${r.parties?.length ? html`<section class="tray tc-parties"><h3 class="bk-h">مشتری</h3>${r.parties.map((p) => html`<a class="chip" href="/books/party/${p.id}" data-link>${p.label} · کد ${fa(p.code)}</a>`)}</section>` : ''}
-        ${r.items.length ? r.items.map((d, i) => card(d, i)) : r.parties?.length ? '' : html`<p class="notice">با «${q}» چیزی پیدا نشد.</p>`}`);
+        ${r.items.length ? r.items.map((d, i) => card(d, i)) : r.parties?.length ? '' : html`<p class="notice">با «${q}» چیزی${sec !== 'all' ? ` در بخش ${SECTIONS.find(([k]) => k === sec)?.[1]}` : ''} پیدا نشد.${sec !== 'all' ? ' بخش «همه» را بزنید.' : ''}</p>`}`);
     } catch (e) {
       box.innerHTML = String(html`<p class="notice">${e.message}</p>`);
     }
@@ -59,7 +63,22 @@ export async function tracePage(root) {
   $('#tf', root).addEventListener('submit', (e) => {
     e.preventDefault();
     const q = $('#tq', root).value.trim();
-    history.replaceState(null, '', `/books/trace${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+    keepUrl(q);
+    run(q);
+  });
+  function keepUrl(q) {
+    const p = new URLSearchParams();
+    if (q) p.set('q', q);
+    if (sec !== 'all') p.set('sec', sec);
+    history.replaceState(null, '', `/books/trace${p.size ? `?${p}` : ''}`);
+  }
+  $('#tsec', root).addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sec]');
+    if (!b) return;
+    sec = b.dataset.sec;
+    $('#tsec', root).querySelectorAll('[data-sec]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    const q = $('#tq', root).value.trim();
+    keepUrl(q);
     run(q);
   });
   root.addEventListener('click', async (e) => {

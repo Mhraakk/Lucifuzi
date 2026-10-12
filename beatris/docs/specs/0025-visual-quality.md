@@ -99,3 +99,11 @@ every frame.
 - **No invented detail:** photos and scans keep their real resolution.
 - **Both skins** look the same in quality; colours come only from tokens.
 - **Operator speed comes first:** the desk and روزنگار never wait for graphics.
+
+## Amendment 1 — 8K screens and 8K chart pictures
+- **On an 8K screen** (7680×4320, usually 1920×1080 CSS at 4×): tables, figures and text are drawn by the browser at
+  the screen's own density. Every 2D chart is drawn at up to 4× its CSS size within the canvas area cap, so a full-width
+  chart is 7680 px wide. e2e at 1920×1080×4: the market chart's backing store is 4× its CSS size (or the area cap), and
+  روزنگار, گاوصندوق, the P&L report and the events guide have no horizontal overflow.
+- **A chart picture** («ذخیره تصویر نمودار») is 7680 px wide: the chart is drawn again at that density, not enlarged,
+  never above the browser's canvas area, then drawn back for the screen. e2e reads the PNG header: 7680 wide.

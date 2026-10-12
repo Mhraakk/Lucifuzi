@@ -335,7 +335,7 @@ export async function controlPage(root) {
     const ST = { pending: 'در انتظار', approved: 'تأیید شد', rejected: 'رد شد', used: 'انجام شد' };
     body.innerHTML = String(html`${owner ? html`<form class="tray ctl-rules" id="apR"><h3>قواعد تأیید</h3>
         <label class="switch"><input type="checkbox" name="enabled" ${r.rules.enabled ? 'checked' : ''}> موتور تأیید روشن است</label>
-        <div class="ctl-rule-list"><label><input type="checkbox" name="void" ${r.rules.void ? 'checked' : ''}> ابطال سند</label><label><input type="checkbox" name="belowCost" ${r.rules.belowCost ? 'checked' : ''}> فروش زیر بهای تمام‌شده</label><label><input type="checkbox" name="discount" ${r.rules.discount ? 'checked' : ''}> تخفیف بالاتر از <input class="input small ltr" name="discountPct" value="${r.rules.discountPct}" size="3">٪</label><label><input type="checkbox" name="unlock" ${r.rules.unlock ? 'checked' : ''}> باز کردن دوره قفل</label></div>
+        <div class="ctl-rule-list"><label><input type="checkbox" name="void" ${r.rules.void ? 'checked' : ''}> ابطال سند</label><label><input type="checkbox" name="belowCost" ${r.rules.belowCost ? 'checked' : ''}> فروش زیر بهای تمام‌شده</label><label><input type="checkbox" name="discount" ${r.rules.discount ? 'checked' : ''}> تخفیف بالاتر از <input class="input small ltr" name="discountPct" value="${r.rules.discountPct}" size="3">٪</label><label><input type="checkbox" name="unlock" ${r.rules.unlock ? 'checked' : ''}> باز کردن دوره قفل</label><label><input type="checkbox" name="writeoff" ${r.rules.writeoff ? 'checked' : ''}> سوخت یا بخشودگی مانده</label></div>
         <p class="small">کنترل چهار چشم: کسی که درخواست می‌دهد، حتی مالک، نمی‌تواند خودش تأیید کند؛ مدیر یا مالک دیگری باید تصمیم بگیرد. تأیید فقط یک بار و فقط برای همان محتوا معتبر است.</p><button class="btn small">ذخیره قواعد</button></form>` : ''}
       ${r.items.length ? html`<ul class="ctl-ap">${r.items.map((a) => html`<li class="st-${a.status}"><div><b>${a.kindLabel}</b><p>${a.summary}</p><small>درخواست: ${a.requestedBy} · ${jd(a.requestedAt.slice(0, 10))} ${timeFa(a.requestedAt)}${a.decidedBy ? ` · ${ST[a.status]} توسط ${a.decidedBy}${a.note ? `: «${a.note}»` : ''}` : ''}</small></div>
           <span class="ctl-st">${ST[a.status]}</span>${a.status === 'pending' && admin ? (a.requestedById === r.me ? html`<small class="ctl-4e">درخواست خودتان است؛ مدیر دیگری باید تأیید کند</small>` : html`<div class="ctl-ap-a"><button class="btn small" data-ap="approve" data-id="${a.id}">تأیید</button><button class="btn ghost small" data-ap="reject" data-id="${a.id}">رد</button></div>`) : ''}</li>`)}</ul>` : html`<p class="ctl-empty">درخواستی نیست.</p>`}`);
@@ -343,7 +343,7 @@ export async function controlPage(root) {
       e.preventDefault();
       const f = e.target;
       try {
-        await api('/api/books/control/approvals/rules', { method: 'PUT', body: { enabled: f.enabled.checked, void: f.void.checked, belowCost: f.belowCost.checked, discount: f.discount.checked, unlock: f.unlock.checked, discountPct: Number(f.discountPct.value) } });
+        await api('/api/books/control/approvals/rules', { method: 'PUT', body: { enabled: f.enabled.checked, void: f.void.checked, belowCost: f.belowCost.checked, discount: f.discount.checked, unlock: f.unlock.checked, writeoff: f.writeoff.checked, discountPct: Number(f.discountPct.value) } });
         toast('قواعد تأیید ذخیره شد.', 'ok');
       } catch (err) {
         toast(err.message, 'error');

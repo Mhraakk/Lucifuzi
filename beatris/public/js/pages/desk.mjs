@@ -1199,6 +1199,7 @@ export async function deskPage(root) {
       if (S.sugg?.[k]) (S.sugg[k] = false), el.closest('.dk-sugg')?.classList.remove('dk-sugg'), el.closest('label')?.querySelector('.dk-sg')?.remove();
       if (k === 'code') (f.rate = el.value === 'USD' ? liveOf('usd') ?? '' : ''), drawForm();
       else liveLine(), markNext();
+      if (S.kind === 'bar' && k === 'serial' && dir() === 'out') cardFill(el.value);
       step(`${FIELD_FA[k] ?? k}: ${el.type === 'checkbox' ? (el.checked ? 'بله' : 'خیر') : fa(el.value || '—')}`, { key: `f:${S.kind}.${k}`, focus: `[data-f="${k}"]` });
     } else if (el.dataset.p !== undefined) {
       const i = Number(el.dataset.p);
@@ -1212,6 +1213,25 @@ export async function deskPage(root) {
       step('یادداشت سند', { key: 'note', focus: '#note' });
     }
   });
+  // a sealed bar leaves at its card (spec 0026): weight, fineness and seal come from the registry, not from memory
+  let cardT = 0;
+  function cardFill(serial) {
+    clearTimeout(cardT);
+    const want = TR.normSerial(serial ?? '');
+    if (want.length < 3) return;
+    cardT = setTimeout(async () => {
+      const r = await api(`/api/books/bars?q=${encodeURIComponent(want)}`).catch(() => null);
+      const b = r?.items?.find((x) => x.serial === want && x.inVault);
+      const f = S.f.bar;
+      if (!b || S.kind !== 'bar' || dir() !== 'out' || TR.normSerial(f.serial ?? '') !== want) return;
+      Object.assign(f, { weight: b.weight != null ? String(b.weight) : f.weight, fineness: b.fineness != null ? String(b.fineness) : f.fineness, brand: b.brand || f.brand, gallery: b.gallery || f.gallery, sealDate: b.sealDate ? jd(b.sealDate) : f.sealDate });
+      drawForm();
+      const box = $('[data-f=serial]', root);
+      box?.focus();
+      box?.setSelectionRange?.(box.value.length, box.value.length);
+      toast(`شناسنامه شمش ${fa(want)}: ${G(b.weight)} گرم، عیار ${fa(b.fineness)}`, 'info');
+    }, 300);
+  }
   // money typed as bare digits is hard to read: show it grouped, in rial and toman, right under the box
   const MONEY_KEYS = new Set(['mazaneh', 'g750', 'amount', 'price', 'gramPrice', 'rate', 'fee']);
   function hint(el) {
@@ -1603,6 +1623,12 @@ export async function deskPage(root) {
   const pre = new URLSearchParams(location.search).get('party');
   if (pre) await pickParty({ id: pre }).catch(() => toast('این مشتری پیدا نشد.', 'error'));
   if (amendQ) await amendDoc(amendQ);
+  // from «هر اتفاق کجا ثبت می‌شود» (spec 0026): the desk opens on the right kind of line, or on حواله / تبدیل
+  const want = new URLSearchParams(location.search);
+  if (!amendQ && MODE_FA[want.get('mode')]) setMode(want.get('mode'));
+  if (!amendQ && KIND_FA[want.get('kind')]) setKind(want.get('kind'));
+  if (want.get('act') === 'hawala') hawala();
+  else if (want.get('act') === 'convert') convert();
   return () => {
     clearInterval(timer);
     stopLive();

@@ -190,6 +190,21 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     db.run("INSERT INTO bk_accounts(id,kind,title,created_at) VALUES ('main','cash','صندوق اصلی',?)", now());
     db.run("INSERT INTO bk_accounts(id,kind,title,created_at) VALUES ('bank-main','bank','حساب بانکی اصلی',?)", now());
   }
+  // repair (spec 0026): a cheque of a base-edition (rial) document was stored ten times its amount, as if typed in
+  // toman, so its bounce or clearing moved ten times the money. Only a cheque whose amount is exactly ten times its own
+  // payment's value is put right; its status postings are rebuilt from its history. Runs once per cheque, idempotent.
+  for (const c of db.all('SELECT c.*, d.type AS dtype, d.data_json, d.calc_json FROM bk_cheques c JOIN bk_docs d ON d.id=c.doc_id')) {
+    if (!B.DOC_TYPES[c.dtype]?.base) continue;
+    const i = (JSON.parse(c.data_json).payments ?? []).findIndex((p) => p.chequeId === c.id);
+    const value = JSON.parse(c.calc_json).payments?.[i]?.value;
+    if (!(i >= 0 && value > 0 && c.amount === value * 10)) continue;
+    db.tx(() => {
+      db.run('UPDATE bk_cheques SET amount=?, updated_at=? WHERE id=?', value, now(), c.id);
+      chequePostings({ ...c, amount: value }, JSON.parse(c.history_json));
+      log(null, 'cheque.repair', c.id, { from: c.amount, to: value, reason: 'مبلغ چک سند ریالی ده برابر ثبت شده بود' });
+    });
+    console.log(`[beatris] cheque ${c.no || c.sayad || c.id}: amount repaired from ${c.amount} to ${value} rial.`);
+  }
   const settings = () => {
     const s = { ...DEFAULT_BOOKS, ...getSetting('books', {}), vatPct: pricing().vatPct ?? 10 };
     if (!s.legalName) s.legalName = getSetting('brand', {}).shopName || B.SHOP_NAME; // the house name until the owner types the registered one
@@ -283,7 +298,10 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       const id = r.acct.slice(6);
       bal.set(id, { ...(bal.get(id) ?? {}), [r.unit]: roundUnit(r.unit, r.s) });
     }
-    return { items: rows.map((p) => ({ ...partyOut(p), balance: bal.get(p.id) ?? {} })) };
+    // the whole balance at today's prices, for sorting the list (spec 0027); a unit without a price counts 0
+    const { price } = livePrices();
+    const worth = (b) => Math.round(Object.entries(b).reduce((s, [u, v]) => s + (u === 'IRR' ? v : (price[u] ?? 0) * v), 0));
+    return { items: rows.map((p) => ({ ...partyOut(p), balance: bal.get(p.id) ?? {}, worth: worth(bal.get(p.id) ?? {}) })) };
   });
   on('POST', '/api/books/parties', 'auth', ({ user, body }) => {
     const p = cleanParty(body);
@@ -702,10 +720,37 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       round: B.DOC_TYPES[type].base ? prev?.round ?? s.tradeRound : undefined,
       hawala: type === 'hawala' ? { from: String(body.hawala?.from ?? ''), to: String(body.hawala?.to ?? ''), unit: String(body.hawala?.unit ?? ''), amount: body.hawala?.amount } : undefined,
       convert: type === 'convert' ? { unit: String(body.convert?.unit ?? ''), amount: body.convert?.amount, basis: body.convert?.basis === 'gram750' ? 'gram750' : 'mazaneh', mazaneh: body.convert?.mazaneh, g750: body.convert?.g750, price: body.convert?.price } : undefined,
+      writeoff: type === 'writeoff' ? { unit: String(body.writeoff?.unit ?? ''), amount: body.writeoff?.amount } : undefined,
     };
+    if (type === 'income' && !doc.category) doc.category = 'سایر';
+    if (type === 'writeoff' || type === 'transform') {
+      // clearing a balance or melting stock changes what the shop owns without a trade: a manager's act, with its reason
+      guardAdmin(user);
+      if (doc.note.length < 3) throw bad(type === 'writeoff' ? 'دلیل سوخت یا بخشودگی را بنویسید (مثلاً «توافق تسویه با تخفیف»).' : 'شرح ذوب را بنویسید (مثلاً «ذوب شمش ۱۰۰ گرمی در کارگاه»).');
+    }
+    if (type === 'writeoff') {
+      if (!partyId) throw bad('مانده کدام مشتری؟ طرف حساب را انتخاب کنید.');
+      const unit = doc.writeoff.unit;
+      if (!TR.validUnit(unit)) throw bad('واحد مانده نامعتبر است.');
+      // never more than the balance, never across zero (the document being corrected does not count)
+      const cur = db.get('SELECT COALESCE(SUM(amt),0) AS s FROM bk_postings WHERE acct=? AND unit=? AND src<>?', `party:${partyId}`, unit, prev?.id ?? '').s;
+      const a = B.num(doc.writeoff.amount);
+      if (!Number.isFinite(a) || a === 0) throw bad('مقدار سوخت را وارد کنید.');
+      if (Math.sign(a) !== Math.sign(cur) || Math.abs(a) - Math.abs(cur) > (unit === 'G750' ? 0.0005 : unit.startsWith('FX:') ? 0.005 : 0.5)) throw bad(`مانده ${party.name} در این واحد ${cur ? `${cur > 0 ? 'بدهی' : 'طلب'} ${Math.abs(cur)}` : 'صفر'} است؛ سوخت بیشتر از مانده یا خلاف جهت آن ممکن نیست.`);
+      if (unit.startsWith('BAR:')) {
+        const info = barInfo(unit.slice(4));
+        if (info.weight) doc.writeoff.eq750 = B.r3((info.weight * (info.fineness ?? 995)) / 750);
+      }
+    }
     if (type === 'adjust') {
       guardAdmin(user);
       if (doc.note.length < 3) throw bad('دلیل اصلاح موجودی را بنویسید (مثلاً «شمارش پایان روز»).');
+      // a count sets the books to what is physically there, and what is there is never below zero (spec 0026)
+      for (const b of doc.balances ?? []) {
+        if (!/^(gold|coin:|fx:|cash:)/.test(b.acct)) continue;
+        const cur = db.get('SELECT COALESCE(SUM(amt),0) AS s FROM bk_postings WHERE acct=? AND src<>?', b.acct, prev?.id ?? '').s;
+        if (cur + b.amt < -(b.unit === 'G750' ? 0.0005 : 0.005)) throw bad(`پس از این اصلاح، ${b.acct === 'gold' ? 'طلای آبشده' : b.acct.startsWith('coin:') ? 'سکه' : b.acct.startsWith('fx:') ? 'ارز' : 'صندوق'} منفی می‌شود؛ آنچه شمرده می‌شود کمتر از صفر نیست.`);
+      }
     }
     let calc;
     try {
@@ -731,7 +776,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       for (const id of [doc.hawala.from, doc.hawala.to]) if (!db.get('SELECT 1 FROM bk_parties WHERE id=? AND deleted_at IS NULL', id)) throw bad('طرف حساب حواله پیدا نشد.');
       doc.partyId = null;
     }
-    if (type === 'trade')
+    if (type === 'trade' || type === 'transform')
       for (const [i, l] of calc.lines.entries()) {
         if (l.kind !== 'bar') continue;
         // a sealed bar is one physical object: it can be in the shop's vault once, and leave only if it is there
@@ -739,6 +784,13 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
         const sameDoc = calc.lines.slice(0, i).filter((x) => x.kind === 'bar' && x.serial === l.serial).reduce((a, x) => a + (x.dir === 'in' ? 1 : -1), 0);
         if (l.dir === 'in' && held + sameDoc >= 1) throw new HttpError(409, `شمش با سریال ${l.serial} هم‌اکنون در صندوق ثبت است؛ یک سریال دو بار وارد نمی‌شود (احتمال شمش تکراری یا جعلی).`);
         if (l.dir === 'out' && held + sameDoc < 1) throw new HttpError(409, `شمش با سریال ${l.serial} در صندوق نیست که تحویل یا فروخته شود.`);
+        // it leaves at its card (spec 0026): the gold that goes is the gold that came in, so the position stays whole
+        if (l.dir === 'out' && sameDoc === 0) {
+          // the card is how the bar came in (never the document being corrected)
+          const card = [...barInfo(l.serial).history].reverse().find((h) => h.dir === 'in' && h.doc !== prev?.id && h.weight);
+          if (card && (Math.abs(card.weight - l.weight) > 0.0005 || (card.fineness && Math.abs(card.fineness - l.fineness) > 0.05)))
+            throw bad(`شمش ${l.serial} با شناسنامه‌اش ${B.r3(card.weight)} گرم، عیار ${card.fineness} است؛ وزن و عیار خروج همان شناسنامه است.`);
+        }
       }
     if (!isAdmin(user)) {
       if (!s.staffCanDiscount && lines.some((l) => B.num(l.discount) > 0)) throw forbid('تخفیف دادن برای فروشنده بسته است.');
@@ -836,7 +888,8 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const keep = new Set();
     for (const p of doc.payments) {
       if (p.method !== 'cheque') continue;
-      const amount = B.rnd(B.num(p.amount) * 10);
+      // the base edition types money in rial (trade.mjs divides by 10 before the shared validator); the full one in toman
+      const amount = B.DOC_TYPES[doc.type]?.base ? B.rnd(B.num(p.amount)) : B.rnd(B.num(p.amount) * 10);
       const dir = p.dir === 'out' ? 'out' : 'in';
       if (p.chequeId && prevIds.has(p.chequeId)) {
         const c = db.get('SELECT * FROM bk_cheques WHERE id=?', p.chequeId);
@@ -1518,7 +1571,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     }
     const snap = balancesAfter([...pids], day);
     const accounts = Object.fromEntries(db.all('SELECT id, title FROM bk_accounts').map((a) => [a.id, a.title]));
-    const T = { goldIn: 0, goldOut: 0, coins: {}, bars: { in: 0, out: 0 }, fx: {}, money: {}, buys: 0, sells: 0, docs: 0 };
+    const T = { goldIn: 0, goldOut: 0, coins: {}, bars: { in: 0, out: 0 }, fx: {}, money: {}, buys: 0, sells: 0, docs: 0, melts: { n: 0, inputs: 0, outputs: 0, wastage: 0 } };
     const entries = docs.map((d) => {
       const data = JSON.parse(d.data_json), c = JSON.parse(d.calc_json);
       const party = partyRow(d.party_id);
@@ -1535,6 +1588,12 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
           }
         }
         for (const p of c.payments ?? []) T.money[`${p.method}:${p.dir}`] = (T.money[`${p.method}:${p.dir}`] ?? 0) + p.value;
+        if (d.type === 'transform') {
+          T.melts.n++;
+          T.melts.inputs = B.r3(T.melts.inputs + c.inputs);
+          T.melts.outputs = B.r3(T.melts.outputs + c.outputs);
+          T.melts.wastage = B.r3(T.melts.wastage + c.wastage);
+        }
       }
       const who = d.type === 'hawala' ? [data.hawala.from, data.hawala.to] : d.party_id ? [d.party_id] : [];
       return {
@@ -1544,14 +1603,18 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
         payments: (c.payments ?? []).map((p, i) => ({ ...p, ref: data.payments?.[i]?.ref ?? '', card: data.payments?.[i]?.card ? String(data.payments[i].card).slice(-4) : '', account: accounts[data.payments?.[i]?.account] ?? '', chequeNo: data.payments?.[i]?.chequeNo ?? '', due: data.payments?.[i]?.due ?? '' })),
         hawala: c.hawala ? { ...c.hawala, fromName: TR.partyLabel(partyRow(c.hawala.from) ?? { name: '؟' }), toName: TR.partyLabel(partyRow(c.hawala.to) ?? { name: '؟' }) } : null,
         convert: c.convert ?? null,
+        writeoff: c.writeoff ?? null,
+        melt: d.type === 'transform' ? { inputs: c.inputs, outputs: c.outputs, wastage: c.wastage, fee: c.fee } : null,
+        balances: data.balances ?? null,
+        category: data.category ?? null,
         net: c.net, credit: c.credit, paidIn: c.paidIn, paidOut: c.paidOut,
         after: live ? Object.fromEntries(who.map((pid) => [pid, snap.get(`${d.id}|${pid}`) ?? {}])) : {},
       };
     });
     T.goldIn = B.r3(T.goldIn);
     T.goldOut = B.r3(T.goldOut);
-    const pnl = core.positions(day).byDay[day] ?? 0;
-    return { day, entries, totals: { ...T, realized: pnl } };
+    const pr = core.positions(day);
+    return { day, entries, totals: { ...T, realized: pr.byDay[day] ?? 0, realizedBy: pr.byDayKey?.[day] ?? {} } };
   });
   /* ---------------- جستجوی عدد در روزنگار (spec 0023) ---------------- */
   // every figure of every document (final, voided, replaced), sorted per unit, so a band is two binary searches. Each
@@ -1588,7 +1651,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
           const tax = r.status === 'void' ? JSON.parse(r.tax_json) : {};
           c = {
             status: r.status, version: r.version, updated: r.updated_at,
-            rec: { id: r.id, track: ev.track, type: ev.type, date: ev.date, at: r.at, byId: r.created_by, status: r.status, superseded: tax.supersededBy ?? null, partyId: ev.partyId ?? null, hawala: ev.calc?.hawala ? [ev.calc.hawala.from, ev.calc.hawala.to] : null, doc, text: TR.normName([data.note, data.category, refs, ev.track, kindWords(doc)].filter(Boolean).join(' ')).toLowerCase() },
+            rec: { id: r.id, track: ev.track, type: ev.type, date: ev.date, at: r.at, byId: r.created_by, status: r.status, superseded: tax.supersededBy ?? null, partyId: ev.partyId ?? null, hawala: ev.calc?.hawala ? [ev.calc.hawala.from, ev.calc.hawala.to] : null, doc, secs: DS.sectionsOf(doc), text: TR.normName([data.note, data.category, refs, ev.track, kindWords(doc)].filter(Boolean).join(' ')).toLowerCase() },
             figs: DS.figuresOf(doc),
           };
           figCache.set(r.id, c);
@@ -1603,20 +1666,21 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       const count = {};
       for (const c of recs) for (const f of c.figs) count[f.u] = (count[f.u] ?? 0) + 1;
       const cols = {};
-      for (const [u, n] of Object.entries(count)) cols[u] = { vals: new Float64Array(n), doc: new Int32Array(n), label: new Array(n), n: 0 };
+      for (const [u, n] of Object.entries(count)) cols[u] = { vals: new Float64Array(n), doc: new Int32Array(n), label: new Array(n), sec: new Array(n), n: 0 };
       recs.forEach((c, di) => {
         for (const f of c.figs) {
           const col = cols[f.u];
           col.vals[col.n] = f.v;
           col.doc[col.n] = di;
+          col.sec[col.n] = f.s;
           col.label[col.n++] = f.label;
         }
       });
       for (const col of Object.values(cols)) {
         const order = Uint32Array.from({ length: col.n }, (_, i) => i).sort((a, b) => col.vals[a] - col.vals[b]);
-        const vals = new Float64Array(col.n), doc = new Int32Array(col.n), label = new Array(col.n);
-        for (let i = 0; i < col.n; i++) (vals[i] = col.vals[order[i]]), (doc[i] = col.doc[order[i]]), (label[i] = col.label[order[i]]);
-        Object.assign(col, { vals, doc, label });
+        const vals = new Float64Array(col.n), doc = new Int32Array(col.n), label = new Array(col.n), sec = new Array(col.n);
+        for (let i = 0; i < col.n; i++) (vals[i] = col.vals[order[i]]), (doc[i] = col.doc[order[i]]), (label[i] = col.label[order[i]]), (sec[i] = col.sec[order[i]]);
+        Object.assign(col, { vals, doc, label, sec });
       }
       return { docs: recs.map((c) => c.rec), cols, figures: Object.values(count).reduce((a, b) => a + b, 0) };
     });
@@ -1639,6 +1703,8 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     // the same reach as روزنگار: a seller without back-dating sees today only
     const limited = !isAdmin(user) && !s.staffBackdate;
     const today = tehranDay();
+    // inside a section (spec 0027) only that section's figures count; a document's total counts in its own sections
+    const sec = DS.SECTION_IDS.has(url.searchParams.get('sec') ?? '') && url.searchParams.get('sec') !== 'all' ? url.searchParams.get('sec') : null;
     const ix = figureIndex();
     const labels = core.partyLabels();
     const names = userNames();
@@ -1657,6 +1723,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
         const di = col.doc[i];
         if (skip.has(di)) continue;
         const d = ix.docs[di];
+        if (sec && !DS.figureIn({ s: col.sec[i] }, sec, d.secs)) continue;
         if ((limited && d.date !== today) || (!best.has(di) && !wordsOk(d))) {
           skip.add(di);
           continue;
@@ -1674,7 +1741,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       days.get(d.date).push({ id: d.id, track: d.track, type: d.type, typeLabel: B.DOC_TYPES[d.type]?.label ?? d.type, status: d.status, superseded: d.superseded, at: d.at, by: names[d.byId] ?? null, party: d.partyId ? { id: d.partyId, label: labels.get(d.partyId) ?? '' } : null, summary: DS.summaryOf(d.doc), match: { label: m.label, value: m.v, unit: m.u, diff: m.diff, pct: Math.round(m.rel * 10000) / 100 } });
     }
     return {
-      q: url.searchParams.get('q') ?? '', tol, bands: bands.map(({ u, lo, hi, target, said, money, typedUnit }) => ({ u, lo, hi, target, said, money: money ?? null, typedUnit: !!typedUnit })), words: q.words, price: q.price, limited,
+      q: url.searchParams.get('q') ?? '', sec, tol, bands: bands.map(({ u, lo, hi, target, said, money, typedUnit }) => ({ u, lo, hi, target, said, money: money ?? null, typedUnit: !!typedUnit })), words: q.words, price: q.price, limited,
       total: hits.length, shown: Math.min(hits.length, 300), items: [...days].map(([day, docs]) => ({ day, docs })), searched: { docs: ix.docs.length, figures: ix.figures }, ms: Math.round(performance.now() - t0),
     };
   });
@@ -1710,8 +1777,22 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       return { key, ...p, avg: p.qty ? B.rnd(p.cost / p.qty) : 0, price: mark ?? null, value: mark != null ? B.rnd(p.qty * mark) : null, unrealized: mark != null ? B.rnd(p.qty * mark - p.cost) : null };
     });
     const days = Object.entries(r.byDay).filter(([d]) => d >= from && d <= to).sort().map(([day, realized]) => ({ day, realized }));
-    const missingCost = finalEvents(to).some((e) => e.type === 'opening' && (e.data.balances ?? []).some((b) => (b.acct === 'gold' || b.acct.startsWith('coin:')) && b.amt > 0 && !b.cost));
-    return { from, to, positions, days, realizedTotal: days.reduce((s2, d) => s2 + d.realized, 0), missingCost };
+    // an opening row the result values at zero: stock without its cost, or a customer's goods with no stock to price them
+    const missingCost = finalEvents(to).some((e) => e.type === 'opening' && TR.movesOf(e).some((m) => m.op === 'book' && !m.cost));
+    const realizedTotal = days.reduce((s2, d) => s2 + d.realized, 0);
+    // the period's net result (spec 0026): trading + other income − expenses − money write-offs. A write-off in gold,
+    // coins or currency is already inside the trading result of that unit (it leaves or enters at average cost).
+    const other = { income: {}, expense: {}, writeoff: {} };
+    for (const p of db.all("SELECT acct, unit, SUM(amt) AS s FROM bk_postings WHERE (acct LIKE 'inc:%' OR acct LIKE 'exp:%' OR acct='wo') AND date>=? AND date<=? GROUP BY acct, unit", from, to)) {
+      if (Math.abs(p.s) < 1e-9) continue;
+      if (p.acct.startsWith('inc:')) other.income[p.acct.slice(4)] = Math.round(-p.s);
+      else if (p.acct.startsWith('exp:')) other.expense[p.acct.slice(4)] = Math.round(p.s);
+      else other.writeoff[p.unit] = roundUnit(p.unit, p.s); // + forgiven (a loss), − a released credit (a gain)
+    }
+    const sum = (o) => Object.values(o).reduce((s2, v) => s2 + v, 0);
+    const result = { trading: realizedTotal, income: sum(other.income), expense: sum(other.expense), writeoff: other.writeoff.IRR ?? 0 };
+    result.net = result.trading + result.income - result.expense - result.writeoff;
+    return { from, to, positions, days, realizedTotal, missingCost, other, result };
   });
   on('GET', '/api/books/vault', 'auth', () => {
     const rows = db.all("SELECT acct, unit, SUM(amt) AS s FROM bk_postings WHERE acct='gold' OR acct LIKE 'coin:%' OR acct LIKE 'fx:%' OR acct LIKE 'bar:%' OR acct LIKE 'cash:%' OR acct LIKE 'bank:%' GROUP BY acct, unit");
@@ -1736,7 +1817,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       .flatMap((d) => {
         const data = JSON.parse(d.data_json);
         if (d.type === 'opening' || d.type === 'adjust') return (data.balances ?? []).map((b, i) => ({ b, i })).filter(({ b }) => b.acct === `bar:${serial}`).map(({ b, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: b.amt > 0 ? 'in' : 'out', priced: true, party: null, brand: b.brand ?? '', gallery: b.gallery ?? '', weight: b.weight ? B.r3(b.weight) : null, fineness: b.fineness ?? null, sealDate: b.sealDate ?? '', [d.type]: true }));
-        return (data.lines ?? []).map((l, i) => ({ l, i })).filter(({ l }) => l.kind === 'bar' && l.serial === serial).map(({ l, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: l.dir, priced: l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null, brand: l.brand ?? '', gallery: l.gallery ?? '', weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness ?? 750), sealDate: l.sealDate ?? '' }));
+        return (data.lines ?? []).map((l, i) => ({ l, i })).filter(({ l }) => l.kind === 'bar' && l.serial === serial).map(({ l, i }) => ({ doc: d.id, no: d.no, track: `${B.trackCode(d.type, d.fy, d.no)}/L${i + 1}`, date: d.date, dir: l.dir, priced: d.type === 'trade' && l.priced !== false, party: d.party_id ? TR.partyLabel(partyRow(d.party_id)) : null, brand: l.brand ?? '', gallery: l.gallery ?? '', weight: B.r3(B.num(l.weight)), fineness: B.num(l.fineness ?? 750), sealDate: l.sealDate ?? '', ...(d.type === 'transform' ? { transform: true } : {}) }));
       });
     const last = [...hist].reverse().find((h) => h.weight) ?? hist.at(-1) ?? {};
     const inVault = db.get("SELECT COALESCE(SUM(amt),0) AS s FROM bk_postings WHERE acct=?", `bar:${serial}`).s > 0;
@@ -1870,7 +1951,10 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
 
   /* ---------------- رهگیری: any code → the document's whole life ---------------- */
   const trace = makeTrace({ db, docOut, verifyCode, diffWords, changesOf });
-  on('GET', '/api/books/trace', 'auth', ({ url }) => trace.search(url.searchParams.get('q') ?? ''));
+  on('GET', '/api/books/trace', 'auth', ({ url }) => {
+    const sec = url.searchParams.get('sec');
+    return trace.search(url.searchParams.get('q') ?? '', DS.SECTION_IDS.has(sec) && sec !== 'all' ? sec : null);
+  });
   // printing, sharing and exporting a document are part of its history too
   on('POST', '/api/books/docs/:id/event', 'auth', ({ user, params, body }) => {
     const r = db.get('SELECT id FROM bk_docs WHERE id=?', params.id);

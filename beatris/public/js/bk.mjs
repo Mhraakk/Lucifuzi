@@ -89,9 +89,11 @@ export function exportButtons(prefix = 'exp') {
   return html`<div class="bk-export" role="group" aria-label="خروجی"><span class="small">خروجی:</span><button class="chip" data-act="${prefix}-xls">اکسل</button><button class="chip" data-act="${prefix}-csv">CSV</button><button class="chip" data-act="${prefix}-json">JSON</button><button class="chip" data-act="${prefix}-print">چاپ / PDF</button></div>`;
 }
 export function wireExport(map, prefix, name, getRows, cols, title) {
-  map[`${prefix}-xls`] = () => download(`${name}.xls`, 'application/vnd.ms-excel', toXls(getRows(), cols, title));
-  map[`${prefix}-csv`] = () => download(`${name}.csv`, 'text/csv;charset=utf-8', toCsv(getRows(), cols));
-  map[`${prefix}-json`] = () => download(`${name}.json`, 'application/json', JSON.stringify(getRows(), null, 2));
+  // the name may follow the view (a section or filter chosen after the page was drawn)
+  const n = () => (typeof name === 'function' ? name() : name);
+  map[`${prefix}-xls`] = () => download(`${n()}.xls`, 'application/vnd.ms-excel', toXls(getRows(), cols, title));
+  map[`${prefix}-csv`] = () => download(`${n()}.csv`, 'text/csv;charset=utf-8', toCsv(getRows(), cols));
+  map[`${prefix}-json`] = () => download(`${n()}.json`, 'application/json', JSON.stringify(getRows(), null, 2));
   map[`${prefix}-print`] = () => window.print();
 }
 

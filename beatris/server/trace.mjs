@@ -6,6 +6,7 @@ import * as B from '../public/js/books.mjs';
 import * as TR from '../public/js/trade.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../public/js/coins.mjs';
 import { docDiff } from '../public/js/docdiff.mjs';
+import { sectionsOf } from '../public/js/daysearch.mjs';
 
 export const ACTION_FA = {
   'doc.create': 'ثبت سند', 'doc.update': 'ویرایش / نسخه جدید', 'doc.void': 'ابطال', 'doc.amend': 'اصلاحیه', 'doc.restore': 'برگرداندن', 'doc.tax': 'مالیات / مودیان', 'doc.print': 'چاپ',
@@ -56,22 +57,27 @@ export function makeTrace({ db, docOut, verifyCode, diffWords = () => [], change
     });
     return { kind: 'doc', id: r.id, track, part, changes: changesOf(r), restoredBy: JSON.parse(r.tax_json).restoredBy ?? null, restores: d.restores ?? null, amends: d.amends ?? null, supersededBy: JSON.parse(r.tax_json).supersededBy ?? null, type: r.type, typeLabel: B.DOC_TYPES[r.type]?.label ?? r.type, status: r.status, date: r.date, version: r.version, verify: d.verify, party: party(r.party_id), hawala: c.hawala ? { ...c.hawala, fromLabel: party(c.hawala.from)?.label, toLabel: party(c.hawala.to)?.label } : null, convert: c.convert ?? null, by: nm[r.created_by] ?? '', createdAt: r.created_at, issuedAt: r.issued_at, net: c.net, credit: c.credit, lines, payments, recon, postings, versions, events, note: d.note ?? '' };
   }
-  function search(qRaw) {
+  /**
+   * sec (spec 0027): inside a section (melt, coin, bar, fx, money) only that section's documents are listed; an exact
+   * tracking code always opens, whatever its section, and a customer's code lists their documents of the section.
+   */
+  function search(qRaw, sec = null) {
     const q = latin(qRaw);
-    if (q.length < 3) return { q, items: [], hint: 'دست‌کم ۳ کاراکتر: کد رهگیری، کد اصالت، شماره پیگیری، سریال، شماره چک یا کد مشتری.' };
+    if (q.length < 3) return { q, sec, items: [], hint: 'دست‌کم ۳ کاراکتر: کد رهگیری، کد اصالت، شماره پیگیری، سریال، شماره چک یا کد مشتری.' };
     const items = [];
     const seen = new Set();
-    const addDoc = (r, part, why) => {
-      if (!r || seen.has(r.id)) return;
+    const inSec = (r) => !sec || sectionsOf(docOut(r)).has(sec);
+    const addDoc = (r, part, why, exact = false) => {
+      if (!r || seen.has(r.id) || (!exact && !inSec(r))) return;
       seen.add(r.id);
       items.push({ ...docTrace(r, part), why });
     };
     const t = B.parseTrack(q);
-    if (t) addDoc(db.get('SELECT * FROM bk_docs WHERE type=? AND fy=? AND no=?', t.type, t.fy, t.no), t.part, 'کد رهگیری');
+    if (t) addDoc(db.get('SELECT * FROM bk_docs WHERE type=? AND fy=? AND no=?', t.type, t.fy, t.no), t.part, 'کد رهگیری', true);
     const hex = q.toLowerCase().replace(/[^0-9a-f]/g, '');
     if (/^[0-9a-f]{12}$/i.test(q.replace(/[\s-]/g, ''))) {
       const v = db.get('SELECT doc_id FROM bk_versions WHERE substr(hash,1,12)=? ORDER BY version DESC LIMIT 1', hex);
-      if (v) addDoc(db.get('SELECT * FROM bk_docs WHERE id=?', v.doc_id), null, 'کد اصالت');
+      if (v) addDoc(db.get('SELECT * FROM bk_docs WHERE id=?', v.doc_id), null, 'کد اصالت', true);
     }
     const digits = q.replace(/\D/g, '');
     if (!t && digits.length >= 3) {
@@ -87,7 +93,14 @@ export function makeTrace({ db, docOut, verifyCode, diffWords = () => [], change
     }
     const parties = [];
     if (!t && /^\d{3,11}$/.test(digits)) for (const p of db.all('SELECT * FROM bk_parties WHERE (CAST(code AS TEXT)=? OR mobile LIKE ? OR nid=?) AND deleted_at IS NULL LIMIT 10', digits, `%${digits}`, digits)) parties.push({ id: p.id, code: p.code, label: TR.partyLabel(p) });
-    return { q, items: items.slice(0, 25), parties };
+    // a customer inside a section: their documents of that section, newest first (a hawala names them as from or to)
+    if (sec && parties.length && parties.length <= 3)
+      for (const p of parties)
+        for (const r of db.all("SELECT * FROM bk_docs WHERE (party_id=? OR (type='hawala' AND data_json LIKE ?)) AND status<>'draft' ORDER BY date DESC, created_at DESC LIMIT 200", p.id, `%"${p.id}"%`)) {
+          if (items.length >= 25) break;
+          addDoc(r, null, `سند ${p.label}`);
+        }
+    return { q, sec, items: items.slice(0, 25), parties };
   }
   return { search, docTrace };
 }

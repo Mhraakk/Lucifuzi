@@ -6,6 +6,16 @@ import { html, api, navigate, store } from './core.mjs';
 const norm = (s) => String(s ?? '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/‌/g, ' ').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).toLowerCase().trim();
 // [title, href, keywords, group, adminOnly]
 const COMMANDS = [
+  ['هر اتفاق کجا ثبت می‌شود؟', '/books/events', 'راهنما رویداد اتفاق ثبت کجا چطور', 'راهنما', false],
+  ['روزنگار آبشده', '/books/day?sec=melt', 'روزنگار آبشده طلا بخش', 'روزنگار', false],
+  ['روزنگار سکه', '/books/day?sec=coin', 'روزنگار سکه بخش', 'روزنگار', false],
+  ['روزنگار شمش', '/books/day?sec=bar', 'روزنگار شمش پلمپ بخش', 'روزنگار', false],
+  ['روزنگار ارز', '/books/day?sec=fx', 'روزنگار ارز دلار بخش', 'روزنگار', false],
+  ['روزنگار وجه', '/books/day?sec=money', 'روزنگار وجه پول نقد بانک بخش', 'روزنگار', false],
+  ['ذوب و تبدیل جنس', '/books/vault?act=melt', 'ذوب آب کردن پلمپ شمش افت ری گیری پالایش', 'گاوصندوق', true],
+  ['شمارش فیزیکی گاوصندوق', '/books/vault?act=count', 'شمارش کسری اضافه اختلاف موجودی صندوق', 'گاوصندوق', false],
+  ['سند درآمد', '/books/new/income', 'درآمد کارمزد کمیسیون سود بانکی بیمه هدیه', 'سند', false],
+  ['سند هزینه', '/books/new/expense', 'هزینه اجاره حقوق قبوض خیریه', 'سند', false],
   ['کنترل: نبض طلا و «چه تغییر کرد؟»', '/books/control', 'کنترل نبض تغییر امروز خلاصه', 'کنترل', true],
   ['مرکز استثناها', '/books/control?t=exceptions', 'استثنا مشکوک هشدار منفی تخفیف زیر بها', 'کنترل', true],
   ['شبیه‌ساز معامله و محاسبه فروش امن', '/books/control?t=simulate', 'شبیه ساز سناریو اگه بفروشم فروش امن', 'کنترل', true],
@@ -57,6 +67,8 @@ function open(initial = '') {
     if (li) go(Number(li.dataset.i));
   });
   search(initial);
+  // opened before the events arrived: fetch them now and show them in the same list (spec 0026)
+  if (!EVENTS) loadEvents().then(() => root && search(input.value));
 }
 function close() {
   root?.remove();
@@ -84,6 +96,10 @@ function onKey(e) {
     go(state.sel);
   }
 }
+// the shop's events (spec 0026), loaded after the app starts: «ذوب»، «چک برگشتی»، «اجاره با سکه»…
+let EVENTS = null;
+let eventsP = null;
+const loadEvents = () => (eventsP ??= import('./shopevents.mjs').then((m) => (EVENTS = m)).catch(() => (eventsP = null)));
 function local(q) {
   const admin = store.isAdmin?.() ?? false;
   const words = norm(q).split(/\s+/).filter(Boolean);
@@ -91,7 +107,8 @@ function local(q) {
   if (!words.length) return list.slice(0, 9).map((c) => ({ kind: 'page', title: c[0], sub: c[3], href: c[1] }));
   // a figure typed here is looked up in every day of روزنگار (spec 0023)
   const day = /[0-9۰-۹٠-٩]/.test(q) ? [{ kind: 'page', title: `«${q.trim()}» در روزنگار همه روزها`, sub: 'جستجوی عدد', href: `/books/day?find=${encodeURIComponent(q.trim())}` }] : [];
-  return day.concat(list
+  const events = EVENTS ? EVENTS.findEvents(q).slice(0, 4).map((e) => ({ kind: 'event', title: e.t, sub: e.how.length > 90 ? `${e.how.slice(0, 90)}…` : e.how, href: e.to })) : [];
+  return day.concat(events, list
     .map((c) => {
       const hay = norm(`${c[0]} ${c[2]}`);
       const hits = words.filter((w) => hay.includes(w)).length;
@@ -121,7 +138,7 @@ function search(q) {
     }
   }, 180);
 }
-const KIND = { page: 'صفحه', party: 'مشتری', doc: 'سند', help: 'راهنما' };
+const KIND = { page: 'صفحه', party: 'مشتری', doc: 'سند', help: 'راهنما', event: 'رویداد' };
 function draw() {
   const ul = root?.querySelector('#palL');
   if (!ul) return;
@@ -132,6 +149,7 @@ function draw() {
 
 let wired = false;
 export function initPalette() {
+  setTimeout(loadEvents, 1500);
   if (wired) return;
   wired = true;
   document.addEventListener('keydown', (e) => {

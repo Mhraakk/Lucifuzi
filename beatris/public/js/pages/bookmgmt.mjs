@@ -6,6 +6,8 @@ import { barcodeSvg } from '../barcode.mjs';
 import { T, TU, G, jd, jdInput, parseDay, today, addDays, modal, confirmBox, exportButtons, wireExport, download, balText, balClass, unitAmt, EX, unitName, moneyWords, K, booksPrefs, prefs, unitLabel, unitVal, balChips, balUnits, R, balBoard, balSentence, sideWord, lineVerb, describeLine, timeFa } from '../bk.mjs';
 import { TRADE_KINDS as TR_KINDS } from '../trade.mjs';
 import { booksNav } from './books.mjs';
+import { writeoffDialog } from './bookops.mjs';
+import { wireSort, wireSorts } from '../sorting.mjs';
 import { DRIVERS, posConfig, savePosConfig, posProblem, bridgeStatus, testTerminal, STATE_TEXT } from '../pos.mjs';
 
 /* ---------------- customers ---------------- */
@@ -37,7 +39,7 @@ export async function partiesPage(root) {
     <div class="bk-head"><h1>مشتریان و طرف حساب‌ها</h1><div class="actions"><button class="btn small" data-act="new">+ مشتری جدید</button>${exportButtons('ex')}</div></div>
     <input class="input" id="q" placeholder="جستجو: نام، لقب، نام پدر، شهر، موبایل، کد ملی، کد مشتری، گروه" autocomplete="off">
     <div class="chips bk-groups" id="groups"></div>
-    <div class="scrollx"><table class="table-plain bk-table" id="tbl"></table></div><p class="small" id="sum"></p>`);
+    <div class="scrollx"><table class="table-plain bk-table" id="tbl" data-sort="parties"></table></div><p class="small" id="sum"></p>`);
   const map = {
     new: () =>
       modal(String(html`<h3 class="bk-h">مشتری جدید</h3>${partyForm()}`), (m, close) =>
@@ -59,7 +61,9 @@ export async function partiesPage(root) {
   async function load(q = '') {
     rows = (await api(`/api/books/parties${q ? `?q=${encodeURIComponent(q)}` : group ? `?group=${encodeURIComponent(group)}` : ''}`)).items;
     const soon = new Set(rows.filter((p) => p.birth && birthdaySoon(p.birth)).map((p) => p.id));
-    $('#tbl', root).innerHTML = String(html`<thead><tr><th>کد</th><th>نام</th><th>گروه</th><th>موبایل</th><th>کد ملی</th><th>برچسب</th><th>مانده</th></tr></thead><tbody>${rows.map((p) => html`<tr><td>${fa(p.code)}</td><td><a href="/books/party/${p.id}" data-link>${p.label}</a>${soon.has(p.id) ? html` <span class="bk-st tax" title="تولد نزدیک">🎂</span>` : ''}</td><td>${p.group ? html`<span class="bk-st">${p.group}</span>` : ''}</td><td class="ltr-num">${fa(p.mobile)}</td><td class="ltr-num">${fa(p.nid)}</td><td class="small">${p.tags}</td><td>${balChips(p.balance)}</td></tr>`)}</tbody>`);
+    // the balance column sorts by the whole balance at today's prices (money + gold + coins + currency, + = owes us)
+    $('#tbl', root).innerHTML = String(html`<thead><tr><th>کد</th><th>نام</th><th>گروه</th><th>موبایل</th><th>کد ملی</th><th>برچسب</th><th>مانده</th></tr></thead><tbody>${rows.map((p) => html`<tr><td data-v="${p.code}">${fa(p.code)}</td><td data-v="${p.name}"><a href="/books/party/${p.id}" data-link>${p.label}</a>${soon.has(p.id) ? html` <span class="bk-st tax" title="تولد نزدیک">🎂</span>` : ''}</td><td>${p.group ? html`<span class="bk-st">${p.group}</span>` : ''}</td><td class="ltr-num" data-v="${p.mobile ?? ''}">${fa(p.mobile)}</td><td class="ltr-num" data-v="${p.nid ?? ''}">${fa(p.nid)}</td><td class="small">${p.tags}</td><td data-v="${p.worth ?? p.balance.IRR ?? 0}" title="${p.worth != null ? `ارزش کل مانده به قیمت روز: ${R(p.worth)}` : ''}">${balChips(p.balance)}</td></tr>`)}</tbody>`);
+    wireSort($('#tbl', root));
     const debt = rows.reduce((s, p) => s + Math.max(0, p.balance.IRR ?? 0), 0), cred = rows.reduce((s, p) => s + Math.min(0, p.balance.IRR ?? 0), 0);
     $('#sum', root).textContent = fa(`${rows.length} طرف حساب · طلب از مشتریان ${T(debt)} ${unitName()} · بدهی به آن‌ها ${T(-cred)} ${unitName()}`);
   }
@@ -105,7 +109,7 @@ export async function partyPage(root, { id }) {
   if (tab !== 'all' && !units.includes(tab)) tab = 'all';
   root.innerHTML = String(html`${booksNav('parties')}
     <div class="bk-head"><div><h1>${p.label}</h1><span class="small">کد ${fa(p.code)}${p.group ? ` · گروه ${p.group}` : ''} · ${fa(r.docs.filter((d) => d.status === 'final').length)} سند قطعی${p.creditLimit ? ` · سقف اعتبار ${TU(p.creditLimit)}` : ''}</span></div>
-      <div class="actions"><a class="btn small" href="/books/desk?party=${p.id}" data-link>معامله در میز</a>${prefs.edition === 'base' ? '' : html`<a class="btn small ghost" href="/books/new/sale?party=${p.id}" data-link>فروش</a><a class="btn small ghost" href="/books/new/receipt?party=${p.id}" data-link>دریافت</a><a class="btn small ghost" href="/books/new/payment?party=${p.id}" data-link>پرداخت</a>`}<button class="btn small ghost" data-act="edit">ویرایش</button><button class="btn small ghost" data-act="confirm">نامه تأیید مانده</button><button class="btn small ghost" data-act="share">برگه ته حساب آنلاین</button>${store.isAdmin() ? html`<button class="btn small danger" data-act="del">حذف</button>` : ''}</div></div>
+      <div class="actions"><a class="btn small" href="/books/desk?party=${p.id}" data-link>معامله در میز</a>${prefs.edition === 'base' ? '' : html`<a class="btn small ghost" href="/books/new/sale?party=${p.id}" data-link>فروش</a><a class="btn small ghost" href="/books/new/receipt?party=${p.id}" data-link>دریافت</a><a class="btn small ghost" href="/books/new/payment?party=${p.id}" data-link>پرداخت</a>`}<button class="btn small ghost" data-act="edit">ویرایش</button><button class="btn small ghost" data-act="confirm">نامه تأیید مانده</button><button class="btn small ghost" data-act="share">برگه ته حساب آنلاین</button>${store.isAdmin() ? html`<button class="btn small ghost" data-act="writeoff">سوخت یا بخشودگی مانده</button><button class="btn small danger" data-act="del">حذف</button>` : ''}</div></div>
     <p class="small">${[p.mobile && `موبایل ${fa(p.mobile)}`, p.nid && `${p.kind === 'company' ? 'شناسه ملی' : 'کد ملی'} ${fa(p.nid)}`, p.eco && `شماره اقتصادی ${fa(p.eco)}`, p.postal && `کد پستی ${fa(p.postal)}`, p.birth && `تولد ${jd(p.birth)}`, p.address, p.tags && `برچسب: ${p.tags}`].filter(Boolean).join(' · ')}</p>
     <div class="printable pr-sheet"><h2 class="pr-only">ته حساب و ریز حساب ${p.label} · ${jd(today())}</h2>
     <h3 class="bk-h">ته حساب (مانده)</h3>${balBoard(p.name, r.balance, prices)}
@@ -159,6 +163,8 @@ export async function partyPage(root, { id }) {
     draw();
   });
   const map = {
+    // spec 0026: part or all of a balance cleared, with its reason; the loss or gain goes to the books
+    writeoff: () => writeoffDialog(p, r.balance, { onDone: () => navigate(location.pathname, { replace: true }) }),
     // a dated, revocable link: the customer sees the balance on a phone and confirms or disputes it
     share: async () => {
       const hist = (await api(`/api/books/parties/${p.id}/shares`)).items;
@@ -243,7 +249,7 @@ export async function stockPage(root) {
     <div class="bk-head"><h1>انبار و ویترین</h1><div class="actions"><button class="btn small" data-act="add">+ قطعه</button><button class="btn small ghost" data-act="batch">+ چند قطعه (بارکد خودکار)</button><button class="btn small ghost" data-act="take">انبارگردانی</button>${exportButtons('ex')}</div></div>
     <form class="bk-filters" id="flt"><select class="input" name="status">${[['stock', 'موجود'], ['reserved', 'رزرو'], ['sold', 'فروخته'], ['out', 'خارج از موجودی'], ['all', 'همه']].map(([v, l]) => html`<option value="${v}">${l}</option>`)}</select><input class="input" name="q" placeholder="بارکد، شرح یا نام ویترین"><button class="btn small">نمایش</button></form>
     <div class="bk-bulk" id="bulk" hidden></div>
-    <div class="scrollx"><table class="table-plain bk-table" id="tbl"></table></div><p class="small" id="sum"></p>`);
+    <div class="scrollx"><table class="table-plain bk-table" id="tbl" data-sort="stock"></table></div><p class="small" id="sum"></p>`);
   const tplOpts = (cur) => html`${tpls.groups.filter((g) => jewelTpls.some((t) => t.group === g.id)).map((g) => html`<optgroup label="${g.label}">${jewelTpls.filter((t) => t.group === g.id).map((t) => html`<option value="${t.id}" ${cur === t.id ? 'selected' : ''}>${t.label}</option>`)}</optgroup>`)}`;
   const itemForm = (it = {}, batch = false) => html`<form class="form" id="itf">
     <label class="field">قالب<select class="input" name="tpl">${tplOpts(it.tpl ?? 'ring-w')}</select></label>
@@ -305,7 +311,8 @@ export async function stockPage(root) {
   }
   function draw() {
     const ST = { stock: 'موجود', reserved: 'رزرو', sold: 'فروخته', out: 'خارج' };
-    $('#tbl', root).innerHTML = String(html`<thead><tr><th><input type="checkbox" id="all" aria-label="انتخاب همه" ${rows.length && rows.every((r) => sel.has(r.id)) ? 'checked' : ''}></th><th>بارکد</th><th>شرح</th><th>وزن</th><th>عیار</th><th>اجرت</th><th>سود</th><th>ویترین</th><th>وضعیت</th><th></th></tr></thead><tbody>${rows.map((r) => html`<tr><td><input type="checkbox" data-row="${r.id}" ${sel.has(r.id) ? 'checked' : ''} aria-label="انتخاب"></td><td class="ltr-num">${fa(r.code)}</td><td>${r.title}</td><td class="num">${G(r.weight)}</td><td class="num">${fa(r.fineness)}</td><td class="num">${fa(r.ojrat)}${r.ojratMode === 'pct' ? '٪' : r.ojratMode === 'gram' ? ' ت/گ' : ' ت'}</td><td class="num">${fa(r.profitPct)}٪</td><td>${r.showcase}</td><td>${ST[r.status]}${r.soldDoc && r.status === 'sold' ? html` <a href="/books/doc/${r.soldDoc}" data-link>فاکتور</a>` : ''}</td><td>${r.status !== 'sold' ? html`<button class="chip" data-edit="${r.id}">ویرایش</button>` : ''}</td></tr>`)}</tbody>`);
+    $('#tbl', root).innerHTML = String(html`<thead><tr><th><input type="checkbox" id="all" aria-label="انتخاب همه" ${rows.length && rows.every((r) => sel.has(r.id)) ? 'checked' : ''}></th><th>بارکد</th><th>شرح</th><th>وزن</th><th>عیار</th><th>اجرت</th><th>سود</th><th>ویترین</th><th>وضعیت</th><th></th></tr></thead><tbody>${rows.map((r) => html`<tr><td><input type="checkbox" data-row="${r.id}" ${sel.has(r.id) ? 'checked' : ''} aria-label="انتخاب"></td><td class="ltr-num" data-v="${r.code}">${fa(r.code)}</td><td>${r.title}</td><td class="num" data-v="${r.weight}">${G(r.weight)}</td><td class="num" data-v="${r.fineness}">${fa(r.fineness)}</td><td class="num" data-v="${r.ojrat}">${fa(r.ojrat)}${r.ojratMode === 'pct' ? '٪' : r.ojratMode === 'gram' ? ' ت/گ' : ' ت'}</td><td class="num" data-v="${r.profitPct}">${fa(r.profitPct)}٪</td><td>${r.showcase}</td><td>${ST[r.status]}${r.soldDoc && r.status === 'sold' ? html` <a href="/books/doc/${r.soldDoc}" data-link>فاکتور</a>` : ''}</td><td>${r.status !== 'sold' ? html`<button class="chip" data-edit="${r.id}">ویرایش</button>` : ''}</td></tr>`)}</tbody>`);
+    wireSort($('#tbl', root));
     const w = rows.reduce((s, r) => s + r.weight, 0), w750 = rows.reduce((s, r) => s + (r.weight * r.fineness) / 750, 0);
     $('#sum', root).textContent = fa(`${rows.length} قطعه · ${G(w)} گرم (معادل ${G(w750)} گرم ۷۵۰) · ارزش طلای خام به قیمت روز ${T(B.rnd(w750 * store.me.pricing.p750 * 10))} ${unitName()}`);
     const bar = $('#bulk', root);
@@ -404,10 +411,11 @@ export async function cashPage(root) {
   const [acc, chq] = await Promise.all([api('/api/books/accounts'), api('/api/books/cheques')]);
   const NEXT = { in: { hand: ['deposited', 'cleared', 'spent', 'returned'], deposited: ['cleared', 'bounced', 'hand'], bounced: ['deposited', 'hand', 'returned'], spent: ['bounced'] }, out: { issued: ['paid', 'bounced'], bounced: ['issued', 'paid'] } };
   root.innerHTML = String(html`${booksNav('cash')}
-    <div class="bk-head"><h1>صندوق، بانک و چک</h1><div class="actions"><a class="btn small ghost" href="/books/new/transfer" data-link>انتقال</a><a class="btn small ghost" href="/books/new/expense" data-link>هزینه</a>${admin ? html`<button class="btn small" data-act="acc">+ حساب</button>` : ''}</div></div>
+    <div class="bk-head"><h1>صندوق، بانک و چک</h1><div class="actions"><a class="btn small ghost" href="/books/new/transfer" data-link>انتقال</a><a class="btn small ghost" href="/books/new/expense" data-link>هزینه</a><a class="btn small ghost" href="/books/new/income" data-link>درآمد</a>${admin ? html`<button class="btn small" data-act="acc">+ حساب</button>` : ''}</div></div>
     <div class="bk-accs">${acc.items.map((a) => html`<div class="tray bk-acc ${a.active ? '' : 'off'}"><span class="small">${a.kind === 'cash' ? 'صندوق' : a.bank || 'بانک'}</span><b>${a.title}</b><strong class="${a.balance < 0 ? 'debt' : ''}">${TU(a.balance)}</strong>${a.card || a.sheba ? html`<span class="small ltr-num">${fa(a.card)} ${a.sheba}</span>` : ''}${admin ? html`<span class="actions"><button class="chip" data-acc="${a.id}">ویرایش</button>${a.kind === 'bank' ? html`<a class="chip" href="/books/bank/${a.id}" data-link>گردش و تطبیق</a>` : ''}</span>` : ''}</div>`)}</div>
     <section class="tray bk-sec"><div class="bk-head"><h3 class="bk-h">چک‌ها</h3>${exportButtons('cq')}</div>
-      <div class="scrollx"><table class="table-plain bk-table"><thead><tr><th>نوع</th><th>طرف حساب</th><th>شماره / صیادی</th><th>بانک</th><th>سررسید</th><th>مبلغ</th><th>وضعیت</th><th></th></tr></thead><tbody>${chq.items.map((c) => html`<tr class="${['hand', 'deposited', 'issued'].includes(c.status) && c.due < today() ? 'bad' : ''}"><td>${c.dir === 'in' ? 'دریافتی' : 'پرداختی'}</td><td>${c.partyName ?? '—'}</td><td class="ltr-num">${fa(c.no)} ${fa(c.sayad)}</td><td>${c.bank}</td><td>${jd(c.due)}</td><td class="num">${T(c.amount)}</td><td>${B.CHEQUE_STATUS[c.status]}</td><td>${admin ? (NEXT[c.dir][c.status] ?? []).map((s) => html`<button class="chip" data-cq="${c.id}" data-to="${s}">${B.CHEQUE_STATUS[s]}</button>`) : ''}</td></tr>`)}</tbody></table></div></section>`);
+      <div class="scrollx"><table class="table-plain bk-table" data-sort="cheques"><thead><tr><th>نوع</th><th>طرف حساب</th><th>شماره / صیادی</th><th>بانک</th><th>سررسید</th><th>مبلغ</th><th>وضعیت</th><th></th></tr></thead><tbody>${chq.items.map((c) => html`<tr class="${['hand', 'deposited', 'issued'].includes(c.status) && c.due < today() ? 'bad' : ''}"><td>${c.dir === 'in' ? 'دریافتی' : 'پرداختی'}</td><td>${c.partyName ?? '—'}</td><td class="ltr-num" data-v="${c.no || c.sayad || ''}">${fa(c.no)} ${fa(c.sayad)}</td><td>${c.bank}</td><td data-v="${c.due}">${jd(c.due)}</td><td class="num" data-v="${c.amount}">${T(c.amount)}</td><td>${B.CHEQUE_STATUS[c.status]}</td><td>${admin ? (NEXT[c.dir][c.status] ?? []).map((s) => html`<button class="chip" data-cq="${c.id}" data-to="${s}">${B.CHEQUE_STATUS[s]}</button>`) : ''}</td></tr>`)}</tbody></table></div></section>`);
+  wireSorts(root);
   const map = {
     acc: () => accModal(),
   };
@@ -481,12 +489,25 @@ export async function reportsPage(root) {
     const q = (p) => (p.key === 'G750' ? G(p.qty) : unitVal(p.key, p.qty));
     const max = Math.max(1, ...r.days.map((d) => Math.abs(d.realized)));
     const unreal = r.positions.reduce((s2, p) => s2 + (p.unrealized ?? 0), 0);
+    // a signed rial figure reads left to right inside the Persian line (−۱۲٬۰۰۰ ریال)
+    const SR = (v) => (v < 0 ? raw(`<bdi dir="ltr">−${R(-v).replace(' ریال', '')}</bdi> ریال`) : R(v));
+    const res = r.result ?? { trading: r.realizedTotal, income: 0, expense: 0, writeoff: 0, net: r.realizedTotal };
+    const goodsWo = Object.entries(r.other?.writeoff ?? {}).filter(([u, v]) => u !== 'IRR' && v);
     box.innerHTML = String(html`${range()}<p class="small">روش میانگین موزون: هر خرید بهای تمام‌شده موجودی را می‌سازد و هر فروش نسبت به میانگین همان لحظه سود یا زیان تحقق‌یافته می‌دهد. ارزش روز با قیمت زنده (ریال).</p>
       ${r.missingCost ? html`<p class="notice">موجودی افتتاحیه طلا یا سکه بدون «بهای تمام‌شده» ثبت شده؛ سود آن اقلام تا ثبت بها کامل نیست.</p>` : ''}
-      <div class="stats bk-stats"><div class="${r.realizedTotal < 0 ? 'bad' : 'good'}"><b>${R(r.realizedTotal)}</b><span>سود/زیان تحقق‌یافته در بازه</span></div><div class="${unreal < 0 ? 'bad' : 'good'}"><b>${R(unreal)}</b><span>سود/زیان تحقق‌نیافته موجودی (به قیمت روز)</span></div></div>
-      <div class="scrollx"><table class="table-plain bk-table"><thead><tr><th>قلم</th><th>موجودی</th><th>میانگین بها</th><th>بهای کل</th><th>قیمت روز</th><th>ارزش روز</th><th>تحقق‌نیافته</th><th>تحقق‌یافته (کل)</th><th>خرید / فروش</th></tr></thead><tbody>${r.positions.map((p) => html`<tr><td>${name(p.key)}</td><td class="num">${q(p)}</td><td class="num">${R(p.avg)}</td><td class="num">${R(p.cost)}</td><td class="num">${p.price != null ? R(p.price) : '—'}</td><td class="num">${p.value != null ? R(p.value) : '—'}</td><td class="num ${p.unrealized < 0 ? 'bad' : 'good'}">${p.unrealized != null ? R(p.unrealized) : '—'}</td><td class="num ${p.realized < 0 ? 'bad' : 'good'}">${R(p.realized)}</td><td class="num">${fa(B.r3(p.bought))} / ${fa(B.r3(p.sold))}</td></tr>`)}</tbody></table></div>
-      <h3 class="bk-h">سود/زیان روزانه</h3><div class="scrollx"><table class="table-plain bk-table"><tbody>${r.days.map((d) => html`<tr><td><a href="/books/day?day=${d.day}" data-link>${jd(d.day)}</a></td><td class="num ${d.realized < 0 ? 'bad' : 'good'}">${R(d.realized)}</td><td style="min-width:140px"><div class="bar ${d.realized < 0 ? 'neg' : ''}"><i style="width:${(Math.abs(d.realized) / max) * 100}%"></i></div></td></tr>`)}</tbody></table></div>${exportButtons('pn')}`);
-    wireExport(map, 'pn', `pnl-${from}-${to}`, () => [...r.positions.map((p) => ({ k: name(p.key), qty: p.qty, avg: p.avg, cost: p.cost, price: p.price, value: p.value, unrealized: p.unrealized, realized: p.realized })), ...r.days.map((d) => ({ k: jd(d.day), realized: d.realized }))], [['k', 'قلم / روز'], ['qty', 'موجودی'], ['avg', 'میانگین بها (ریال)'], ['cost', 'بهای کل'], ['price', 'قیمت روز'], ['value', 'ارزش روز'], ['unrealized', 'تحقق‌نیافته'], ['realized', 'تحقق‌یافته']], 'سود و زیان');
+      <div class="stats bk-stats"><div class="${r.realizedTotal < 0 ? 'bad' : 'good'}"><b>${SR(r.realizedTotal)}</b><span>سود/زیان تحقق‌یافته معاملات در بازه</span></div><div class="${unreal < 0 ? 'bad' : 'good'}"><b>${SR(unreal)}</b><span>سود/زیان تحقق‌نیافته موجودی (به قیمت روز)</span></div><div class="${res.net < 0 ? 'bad' : 'good'}" id="pl-net"><b>${SR(res.net)}</b><span>نتیجه خالص دوره (معاملات + درآمد − هزینه − سوخت)</span></div></div>
+      <div class="scrollx"><table class="table-plain bk-table" data-sort="pnl-pos"><thead><tr><th>قلم</th><th>موجودی</th><th>میانگین بها</th><th>بهای کل</th><th>قیمت روز</th><th>ارزش روز</th><th>تحقق‌نیافته</th><th>تحقق‌یافته (کل)</th><th>خرید / فروش</th></tr></thead><tbody>${r.positions.map((p) => html`<tr><td>${name(p.key)}</td><td class="num" data-v="${p.qty}">${q(p)}</td><td class="num" data-v="${p.avg}">${R(p.avg)}</td><td class="num" data-v="${p.cost}">${SR(p.cost)}</td><td class="num" data-v="${p.price ?? ''}">${p.price != null ? R(p.price) : '—'}</td><td class="num" data-v="${p.value ?? ''}">${p.value != null ? SR(p.value) : '—'}</td><td class="num ${p.unrealized < 0 ? 'bad' : 'good'}" data-v="${p.unrealized ?? ''}">${p.unrealized != null ? SR(p.unrealized) : '—'}</td><td class="num ${p.realized < 0 ? 'bad' : 'good'}" data-v="${p.realized}">${SR(p.realized)}</td><td class="num" data-v="${p.bought}">${fa(B.r3(p.bought))} / ${fa(B.r3(p.sold))}</td></tr>`)}</tbody></table></div>
+      <section class="tray bk-sec pl-result"><h3 class="bk-h">نتیجه خالص دوره</h3>
+        <table class="table-plain"><tbody>
+          <tr><td>سود/زیان معاملات (تحقق‌یافته؛ افت ذوب و سوخت جنسی هم همین‌جاست)</td><td class="num ${res.trading < 0 ? 'bad' : 'good'}">${SR(res.trading)}</td></tr>
+          ${Object.entries(r.other?.income ?? {}).map(([k, v]) => html`<tr><td>درآمد · ${k}</td><td class="num good">${SR(v)}</td></tr>`)}
+          ${Object.entries(r.other?.expense ?? {}).map(([k, v]) => html`<tr><td>هزینه · ${k}</td><td class="num bad">${SR(-v)}</td></tr>`)}
+          ${res.writeoff ? html`<tr><td>${res.writeoff > 0 ? 'سوخت بدهی ریالی مشتریان' : 'طلب ریالی رهاشده مشتریان'}</td><td class="num ${res.writeoff > 0 ? 'bad' : 'good'}">${SR(-res.writeoff)}</td></tr>` : ''}
+          <tr class="big"><td>نتیجه خالص</td><td class="num">${SR(res.net)}</td></tr></tbody></table>
+        ${goodsWo.length ? html`<p class="small">سوخت یا بخشودگی جنسی در این دوره: ${goodsWo.map(([u, v]) => `${unitAmt(u, Math.abs(v))} ${v > 0 ? 'از بدهی مشتری بخشیده شد' : 'از طلب مشتری رها شد'}`).join('، ')}؛ اثرش با میانگین بها در سود/زیان همان قلم آمده است.</p>` : ''}</section>
+      <h3 class="bk-h">سود/زیان روزانه</h3><div class="scrollx"><table class="table-plain bk-table" data-sort="pnl-days"><thead><tr><th>روز</th><th>سود/زیان تحقق‌یافته</th><th></th></tr></thead><tbody>${r.days.map((d) => html`<tr><td data-v="${d.day}"><a href="/books/day?day=${d.day}" data-link>${jd(d.day)}</a></td><td class="num ${d.realized < 0 ? 'bad' : 'good'}" data-v="${d.realized}">${SR(d.realized)}</td><td style="min-width:140px"><div class="bar ${d.realized < 0 ? 'neg' : ''}"><i style="width:${(Math.abs(d.realized) / max) * 100}%"></i></div></td></tr>`)}</tbody></table></div>${exportButtons('pn')}`);
+    wireSorts(box);
+    wireExport(map, 'pn', `pnl-${from}-${to}`, () => [...r.positions.map((p) => ({ k: name(p.key), qty: p.qty, avg: p.avg, cost: p.cost, price: p.price, value: p.value, unrealized: p.unrealized, realized: p.realized })), ...r.days.map((d) => ({ k: jd(d.day), realized: d.realized })), { k: 'سود/زیان معاملات', realized: res.trading }, ...Object.entries(r.other?.income ?? {}).map(([k, v]) => ({ k: `درآمد · ${k}`, realized: v })), ...Object.entries(r.other?.expense ?? {}).map(([k, v]) => ({ k: `هزینه · ${k}`, realized: -v })), ...(res.writeoff ? [{ k: 'سوخت مانده ریالی', realized: -res.writeoff }] : []), { k: 'نتیجه خالص دوره', realized: res.net }], [['k', 'قلم / روز'], ['qty', 'موجودی'], ['avg', 'میانگین بها (ریال)'], ['cost', 'بهای کل'], ['price', 'قیمت روز'], ['value', 'ارزش روز'], ['unrealized', 'تحقق‌نیافته'], ['realized', 'تحقق‌یافته / نتیجه (ریال)']], 'سود و زیان');
     wireRange();
   } else if (tab === 'balance') {
     const r = await api('/api/books/report/balance');
@@ -517,10 +538,11 @@ export async function reportsPage(root) {
     const r = await api(`/api/books/report/vat?from=${from}&to=${to}`);
     const cols = [['month', 'ماه'], ['invoices', 'فاکتور'], ['returns', 'برگشت'], [EX((x) => x.principal), 'اصل طلا و سنگ (معاف)'], [EX((x) => x.consfee), 'اجرت ساخت'], [EX((x) => x.spro), 'سود فروشنده'], [EX((x) => x.bros), 'حق‌العمل'], [EX((x) => x.tcpbs), 'پایه مشمول (اجرت+سود+حق‌العمل)'], [EX((x) => x.goodsBase), 'پایه کالای غیرطلا'], [EX((x) => x.vat), 'مالیات']];
     box.innerHTML = String(html`${range()}<p class="small">پایه مالیات طلا فقط اجرت ساخت، سود فروشنده و حق‌العمل است. عددها به ${unitName()}؛ برگشت‌ها کسر شده‌اند.</p>
-      <div class="scrollx"><table class="table-plain bk-table"><thead><tr>${cols.map(([, t]) => html`<th>${t}</th>`)}</tr></thead><tbody>${[...r.rows, ...(r.rows.length ? [r.total] : [])].map((x) => html`<tr class="${x.month === 'جمع' ? 'big' : ''}">${cols.map(([k]) => {
+      <div class="scrollx"><table class="table-plain bk-table" data-sort="vat"><thead><tr>${cols.map(([, t]) => html`<th>${t}</th>`)}</tr></thead><tbody>${[...r.rows, ...(r.rows.length ? [r.total] : [])].map((x) => html`<tr class="${x.month === 'جمع' ? 'big' : ''}" ${x.month === 'جمع' ? raw('data-fixed') : ''}>${cols.map(([k]) => {
         const v = typeof k === 'function' ? k(x) : x[k];
-        return html`<td class="num">${typeof v === 'number' ? (k === 'invoices' || k === 'returns' ? fa(v) : T(v * 10)) : fa(String(v).replace('-', '/'))}</td>`;
+        return html`<td class="num" data-v="${typeof v === 'number' ? v : String(v ?? '').replace(/\D/g, '')}">${typeof v === 'number' ? (k === 'invoices' || k === 'returns' ? fa(v) : T(v * 10)) : fa(String(v).replace('-', '/'))}</td>`;
       })}</tr>`)}</tbody></table></div>${exportButtons('vt')}`);
+    wireSorts(box);
     wireExport(map, 'vt', `vat-${from}-${to}`, () => [...r.rows, r.total], cols, 'مالیات');
     wireRange();
   } else {
@@ -529,7 +551,8 @@ export async function reportsPage(root) {
     const cols = [['label', 'گروه'], ['count', 'تعداد'], ['weight', 'وزن'], [EX((x) => x.principal), 'اصل'], [EX((x) => x.consfee), 'اجرت'], [EX((x) => x.spro), 'سود'], [EX((x) => x.vat), 'مالیات'], [EX((x) => x.total), 'جمع']];
     const max = Math.max(1, ...r.rows.map((x) => Math.abs(x.total)));
     box.innerHTML = String(html`${range(html`<select class="input" name="by">${BY.map(([k, l]) => html`<option value="${k}" ${by === k ? 'selected' : ''}>${l}</option>`)}</select>`)}
-      <div class="scrollx"><table class="table-plain bk-table"><thead><tr><th>${BY.find(([k]) => k === by)[1]}</th><th>تعداد</th><th>وزن</th><th>اجرت + سود</th><th>مالیات</th><th>جمع</th><th></th></tr></thead><tbody>${r.rows.map((x) => html`<tr><td>${by === 'day' ? jd(x.label) : x.label}</td><td class="num">${fa(x.count)}</td><td class="num">${x.weight ? G(x.weight) : '—'}</td><td class="num">${T(x.consfee + x.spro)}</td><td class="num">${T(x.vat)}</td><td class="num">${T(x.total)}</td><td style="min-width:120px"><div class="bar"><i style="width:${(Math.abs(x.total) / max) * 100}%"></i></div></td></tr>`)}</tbody></table></div>${exportButtons('sl')}`);
+      <div class="scrollx"><table class="table-plain bk-table" data-sort="sales-${by}"><thead><tr><th>${BY.find(([k]) => k === by)[1]}</th><th>تعداد</th><th>وزن</th><th>اجرت + سود</th><th>مالیات</th><th>جمع</th><th></th></tr></thead><tbody>${r.rows.map((x) => html`<tr><td data-v="${x.label}">${by === 'day' ? jd(x.label) : x.label}</td><td class="num" data-v="${x.count}">${fa(x.count)}</td><td class="num" data-v="${x.weight || ''}">${x.weight ? G(x.weight) : '—'}</td><td class="num" data-v="${x.consfee + x.spro}">${T(x.consfee + x.spro)}</td><td class="num" data-v="${x.vat}">${T(x.vat)}</td><td class="num" data-v="${x.total}">${T(x.total)}</td><td style="min-width:120px"><div class="bar"><i style="width:${(Math.abs(x.total) / max) * 100}%"></i></div></td></tr>`)}</tbody></table></div>${exportButtons('sl')}`);
+    wireSorts(box);
     wireExport(map, 'sl', `forush-${by}-${from}-${to}`, () => r.rows, cols, 'فروش');
     wireRange();
   }

@@ -80,6 +80,13 @@ test('ورود جنس امانی، شمش پلمپ با سریال؛ سریال 
   assert.equal(bars.items[0].inVault, true);
   assert.equal(bars.items[0].brand, 'زربد');
   assert.equal(bars.items[0].history.length, 1);
+  // spec 0026: a sealed bar leaves at its card; another weight or fineness is refused and nothing moves
+  const off = await call('POST', '/api/books/docs', { type: 'trade', partyId: mehran.id, lines: [{ ...barLine, dir: 'out', weight: 9.5 }] }, E);
+  assert.equal(off.status, 400);
+  assert.match(off.body.error, /شناسنامه/);
+  const off2 = await call('POST', '/api/books/docs', { type: 'trade', partyId: mehran.id, lines: [{ ...barLine, dir: 'out', fineness: 995 }] }, E);
+  assert.equal(off2.status, 400);
+  assert.equal((await ok('GET', '/api/books/bars?q=3307', null, E)).items[0].inVault, true);
 });
 
 test('حواله طلایی بین دو مشتری و تبدیل مانده طلایی به ریال', async () => {

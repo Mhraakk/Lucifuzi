@@ -10,8 +10,9 @@ import { createHistory, mountDock } from '../undo.mjs';
 import { drafts, submit } from '../outbox.mjs';
 import { confirmBox } from '../dialog.mjs';
 
-const EXPENSES = ['اجاره', 'حقوق و دستمزد', 'قبوض و شارژ', 'تعمیر و نگهداری', 'حمل و پیک', 'تبلیغات', 'کارمزد بانکی', 'مالیات و عوارض', 'بیمه', 'پذیرایی', 'سایر'];
-const IN_TYPES = new Set(['sale', 'receipt']);
+// one list of categories for the form and the reports (books.mjs); an income document mirrors an expense
+const CATS = { expense: B.EXPENSE_CATS, income: B.INCOME_CATS };
+const IN_TYPES = new Set(['sale', 'receipt', 'income']);
 const COIN_BOARD = { bahar: 'sekeb', emami: 'sekee', halfOld: 'nim', half: 'nim', quarterOld: 'rob', quarter: 'rob', gerami: 'gerami' };
 const DRAFT_KEY = (type) => `beatris.books.draft.${type}`;
 const store_ = {
@@ -37,6 +38,13 @@ export async function docEditorPage(root, params) {
   const editing = params.id ? await api(`/api/books/docs/${params.id}`) : null;
   const type = editing?.type ?? params.type;
   if (!B.DOC_TYPES[type]) return navigate('/books', { replace: true });
+  // these kinds are recorded from their own place (desk, vault, customer page), and corrected by void + record again
+  const HOME = { trade: '/books/desk', hawala: '/books/desk?act=hawala', convert: '/books/desk?act=convert', transform: '/books/vault?act=melt', adjust: '/books/vault?act=count', writeoff: editing?.partyId ? `/books/party/${editing.partyId}` : '/books/parties' };
+  if (HOME[type]) {
+    if (type === 'trade' && editing) return navigate(`/books/desk?amend=${editing.id}`, { replace: true });
+    root.innerHTML = String(html`<div class="notice">«${B.DOC_TYPES[type].label}» در این فرم ویرایش نمی‌شود. ${editing ? 'برای اصلاح، سند را از صفحه خودش ابطال کنید و دوباره ثبت کنید؛ هر دو در تاریخچه می‌مانند.' : ''} <a href="${HOME[type]}" data-link>محل ثبت این سند</a>${editing ? html` · <a href="/books/doc/${editing.id}" data-link>بازگشت به سند</a>` : ''}</div>`);
+    return;
+  }
   const [settings, accounts, board, tpls] = await Promise.all([api('/api/books/settings'), api('/api/books/accounts'), api('/api/market').catch(() => null), api('/api/books/templates')]);
   const admin = store.isAdmin();
   await booksPrefs();
@@ -64,6 +72,8 @@ export async function docEditorPage(root, params) {
   const S = editing
     ? { type, date: editing.date, partyId: editing.partyId, party: editing.party, lines: editing.lines.map((l) => toDisp(l, LINE_MONEY)), payments: editing.payments.map((p) => toDisp(p, PAY_MONEY)), creditUnit: editing.creditUnit ?? 'IRR', creditP750: editing.creditP750 != null ? editing.creditP750 * k : p750Live, note: editing.note ?? '', category: editing.category ?? '', ref: editing.ref ?? null, balances: editing.balances ?? [], seller: editing.seller }
     : { type, date: today(), partyId: null, party: null, lines: [], payments: [], creditUnit: 'IRR', creditP750: p750Live, note: '', category: '', ref: null, balances: [] };
+  // an unpicked category is «سایر», exactly as the select shows it (never a category the user did not see)
+  if (CATS[type] && !S.category) S.category = 'سایر';
   const selected = new Set();
   // start a return from its sale invoice, or a receipt/sale for a customer
   if (!editing && qs.get('ref') && type === 'return') {
@@ -87,8 +97,8 @@ export async function docEditorPage(root, params) {
     <div class="bk-head"><h1>${editing ? (editing.status === 'final' && type !== 'proforma' ? html`اصلاحیه ${t.label} شماره ${fa(editing.no)}` : html`ویرایش ${t.label} شماره ${fa(editing.no)}`) : t.label}</h1>
       <div class="bk-head-f">
         <label class="field sm">تاریخ<input class="input ltr" name="date" value="${jdInput(S.date)}" inputmode="numeric" ${!admin && !settings.staffBackdate ? 'readonly' : ''}></label>
-        ${type !== 'transfer' && type !== 'expense' && type !== 'opening' ? html`<div class="field sm bk-party"><span>طرف حساب</span><div class="bk-party-box" id="partyBox"></div></div>` : ''}
-        ${type === 'expense' ? html`<label class="field sm">نوع هزینه<select class="input" name="category">${EXPENSES.map((c) => html`<option ${S.category === c ? 'selected' : ''}>${c}</option>`)}</select></label>` : ''}
+        ${type !== 'transfer' && type !== 'opening' ? html`<div class="field sm bk-party"><span>${CATS[type] ? 'طرف حساب (اختیاری؛ برای «روی حساب»)' : 'طرف حساب'}</span><div class="bk-party-box" id="partyBox"></div></div>` : ''}
+        ${CATS[type] ? html`<label class="field sm">${type === 'income' ? 'نوع درآمد' : 'نوع هزینه'}<select class="input" name="category">${CATS[type].map((c) => html`<option ${S.category === c ? 'selected' : ''}>${c}</option>`)}</select></label>` : ''}
       </div>
     </div>
     ${draft?.S ? html`<div class="notice bk-draft" role="status">کار ناتمام از ساعت ${fa(new Date(draft.at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }))} همان‌طور که بود برگشت. <button class="chip" data-act="drop">شروع تازه</button></div>` : ''}
@@ -106,7 +116,7 @@ export async function docEditorPage(root, params) {
         ${hasPays
           ? html`<section class="tray bk-sec">
               <h3 class="bk-h">${type === 'transfer' ? 'از حساب ← به حساب' : 'دریافت و پرداخت'}</h3>
-              ${type !== 'transfer' ? html`<div class="bk-methods">${B.PAY_METHODS.filter((m) => type !== 'expense' || !['gold', 'coin', 'offset'].includes(m.id)).map((m) => html`<button class="chip" data-add-pay="${m.id}">${m.label}</button>`)}</div>` : ''}
+              ${type !== 'transfer' ? html`<div class="bk-methods">${B.PAY_METHODS.filter((m) => !CATS[type] || m.id !== 'bnpl').map((m) => html`<button class="chip" data-add-pay="${m.id}">${m.id === 'offset' && CATS[type] ? 'روی حساب طرف حساب' : m.label}</button>`)}</div>` : ''}
               <div id="pays"></div>
             </section>`
           : ''}
@@ -302,7 +312,7 @@ export async function docEditorPage(root, params) {
   function fillRemaining(i, redraw = true) {
     const c = safeCalc({ ...docBody(), payments: S.payments.filter((_, j) => j !== i) }).calc;
     if (!c) return;
-    const rem = type === 'receipt' || type === 'payment' || type === 'expense' ? 0 : c.credit;
+    const rem = type === 'receipt' || type === 'payment' || type === 'expense' || type === 'income' ? 0 : c.credit;
     const p = S.payments[i];
     if (rem === 0) return;
     p.dir = rem > 0 ? 'in' : 'out';

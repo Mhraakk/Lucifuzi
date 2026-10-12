@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
-import { readQuery, bandsOf, figuresOf, hasNumber } from '../public/js/daysearch.mjs';
+import { readQuery, bandsOf, figuresOf, hasNumber, sectionsOf, figureIn, SECTIONS, unitSection } from '../public/js/daysearch.mjs';
 import * as B from '../public/js/books.mjs';
 import { smsLogin } from './helpers/login.mjs';
 
@@ -48,8 +48,32 @@ test('figures of a document: payments, line value, weights, مظنه, totals —
   assert.match(has('IRR', d.calc.lines[0].value).label, /ارزش آبشده/);
   assert.ok(has('G', 2) && has('G', d.calc.lines[0].eq750) && has('MQ', d.calc.lines[0].mesghal));
   assert.equal(has('RATE', 400000000).label, 'مظنه');
-  const keys = f.map((x) => `${x.u}|${x.v}`);
+  // once per section: the line's value in آبشده, and the same figure again only as the document's total
+  const keys = f.map((x) => `${x.u}|${x.s}|${x.v}`);
   assert.equal(new Set(keys).size, keys.length);
+  assert.equal(has('IRR', 100000000).s, 'money');
+  assert.ok(f.filter((x) => x.u === 'G').every((x) => x.s === 'melt'));
+});
+
+test('sections (spec 0027): every kind of document lands in the sections it touches', () => {
+  const S = (doc) => [...sectionsOf({ ...doc, calc: B.calcDoc(doc) })].sort().join(',');
+  // a priced line moves money too: paid, or left on the customer's rial account
+  assert.equal(S({ type: 'trade', lines: [{ kind: 'melt', dir: 'in', weight: 2, fineness: 740, mazaneh: 400000000 }] }), 'melt,money');
+  assert.equal(S({ type: 'trade', partyId: 'p', lines: [{ kind: 'melt', dir: 'in', priced: false, weight: 2, fineness: 740 }] }), 'melt');
+  assert.equal(S({ type: 'trade', partyId: 'p', lines: [{ kind: 'coin', dir: 'out', coin: 'emami', count: 1, price: 900000000 }], payments: [{ method: 'pos', dir: 'in', amount: 900000000 }] }), 'coin,money');
+  assert.equal(S({ type: 'trade', partyId: 'p', lines: [{ kind: 'bar', dir: 'in', priced: false, weight: 100, fineness: 999.9, serial: 'AB123' }] }), 'bar');
+  assert.equal(S({ type: 'trade', lines: [{ kind: 'fx', dir: 'in', code: 'USD', fxAmount: 100, rate: 1000000 }] }), 'fx,money');
+  assert.equal(S({ type: 'hawala', hawala: { from: 'a', to: 'b', unit: 'COIN:emami', amount: 2 } }), 'coin');
+  assert.equal(S({ type: 'convert', partyId: 'p', convert: { unit: 'G750', amount: 2, mazaneh: 400000000 } }), 'melt,money');
+  assert.equal(S({ type: 'writeoff', partyId: 'p', writeoff: { unit: 'IRR', amount: 1000 } }), 'money');
+  assert.equal(S({ type: 'transform', lines: [{ kind: 'coin', dir: 'out', coin: 'emami', count: 2 }, { kind: 'melt', dir: 'in', weight: 19.4, fineness: 750 }] }), 'coin,melt');
+  assert.equal(S({ type: 'income', category: 'سود بانکی', payments: [{ method: 'cash', dir: 'in', amount: 1000 }] }), 'money');
+  assert.equal(S({ type: 'receipt', partyId: 'p', payments: [{ method: 'gold', dir: 'in', weight: 1, fineness: 750, p750: 9000000 }] }), 'melt,money');
+  // a figure counts in its own section; a document total in every section of its document
+  assert.ok(figureIn({ s: 'melt' }, 'melt', new Set()) && !figureIn({ s: 'coin' }, 'melt', new Set(['coin', 'melt'])));
+  assert.ok(figureIn({ s: 'doc' }, 'melt', new Set(['melt'])) && !figureIn({ s: 'doc' }, 'fx', new Set(['melt'])));
+  assert.deepEqual(SECTIONS.map(([k]) => k), ['all', 'melt', 'coin', 'bar', 'fx', 'money']);
+  assert.equal(unitSection('BAR:X1'), 'bar');
 });
 
 let server, base, db, M, E, today;

@@ -21,7 +21,7 @@ const PAY_FIELDS = [
   ['due', 'سررسید', 'DATE'], ['weight', 'وزن', 'G'], ['fineness', 'عیار', 'FIN'], ['p750', 'قیمت گرم ۱۸', 'IRR'], ['coin', 'نوع سکه', 'COIN'], ['count', 'تعداد', 'N'], ['price', 'قیمت هر سکه', 'IRR'],
   ['fxCode', 'ارز', 'FX'], ['fxAmount', 'مقدار ارز', 'N'], ['fxRate', 'نرخ ارز', 'IRR'], ['note', 'یادداشت', 'TXT'],
 ];
-const HEAD_FIELDS = [['date', 'تاریخ', 'DATE'], ['partyId', 'طرف حساب', 'PARTY'], ['category', 'نوع هزینه', 'TXT'], ['creditUnit', 'واحد نسیه', 'TXT'], ['creditP750', 'قیمت تبدیل نسیه به طلا', 'IRR'], ['seller', 'فروشنده', 'TXT'], ['note', 'یادداشت', 'TXT']];
+const HEAD_FIELDS = [['date', 'تاریخ', 'DATE'], ['partyId', 'طرف حساب', 'PARTY'], ['category', 'دسته (هزینه یا درآمد)', 'TXT'], ['creditUnit', 'واحد نسیه', 'TXT'], ['creditP750', 'قیمت تبدیل نسیه به طلا', 'IRR'], ['seller', 'فروشنده', 'TXT'], ['note', 'یادداشت', 'TXT']];
 const TOTALS = [['net', 'جمع سند', 'NET'], ['paidIn', 'دریافتی', 'IRR'], ['paidOut', 'پرداختی', 'IRR'], ['credit', 'مانده روی حساب', 'BAL']];
 // money inputs of the full edition are typed in toman (the engine multiplies by 10); the base edition types rial
 const TOMAN_INPUTS = new Set(['amount', 'price', 'p750', 'mazaneh', 'bros', 'stones', 'discount', 'creditP750']);
@@ -127,6 +127,20 @@ export function docDiff(a, b) {
     fields([['from', 'از حساب', 'PARTY'], ['to', 'به حساب', 'PARTY'], ['unit', 'واحد', 'UNIT'], ['amount', 'مقدار', amtType(b.hawala ?? a.hawala)]], a.hawala, b.hawala, 1, 'hawala', 0, out);
   if (a.convert || b.convert)
     fields([['unit', 'واحد', 'UNIT'], ['amount', 'مقدار', amtType(b.convert ?? a.convert)], ['basis', 'مبنا', 'TXT'], ['mazaneh', 'مظنه', 'IRR'], ['g750', 'قیمت گرم ۷۵۰', 'IRR'], ['price', 'نرخ', 'IRR']], a.convert, b.convert, 1, 'convert', 0, out);
+  // سوخت یا بخشودگی مانده (spec 0026): which balance and how much of it
+  if (a.writeoff || b.writeoff) fields([['unit', 'واحد', 'UNIT'], ['amount', 'مقدار', amtType(b.writeoff ?? a.writeoff)]], a.writeoff, b.writeoff, 1, 'writeoff', 0, out);
+  // opening and count adjustments: one row per account and unit
+  const ba = a.balances ?? [], bb = b.balances ?? [];
+  if (ba.length || bb.length) {
+    const key = (x) => `${x.acct}|${x.unit}`;
+    const ma = new Map(ba.map((x) => [key(x), x])), mb = new Map(bb.map((x) => [key(x), x]));
+    for (const kk of [...new Set([...ma.keys(), ...mb.keys()])].sort()) {
+      const x = ma.get(kk), y = mb.get(kk);
+      const t = (y ?? x).unit === 'IRR' ? 'IRR' : (y ?? x).unit === 'G750' ? 'G' : 'N';
+      const va = x ? norm(x.amt, t, 1) : null, vb = y ? norm(y.amt, t, 1) : null;
+      if (!same(va, vb)) out.push({ at: 'balance', n: 0, field: kk, label: (y ?? x).acct, type: t, from: va, to: vb, kind: x && y ? 'changed' : y ? 'added' : 'removed', what: (y ?? x).acct });
+    }
+  }
   const ca = a.calc ?? {}, cb = b.calc ?? {};
   for (const [key, label, type] of TOTALS) {
     const va = Math.round(B.num(ca[key] ?? 0)), vb = Math.round(B.num(cb[key] ?? 0));
@@ -141,6 +155,8 @@ function lineName(l) {
   return l.title || B.KIND_LABEL[l.kind] || l.kind || '';
 }
 const payName = (p) => (p ? B.payMethod(p.method)?.label ?? p.method ?? '' : '');
+/** A ledger account in words, for an opening or count row. */
+const acctWords = (a = '') => (a === 'gold' ? 'طلای آبشده' : a.startsWith('coin:') ? `سکه ${COIN_TYPES[a.slice(5)]?.short ?? ''}` : a.startsWith('fx:') ? TR.FX_CODES[a.slice(3)] ?? a : a.startsWith('bar:') ? `شمش ${B.faNum(a.slice(4))}` : a.startsWith('cash:') ? 'صندوق' : a.startsWith('bank:') ? 'بانک' : a.startsWith('party:') ? 'طرف حساب' : a);
 
 /* ---------------- words ---------------- */
 const DIR_FA = { in: 'ورود / دریافت', out: 'خروج / پرداخت' };
@@ -170,14 +186,16 @@ export function valueText(type, v, fmt = {}) {
     case 'ACCT': return fmt.account ? fmt.account(v) : v;
     case 'ITEM': return fmt.item ? fmt.item(v) : v;
     case 'DATE': return fmt.date ? fmt.date(v) : v;
-    case 'UNIT': return B.UNITS[v] ?? v;
+    case 'UNIT': return B.UNITS[v] ?? (String(v).startsWith('FX:') ? TR.FX_CODES[v.slice(3)] ?? v : String(v).startsWith('BAR:') ? `شمش ${B.faNum(v.slice(4))}` : v);
     case 'TXT': return BASIS_FA[v] ?? String(v);
     default: return String(v);
   }
 }
 /** One change as a Persian line: «ردیف ۲ (آبشده)، وزن — قبل: ۱۲٫۴۵۰ گرم؛ بعد: ۱۲٫۵۴۰ گرم». */
 export function changeText(c, fmt = {}) {
-  const where = c.at === 'line' ? `ردیف ${B.faNum(c.n)}${c.what ? ` (${c.what})` : ''}` : c.at === 'pay' ? `پرداخت ${B.faNum(c.n)}${c.what ? ` (${c.what})` : ''}` : c.at === 'hawala' ? 'حواله' : c.at === 'convert' ? 'تبدیل' : '';
+  const where = c.at === 'line' ? `ردیف ${B.faNum(c.n)}${c.what ? ` (${c.what})` : ''}` : c.at === 'pay' ? `پرداخت ${B.faNum(c.n)}${c.what ? ` (${c.what})` : ''}` : c.at === 'hawala' ? 'حواله' : c.at === 'convert' ? 'تبدیل' : c.at === 'writeoff' ? 'سوخت مانده' : c.at === 'balance' ? `مانده ${acctWords(c.what)}` : '';
+  if (c.at === 'balance' && c.kind !== 'changed') return `${where} ${c.kind === 'added' ? 'اضافه شد' : 'حذف شد'}: ${valueText(c.type, c.kind === 'added' ? c.to : c.from, fmt)}`;
+  if (c.at === 'balance') return `${where} — قبل: ${valueText(c.type, c.from, fmt)}؛ بعد: ${valueText(c.type, c.to, fmt)}`;
   if (c.kind === 'added') return `${where} اضافه شد${c.value ? `: ${valueText('IRR', c.value, fmt)}` : ''}`;
   if (c.kind === 'removed') return `${where} حذف شد${c.value ? ` (${valueText('IRR', c.value, fmt)})` : ''}`;
   return `${where ? `${where}، ` : ''}${c.label} — قبل: ${valueText(c.type, c.from, fmt)}؛ بعد: ${valueText(c.type, c.to, fmt)}`;

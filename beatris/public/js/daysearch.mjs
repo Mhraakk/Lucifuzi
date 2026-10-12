@@ -7,6 +7,38 @@ import * as TR from './trade.mjs';
 import { TRADE_COINS as COIN_TYPES } from './coins.mjs';
 
 export const TOLERANCES = [0, 1, 5, 10]; // percent
+
+/* ---------------- sections of the shop (spec 0027) ---------------- */
+export const SECTIONS = [['all', 'همه'], ['melt', 'آبشده'], ['coin', 'سکه'], ['bar', 'شمش'], ['fx', 'ارز'], ['money', 'وجه']];
+export const SECTION_IDS = new Set(SECTIONS.map(([k]) => k));
+/** The section a unit belongs to: IRR → وجه, G750 → آبشده, COIN → سکه, BAR → شمش, FX → ارز. */
+export const unitSection = (u) => (u === 'IRR' ? 'money' : u === 'G750' ? 'melt' : String(u).startsWith('COIN:') ? 'coin' : String(u).startsWith('BAR:') ? 'bar' : String(u).startsWith('FX:') ? 'fx' : 'other');
+/** A document line's section: melted and used gold → آبشده; jewellery, services and other goods are in no section. */
+export const lineSection = (kind) => (kind === 'melt' || kind === 'used' ? 'melt' : kind === 'coin' ? 'coin' : kind === 'bar' ? 'bar' : kind === 'fx' ? 'fx' : 'other');
+/** A payment's section: gold or coins given as payment are in their section, every other method is وجه. */
+export const paySection = (method) => (method === 'gold' ? 'melt' : method === 'coin' ? 'coin' : 'money');
+const acctSection = (b) => (b.acct === 'gold' ? 'melt' : b.acct.startsWith('coin:') ? 'coin' : b.acct.startsWith('bar:') ? 'bar' : b.acct.startsWith('fx:') ? 'fx' : b.acct.startsWith('party:') && b.unit && b.unit !== 'IRR' ? unitSection(b.unit) : 'money');
+
+/**
+ * Every section a document touches: by its lines, its حواله, تبدیل or سوخت unit, its payments and its balances. d is
+ * { type, calc: { lines, payments, hawala, convert, writeoff, credit }, balances }. A melting is always آبشده.
+ */
+export function sectionsOf(d) {
+  const c = d.calc ?? {};
+  const s = new Set();
+  for (const l of c.lines ?? []) s.add(lineSection(l.kind));
+  for (const p of c.payments ?? []) s.add(paySection(p.method));
+  if (c.hawala) s.add(unitSection(c.hawala.unit));
+  if (c.convert) s.add(unitSection(c.convert.unit)).add('money');
+  if (c.writeoff) s.add(unitSection(c.writeoff.unit));
+  if (d.type === 'transform') s.add('melt');
+  for (const b of d.balances ?? []) s.add(acctSection(b));
+  if (c.credit) s.add('money');
+  s.delete('other');
+  return s;
+}
+/** Does a figure ({ s }) count inside section `sec`? A document-wide total counts in every section of its document. */
+export const figureIn = (f, sec, docSecs) => !sec || sec === 'all' || f.s === sec || (f.s === 'doc' && docSecs.has(sec));
 const SCALES = new Set(['هزار', 'میلیون', 'ملیون', 'میلیارد']);
 const SMALL = new Set(['صفر', 'یک', 'یه', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'شیش', 'هفت', 'هشت', 'نه', 'ده', 'یازده', 'دوازده', 'سیزده', 'چهارده', 'پانزده', 'پونزده', 'شانزده', 'شونزده', 'هفده', 'هیفده', 'هجده', 'هیجده', 'نوزده', 'بیست', 'سی', 'چهل', 'پنجاه', 'شصت', 'هفتاد', 'هشتاد', 'نود', 'صد', 'یکصد', 'دویست', 'سیصد', 'چهارصد', 'پانصد', 'پونصد', 'ششصد', 'هفتصد', 'هشتصد', 'نهصد']);
 const BIG_WORD = (t) => SMALL.has(t) && !['صفر', 'یک', 'یه', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'شیش', 'هفت', 'هشت', 'نه'].includes(t);
@@ -126,50 +158,54 @@ export function bandsOf(q, { shopMoney = 'rial', unit = null, tol = null } = {})
 export function figuresOf(d) {
   const out = [];
   const seen = new Set();
-  const add = (u, v, label) => {
+  // s: the section the figure measures (spec 0027); «doc» = a total of the whole document
+  const add = (u, v, label, sec = 'doc') => {
     const x = Math.abs(Number(v));
     if (!Number.isFinite(x) || x <= 0) return;
-    const key = `${u}|${u === 'G' || u === 'MQ' ? B.r3(x) : Math.round(x * 100) / 100}`;
+    const key = `${u}|${sec}|${u === 'G' || u === 'MQ' ? B.r3(x) : Math.round(x * 100) / 100}`;
     if (seen.has(key)) return;
     seen.add(key);
-    out.push({ u, v: x, label });
+    out.push({ u, v: x, label, s: sec });
   };
+  const nUnit = (u) => (u === 'IRR' ? 'IRR' : u === 'G750' ? 'G' : 'N');
   const c = d.calc ?? {};
   const base = !!B.DOC_TYPES[d.type]?.base;
   for (const p of c.payments ?? []) {
     const m = B.payMethod(p.method)?.label ?? p.method;
-    add('IRR', p.value, `${p.dir === 'in' ? 'دریافت' : 'پرداخت'} ${m}`);
-    add('G', p.g750, 'طلای تسویه (گرم ۷۵۰)');
-    add('N', p.count, `سکه تسویه${p.coin ? ` ${COIN_TYPES[p.coin]?.short ?? ''}` : ''}`);
+    const sec = paySection(p.method);
+    add('IRR', p.value, `${p.dir === 'in' ? 'دریافت' : 'پرداخت'} ${m}`, sec);
+    add('G', p.g750, 'طلای تسویه (گرم ۷۵۰)', 'melt');
+    add('N', p.count, `سکه تسویه${p.coin ? ` ${COIN_TYPES[p.coin]?.short ?? ''}` : ''}`, 'coin');
   }
   for (const l of c.lines ?? []) {
     const name = l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}`.trim() : TR.TRADE_KINDS[l.kind] ?? B.KIND_LABEL[l.kind] ?? l.kind;
+    const sec = lineSection(l.kind);
     if (base) {
-      add('IRR', l.value, `ارزش ${name}`);
-      add('IRR', l.fee, 'اجرت پلمپ');
-      add('RATE', l.mazaneh || l.impliedMazaneh, 'مظنه');
-      add('RATE', l.g750Price, 'قیمت گرم ۷۵۰');
-      if (l.kind === 'coin' && l.priced && l.count) add('RATE', l.value / l.count, `قیمت هر ${name}`);
-      if (l.kind === 'fx') add('N', l.amt, `مقدار ${TR.FX_CODES[l.code] ?? l.code}`);
-      if (l.kind === 'fx' && l.priced && l.amt) add('RATE', l.value / l.amt, 'نرخ ارز');
+      add('IRR', l.value, `ارزش ${name}`, sec);
+      add('IRR', l.fee, 'اجرت پلمپ', sec);
+      add('RATE', l.mazaneh || l.impliedMazaneh, 'مظنه', sec);
+      add('RATE', l.g750Price, 'قیمت گرم ۷۵۰', sec);
+      if (l.kind === 'coin' && l.priced && l.count) add('RATE', l.value / l.count, `قیمت هر ${name}`, sec);
+      if (l.kind === 'fx') add('N', l.amt, `مقدار ${TR.FX_CODES[l.code] ?? l.code}`, sec);
+      if (l.kind === 'fx' && l.priced && l.amt) add('RATE', l.value / l.amt, 'نرخ ارز', sec);
     } else {
-      add('IRR', l.total, `مبلغ ${name}`);
-      add('IRR', l.principal, `اصل ${name}`);
-      add('IRR', l.consfee, 'اجرت');
-      add('IRR', l.spro, 'سود');
-      add('IRR', l.vat, 'مالیات');
-      add('IRR', l.discount, 'تخفیف');
-      add('IRR', l.stones, 'سنگ');
-      add('RATE', l.fee, `قیمت واحد ${name}`);
+      add('IRR', l.total, `مبلغ ${name}`, sec);
+      add('IRR', l.principal, `اصل ${name}`, sec);
+      add('IRR', l.consfee, 'اجرت', sec);
+      add('IRR', l.spro, 'سود', sec);
+      add('IRR', l.vat, 'مالیات', sec);
+      add('IRR', l.discount, 'تخفیف', sec);
+      add('IRR', l.stones, 'سنگ', sec);
+      add('RATE', l.fee, `قیمت واحد ${name}`, sec);
     }
-    add('G', l.weight, `وزن ${name}`);
-    add('G', l.eq750 || l.g750, 'معادل ۷۵۰');
-    add('MQ', l.mesghal, 'مثقال');
-    if (l.kind === 'coin' || l.kind === 'goods') add('N', l.count || l.am, `تعداد ${name}`);
+    add('G', l.weight, `وزن ${name}`, sec);
+    add('G', l.eq750 || l.g750, 'معادل ۷۵۰', sec);
+    add('MQ', l.mesghal, 'مثقال', sec);
+    if (l.kind === 'coin' || l.kind === 'goods') add('N', l.count || l.am, `تعداد ${name}`, sec);
   }
   const pays = c.payments ?? [];
-  if (pays.filter((p) => p.dir === 'in').length > 1) add('IRR', c.paidIn, 'جمع دریافت‌ها');
-  if (pays.filter((p) => p.dir === 'out').length > 1) add('IRR', c.paidOut, 'جمع پرداخت‌ها');
+  if (pays.filter((p) => p.dir === 'in').length > 1) add('IRR', c.paidIn, 'جمع دریافت‌ها', 'money');
+  if (pays.filter((p) => p.dir === 'out').length > 1) add('IRR', c.paidOut, 'جمع پرداخت‌ها', 'money');
   add('IRR', c.net, 'جمع سند');
   add('IRR', c.sells, 'جمع فروش');
   add('IRR', c.buys, 'جمع خرید');
@@ -177,12 +213,21 @@ export function figuresOf(d) {
   add('IRR', c.tradeIn, 'جمع طلای دریافتی');
   add('IRR', c.vat, 'جمع مالیات');
   add('IRR', c.credit, 'مانده روی حساب مشتری');
-  if (c.hawala) add(c.hawala.unit === 'IRR' ? 'IRR' : c.hawala.unit === 'G750' ? 'G' : 'N', c.hawala.amount, 'مقدار حواله');
+  if (c.hawala) add(nUnit(c.hawala.unit), c.hawala.amount, 'مقدار حواله', unitSection(c.hawala.unit));
   if (c.convert) {
-    add(c.convert.unit === 'G750' ? 'G' : 'N', c.convert.amount, 'مقدار تبدیل');
+    add(nUnit(c.convert.unit), c.convert.amount, 'مقدار تبدیل', unitSection(c.convert.unit));
     add('IRR', c.convert.value, 'مبلغ تبدیل');
   }
-  for (const b of d.balances ?? []) add(b.unit === 'IRR' ? 'IRR' : b.unit === 'G750' ? 'G' : 'N', b.amt, d.type === 'opening' ? 'مانده اول دوره' : 'اصلاح موجودی');
+  if (c.writeoff) {
+    add(nUnit(c.writeoff.unit), c.writeoff.amount, 'مقدار سوخت یا بخشودگی', unitSection(c.writeoff.unit));
+    if (c.writeoff.eq750) add('G', c.writeoff.eq750, 'معادل ۷۵۰ شمش', 'bar');
+  }
+  if (d.type === 'transform') {
+    add('G', c.inputs, 'معادل ۷۵۰ ورودی ذوب', 'melt');
+    add('G', c.outputs, 'معادل ۷۵۰ خروجی ذوب', 'melt');
+    add('G', c.wastage, c.wastage < 0 ? 'اضافه ذوب' : 'افت ذوب', 'melt');
+  }
+  for (const b of d.balances ?? []) add(nUnit(b.unit === 'G750' ? 'G750' : b.unit === 'IRR' ? 'IRR' : 'N'), b.amt, d.type === 'opening' ? 'مانده اول دوره' : 'اصلاح موجودی', acctSection(b));
   return out;
 }
 
@@ -192,6 +237,8 @@ export function summaryOf(d) {
   const money = (v) => B.fmtMoney(Math.round(v), 'rial');
   if (c.hawala) return `حواله ${c.hawala.unit === 'IRR' ? money(c.hawala.amount) : c.hawala.unit === 'G750' ? `${B.fmtG(c.hawala.amount)} گرم` : B.faNum(c.hawala.amount)}`;
   if (c.convert) return `تبدیل مانده به ${money(Math.abs(c.convert.value))}`;
+  if (c.writeoff) return `${c.writeoff.amount > 0 ? 'سوخت بدهی' : 'بخشودگی طلب'} ${c.writeoff.unit === 'IRR' ? money(Math.abs(c.writeoff.amount)) : c.writeoff.unit === 'G750' ? `${B.fmtG(Math.abs(c.writeoff.amount))} گرم ۷۵۰` : B.faNum(Math.abs(c.writeoff.amount))}`;
+  if (d.type === 'transform') return `ذوب ${B.fmtG(c.inputs)} → ${B.fmtG(c.outputs)} گرم ۷۵۰ · ${c.wastage < 0 ? 'اضافه' : 'افت'} ${B.fmtG(Math.abs(c.wastage))}`;
   const bits = [];
   for (const l of (c.lines ?? []).slice(0, 3)) {
     const name = l.kind === 'coin' ? `سکه ${COIN_TYPES[l.coin]?.short ?? ''}`.trim() : TR.TRADE_KINDS[l.kind] ?? B.KIND_LABEL[l.kind] ?? l.kind;

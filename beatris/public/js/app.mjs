@@ -65,6 +65,7 @@ route('/books/dashboard', lazy('./pages/dashboard.mjs', 'dashboardPage'), { tab:
 route('/books/memory', lazy('./pages/memory.mjs', 'memoryPage'), { tab: 'books', tone: 'wide' });
 route('/books/pulse', lazy('./pages/pulse.mjs', 'pulsePage'), { tab: 'books', tone: 'wide' });
 route('/books/trace', lazy('./pages/trace.mjs', 'tracePage'), { tab: 'books', tone: 'wide' });
+route('/books/events', lazy('./pages/eventsguide.mjs', 'eventsPage'), { tab: 'books', tone: 'wide', title: 'هر اتفاق کجا ثبت می‌شود' });
 route('/books/audit', lazy('./pages/auditor.mjs', 'auditPage'), { tab: 'books', tone: 'wide' });
 route('/books/day', lazy('./pages/deskmore.mjs', 'dayPage'), { tab: 'books', tone: 'wide' });
 route('/books/vault', lazy('./pages/deskmore.mjs', 'vaultPage'), { tab: 'books', tone: 'wide' });

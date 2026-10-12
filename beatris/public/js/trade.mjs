@@ -13,7 +13,15 @@ export const FX_CODES = {
   AUD: 'دلار استرالیا', CHF: 'فرانک سوئیس', RUB: 'روبل روسیه', JPY: 'ین ژاپن', KWD: 'دینار کویت', OMR: 'ریال عمان', SAR: 'ریال عربستان', QAR: 'ریال قطر', AFN: 'افغانی', USDT: 'تتر',
 };
 export const ROUND_STEPS = [1, 1000, 10000, 100000];
-export const TRADE_DOCS = new Set(['trade', 'hawala', 'convert']);
+export const TRADE_DOCS = new Set(['trade', 'hawala', 'convert', 'writeoff', 'transform']);
+/** The expense a melter's or lab's fee on a ذوب و تبدیل document is booked under. */
+export const MELT_FEE_CATEGORY = 'ذوب و ری‌گیری';
+/** Gold in one coin, in grams of 750, from its official weight and fineness (shop products: their own card). */
+export function coinEq750(id) {
+  const c = COIN_TYPES[id];
+  need(c && c.weight > 0 && c.fineness > 0, 'وزن و عیار این سکه تعریف نشده است.');
+  return (c.weight * c.fineness) / 750;
+}
 
 const need = (c, m) => {
   if (!c) throw new BookError(m);
@@ -126,6 +134,8 @@ export function calcTrade(doc, { round = 10000 } = {}) {
   need(ROUND_STEPS.includes(step), 'گام گرد کردن نامعتبر است.');
   if (doc.type === 'hawala') return calcHawala(doc);
   if (doc.type === 'convert') return calcConvert(doc, step);
+  if (doc.type === 'writeoff') return calcWriteoff(doc);
+  if (doc.type === 'transform') return calcTransform(doc);
   const lines = (doc.lines ?? []).map((l, i) => {
     try {
       return tradeLine(l, { round: step });
@@ -198,6 +208,62 @@ function calcConvert(doc, step) {
 }
 
 /**
+ * سوخت یا بخشودگی مانده: part or all of one customer's balance in one unit is cleared. amount has the sign of the
+ * balance it clears: > 0 = the customer owed the shop (a loss), < 0 = the shop owed the customer (a gain). A sealed bar
+ * carries its card's 750-equivalent (eq750) so the trading result knows its gold.
+ */
+function calcWriteoff(doc) {
+  const w = doc.writeoff ?? {};
+  need(validUnit(w.unit), 'واحد مانده نامعتبر است.');
+  const amount = qty(w.unit, w.amount, 'مقدار');
+  const o = { unit: w.unit, amount };
+  if (w.unit === 'IRR') o.value = amount;
+  if (w.unit.startsWith('BAR:')) {
+    need(Math.abs(amount) === 1, 'هر شمش یک عدد است.');
+    if (num(w.eq750) > 0) o.eq750 = r3(num(w.eq750));
+  }
+  return { type: 'writeoff', lines: [], payments: [], writeoff: o, net: 0, paidIn: 0, paidOut: 0, credit: 0, sales: 0, tradeIn: 0, vat: 0, creditUnit: 'IRR', creditG: 0 };
+}
+
+/**
+ * ذوب و تبدیل جنس: what leaves the vault (dir out: melted gold, sealed bars, coins) and what comes back (dir in: melted
+ * gold, new sealed bars). wastage = 750-equivalent out − 750-equivalent in (> 0 a loss, < 0 a better assay). A coin's
+ * gold is its official weight × fineness. An optional fee (payments out, in rial) is the melter's or lab's.
+ */
+function calcTransform(doc) {
+  const lines = (doc.lines ?? []).map((l, i) => {
+    try {
+      const o = tradeLine({ ...l, priced: false });
+      need(o.kind !== 'fx', 'ارز ذوب نمی‌شود.');
+      if (o.dir === 'in') need(o.kind !== 'coin', 'از ذوب، آبشده یا شمش بیرون می‌آید، نه سکه.');
+      if (o.kind === 'coin') o.eq750 = r3(o.count * coinEq750(o.coin));
+      return o;
+    } catch (e) {
+      throw e instanceof BookError ? new BookError(`ردیف ${i + 1}: ${e.message}`) : e;
+    }
+  });
+  const inputs = r3(lines.filter((l) => l.dir === 'out').reduce((s, l) => s + l.eq750, 0));
+  const outputs = r3(lines.filter((l) => l.dir === 'in').reduce((s, l) => s + l.eq750, 0));
+  need(inputs > 0, 'آنچه به ذوب می‌رود (خروج از گاوصندوق) را وارد کنید.');
+  need(outputs > 0, 'آنچه از ذوب برمی‌گردد (ورود به گاوصندوق) را وارد کنید.');
+  // a melting neither doubles gold nor loses half of it: such a figure is a typing mistake
+  need(outputs >= inputs * 0.5 && outputs <= inputs * 1.5, 'اختلاف ورودی و خروجی ذوب بیش از نصف است؛ وزن و عیارها را بازبینی کنید.');
+  const payments = (doc.payments ?? []).map((p, i) => {
+    try {
+      const m = payMethod(p.method);
+      need(m && !['gold', 'coin', 'fx'].includes(m.id), 'اجرت ذوب را با وجه بپردازید.');
+      const x = calcPayment({ ...p, amount: num(p.amount) / 10 }, 'transform');
+      need(x.dir === 'out', 'در سند ذوب فقط اجرت پرداخت می‌شود.');
+      return x;
+    } catch (e) {
+      throw e instanceof BookError ? new BookError(`پرداخت ${i + 1}: ${e.message}`) : e;
+    }
+  });
+  const paidOut = payments.reduce((s, p) => s + p.value, 0);
+  return { type: 'transform', lines, payments, inputs, outputs, wastage: r3(inputs - outputs), fee: paidOut, net: 0, paidIn: 0, paidOut, credit: 0, sales: 0, tradeIn: 0, vat: 0, creditUnit: 'IRR', creditG: 0 };
+}
+
+/**
  * Postings of a base-edition document. Party + = the customer owes (money or goods); stock accounts are what the
  * shop physically holds: gold (grams of 750), coin:<type>, bar:<serial>, fx:<code>, cash:<id>, bank:<id>, chq:<id>.
  */
@@ -214,6 +280,25 @@ export function tradePostings(doc, calc) {
     add(party, calc.convert.unit, -calc.convert.amount);
     add(party, 'IRR', calc.net);
     return out;
+  }
+  if (calc.type === 'writeoff') {
+    // the customer's balance falls by what is cleared; «wo» keeps the same amount, so every write-off is summable
+    add(party, calc.writeoff.unit, -calc.writeoff.amount);
+    add('wo', calc.writeoff.unit, calc.writeoff.amount);
+    return out;
+  }
+  if (calc.type === 'transform') {
+    for (const l of calc.lines) add(l.stock, l.unit === 'G750' ? 'G750' : 'COUNT', (l.dir === 'in' ? 1 : -1) * l.amt);
+    for (const [i, p] of calc.payments.entries()) {
+      const src = doc.payments[i];
+      const m = payMethod(p.method);
+      if (m.acct === 'cash') add(`cash:${src.account || 'main'}`, 'IRR', -p.value);
+      else if (m.acct === 'bank') add(`bank:${src.account || 'main'}`, 'IRR', -p.value);
+      else if (m.acct === 'cheque') add(`chq:${src.chequeId || 'new'}`, 'IRR', -p.value);
+      else if (m.acct === 'party') add(party, 'IRR', -p.value); // owed to the melter
+      add(`exp:${MELT_FEE_CATEGORY}`, 'IRR', p.value);
+    }
+    return mergePostings(out);
   }
   for (const l of calc.lines) {
     const k = l.dir === 'in' ? 1 : -1;
@@ -232,6 +317,10 @@ export function tradePostings(doc, calc) {
     else if (m.acct === 'cheque') add(`chq:${src.chequeId || 'new'}`, 'IRR', k * p.value);
     else if (m.acct === 'party') add(party, 'IRR', k * p.value);
   }
+  return mergePostings(out);
+}
+/** One line per account and unit. */
+function mergePostings(out) {
   const m = new Map();
   for (const p of out) m.set(`${p.acct}|${p.unit}`, (m.get(`${p.acct}|${p.unit}`) ?? 0) + p.amt);
   return [...m].map(([key, amt]) => {
@@ -247,9 +336,93 @@ export function tradePostings(doc, calc) {
  * Unpriced moves change what the shop holds and owes equally, so they do not touch the position.
  */
 const rnd3 = (x) => Math.round(x * 1000) / 1000;
+const BOOK_DOCS = new Set(['sale', 'buy', 'return', 'receipt', 'payment', 'expense', 'income']);
+const goodsKey = (unit) => (unit === 'G750' ? 'G750' : /^(COIN|FX):/.test(unit) ? unit : null);
+const balanceKey = (b) => {
+  // a sealed bar is gold: its 750-equivalent joins the G750 position (when its card is known)
+  const bar = b.acct.startsWith('bar:') && b.weight ? rnd3((b.weight * (b.fineness ?? 995)) / 750) : 0;
+  if (b.acct === 'gold' || bar) return { key: 'G750', q: bar ? bar * Math.sign(b.amt) : b.amt };
+  if (b.acct.startsWith('coin:')) return { key: `COIN:${b.acct.slice(5)}`, q: b.amt };
+  if (b.acct.startsWith('fx:')) return { key: `FX:${b.acct.slice(3)}`, q: b.amt };
+  // what a customer owes in goods (or is owed) at the opening is part of what the shop owns
+  if (b.acct.startsWith('party:') && goodsKey(b.unit)) return { key: goodsKey(b.unit), q: b.amt };
+  return null;
+};
+
+/**
+ * What one final document does to the goods the shop owns (physical + owed to it − owed by it), in the order the
+ * trading result and the FIFO lots replay it. The one place that knows which documents move a position:
+ *   buy  — enters at a value (a purchase, gold or coins taken as payment, a gold credit);
+ *   sell — leaves at a value (a sale, gold or coins given as payment), realizing against cost;
+ *   lose — leaves at no value (a count shortage, a forgiven goods debt), a realized loss at cost;
+ *   book — an opening balance, at its cost, never realizing;
+ *   move — a melting: inputs leave at cost, outputs carry it on, wastage is a loss.
+ */
+export function movesOf(e) {
+  const c = e.calc ?? {};
+  const out = [];
+  if (e.type === 'trade') {
+    (c.lines ?? []).forEach((l, i) => {
+      if (!l.priced) return;
+      const gold = l.kind === 'melt' || l.kind === 'bar';
+      out.push({ op: l.dir === 'in' ? 'buy' : 'sell', key: gold ? 'G750' : l.unit, q: gold ? l.eq750 : l.amt, value: l.value - (l.fee ?? 0), line: i, kind: l.kind, serial: l.serial ?? null, weight: l.weight ?? null, fineness: l.fineness ?? null });
+    });
+  } else if (e.type === 'convert') {
+    const { unit, amount, value } = c.convert;
+    out.push({ op: amount > 0 ? 'sell' : 'buy', key: unit, q: Math.abs(amount), value });
+  } else if (e.type === 'writeoff') {
+    const { unit, amount, eq750 } = c.writeoff;
+    const key = unit.startsWith('BAR:') ? (eq750 ? 'G750' : null) : goodsKey(unit);
+    // a forgiven goods debt leaves at no value; goods the customer leaves us come in at no cost (a gain when sold)
+    if (key) out.push(amount > 0 ? { op: 'lose', key, q: unit.startsWith('BAR:') ? eq750 : amount } : { op: 'buy', key, q: unit.startsWith('BAR:') ? eq750 : -amount, value: 0 });
+  } else if (e.type === 'transform') {
+    const ins = (c.lines ?? []).filter((l) => l.dir === 'out').map((l) => ({ key: l.kind === 'coin' ? l.unit : 'G750', q: l.kind === 'coin' ? l.amt : l.eq750, eq750: l.eq750 }));
+    const outs = (c.lines ?? []).filter((l) => l.dir === 'in').map((l, i) => ({ key: 'G750', q: l.eq750, line: i, kind: l.kind, serial: l.serial ?? null, weight: l.weight ?? null, fineness: l.fineness ?? null }));
+    out.push({ op: 'move', inputs: ins, outputs: outs });
+  } else if (e.type === 'opening' || e.type === 'adjust') {
+    const rows = (e.data?.balances ?? []).map((b, i) => ({ b, i, k: balanceKey(b), party: b.acct.startsWith('party:') })).filter((x) => x.k && x.k.q);
+    // a customer's goods at the opening carry no price of their own: they are valued at the average cost of the same
+    // goods the shop holds in this opening, so grams owed either way neither add nor hide profit (spec 0026); they come
+    // after the shop's own rows, so what the shop owes is taken from lots that exist
+    const avg = {};
+    for (const { b, k, party } of rows) if (!party && b.cost && k.q > 0) (avg[k.key] ??= { q: 0, c: 0 }), (avg[k.key].q += k.q), (avg[k.key].c += b.cost);
+    for (const { b, i, k, party } of [...rows.filter((x) => !x.party), ...rows.filter((x) => x.party)]) {
+      if (e.type === 'opening') {
+        const cost = b.cost ?? (party && avg[k.key] ? rnd((k.q * avg[k.key].c) / avg[k.key].q) : 0);
+        out.push({ op: 'book', key: k.key, q: k.q, cost, line: i, serial: b.acct.startsWith('bar:') ? b.acct.slice(4) : null, weight: b.weight ?? null, fineness: b.fineness ?? null });
+      } else if (party) continue;
+      else if (k.q > 0) out.push({ op: 'buy', key: k.key, q: k.q, value: b.cost ?? 0, line: i, serial: b.acct.startsWith('bar:') ? b.acct.slice(4) : null });
+      // a shortage found by counting leaves at no price: its average cost is the loss of that day
+      else out.push({ op: 'lose', key: k.key, q: -k.q, line: i });
+    }
+  }
+  if (BOOK_DOCS.has(e.type)) {
+    for (const l of c.lines ?? []) {
+      const side = e.type === 'return' ? l.side === 'out' : l.side === 'in';
+      if (l.kind === 'melt' || l.kind === 'used') out.push({ op: side ? 'buy' : 'sell', key: 'G750', q: l.g750, value: l.total });
+      if (l.kind === 'coin') out.push({ op: side ? 'buy' : 'sell', key: `COIN:${l.coin}`, q: l.count, value: l.total });
+    }
+    // gold and coins taken or given as payment are bought or sold at the value the document gives them
+    for (const p of c.payments ?? []) {
+      if (p.method === 'gold' && p.g750) out.push({ op: p.dir === 'in' ? 'buy' : 'sell', key: 'G750', q: p.g750, value: p.value });
+      if (p.method === 'coin' && p.count) out.push({ op: p.dir === 'in' ? 'buy' : 'sell', key: `COIN:${p.coin}`, q: p.count, value: p.value });
+    }
+    // a balance left as gold (نسیه طلایی): the grams owed are bought, or the grams the shop owes are sold, at its value
+    if (c.creditUnit === 'G750' && c.credit && c.creditG) out.push({ op: c.credit > 0 ? 'buy' : 'sell', key: 'G750', q: Math.abs(c.creditG), value: Math.abs(c.credit) });
+  }
+  // an opening balance may be negative (goods the shop owes); every other move carries a positive quantity
+  return out.filter((m) => (m.op === 'move' ? true : m.op === 'book' ? m.q !== 0 : m.q > 0));
+}
+
 export function positionReport(events) {
   const P = {};
   const byDay = {};
+  const byDayKey = {}; // day → unit → realized: what روزنگار shows inside one section (spec 0027)
+  const realize = (date, key, v) => {
+    byDay[date] = (byDay[date] ?? 0) + v;
+    const d = (byDayKey[date] ??= {});
+    d[key] = (d[key] ?? 0) + v;
+  };
   const pos_ = (k) => (P[k] ??= { qty: 0, cost: 0, realized: 0, bought: 0, sold: 0 });
   const trade = (key, q, value, date, dir) => {
     const p = pos_(key);
@@ -278,40 +451,50 @@ export function positionReport(events) {
     }
     if (Math.abs(p.qty) < 1e-9) (p.qty = 0), (p.cost = 0);
     p.realized += realized;
-    byDay[date] = (byDay[date] ?? 0) + realized;
+    realize(date, key, realized);
   };
-  for (const e of events) {
-    const c = e.calc;
-    if (e.type === 'trade') {
-      for (const l of c.lines) {
-        if (!l.priced) continue;
-        const key = l.kind === 'melt' || l.kind === 'bar' ? 'G750' : l.unit;
-        const q = l.kind === 'melt' || l.kind === 'bar' ? l.eq750 : l.amt;
-        trade(key, q, l.value - (l.fee ?? 0), e.date, l.dir);
-      }
-    } else if (e.type === 'convert') {
-      const { unit, amount, value } = c.convert;
-      trade(unit, Math.abs(amount), value, e.date, amount > 0 ? 'out' : 'in');
-    } else if (['sale', 'buy', 'return'].includes(e.type)) {
-      for (const l of c.lines) {
-        if (l.kind === 'melt' || l.kind === 'used') trade('G750', l.g750, l.total, e.date, (e.type === 'return' ? l.side === 'out' : l.side === 'in') ? 'in' : 'out');
-        if (l.kind === 'coin') trade(`COIN:${l.coin}`, l.count, l.total, e.date, (e.type === 'return' ? l.side === 'out' : l.side === 'in') ? 'in' : 'out');
-      }
-    } else if (e.type === 'opening' || e.type === 'adjust') {
-      for (const b of e.data.balances ?? []) {
-        // a sealed bar is gold: its 750-equivalent joins the G750 position (when its card is known)
-        const bar = b.acct.startsWith('bar:') && b.weight ? rnd3((b.weight * (b.fineness ?? 995)) / 750) : 0;
-        const key = b.acct === 'gold' || bar ? 'G750' : b.acct.startsWith('coin:') ? `COIN:${b.acct.slice(5)}` : b.acct.startsWith('fx:') ? `FX:${b.acct.slice(3)}` : null;
-        if (!key) continue;
-        const q = bar ? bar * Math.sign(b.amt) : b.amt;
-        if (q > 0) trade(key, q, b.cost ?? 0, e.date, 'in');
-        // a shortage found by counting leaves at no price: its average cost is the loss of that day
-        else if (q < 0 && e.type === 'adjust') trade(key, -q, 0, e.date, 'out');
+  for (const e of events)
+    for (const m of movesOf(e)) {
+      if (m.op === 'buy') trade(m.key, m.q, m.value, e.date, 'in');
+      else if (m.op === 'sell') trade(m.key, m.q, m.value, e.date, 'out');
+      else if (m.op === 'lose') trade(m.key, m.q, 0, e.date, 'out');
+      else if (m.op === 'book') {
+        // an opening balance is a fact at a cost, not a trade: it never realizes, whatever the order of its rows
+        const p = pos_(m.key);
+        p.qty += m.q;
+        p.cost += m.cost;
+        if (m.q > 0) p.bought += m.q;
+        if (Math.abs(p.qty) < 1e-9) (p.qty = 0), (p.cost = 0);
+      } else if (m.op === 'move') {
+        // a melting: each input leaves at its average cost (nothing realized), the outputs carry that cost on; the
+        // part of the gold that did not come back (wastage) is a loss at cost on the day
+        let cost = 0, eqIn = 0;
+        for (const x of m.inputs) {
+          const p = pos_(x.key);
+          const own = Math.min(x.q, Math.max(0, p.qty));
+          const c = own > 0 ? (p.cost / p.qty) * own : 0;
+          p.cost -= c;
+          p.qty -= x.q;
+          if (Math.abs(p.qty) < 1e-9) (p.qty = 0), (p.cost = 0);
+          cost += c;
+          eqIn += x.eq750;
+        }
+        const eqOut = m.outputs.reduce((s, x) => s + x.q, 0);
+        const keep = eqIn > 0 ? Math.min(1, eqOut / eqIn) : 1;
+        for (const x of m.outputs) {
+          const p = pos_(x.key);
+          p.qty += x.q;
+          p.cost += eqOut > 0 ? (cost * keep * x.q) / eqOut : 0;
+        }
+        const loss = cost * (1 - keep);
+        if (loss) {
+          pos_('G750').realized -= loss;
+          realize(e.date, 'G750', -loss);
+        }
       }
     }
-  }
   for (const p of Object.values(P)) (p.cost = rnd(p.cost)), (p.realized = rnd(p.realized)), (p.qty = Math.round(p.qty * 1000) / 1000);
-  return { positions: P, byDay: Object.fromEntries(Object.entries(byDay).map(([d, v]) => [d, rnd(v)])) };
+  return { positions: P, byDay: Object.fromEntries(Object.entries(byDay).map(([d, v]) => [d, rnd(v)])), byDayKey: Object.fromEntries(Object.entries(byDayKey).map(([d, o]) => [d, Object.fromEntries(Object.entries(o).map(([k, v]) => [k, rnd(v)]))])) };
 }
 
 /* ---------------- bank reconciliation ---------------- */
