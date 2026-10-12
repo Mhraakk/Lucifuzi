@@ -27,9 +27,9 @@
   { "name": "تحلیل جامع امواج الیوت", "short_name": "الیوت", "url": "/books/elliott?source=pwa", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
  ],
  "screenshots": [
-  { "src": "/pwa/wide-elliott.jpg", "sizes": "1280x720", "type": "image/jpeg", "form_factor": "wide", "label": "تحلیل جامع امواج الیوت" },
-  { "src": "/pwa/wide-market.jpg", "sizes": "1280x720", "type": "image/jpeg", "form_factor": "wide", "label": "بازار طلا، سکه و ارز" },
-  { "src": "/pwa/narrow-desk.jpg", "sizes": "390x844", "type": "image/jpeg", "form_factor": "narrow", "label": "میز معامله روی گوشی" },
-  { "src": "/pwa/narrow-elliott.jpg", "sizes": "390x844", "type": "image/jpeg", "form_factor": "narrow", "label": "الیوت روی گوشی" }
+  { "src": "/pwa/wide-elliott.jpg", "sizes": "2560x1440", "type": "image/jpeg", "form_factor": "wide", "label": "تحلیل جامع امواج الیوت" },
+  { "src": "/pwa/wide-market.jpg", "sizes": "2560x1440", "type": "image/jpeg", "form_factor": "wide", "label": "بازار طلا، سکه و ارز" },
+  { "src": "/pwa/narrow-desk.jpg", "sizes": "1170x2532", "type": "image/jpeg", "form_factor": "narrow", "label": "میز معامله روی گوشی" },
+  { "src": "/pwa/narrow-elliott.jpg", "sizes": "1170x2532", "type": "image/jpeg", "form_factor": "narrow", "label": "الیوت روی گوشی" }
  ]
 }

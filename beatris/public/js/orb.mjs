@@ -3,6 +3,7 @@
 // gold ink and tone, a still frame under reduced motion, and no work while an orb is off screen or the tab is hidden.
 // Usage: put `orb('working')` in a template; any canvas[data-orb] in the page is picked up on its own.
 import { M as FRAMES, r as resolvePreset, p as paintFrame } from '../vendor/thinking-orbs/engine.mjs';
+import { canvasDensity } from './quality.mjs';
 
 /** The nine states, with what each one means here and its Persian label. */
 export const ORB_STATES = {
@@ -66,14 +67,14 @@ function readInk() {
 
 function prepare(c) {
   const size = Number(c.dataset.size) || 64;
-  const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
-  if (c.width !== size * dpr) {
-    c.width = size * dpr;
-    c.height = size * dpr;
+  const px = Math.round(size * canvasDensity(size, size)); // whole pixels, so the canvas is not resized every frame
+  if (c.width !== px) {
+    c.width = px;
+    c.height = px;
     c.style.width = c.style.height = `${size}px`;
   }
   const ctx = c.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(px / size, 0, 0, px / size, 0, 0);
   return { ctx, size };
 }
 

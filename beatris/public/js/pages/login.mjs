@@ -241,7 +241,7 @@ export async function loginPage(root) {
 async function coinArt(host) {
   try {
     const [{ createStage, T }, J, Mt] = await Promise.all([import('../three/stage.mjs'), import('../three/jewelry.mjs'), import('../three/materials.mjs')]);
-    const stage = createStage(host, { controls: false, transparent: true, env: 'studio' });
+    const stage = createStage(host, { controls: false, transparent: true, env: 'studio', hero: true });
     if (!stage) return null;
     const P = J.PIECES.coin;
     const meshes = await P.build({ ...Object.fromEntries(Object.entries(P.params).map(([k, v]) => [k, v[0]])), ...P.opts, design: 'rosette', relief: 0.5 });
@@ -254,12 +254,16 @@ async function coinArt(host) {
     stage.root.add(pivot);
     stage.setShadow(false);
     stage.frame(stage.root, { instant: true, pitch: 0.05, yaw: 0, pad: innerWidth < 900 ? 2.3 : 1.6 });
+    // asked for less motion: the coin rests at a three-quarter turn, and its still frame is drawn at the sharpest
     const t0 = performance.now();
-    const stop = stage.onTick((t) => {
-      const k = (t - t0) / 1000;
-      pivot.rotation.y = Math.sin(k * 0.45) * 0.9;
-      pivot.rotation.x = Math.sin(k * 0.3) * 0.12;
-    });
+    pivot.rotation.y = 0.45;
+    const stop = stage.quality.motion
+      ? stage.onTick((t) => {
+          const k = (t - t0) / 1000;
+          pivot.rotation.y = Math.sin(k * 0.45) * 0.9;
+          pivot.rotation.x = Math.sin(k * 0.3) * 0.12;
+        })
+      : () => {};
     return () => (stop(), stage.dispose());
   } catch {
     return null;

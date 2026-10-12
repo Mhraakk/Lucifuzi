@@ -1,5 +1,5 @@
 // Physically based materials for precious metals and gemstones.
-import { T } from './stage.mjs';
+import { T, maxAnisotropy } from './stage.mjs';
 
 /** Metal reflectance (linear F0) — measured-style values used in PBR jewellery work. */
 export const METALS = {
@@ -84,7 +84,7 @@ function proceduralNormal(kind) {
   tex.wrapS = tex.wrapT = T.RepeatWrapping;
   tex.generateMipmaps = true;
   tex.minFilter = T.LinearMipmapLinearFilter;
-  tex.anisotropy = 8;
+  tex.anisotropy = maxAnisotropy();
   tex.needsUpdate = true;
   cache.set(key, tex);
   return tex;

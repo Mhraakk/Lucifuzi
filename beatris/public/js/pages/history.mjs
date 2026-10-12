@@ -120,6 +120,9 @@ export async function historyPage(root) {
     const [{ createStage, T }, J, Mt] = await Promise.all([import('../three/stage.mjs'), import('../three/jewelry.mjs'), import('../three/materials.mjs')]);
     const stage = createStage(host, { controls: false, env: 'studio', transparent: true, backdrop: 'vault' });
     if (!stage) return;
+    // each picture as dense as the screen shows its slot (3:2, never under 900×600)
+    const H = Math.max(600, Math.round(($('[data-art="0"]', root)?.clientHeight || 300) * stage.quality.pixelRatio));
+    const W = Math.round(H * 1.5);
     for (let i = 0; i < ERAS.length && alive; i++) {
       const a = ERAS[i].art;
       const meshes = await artMeshes(a, { T, J, Mt });
@@ -130,7 +133,7 @@ export async function historyPage(root) {
       stage.root.add(g);
       stage.ground();
       stage.frame(stage.root, { instant: true, pitch: a.kind === 'gem' ? 0.55 : 0.25, yaw: 0.5, pad: 1.1 });
-      const { blob } = await stage.snapshot({ width: 900, height: 600, transparent: true });
+      const { blob } = await stage.snapshot({ width: W, height: H, transparent: true });
       const slot = $(`[data-art="${i}"]`, root);
       if (!slot || !alive) break;
       const img = new Image();

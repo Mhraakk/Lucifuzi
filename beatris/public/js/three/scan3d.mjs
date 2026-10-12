@@ -1,7 +1,7 @@
 // اسکن از عکس (spec 0009): the studio part «scan». Its data (opts.scan) is a JSON string written by the scan
 // wizard: either a relief scan (coin/plate height fields + photo textures) or a hull scan (coloured mesh).
 // Untrusted like any project file: every array is length-checked before use.
-import { T } from './stage.mjs';
+import { T, maxAnisotropy } from './stage.mjs';
 import { PIECES } from './jewelcad.mjs';
 import { reliefSolid } from '../photoscan.mjs';
 
@@ -61,7 +61,7 @@ function texture(url, srgb) {
           url,
           (t) => {
             t.colorSpace = srgb ? T.SRGBColorSpace : T.NoColorSpace;
-            t.anisotropy = 8;
+            t.anisotropy = maxAnisotropy();
             res(t);
           },
           undefined,

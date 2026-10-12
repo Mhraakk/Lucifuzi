@@ -3,6 +3,7 @@
 // sparkline charts for the analytics. Time runs left to right as on every market screen; labels are Persian.
 import { fmt } from './calc.mjs';
 import { jalaliOf, JALALI_MONTHS } from './ta.mjs';
+import { canvasDensity } from './quality.mjs';
 
 export const COLORS = { grid: 'rgba(255,240,200,0.07)', axis: 'rgba(255,240,200,0.16)', text: '#bfb193', dim: '#8a7f68', up: '#3fb27f', down: '#e0605e', gold: '#e3b862', cross: 'rgba(255,240,200,0.45)', tip: 'rgba(16,13,9,0.94)', tipLine: 'rgba(227,184,98,0.35)' };
 export const PALETTE = ['#e3b862', '#5aa9e6', '#b388eb', '#3fb27f', '#e0605e', '#f29e4c', '#8fd3c1', '#d9d2c3', '#ff7eb6', '#a0c15a'];
@@ -56,7 +57,7 @@ function ticks(lo, hi, target, log) {
 }
 
 function setupCanvas(cv, w, h) {
-  const dpr = Math.min(window.devicePixelRatio || 1, 3); // sharp on 4K and Retina screens
+  const dpr = canvasDensity(w, h); // the screen's own density, up to 4×, within the browser's canvas limit
   cv.width = Math.round(w * dpr);
   cv.height = Math.round(h * dpr);
   cv.style.width = `${w}px`;

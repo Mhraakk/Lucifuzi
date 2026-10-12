@@ -2116,6 +2116,49 @@ async function loginUI(page, phone = PHONE) {
   await ctx.close();
 }
 
+/* ======================================================= visual quality (spec 0025) */
+// The software GPU here would be the «standard» tier; the checks pin «high», as a support call can with ?quality=high.
+await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a supersampled still, dense charts', async () => {
+  const open = async (opts) => {
+    const ctx = await browser.newContext({ reducedMotion: 'reduce', ...opts });
+    ctx.setDefaultTimeout(process.env.CI ? 120000 : 30000);
+    await ctx.addInitScript(() => sessionStorage.setItem('beatris.quality', 'high'));
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(`[quality] ${page.url()} pageerror: ${e.message}`));
+    return { ctx, page };
+  };
+  const stage = (page) =>
+    page
+      .waitForFunction(() => {
+        const c = document.querySelector('canvas[data-quality]');
+        return c?.dataset.samples ? { tier: c.dataset.quality, samples: Number(c.dataset.samples), w: c.width, h: c.height, cw: c.clientWidth, ch: c.clientHeight } : null;
+      }, null, { timeout: 60000 })
+      .then((h) => h.jsonValue());
+  for (const [label, opts, k] of [
+    ['2× screen', { viewport: { width: 700, height: 900 }, deviceScaleFactor: 2 }, 2],
+    ['3× phone', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }, 3],
+  ]) {
+    const { ctx, page } = await open(opts);
+    await page.goto(base + '/login');
+    const c = await stage(page);
+    check(`quality ${label}: the login coin's canvas is ${k}× its CSS size`, c.tier === 'high' && c.w === Math.round(c.cw * k) && c.h === Math.round(c.ch * k), JSON.stringify(c));
+    check(`quality ${label}: MSAA samples are the GPU's own (2–4 here)`, c.samples >= 2 && c.samples <= 4, String(c.samples));
+    // reduced motion keeps the coin still; the still frame is drawn again at twice the density each way
+    const still = await page.waitForFunction(() => document.querySelector('canvas[data-quality]')?.dataset.scale === '2', null, { timeout: 120000 }).then(() => true, () => false);
+    check(`quality ${label}: the still coin is redrawn with 2×2 supersampling`, still);
+    await ctx.close();
+  }
+  const { ctx, page } = await open({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
+  await loginUI(page);
+  await go(page, '/market', 2500);
+  const charts = await page.$$eval('canvas', (cs) => cs.filter((c) => c.clientWidth > 0).map((c) => [c.width, c.clientWidth, c.height, c.clientHeight]));
+  check('quality: market charts are drawn at 2× their CSS size', charts.length >= 2 && charts.every(([w, cw, h, ch]) => w === Math.round(cw * 2) && h === Math.round(ch * 2)), JSON.stringify(charts.slice(0, 3)));
+  await go(page, '/books/elliott', 2500);
+  const ew = await page.$eval('.ew-cv', (c) => [c.width, c.clientWidth]);
+  check('quality: the Elliott chart is drawn at 2× its CSS size', ew[0] === Math.round(ew[1] * 2), JSON.stringify(ew));
+  await ctx.close();
+});
+
 await browser.close();
 if (server) {
   server.kill();

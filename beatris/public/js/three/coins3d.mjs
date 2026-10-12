@@ -2,7 +2,7 @@
 // height map painted on a canvas. Designs are stylised teaching replicas marked «نمونه آموزشی» —
 // they carry the features an inspector checks (rim, bead border, inscriptions, motif, reeded edge)
 // without reproducing any official die.
-import { T } from './stage.mjs';
+import { T, maxAnisotropy } from './stage.mjs';
 import { COIN_TYPES, SEAL_TYPES } from '../coins.mjs';
 
 const TAU = Math.PI * 2;
@@ -476,7 +476,7 @@ function cardTexture(pack, W, H) {
   }
   const tex = new T.CanvasTexture(cv);
   tex.colorSpace = T.SRGBColorSpace;
-  tex.anisotropy = 8;
+  tex.anisotropy = maxAnisotropy();
   return tex;
 }
 
@@ -625,7 +625,7 @@ export function loadImg(url) {
 }
 
 /** Load an image as a texture (decoded first, so a 4K texture never stalls a frame). */
-export async function photoTexture(url, { srgb = true, anisotropy = 8 } = {}) {
+export async function photoTexture(url, { srgb = true, anisotropy = maxAnisotropy() } = {}) {
   const tex = new T.Texture(await loadImg(url));
   tex.colorSpace = srgb ? T.SRGBColorSpace : T.NoColorSpace;
   tex.anisotropy = anisotropy;
@@ -671,7 +671,7 @@ export async function reliefSampler(url) {
  * Tangent-space normal map from a relief sampler, with slopes in true proportion to the modelled relief
  * (relief mm over pixel size mm), so light rakes across the photo's details exactly as across the mesh.
  */
-export function reliefNormalMap(rs, { reliefMM, diameterMM, anisotropy = 8 }) {
+export function reliefNormalMap(rs, { reliefMM, diameterMM, anisotropy = maxAnisotropy() }) {
   const n = rs.size, h = rs.data;
   const k = reliefMM / (2 * (diameterMM / n)); // central difference → slope
   const out = new Uint8Array(n * n * 4);
@@ -814,7 +814,7 @@ const altersRelief = (v, side) => !!(v.kind === 'wrongdie' || v.look?.soft || v.
  * spec = a specimen from coins.mjs (its kind and look alter the photo; its measured diameter shapes the mesh).
  * Returns { mesh, hi, hiGeometry(), upgrade(), dispose() }: 2K textures first, upgrade() swaps in 4K ones.
  */
-export async function photoCoin(item, spec, { quality = 1, anisotropy = 8 } = {}) {
+export async function photoCoin(item, spec, { quality = 1, anisotropy = maxAnisotropy() } = {}) {
   const v = { kind: spec.kind ?? 'genuine', look: spec.look ?? {}, seed: spec.seed ?? 1 };
   const sides = ['obv', 'rev'];
   const reliefs = await Promise.all(

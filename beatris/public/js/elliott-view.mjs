@@ -1,8 +1,9 @@
 // The Elliott studio's chart (spec 0003): a trading-terminal canvas — candles, Bollinger band, two EMAs, the wave
 // channel, Fibonacci levels with prices, support and target zones, two degrees of wave labels, the primary and
 // alternative scenario paths into the future, a live price tag, RSI and MACD panes, crosshair and OHLC readout.
-// Pan by dragging, zoom with the wheel or a pinch, double-click for the whole count. Sharp up to 3× pixel density.
+// Pan by dragging, zoom with the wheel or a pinch, double-click for the whole count. Sharp up to 4× pixel density.
 import { jalaliOf, JALALI_MONTHS } from './ta.mjs';
+import { canvasDensity } from './quality.mjs';
 
 const C = {
   bg: '#0a0f1c', pane: '#0c1322', grid: 'rgba(148,163,184,0.08)', axis: 'rgba(148,163,184,0.22)', text: '#cbd5e1', dim: '#8190a5',
@@ -36,7 +37,7 @@ export function createElliottView(host, { label = 'نمودار امواج ال�
     const r = host.getBoundingClientRect();
     W = Math.max(280, Math.floor(r.width));
     H = Math.max(320, Math.floor(r.height));
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const dpr = canvasDensity(W, H);
     cv.width = Math.round(W * dpr);
     cv.height = Math.round(H * dpr);
     cv.style.width = `${W}px`;

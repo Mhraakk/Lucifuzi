@@ -1,5 +1,6 @@
 // Minimal WebGL2 jewelry renderer: studio-lit metal, dispersive gem, velvet stage, orbit camera.
 import { bounds } from './geometry.mjs';
+import { canvasDensity } from '../quality.mjs';
 
 const VS = `#version 300 es
 layout(location=0) in vec3 aPos;
@@ -219,7 +220,7 @@ export function createViewer(container, opts = {}) {
   }
 
   function resize() {
-    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const dpr = canvasDensity(container.clientWidth, container.clientHeight);
     const w = Math.max(1, Math.round(container.clientWidth * dpr));
     const h = Math.max(1, Math.round(container.clientHeight * dpr));
     if (canvas.width !== w || canvas.height !== h) {

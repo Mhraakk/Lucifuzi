@@ -141,7 +141,7 @@ export async function homePage(root) {
   [, J, Mt] = mods;
   const host = $('#stage', root);
   if (!host) return;
-  stage = createStage(host, { controls: false, transparent: true, env: 'studio' });
+  stage = createStage(host, { controls: false, transparent: true, env: 'studio', hero: true });
   if (!stage) return;
   const P = J.PIECES.solitaire;
   meshes = await P.build({ ...Object.fromEntries(Object.entries(P.params).map(([k, v]) => [k, v[0]])), ...P.opts, setting: 'prong6' });
@@ -163,10 +163,14 @@ export async function homePage(root) {
   };
   place();
   addEventListener('resize', place);
+  // asked for less motion: the ring rests at an angle that shows the stone, drawn once at the sharpest
   const t0 = performance.now();
-  const stop = stage.onTick((t) => {
-    g.rotation.y = ((t - t0) / 1000) * 0.35;
-  });
+  g.rotation.y = 0.6;
+  const stop = stage.quality.motion
+    ? stage.onTick((t) => {
+        g.rotation.y = ((t - t0) / 1000) * 0.35;
+      })
+    : () => {};
   show('au18y');
   return () => {
     stop();

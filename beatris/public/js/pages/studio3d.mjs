@@ -1103,9 +1103,13 @@ export async function studioPage(root) {
   }
 
   function videoDialog() {
+    // square sizes this device can record smoothly; the largest is chosen first
+    const SIZES = [1080, 1440, 2160].filter((v) => v <= stage.quality.videoMax);
+    let px = SIZES.at(-1) ?? 1080;
     modal(
       String(html`<h3 style="font-family:var(--display);font-size:26px">ویدیوی چرخشی ۳۶۰°</h3><p class="small">مدل یک دور کامل می‌چرخد؛ مناسب اینستاگرام و ویترین آنلاین.</p>
       <div class="chips" style="margin:10px 0"><button class="chip" data-sec="4">۴ ثانیه</button><button class="chip" data-sec="6" aria-pressed="true">۶ ثانیه</button><button class="chip" data-sec="10">۱۰ ثانیه</button></div>
+      <div class="chips" style="margin:10px 0">${SIZES.map((v) => html`<button class="chip" data-px="${v}" aria-pressed="${v === px}">${fa(v)}×${fa(v)}</button>`)}</div>
       <div class="bar" style="margin:12px 0"><i id="vprog" style="width:0"></i></div>
       <div class="actions"><button class="btn small" data-rec>شروع ضبط</button></div>`),
       (m, close) => {
@@ -1116,12 +1120,17 @@ export async function studioPage(root) {
             sec = Number(s.dataset.sec);
             $$('[data-sec]', m).forEach((x) => x.setAttribute('aria-pressed', String(x === s)));
           }
+          const z = e.target.closest('[data-px]');
+          if (z) {
+            px = Number(z.dataset.px);
+            $$('[data-px]', m).forEach((x) => x.setAttribute('aria-pressed', String(x === z)));
+          }
           const rec = e.target.closest('[data-rec]');
           if (!rec) return;
           rec.classList.add('is-busy');
           try {
             tc.getHelper().visible = false;
-            const blob = await stage.turntable({ seconds: sec, onProgress: (k) => ($('#vprog', m).style.width = `${k * 100}%`) });
+            const blob = await stage.turntable({ seconds: sec, width: px, onProgress: (k) => ($('#vprog', m).style.width = `${k * 100}%`) });
             download(blob, `beatris-360.${blob.type.includes('mp4') ? 'mp4' : 'webm'}`);
             close();
           } catch (err) {
