@@ -27,9 +27,9 @@ export async function tracePage(root) {
     box.innerHTML = '<p class="small tc-hint">در حال جستجو…</p>';
     try {
       const r = await api(`/api/books/trace?q=${encodeURIComponent(q)}${sec !== 'all' ? `&sec=${sec}` : ''}`);
-      if (r.hint) return (box.innerHTML = String(html`<p class="notice">${r.hint}</p>`));
+      if (r.hint) return (box.innerHTML = String(html`<p class="notice">${r.hint} <a href="/books/find?q=${encodeURIComponent(q)}" data-link>یا با سرنخ‌یاب، با هر سرنخی بگردید ←</a></p>`));
       box.innerHTML = String(html`${r.parties?.length ? html`<section class="tray tc-parties"><h3 class="bk-h">مشتری</h3>${r.parties.map((p) => html`<a class="chip" href="/books/party/${p.id}" data-link>${p.label} · کد ${fa(p.code)}</a>`)}</section>` : ''}
-        ${r.items.length ? r.items.map((d, i) => card(d, i)) : r.parties?.length ? '' : html`<p class="notice">با «${q}» چیزی${sec !== 'all' ? ` در بخش ${SECTIONS.find(([k]) => k === sec)?.[1]}` : ''} پیدا نشد.${sec !== 'all' ? ' بخش «همه» را بزنید.' : ''}</p>`}`);
+        ${r.items.length ? r.items.map((d, i) => card(d, i)) : r.parties?.length ? '' : html`<p class="notice">با «${q}» کدی${sec !== 'all' ? ` در بخش ${SECTIONS.find(([k]) => k === sec)?.[1]}` : ''} پیدا نشد.${sec !== 'all' ? ' بخش «همه» را بزنید.' : ''} <a href="/books/find?q=${encodeURIComponent(q)}${sec !== 'all' ? `&sec=${sec}` : ''}" data-link>با سرنخ‌یاب در همه دفتر بگرد ←</a></p>`}`);
     } catch (e) {
       box.innerHTML = String(html`<p class="notice">${e.message}</p>`);
     }

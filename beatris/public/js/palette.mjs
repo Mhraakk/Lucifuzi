@@ -35,6 +35,7 @@ const COMMANDS = [
   ['گاوصندوق', '/books/vault', 'گاوصندوق موجودی طلا سکه شمش', 'کار روزانه', false],
   ['شمش‌ها', '/books/bars', 'شمش سریال پلمپ', 'کار روزانه', false],
   ['صندوق، بانک، چک', '/books/cash', 'صندوق بانک چک نقد', 'کار روزانه', false],
+  ['سرنخ‌یاب: پیدا کردن با هر سرنخ', '/books/find', 'سرنخ پیدا کردن جستجو گشتن نام عدد چک موبایل سریال تاریخ', 'کار روزانه', false],
   ['رهگیری سند', '/books/trace', 'رهگیری کد سند اصالت', 'کار روزانه', false],
   ['داشبورد مدیریت', '/books/dashboard', 'داشبورد مدیریت نمودار', 'گزارش', true],
   ['گزارش سود و زیان', '/books/reports?tab=pnl', 'سود زیان گزارش', 'گزارش', true],
@@ -54,7 +55,7 @@ function open(initial = '') {
   state = { q: initial, items: [], sel: 0, timer: null, seq: 0 };
   root = document.createElement('div');
   root.className = 'pal-back';
-  root.innerHTML = String(html`<div class="pal" role="dialog" aria-modal="true" aria-label="فرمان سریع"><div class="pal-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg><input id="palQ" placeholder="چند کلمه: نام مشتری، کد سند، «فروش امن»، «عیار»…" autocomplete="off" aria-label="جستجو" value="${initial}"><kbd>Esc</kbd></div><ul class="pal-list" id="palL" role="listbox"></ul><p class="pal-foot"><kbd>↑</kbd><kbd>↓</kbd> حرکت · <kbd>Enter</kbd> باز کردن · <kbd>Ctrl</kbd>+<kbd>K</kbd> هر جای برنامه</p></div>`);
+  root.innerHTML = String(html`<div class="pal" role="dialog" aria-modal="true" aria-label="فرمان سریع"><div class="pal-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg><input id="palQ" placeholder="هر سرنخ: تکه‌ای از نام، «آخرش ۷۸۰»، شماره چک، «دیروز سکه»، یا نام ابزار…" autocomplete="off" aria-label="جستجو" value="${initial}"><kbd>Esc</kbd></div><ul class="pal-list" id="palL" role="listbox"></ul><p class="pal-foot"><kbd>↑</kbd><kbd>↓</kbd> حرکت · <kbd>Enter</kbd> باز کردن · <kbd>Ctrl</kbd>+<kbd>K</kbd> هر جای برنامه</p></div>`);
   document.body.append(root);
   const input = root.querySelector('#palQ');
   input.focus();
@@ -138,13 +139,13 @@ function search(q) {
     }
   }, 180);
 }
-const KIND = { page: 'صفحه', party: 'مشتری', doc: 'سند', help: 'راهنما', event: 'رویداد' };
+const KIND = { page: 'صفحه', party: 'مشتری', doc: 'سند', help: 'راهنما', event: 'رویداد', find: 'سرنخ‌یاب' };
 function draw() {
   const ul = root?.querySelector('#palL');
   if (!ul) return;
   ul.innerHTML = state.items.length
     ? state.items.map((it, i) => String(html`<li role="option" data-i="${i}" class="${i === state.sel ? 'on' : ''}" aria-selected="${i === state.sel}"><em class="k-${it.kind}">${KIND[it.kind] ?? it.kind}</em><span><b>${it.title}</b>${it.sub ? html`<small>${it.sub}</small>` : ''}</span></li>`)).join('')
-    : String(html`<li class="pal-empty">چیزی پیدا نشد؛ نام مشتری، کد رهگیری (مثل M1405-00012) یا نام یک ابزار را بنویسید.</li>`);
+    : String(html`<li class="pal-empty">چیزی پیدا نشد؛ تکه‌ای از نام، یک عدد یا بخشی از آن، کد رهگیری، شماره چک یا موبایل، یا نام یک ابزار را بنویسید.</li>`);
 }
 
 let wired = false;

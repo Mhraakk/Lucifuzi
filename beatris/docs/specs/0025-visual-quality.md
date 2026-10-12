@@ -107,3 +107,48 @@ every frame.
   روزنگار, گاوصندوق, the P&L report and the events guide have no horizontal overflow.
 - **A chart picture** («ذخیره تصویر نمودار») is 7680 px wide: the chart is drawn again at that density, not enlarged,
   never above the browser's canvas area, then drawn back for the screen. e2e reads the PNG header: 7680 wide.
+
+## Amendment 2 — the films' recorder and one encoding
+§5 asked for true 1920×1080 frames and higher quality. Playwright's own recorder gave neither:
+- **It enlarged:** the browser's screencast only gives frames at the window's own pixel size. With the density
+  emulated, as §5 first did, that is the CSS size (1280×720), so the film would have been a 1280×720 picture
+  enlarged.
+- **It squeezed:** it encodes VP8 at 1 Mb/s.
+- **It re-encoded:** the old chain encoded each film four times (VP8, H.264 CRF 26, CRF 18, CRF 24).
+The new path:
+- **Real density:** the browser is launched at the chapter's real density (`--force-device-scale-factor`: 1.5 for
+  the desktop, 1080/390 for the phone) and window size, without emulation. The phone chapter keeps the mobile layout
+  rules and touch through the DevTools emulation, with the density left as it is.
+- **Smooth enough at 1.5×:** software drawing at 1920×1080 managed only 5–14 changing frames a second, against
+  15–22 for the old 720p recordings. Measured on the روزنگار page, frosted glass alone took a third of each frame. For
+  the recording only, three things change:
+  - the frosted bars (top bar, dock, dialogs) become solid at the same tint;
+  - the ambient glow's 46-second drift, which no one can see, is held still;
+  - caption words arrive without blur.
+  Motion then reaches 16–20 changing frames a second, on a par with the old films at 2.25 times the pixels. Nothing
+  else in the app changes.
+- **Recorder (`scripts/screencast.mjs`):** the screencast hands over every frame the browser draws, as JPEG 92.
+  - Each frame is held for as long as it stayed on screen and written at a constant 25 frames a second.
+  - The output is an H.264 CRF 12 master in `RAW` (visually lossless). It is encoded at the fastest preset and at a
+    lower priority, so the browser draws first.
+  - The first frame's size is checked. If the browser drew less than the full frame, the chapter stops with an
+    error, because a smaller frame would be an enlargement.
+- **Cards:** the canvas is drawn at the page's density (1.5×), saved as PNG and padded to the frame, never scaled.
+- **One encoding for the page:** the film is built from the master in a single pass:
+  - H.264 High profile, CRF 20 (desktop) or 22 (phone), preset slow, at the level the frame needs: 4.0 for
+    1920×1080 and 5.0 for 1080×2338;
+  - a VP9 copy at CRF 32;
+  - sound in AAC 192 kb/s and Opus 128 kb/s;
+  - a poster at JPEG quality 2.
+- **The comparison film** (`scripts/compare-video.mjs`, linked from the help page) is recorded the same way. It is
+  joined in one pass to 1920×1080 at the films' quality.
+  - Each live segment opens its page, and waits for the app to finish loading, before its recorder starts. So the
+    film never shows a loading spinner or an empty frame (2026-10-12).
+- **The help page names the exact codec:** `chapters.json` gives each chapter's `width`, `height` and `codec`
+  (`avc1.640028` or `avc1.640032`). The page puts that codec on its MP4 source, so a device that cannot play it takes
+  the VP9 copy.
+- **Acceptance:**
+  - `tests/tutorial.test.mjs` reads every chapter's MP4 header. The size and the H.264 profile and level must match
+    `chapters.json`: 1920×1080 for desktop chapters and 1080×2338 for the phone chapter. The WebM and the poster must
+    exist.
+  - e2e: the help page loads chapter 1 at 1920×1080 and chapter 12 at 1080×2338, with the codec on the source.

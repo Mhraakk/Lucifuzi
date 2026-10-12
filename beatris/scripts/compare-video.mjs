@@ -3,11 +3,12 @@
 // not stated there is marked «ذکر نشده», never «ندارد».
 //   FFMPEG=/path/to/ffmpeg node scripts/compare-video.mjs   → public/media/compare/beatris-vs-marquise.mp4 (+ .jpg)
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, mkdirSync, readdirSync, renameSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { smsLogin } from '../tests/helpers/login.mjs';
+import { recordPage, h264 } from './screencast.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public', 'media', 'compare');
@@ -140,9 +141,13 @@ const CAPTION = (text) => {
 };
 
 const TOKEN = await smsLogin(base, '09120000002'); // sign-in by SMS code (spec 0022); a demo server returns the code
-async function record(name, viewport, fn) {
-  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-  const ctx = await browser.newContext({ viewport, recordVideo: { dir: rawDir, size: viewport }, deviceScaleFactor: 1 });
+// Every segment is drawn at the real density (1.5× on the desktop: 1920×1080; the phone at 1080/390) and recorded
+// frame by frame by scripts/screencast.mjs, like the tutorial films (spec 0025, amendment 2): an emulated density
+// would be recorded at the CSS size and enlarged.
+async function record(name, viewport, fn, before = null) {
+  const phone = viewport.width < viewport.height, dsf = phone ? 1080 / viewport.width : 1.5;
+  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', `--force-device-scale-factor=${dsf}`, `--window-size=${viewport.width},${viewport.height}`] });
+  const ctx = await browser.newContext({ viewport: null });
   // signed in before the first frame: the clip opens on the page itself, not on the login screen
   await ctx.addInitScript((t) => {
     try {
@@ -150,29 +155,31 @@ async function record(name, viewport, fn) {
     } catch {}
   }, TOKEN);
   const p = await ctx.newPage();
+  if (phone) {
+    const cdp = await ctx.newCDPSession(p);
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: viewport.width, height: viewport.height, deviceScaleFactor: 0, mobile: true });
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  }
+  const frame = { width: Math.round(viewport.width * dsf), height: Math.round((viewport.height * dsf) / 2) * 2 };
+  const seg = path.join(rawDir, `seg-${name}.mp4`);
+  await p.setContent('<body style="margin:0;background:#101317">'); // the dark field, never a white blank page
+  // a live segment opens its page before the recorder starts: the film never shows the app loading
+  if (before) await before(p);
+  const stop = await recordPage(p, { ...frame, file: seg, ffmpeg: FFMPEG });
   await fn(p);
+  const took = await stop();
+  if (took.shot?.width !== frame.width) throw new Error(`${name}: drawn at ${took.shot?.width}×${took.shot?.height}, not ${frame.width}×${frame.height}`);
   await ctx.close();
   await browser.close();
-  const f = readdirSync(rawDir).filter((x) => x.endsWith('.webm') && !x.startsWith('seg-')).map((x) => path.join(rawDir, x))[0];
-  const seg = path.join(rawDir, `seg-${name}.webm`);
-  renameSync(f, seg);
   return seg;
 }
-const login = async (p) => {
-  await p.goto(base + '/login');
-  await p.fill('input[name=login]', '09120000002');
-  await p.fill('input[name=password]', '1234');
-  await p.click('button[type=submit]');
-  await p.waitForURL((u) => !u.pathname.startsWith('/login'));
-};
-
 const segs = [];
 const W = { width: 1280, height: 720 };
 segs.push(
   await record('slides', W, async (p) => {
     await p.setContent(slideHtml(`<span class="k">مقایسه همه‌جانبه</span><h1>بئاتریس در برابر نسخه پایه مارکیز</h1><p>حسابداری سکه، آبشده، شمش و ارز — یک‌دست، متصل و آنلاین</p>`));
     await p.waitForTimeout(4200);
-    await p.setContent(slideHtml(`<span class="k">روش</span><h2>مقایسه منصفانه</h2><p>اطلاعات مارکیز فقط از سایت رسمی و معرفی‌های عمومی (مهر ۱۴۰۵) است؛ نسخه آزمایشی مارکیز اجرا نشده. هر قابلیتی که در آن منابع نیامده «ذکر نشده» نوشته شده، نه «ندارد».</p><p>بئاتریس: نسخه زنده همین امروز، با آزمون خودکار ۳۶۰+ بررسی مرورگری.</p>`));
+    await p.setContent(slideHtml(`<span class="k">روش</span><h2>مقایسه منصفانه</h2><p>اطلاعات مارکیز فقط از سایت رسمی و معرفی‌های عمومی (مهر ۱۴۰۵) است؛ نسخه آزمایشی مارکیز اجرا نشده. هر قابلیتی که در آن منابع نیامده «ذکر نشده» نوشته شده، نه «ندارد».</p><p>بئاتریس: نسخه زنده همین امروز، با آزمون خودکار ۵۰۰+ بررسی مرورگری.</p>`));
     await p.waitForTimeout(6500);
     for (const s of SLIDES) {
       await p.setContent(slideHtml(`<h2>${esc(s.title)}</h2><table><thead><tr><th>موضوع</th><th>بئاتریس</th><th>مارکیز پایه</th><th>منبع / توضیح</th></tr></thead><tbody>${s.rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table><p class="foot">✓ دارد · ✕ ندارد · — در منابع عمومی ذکر نشده</p>`));
@@ -185,12 +192,16 @@ segs.push(
 for (const [i, [cap, url, act, vp]] of LIVE.entries()) {
   segs.push(
     await record(`live${i}`, vp ?? W, async (p) => {
-      await p.goto(base + url);
-      await p.waitForTimeout(1500);
+      await p.waitForTimeout(900);
       await p.evaluate(CAPTION, cap);
       if (act) await act(p);
       await p.evaluate(CAPTION, cap);
       await p.waitForTimeout(3800);
+    }, async (p) => {
+      await p.goto(base + url);
+      await p.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+      await p.waitForFunction(() => !document.querySelector('.boot, .spinner, [aria-busy=true]'), null, { timeout: 8000 }).catch(() => {});
+      await p.waitForTimeout(1200);
     }),
   );
 }
@@ -203,18 +214,14 @@ segs.push(
   }),
 );
 
-// join: every segment scaled to 1280×720 (the phone shot centred on a dark field), H.264
+// join: one pass from the masters to 1920×1080 (the phone shot scaled down to the frame's height, centred on a dark
+// field), H.264 at the films' quality
 const list = path.join(rawDir, 'list.txt');
-const norm = [];
-for (const [i, s] of segs.entries()) {
-  const o = path.join(rawDir, `n${i}.mp4`);
-  execFileSync(FFMPEG, ['-loglevel', 'error', '-y', '-i', s, '-vf', 'scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=0x101317,fps=25,format=yuv420p', '-c:v', 'libx264', '-preset', 'medium', '-crf', '24', '-an', o]);
-  norm.push(o);
-}
-writeFileSync(list, norm.map((n) => `file '${n}'`).join('\n'));
+writeFileSync(list, segs.map((n) => `file '${n}'`).join('\n'));
 const mp4 = path.join(OUT, 'beatris-vs-marquise.mp4');
-execFileSync(FFMPEG, ['-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', mp4]);
-execFileSync(FFMPEG, ['-loglevel', 'error', '-y', '-ss', '2', '-i', mp4, '-frames:v', '1', '-q:v', '3', path.join(OUT, 'beatris-vs-marquise.jpg')]);
+const FHD = { width: 1920, height: 1080 };
+execFileSync(FFMPEG, ['-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease:flags=lanczos,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x101317,fps=25,format=yuv420p', ...h264(FHD), '-an', '-movflags', '+faststart', mp4]);
+execFileSync(FFMPEG, ['-loglevel', 'error', '-y', '-ss', '2', '-i', mp4, '-frames:v', '1', '-q:v', '2', path.join(OUT, 'beatris-vs-marquise.jpg')]);
 server.kill();
 rmSync(dataDir, { recursive: true, force: true });
 rmSync(rawDir, { recursive: true, force: true });

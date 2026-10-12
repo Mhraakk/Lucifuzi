@@ -1,5 +1,5 @@
 {
- "made": "2026-10-11T11:54:57.042Z",
+ "made": "2026-10-12T14:01:35.939Z",
  "chapters": [
   {
    "n": 1,
@@ -16,9 +16,12 @@
    "file": "/media/tutorial/01.mp4",
    "webm": "/media/tutorial/01.webm",
    "poster": "/media/tutorial/01.jpg",
-   "seconds": 110,
+   "seconds": 146,
    "vertical": false,
-   "bytes": 5433314,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 12463422,
    "film": true
   },
   {
@@ -37,9 +40,12 @@
    "file": "/media/tutorial/02.mp4",
    "webm": "/media/tutorial/02.webm",
    "poster": "/media/tutorial/02.jpg",
-   "seconds": 128,
+   "seconds": 157,
    "vertical": false,
-   "bytes": 7143685,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 16394794,
    "film": true
   },
   {
@@ -58,9 +64,12 @@
    "file": "/media/tutorial/03.mp4",
    "webm": "/media/tutorial/03.webm",
    "poster": "/media/tutorial/03.jpg",
-   "seconds": 108,
+   "seconds": 81,
    "vertical": false,
-   "bytes": 5931415,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 10996794,
    "film": true
   },
   {
@@ -77,9 +86,12 @@
    "file": "/media/tutorial/04.mp4",
    "webm": "/media/tutorial/04.webm",
    "poster": "/media/tutorial/04.jpg",
-   "seconds": 92,
+   "seconds": 73,
    "vertical": false,
-   "bytes": 5099416,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 9175304,
    "film": true
   },
   {
@@ -96,9 +108,12 @@
    "file": "/media/tutorial/05.mp4",
    "webm": "/media/tutorial/05.webm",
    "poster": "/media/tutorial/05.jpg",
-   "seconds": 32,
+   "seconds": 35,
    "vertical": false,
-   "bytes": 2132438,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 4481418,
    "film": true
   },
   {
@@ -115,9 +130,12 @@
    "file": "/media/tutorial/06.mp4",
    "webm": "/media/tutorial/06.webm",
    "poster": "/media/tutorial/06.jpg",
-   "seconds": 44,
+   "seconds": 45,
    "vertical": false,
-   "bytes": 2460058,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 4880167,
    "film": true
   },
   {
@@ -134,9 +152,12 @@
    "file": "/media/tutorial/07.mp4",
    "webm": "/media/tutorial/07.webm",
    "poster": "/media/tutorial/07.jpg",
-   "seconds": 57,
+   "seconds": 59,
    "vertical": false,
-   "bytes": 3186324,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 6545944,
    "film": true
   },
   {
@@ -152,9 +173,12 @@
    "file": "/media/tutorial/08.mp4",
    "webm": "/media/tutorial/08.webm",
    "poster": "/media/tutorial/08.jpg",
-   "seconds": 25,
+   "seconds": 27,
    "vertical": false,
-   "bytes": 1570190,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 3203320,
    "film": true
   },
   {
@@ -171,9 +195,12 @@
    "file": "/media/tutorial/09.mp4",
    "webm": "/media/tutorial/09.webm",
    "poster": "/media/tutorial/09.jpg",
-   "seconds": 41,
+   "seconds": 38,
    "vertical": false,
-   "bytes": 2259759,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 4035404,
    "film": true
   },
   {
@@ -189,9 +216,12 @@
    "file": "/media/tutorial/10.mp4",
    "webm": "/media/tutorial/10.webm",
    "poster": "/media/tutorial/10.jpg",
-   "seconds": 45,
+   "seconds": 47,
    "vertical": false,
-   "bytes": 2439300,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 4980973,
    "film": true
   },
   {
@@ -207,9 +237,12 @@
    "file": "/media/tutorial/11.mp4",
    "webm": "/media/tutorial/11.webm",
    "poster": "/media/tutorial/11.jpg",
-   "seconds": 44,
+   "seconds": 46,
    "vertical": false,
-   "bytes": 2416002,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 4848940,
    "film": true
   },
   {
@@ -225,9 +258,12 @@
    "file": "/media/tutorial/12.mp4",
    "webm": "/media/tutorial/12.webm",
    "poster": "/media/tutorial/12.jpg",
-   "seconds": 90,
+   "seconds": 79,
    "vertical": true,
-   "bytes": 2807545,
+   "width": 1080,
+   "height": 2338,
+   "codec": "avc1.640032",
+   "bytes": 6260036,
    "film": true
   },
   {
@@ -246,9 +282,12 @@
    "file": "/media/tutorial/13.mp4",
    "webm": "/media/tutorial/13.webm",
    "poster": "/media/tutorial/13.jpg",
-   "seconds": 90,
+   "seconds": 89,
    "vertical": false,
-   "bytes": 4571867,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 8113942,
    "film": true
   },
   {
@@ -266,9 +305,12 @@
    "file": "/media/tutorial/14.mp4",
    "webm": "/media/tutorial/14.webm",
    "poster": "/media/tutorial/14.jpg",
-   "seconds": 55,
+   "seconds": 60,
    "vertical": false,
-   "bytes": 3306928,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 6830122,
    "film": true
   },
   {
@@ -286,9 +328,12 @@
    "file": "/media/tutorial/15.mp4",
    "webm": "/media/tutorial/15.webm",
    "poster": "/media/tutorial/15.jpg",
-   "seconds": 99,
+   "seconds": 104,
    "vertical": false,
-   "bytes": 5816630,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 11855541,
    "film": true
   },
   {
@@ -306,9 +351,12 @@
    "file": "/media/tutorial/16.mp4",
    "webm": "/media/tutorial/16.webm",
    "poster": "/media/tutorial/16.jpg",
-   "seconds": 67,
+   "seconds": 69,
    "vertical": false,
-   "bytes": 3861411,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 7571778,
    "film": true
   },
   {
@@ -326,9 +374,12 @@
    "file": "/media/tutorial/17.mp4",
    "webm": "/media/tutorial/17.webm",
    "poster": "/media/tutorial/17.jpg",
-   "seconds": 77,
+   "seconds": 81,
    "vertical": false,
-   "bytes": 4157594,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 8010705,
    "film": true
   },
   {
@@ -342,14 +393,18 @@
     "درجه بزرگ نارنجی: (I) تا (V) یا (A)(B)(C). درجه کوچک: ۱ تا ۵ آبی و A B C قرمز؛ فقط وقتی زیرموج‌ها خودشان قواعد را پاس کنند.",
     "سطوح فیبوناچی با قیمت، کانال موج، ناحیه حمایت یا مقاومت و ناحیه هدف جایگزین.",
     "سناریوی اصلی (سبز) و جایگزین (قرمز) با مسیر، هدف و احتمال؛ پایین صفحه جمله‌های هر سناریو و قیمت ابطال.",
-    "RSI و MACD زیر نمودار؛ کشیدن، چرخ ماوس و دوبار کلیک برای جابه‌جایی و بزرگ‌نمایی؛ دکمه «تصویر» برای ذخیره."
+    "RSI و MACD زیر نمودار؛ کشیدن، چرخ ماوس و دوبار کلیک برای جابه‌جایی و بزرگ‌نمایی؛ دکمه «تصویر» برای ذخیره.",
+    "زیر نمودار «دستگاه موج»: هر قاعده سخت الیوت یک ضامن است که با شکستن قرمز می‌شود. مثال‌ها را ببینید، لغزنده‌ها را بکشید یا «شمارش همین نمودار» را روی دستگاه بگذارید؛ داوری با همان موتور شمارش است."
    ],
    "file": "/media/tutorial/18.mp4",
    "webm": "/media/tutorial/18.webm",
    "poster": "/media/tutorial/18.jpg",
-   "seconds": 123,
+   "seconds": 184,
    "vertical": false,
-   "bytes": 7430784,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 19248396,
    "film": true
   },
   {
@@ -366,9 +421,12 @@
    "file": "/media/tutorial/19.mp4",
    "webm": "/media/tutorial/19.webm",
    "poster": "/media/tutorial/19.jpg",
-   "seconds": 60,
+   "seconds": 62,
    "vertical": false,
-   "bytes": 3068790,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 5637281,
    "film": true
   },
   {
@@ -386,9 +444,12 @@
    "file": "/media/tutorial/20.mp4",
    "webm": "/media/tutorial/20.webm",
    "poster": "/media/tutorial/20.jpg",
-   "seconds": 85,
+   "seconds": 88,
    "vertical": false,
-   "bytes": 4663449,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 9071448,
    "film": true
   },
   {
@@ -405,9 +466,12 @@
    "file": "/media/tutorial/21.mp4",
    "webm": "/media/tutorial/21.webm",
    "poster": "/media/tutorial/21.jpg",
-   "seconds": 86,
+   "seconds": 63,
    "vertical": false,
-   "bytes": 4404385,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 7413037,
    "film": true
   },
   {
@@ -425,9 +489,12 @@
    "file": "/media/tutorial/22.mp4",
    "webm": "/media/tutorial/22.webm",
    "poster": "/media/tutorial/22.jpg",
-   "seconds": 79,
+   "seconds": 58,
    "vertical": false,
-   "bytes": 3833056,
+   "width": 1920,
+   "height": 1080,
+   "codec": "avc1.640028",
+   "bytes": 5305838,
    "film": true
   }
  ]

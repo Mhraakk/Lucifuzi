@@ -1863,6 +1863,26 @@ async function loginUI(page, phone = PHONE) {
       // the guide: every event, a search, and its button opens the right screen
       await go(page, '/books/events', 1200);
       check('guide: every catalogued event is listed', (await page.$$('.ev-e')).length === 90, String((await page.$$('.ev-e')).length));
+      // the one-chain figure (spec 0028): drawn, moving, a section lights its links, tampering breaks the chain where it says
+      await page.waitForSelector('#evFig svg.iso-svg', { timeout: 15000 });
+      const drawn = await page.$eval('#evFig svg.iso-svg', (s) => s.querySelectorAll('path').length);
+      check('figure: the one-chain machine is drawn (300+ paths)', drawn >= 300, String(drawn));
+      const r1 = await text(page, '#evFig [data-readout]');
+      await page.waitForTimeout(4200);
+      const r2 = await text(page, '#evFig [data-readout]');
+      check('figure: the readout follows the tour', r1 !== r2 && /سند/.test(r2), `${r1} → ${r2}`);
+      await page.hover('#evFig .oc-key[data-sec="melt"]');
+      await page.waitForTimeout(150);
+      const lit = await page.$$eval('#evFig .oc-link .oc-plate[data-lit]', (xs) => xs.length);
+      check('figure: آبشده lights its four links and names itself', lit === 4 && /آبشده: ۴ سند/.test(await text(page, '#evFig [data-readout]')), `${lit} · ${await text(page, '#evFig [data-readout]')}`);
+      await page.mouse.move(5, 5);
+      await page.click('#evFig [data-act="tamper"]');
+      await page.waitForFunction(() => document.querySelectorAll('#evFig .oc-link[data-broken]').length > 0, null, { timeout: 5000 });
+      const broken = await page.$$eval('#evFig .oc-link[data-broken]', (xs) => xs.map((x) => x.dataset.link));
+      check('figure: tampering with link 4 breaks the chain from link 4, and says so', broken[0] === '4' && broken.length === 5 && /حلقه ۴ شکسته/.test(await text(page, '#evFig [data-readout]')), `${broken} · ${await text(page, '#evFig [data-readout]')}`);
+      await page.click('#evFig [data-act="mend"]');
+      await page.waitForFunction(() => !document.querySelector('#evFig .oc-link[data-broken]'), null, { timeout: 5000 });
+      check('figure: «درست کن» makes the chain whole', !(await page.$('#evFig .oc-link[data-broken]')));
       await page.fill('#evq', 'ذوب');
       const melts = (await page.$$('.ev-e')).length;
       check('guide: «ذوب» narrows to the melting events', melts >= 3 && melts < 20, String(melts));
@@ -1923,6 +1943,13 @@ async function loginUI(page, phone = PHONE) {
       await go(page, '/books/reports?tab=pnl', 2000);
       const pr = await text(page, '.pl-result');
       check('P&L: the net result lists income by category, the write-off and the net', /درآمد · کارمزد عیارسنجی و ری‌گیری/.test(pr) && /سوخت بدهی ریالی/.test(pr) && /نتیجه خالص/.test(pr) && !!(await page.$('#pl-net')) && noBadNumbers(pr), pr.slice(0, 200).replace(/\s+/g, ' '));
+      // the vault at a laptop's width, with bars, currencies and coins in it: nothing slides sideways (found by the
+      // hundred rounds, spec 0029: the cash and bank table was wider than its column at 1280–1366 px)
+      const vp = page.viewportSize();
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await go(page, '/books/vault', 1500);
+      check('vault at 1280 px: no sideways scroll', (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
+      await page.setViewportSize(vp);
       // the documents page offers every kind; the palette finds an event by its story
       await go(page, '/books/docs', 1200);
       check('documents: «ثبت تازه» offers melting, the count and the guide', !!(await page.$('.bk-newdocs a[href="/books/vault?act=melt"]')) && !!(await page.$('.bk-newdocs a[href="/books/events"]')));
@@ -1932,6 +1959,43 @@ async function loginUI(page, phone = PHONE) {
       await page.waitForTimeout(300);
       check('palette: «چک برگشت» finds the event and where to record it', /چک برگشت خورد/.test(await text(page, '#palL')), (await text(page, '#palL')).slice(0, 160));
       await page.keyboard.press('Escape');
+    });
+
+  if (!live)
+    await step('سرنخ‌یاب (spec 0032): a name fragment and an amount tail find the trade; Ctrl+K and روزنگار reach the same engine', async () => {
+      const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);
+      const party = await auth('/api/books/parties', { method: 'POST', body: JSON.stringify({ name: 'کامران سرنخی', mobile: '09127654321', city: 'یزد' }) });
+      const bankId = (await auth('/api/books/accounts')).items.find((a) => a.kind === 'bank').id;
+      const doc = await auth('/api/books/docs', { method: 'POST', body: JSON.stringify({ type: 'trade', partyId: party.id, lines: [{ kind: 'coin', dir: 'out', coin: 'emami', count: 1, price: 987650000 }], payments: [{ method: 'c2c', dir: 'in', amount: 987650000, account: bankId, card: '6543', ref: '5550123' }] }) });
+      check('clue finder: the trade to find is saved', !!doc.track, JSON.stringify(doc).slice(0, 160));
+      await go(page, `/books/find?q=${encodeURIComponent('کامر آخرش ۶۵۰')}`, 600);
+      await page.waitForSelector('.cf-doc', { timeout: 15000 });
+      const clues = await text(page, '.cf-clues');
+      check('clue finder: it shows how each clue was read', /کامر/.test(clues) && /ختم به/.test(clues), clues.slice(0, 160));
+      check('clue finder: a name fragment and the amount’s tail find the trade first', (await page.$eval('.cf-doc', (a) => a.dataset.doc)) === doc.id && /همه سرنخ‌ها/.test(await text(page, '.cf-docs .bk-h')));
+      check('clue finder: the customer is listed with why', /کامران سرنخی/.test(await text(page, '.cf-people')) && /ابتدای کلمه/.test(await text(page, '.cf-people')));
+      // a detail remembered wrong: the closest document is still listed, with the clue it misses
+      await page.fill('#cfQ', 'پریروز کامران چک');
+      await page.waitForSelector('.cf-near .cf-doc', { timeout: 8000 });
+      check('clue finder: «نزدیک‌ترین‌ها» names the missed clues', /بدون:/.test(await text(page, '.cf-near')));
+      // Ctrl+K from anywhere: people and documents from the same engine, and the way to the whole list
+      await go(page, '/books/desk', 800);
+      await page.keyboard.press('Control+k');
+      await page.waitForSelector('#palQ');
+      await page.keyboard.type('۴۳۲۱ ۷۶۵');
+      await page.waitForTimeout(900);
+      await page.fill('#palQ', '۶۵۴۳۲۱');
+      await page.waitForFunction(() => /سرنخ‌یاب/.test(document.querySelector('#palL')?.textContent ?? ''), null, { timeout: 8000 });
+      const pal = await text(page, '#palL');
+      check('palette: a mobile’s last digits find the customer, and offer سرنخ‌یاب', /کامران سرنخی/.test(pal) && /همه نتیجه‌ها در سرنخ‌یاب/.test(pal), pal.slice(0, 200));
+      await page.keyboard.press('Escape');
+      // روزنگار and رهگیری hand a word they cannot place to سرنخ‌یاب
+      await go(page, '/books/day', 900);
+      await page.fill('#dyq', 'کامران');
+      await page.waitForSelector('#dyall:not([hidden]) a[href^="/books/find"]', { timeout: 5000 });
+      check('روزنگار: a word offers the whole book in سرنخ‌یاب', true);
+      await go(page, `/books/trace?q=${encodeURIComponent('کامران سرنخی')}`, 1200);
+      check('رهگیری: a name that is no code points to سرنخ‌یاب', !!(await page.$('#tr a[href^="/books/find"]')));
     });
 
   if (!live)
@@ -2189,6 +2253,35 @@ async function loginUI(page, phone = PHONE) {
     check('elliott: header price card', (await text(page, '#ewStats')).includes('قیمت فعلی'));
     check('elliott: five corrective patterns and the Fibonacci table', (await page.$$('.ew-pats figure')).length === 5 && (await page.$$('.ew-fib tr')).length >= 6);
     check('elliott: rules of the count listed', (await page.$$('.ew-notes li')).length >= 1);
+    // spec 0030: the wave rig under the chart, judged by the studio's own engine
+    await page.waitForSelector('#ewRig .wv-svg', { timeout: 15000 });
+    const rigOut = () => text(page, '#ewRig [data-readout]');
+    check('elliott rig: drawn under the chart (six sliders, three stops)', (await page.$$('#ewRig .wv-slider')).length === 6 && (await page.$$('#ewRig .wv-stop')).length === 3);
+    await page.click('#ewRig [data-ex="valid"]');
+    await page.waitForTimeout(1300);
+    check('elliott rig: the textbook count holds every rule and scores 100', /قواعد ۴ از ۴، امتیاز ۱۰۰/.test(await rigOut()) && !(await page.$('#ewRig [data-bad]')), await rigOut());
+    await page.click('#ewRig [data-ex="deep2"]');
+    await page.waitForTimeout(1300);
+    check('elliott rig: «موج ۲ عمیق» lights the stop on rail 2 and names wave 2', !!(await page.$('#ewRig .wv-stop[data-rule="w2"][data-bad]')) && !(await page.$('#ewRig .wv-stop[data-rule="w4"][data-bad]')) && (await rigOut()).includes('شکسته: موج ۲'), await rigOut());
+    await page.click('#ewRig [data-ex="short3"]');
+    await page.waitForTimeout(1300);
+    check('elliott rig: «موج ۳ کوتاه» turns the wave-3 rod red and no stop', !!(await page.$('#ewRig .wv-rodg[data-n="1"][data-bad]')) && !(await page.$('#ewRig .wv-stop[data-bad]')), await rigOut());
+    // a drag: the slider on rail 4 pulled down into wave 1's range lights the wave-4 stop, live
+    await page.click('#ewRig [data-ex="valid"]');
+    await page.waitForTimeout(1300);
+    await page.locator('#ewRig').scrollIntoViewIfNeeded();
+    const s4 = await page.locator('#ewRig .wv-slider[data-rail="4"] .wv-block').boundingBox();
+    const rigBox = await page.locator('#ewRig .wv-svg').boundingBox();
+    await page.mouse.move(s4.x + s4.width / 2, s4.y + s4.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(s4.x + s4.width / 2, s4.y + s4.height / 2 + rigBox.height * 0.22, { steps: 8 });
+    const dragging = await rigOut();
+    await page.mouse.up();
+    check('elliott rig: dragging P4 into wave 1 lights the wave-4 stop', !!(await page.$('#ewRig .wv-stop[data-rule="w4"][data-bad]')) && /^نقطه ۴ = /.test(dragging) && dragging.includes('شکسته: موج ۴'), dragging);
+    await page.click('#ewRig [data-act="studio"]');
+    await page.waitForTimeout(1300);
+    const fromChart = await rigOut();
+    check("elliott rig: «شمارش همین نمودار» takes the studio's impulse or says why not", fromChart.startsWith('شمارش همین نمودار') || /پنج موج کامل نیست|شمارش معتبری ندارد/.test(fromChart), fromChart.slice(0, 160));
     await page.click('[data-tf=W]');
     await page.waitForTimeout(1200);
     check('elliott: weekly bars from the daily series', (await text(page, '#ewSub')).includes('1W'));
@@ -2207,6 +2300,62 @@ async function loginUI(page, phone = PHONE) {
   });
 
   if (!live) {
+    // the full-feature pass (2026-10-12): the four pages no other step opened
+    await step('pages no other step opens: a document corrected in its own editor, a shared statement answered, an SOP acknowledged, the agents page', async () => {
+      const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);
+      const cash = (await auth('/api/books/accounts')).items.find((a) => a.kind === 'cash');
+      // 1) /books/doc/:id/edit — a final expense corrected from its own form: a new document replaces it, both stay
+      const orig = await auth('/api/books/docs', { method: 'POST', body: JSON.stringify({ type: 'expense', category: 'سایر', note: 'قبض آب گذرگاه', payments: [{ method: 'cash', dir: 'out', amount: 4500000, account: cash.id }] }) });
+      await go(page, `/books/doc/${orig.id}/edit`, 1500);
+      check('doc editor: a final document opens in its form with a required reason', !!(await page.$('[name=reason]')) && /اصلاحیه/.test(await text(page, '[data-act=save]')), await text(page, '[data-act=save]'));
+      await page.fill('[name=note]', 'قبض آب گذرگاه، شماره اشتراک درست');
+      await page.click('[data-act=save]');
+      await page.waitForTimeout(500);
+      check('doc editor: no reason, no correction', page.url().includes(`/books/doc/${orig.id}/edit`));
+      await page.fill('[name=reason]', 'شماره اشتراک جا افتاده بود');
+      await page.click('[data-act=save]');
+      await page.waitForURL((u) => /^\/books\/doc\/[^/]+$/.test(u.pathname) && !u.pathname.endsWith(orig.id), { timeout: 15000 });
+      const newId = new URL(page.url()).pathname.split('/').pop();
+      const [v2, v1] = await Promise.all([auth(`/api/books/docs/${newId}`), auth(`/api/books/docs/${orig.id}`)]);
+      check('doc editor: the correction is a new document that amends the original; the original is void, not changed', v2.amends === orig.id && v2.note === 'قبض آب گذرگاه، شماره اشتراک درست' && v1.status === 'void' && v1.note === 'قبض آب گذرگاه', `${v2.amends} ${v1.status}`);
+      // 2) /s/:token — the customer's own statement, opened without signing in, answered from the page
+      const pt = await auth('/api/books/parties', { method: 'POST', body: JSON.stringify({ name: 'پریا برگه‌دار', mobile: '09125556677' }) });
+      await auth('/api/books/docs', { method: 'POST', body: JSON.stringify({ type: 'payment', partyId: pt.id, payments: [{ method: 'cash', dir: 'out', amount: 20000000, account: cash.id }] }) });
+      const share = await auth(`/api/books/parties/${pt.id}/share`, { method: 'POST', body: JSON.stringify({ days: 3 }) });
+      const guest = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      const gp = await guest.newPage();
+      gp.on('pageerror', (e) => errors.push(`[guest] ${gp.url()} pageerror: ${e.message}`));
+      let wrongLink = false; // the deliberately wrong link below answers 404, and the browser logs that request
+      gp.on('console', (m) => m.type() === 'error' && !/favicon/.test(m.text()) && !(wrongLink && /status of 404/.test(m.text())) && errors.push(`[guest] ${gp.url()} console: ${m.text().slice(0, 240)}`));
+      await gp.goto(base + share.path);
+      await gp.waitForSelector('.st-card h1', { timeout: 15000 });
+      const sheet = await gp.$eval('.st-card', (e) => e.innerText);
+      check('shared statement: the customer sees their name and what they owe, signed out', sheet.includes('پریا برگه‌دار') && /بدهکار|بدهی/.test(sheet) && /[۰-۹]/.test(sheet) && noBadNumbers(sheet), sheet.replace(/\s+/g, ' ').slice(0, 160));
+      await gp.click('#stf button[value=agree]');
+      await gp.waitForSelector('.st-done.agree', { timeout: 10000 });
+      const shares = await auth(`/api/books/parties/${pt.id}/shares`);
+      check('shared statement: «تأیید» from the page reaches the shop', shares.items?.[0]?.answer === 'agree', JSON.stringify(shares.items?.[0] ?? {}).slice(0, 160));
+      wrongLink = true;
+      await gp.goto(base + '/s/not-a-real-token');
+      await gp.waitForSelector('.st-card h1', { timeout: 15000 });
+      check('shared statement: a wrong link says so and shows nothing', /در دسترس نیست/.test(await gp.$eval('.st-card', (e) => e.innerText)));
+      await guest.close();
+      // 3) /sop/:id — a procedure read and acknowledged; it says so after a reload
+      await go(page, '/sop/sop-open', 1200);
+      const ackBtn = await page.$('[data-act=ack]');
+      if (ackBtn) {
+        await ackBtn.click();
+        await page.waitForFunction(() => /تأیید ثبت شد/.test(document.querySelector('#main')?.innerText ?? ''), null, { timeout: 8000 });
+      }
+      await go(page, '/sop/sop-open', 1200);
+      const sop = await auth('/api/sops/sop-open');
+      check('SOP: acknowledged at its own version, and the page says so', sop.ack?.version === sop.sop.version && /تأیید کرده‌اید/.test(await text(page, '#main')) && !(await page.$('[data-act=ack]')), `v${sop.ack?.version}/${sop.sop.version}`);
+      // 4) /agents — the registry, the tools and the recent runs
+      await go(page, '/agents', 1500);
+      const rows = await page.$$eval('.at-journal tbody tr', (r) => r.length);
+      check('agents page: the registry lists the agents with their tools', /عامل‌ها/.test(await text(page, '.at-head h1')) && rows >= 2, `${rows} rows`);
+    });
+
     await step('PWA: service worker + offline shell', async () => {
       await go(page, '/', 2000);
       await page.evaluate(() => navigator.serviceWorker.ready);
@@ -2230,13 +2379,24 @@ async function loginUI(page, phone = PHONE) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott']) {
+    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/find', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       // name the widest offender so a failure is actionable
       const wide = overflow > 1 ? await page.evaluate(() => [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().left < -1 || e.getBoundingClientRect().right > innerWidth + 1).slice(-3).map((e) => `${e.tagName.toLowerCase()}.${[...e.classList].join('.')}`).join(' ')) : '';
       check(`mobile ${p}: no horizontal overflow`, overflow <= 1, `${overflow}px ${wide}`);
     }
+    // the top bar's search button: the same search on a phone, with no keyboard shortcut
+    await go(page, '/books/desk', 1200);
+    await page.click('#palBtn');
+    check('mobile: the search button opens the clue search', !!(await page.waitForSelector('#palQ', { timeout: 5000 }).catch(() => null)));
+    await page.keyboard.press('Escape');
+    // the wave rig on a phone: whole, inside the page, with sliders a finger can take
+    await go(page, '/books/elliott', 2500);
+    await page.waitForSelector('#ewRig .wv-svg', { timeout: 15000 });
+    const hit = await page.$$eval('#ewRig .wv-hit', (hs) => hs.map((h) => { const r = h.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }));
+    check('mobile elliott rig: six sliders, each a touch target of at least 24 px', hit.length === 6 && hit.every(([w, h]) => w >= 24 && h >= 24), JSON.stringify(hit));
+    check('mobile elliott rig: no horizontal overflow', (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
     await go(page, '/studio', 6000);
     check('mobile studio: bottom sheet collapsed', !(await page.$eval('#panel', (p) => p.classList.contains('open'))));
     await page.click('[data-sheet]');
@@ -2321,6 +2481,32 @@ await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a sup
     const ov = await k8.page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     check(`8K ${p}: no horizontal overflow`, ov <= 1, `${ov}px`);
   }
+  // the films (amendment 2): full HD, the phone chapter standing at 1080×2338, the exact H.264 named on the source
+  // (a browser without H.264 plays the VP9 copy: the same size)
+  const film = (nn) =>
+    k8.page
+      .waitForFunction((n) => {
+        const v = document.querySelector('#hpVideo');
+        return v?.currentSrc.includes(`/${n}.`) && v.videoWidth ? { w: v.videoWidth, h: v.videoHeight, type: document.querySelector('#hpMp4').type } : null;
+      }, nn, { timeout: 30000 })
+      .then((h) => h.jsonValue(), () => ({}));
+  await go(k8.page, '/help?ch=1', 1500);
+  const f1 = await film('01');
+  check('films: chapter 1 is 1920×1080, its source names H.264 High level 4.0', f1.w === 1920 && f1.h === 1080 && f1.type?.includes('avc1.640028'), JSON.stringify(f1));
+  await k8.page.click('#hpList [data-ch="12"]');
+  const f12 = await film('12');
+  check('films: the phone chapter is 1080×2338 standing, its source names level 5.0', f12.w === 1080 && f12.h === 2338 && f12.type?.includes('avc1.640032'), JSON.stringify(f12));
+  // the anatomy teaser (spec 0031) above the chapters: its file answers as a video, its picture is full HD
+  check('teaser: the help centre lists «کالبد یک دفتر طلا»', /کالبد یک دفتر طلا/.test(await text(k8.page, '#hpTeaser summary')));
+  const tz = await k8.page.evaluate(async () => {
+    const r = await fetch('/media/promo/beatris-anatomy.mp4', { method: 'HEAD' });
+    const v = document.querySelector('#hpTeaserV');
+    v.preload = 'metadata';
+    v.load();
+    await new Promise((ok) => (v.readyState >= 1 ? ok() : v.addEventListener('loadedmetadata', ok, { once: true })));
+    return { ok: r.ok, type: r.headers.get('content-type'), w: v.videoWidth, h: v.videoHeight, d: Math.round(v.duration) };
+  });
+  check('teaser: the film is a 30 s full-HD video/mp4', tz.ok && /video\/mp4/.test(tz.type ?? '') && tz.w === 1920 && tz.h === 1080 && tz.d === 30, JSON.stringify(tz));
   await k8.ctx.close();
 });
 

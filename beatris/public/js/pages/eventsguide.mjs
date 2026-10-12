@@ -16,6 +16,7 @@ export async function eventsPage(root) {
   let g = EVENT_GROUPS.some(([k]) => k === qs.get('g')) ? qs.get('g') : 'all';
   root.innerHTML = String(html`${booksNav('events')}
     <div class="bk-head"><div><h1>هر اتفاق، کجا ثبت می‌شود</h1><span class="small">${fa(EVENTS.length)} رویداد یک فروشگاه آبشده و سکه، از هر روز تا بسیار نادر؛ هر کدام با راه دقیق ثبت و دکمه همان صفحه. همه در یک زنجیره: یک شماره‌گذاری، یک دفتر رویداد، یک روزنگار.</span></div></div>
+    <div id="evFig" class="ev-fig"></div>
     <div class="ev-tools"><input class="input" id="evq" type="search" value="${qs.get('q') ?? ''}" placeholder="بنویسید چه شد: «چک برگشت»، «ذوب»، «اجاره با سکه»، «گرو»…" aria-label="جستجوی رویداد">
       <nav class="chips" id="evg" aria-label="گروه">${[['all', 'همه'], ...EVENT_GROUPS].map(([k, l]) => html`<button class="chip" data-g="${k}" aria-pressed="${g === k}">${l}</button>`)}</nav></div>
     <div id="evl" class="ev-list"></div>`);
@@ -42,4 +43,16 @@ export async function eventsPage(root) {
   });
   draw();
   if (location.hash) $(location.hash, root)?.scrollIntoView({ block: 'center' });
+  // the one-chain figure (spec 0028): drawn after the list, so the search box never waits for it
+  let fig = null, gone = false;
+  setTimeout(() => import('../figures/onechain.mjs').then(async (m) => {
+    const box = $('#evFig', root);
+    if (gone || !box) return;
+    fig = await m.mountOneChain(box);
+    if (gone) fig.stop();
+  }).catch(() => {}), 0);
+  return () => {
+    gone = true;
+    fig?.stop();
+  };
 }

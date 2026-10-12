@@ -857,20 +857,18 @@ export function makeControl({ db, on, call, core, auditShared = null, settings, 
 
   /* ------------------------------------------------------------------ فرمان سریع */
   on('GET', '/api/books/control/find', 'auth', ({ user, url }) => {
-    const q = String(url.searchParams.get('q') ?? '').trim().slice(0, 80);
+    const q = String(url.searchParams.get('q') ?? '').trim().slice(0, 160);
     if (q.length < 2) return { items: [] };
     const items = [];
+    // people and documents come from سرنخ‌یاب (spec 0032), the same engine as /books/find
     try {
-      for (const p of call('GET', '/api/books/parties', user, { query: { q } }).items.slice(0, 5)) items.push({ kind: 'party', title: p.label, sub: `کد ${fa(p.code)}${p.balance?.IRR ? ` · ${R(Math.abs(p.balance.IRR))} ${p.balance.IRR > 0 ? 'بدهکار' : 'بستانکار'}` : ''}`, href: `/books/party/${p.id}` });
+      const why = (w) => w.map((x) => `«${x.said}» ← ${x.field}${x.value ? `: ${x.value}` : ''}`).join(' · ');
+      const r = call('GET', '/api/books/find', user, { query: { q, limit: '5' } });
+      for (const p of r.people.slice(0, 3)) items.push({ kind: 'party', title: p.label, sub: `کد ${fa(p.code)} · ${why(p.why)}`, href: `/books/party/${p.id}` });
+      for (const d of r.items.slice(0, 5)) items.push({ kind: 'doc', title: `${d.track} ${d.typeLabel}`, sub: `${jd(d.date)}${d.party ? ` · ${d.party.label}` : ''} · ${why(d.why)}${d.matched < d.of ? ` · بدون «${d.missing.join('»، «')}»` : ''}`, href: `/books/doc/${d.id}` });
+      if (r.total || r.people.length) items.push({ kind: 'find', title: `همه نتیجه‌ها در سرنخ‌یاب (${fa(r.total)} سند)`, sub: r.clues.map((c) => c.label).join(' · '), href: `/books/find?q=${encodeURIComponent(q)}` });
     } catch {
-      /* no parties */
-    }
-    if (/[0-9۰-۹]/.test(q)) {
-      try {
-        for (const d of call('GET', '/api/books/trace', user, { query: { q } }).items.slice(0, 5)) items.push({ kind: 'doc', title: `${d.track ?? ''} ${B.DOC_TYPES[d.type]?.label ?? ''}`.trim(), sub: `${jd(d.date ?? '')}${d.party ? ` · ${d.party.label ?? d.party}` : ''}`, href: `/books/doc/${d.id}` });
-      } catch {
-        /* nothing traced */
-      }
+      /* nothing found */
     }
     for (const h of knowledge().search(q, 3)) items.push({ kind: 'help', title: h.title, sub: `${h.kind}: ${h.snippet.slice(0, 80)}`, href: h.url });
     return { items };

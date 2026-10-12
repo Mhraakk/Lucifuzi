@@ -40,6 +40,8 @@ export async function helpPage(root, { ch } = {}) {
 
   root.innerHTML = String(html`<section class="hlp">
     <header class="hlp-head"><div><h1>راهنمای تصویری از صفر تا صد</h1><p class="small">${fa(list.length)} فصل · ${clock(total)} دقیقه · هر فصل با نمونه واقعی ثبت می‌شود؛ هر جا خواستید مکث کنید و همان کار را در برنامه انجام دهید.</p><p class="small"><button type="button" class="linkish" id="hpInstall">نصب وب‌اپ روی همین دستگاه</button> (گوشی، تبلت، کامپیوتر) · <a href="/downloads/Beatris-Setup-x64.exe" download>نصب‌کننده ویندوز ۱۱ (۶۴ بیت)</a> · <a href="/media/compare/beatris-vs-marquise.mp4" target="_blank" rel="noopener">ویدیوی مقایسه با نسخه پایه مارکیز</a></p></div><div class="hlp-prog" id="hpProg"></div></header>
+    <details class="hlp-teaser" id="hpTeaser"><summary><b>فیلم معرفی ۳۰ ثانیه‌ای: کالبد یک دفتر طلا</b><span class="small">دو دستگاه از خود اپ: یک زنجیره برای همه رویدادها، و الیوت با قاعده‌هایش</span></summary>
+      <video id="hpTeaserV" controls playsinline preload="none" poster="/media/promo/beatris-anatomy.jpg"><source src="/media/promo/beatris-anatomy.mp4" type="video/mp4; codecs=avc1.64002A"><source src="/media/promo/beatris-anatomy.webm" type="video/webm; codecs=vp9"></video></details>
     <div class="hlp-grid">
       <div class="hlp-main">
         <div class="hlp-stage" id="hpStage"><video id="hpVideo" controls playsinline preload="metadata"><source id="hpMp4" type="video/mp4; codecs=avc1.64001F"><source id="hpWebm" type="video/webm; codecs=vp9"></video></div>
@@ -71,6 +73,9 @@ export async function helpPage(root, { ch } = {}) {
     cur = c;
     $('#hpStage', root).classList.toggle('vertical', !!c.vertical);
     video.poster = c.poster;
+    // the exact H.264 of this film (1080p is level 4.0, the standing phone film 5.0): a device that cannot play it
+    // takes the VP9 copy instead of failing
+    $('#hpMp4', root).type = `video/mp4; codecs=${c.codec ?? 'avc1.64001F'}`;
     $('#hpMp4', root).src = c.file;
     $('#hpWebm', root).src = c.webm ?? c.file.replace(/\.mp4$/, '.webm');
     video.load();

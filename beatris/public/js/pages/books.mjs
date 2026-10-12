@@ -17,6 +17,7 @@ export function booksNav(cur) {
       ['desk', '/books/desk', 'میز معامله'],
       ...(base ? [] : [['new', '/books/new/sale', 'فاکتور جدید'], ['home', '/books', 'پیشخوان']]),
       ['day', '/books/day', 'روزنگار'],
+      ['find', '/books/find', 'سرنخ‌یاب'],
       ['docs', '/books/docs', 'اسناد'],
       ['trace', '/books/trace', 'رهگیری'],
       ['events', '/books/events', 'هر اتفاق کجا ثبت می‌شود'],

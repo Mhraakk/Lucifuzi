@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="fa" dir="rtl"><head><meta charset="utf-8">
 <!-- Tutorial chapter cards (1280×720), the same visual language as the «منشور» teaser: a beam enters the gem and
-     opens into a spectrum, the chapter lands; the end card names the next chapter. seek(t) is pure.
+     opens into a spectrum, the chapter lands; the end card names the next chapter. seek(t) is pure. The canvas is
+     drawn at the page's device density (1.5× in the films: 1920×1080), never enlarged (spec 0025).
      ?kind=open|end&n=18&title=…&sub=…&next=… -->
 <style>
 @font-face { font-family: 'Estedad'; src: url('/public/fonts/estedad-arabic-var.woff2') format('woff2'); font-weight: 100 900; }
@@ -38,8 +39,10 @@ const inCubic = (x) => x * x * x;
 const lerp = (a, b, x) => a + (b - a) * x;
 const $ = (id) => document.getElementById(id);
 const V = q.get('v') === '1';
-if (V) { document.documentElement.classList.add('v'); $('cv').width = 720; $('cv').height = 1558; }
-const CW = V ? 720 : 1280, CHH = V ? 1558 : 720;
+if (V) document.documentElement.classList.add('v');
+const CW = V ? 720 : 1280, CHH = V ? 1558 : 720, D = Math.max(1, devicePixelRatio || 1);
+Object.assign($('cv'), { width: Math.round(CW * D), height: Math.round(CHH * D) });
+Object.assign($('cv').style, { width: `${CW}px`, height: `${CHH}px` });
 const g = $('cv').getContext('2d');
 const GEM = V ? { x: 300, y: 420, r: 110 } : { x: 230, y: 330, r: 82 };
 
@@ -72,7 +75,7 @@ function gem(cx, cy, r, a, draw) {
 
 window.DUR = DUR;
 window.seek = function (t) {
-  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  g.setTransform(D, 0, 0, D, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
   g.fillStyle = '#07080a'; g.fillRect(0, 0, CW, CHH);
   const hz = g.createRadialGradient(900, 160, 0, 900, 160, 800); hz.addColorStop(0, 'rgba(60,46,24,0.5)'); hz.addColorStop(1, 'rgba(7,8,10,0)');
   g.fillStyle = hz; g.fillRect(0, 0, CW, CHH);

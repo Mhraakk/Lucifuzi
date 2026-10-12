@@ -161,6 +161,7 @@ export async function dayPage(root) {
     <div class="dy-tools"><div class="chips" id="dyf">${FILTERS.map(([k, l]) => html`<button class="chip" data-f="${k}" aria-pressed="${state.f === k}">${l}</button>`)}</div>
       <input class="input" id="dyq" type="search" value="${qs.get('find') ?? ''}" placeholder="نام، شماره سند، سریال… یا یک عدد برای همه روزها (۶۰۰ میلیون تومان)" aria-label="جستجو در روزنگار؛ با یک عدد، همه روزها">
       <label class="dy-sort"><span>ترتیب</span><select class="input sm" id="dysort" aria-label="ترتیب ردیف‌ها">${SORTS.map(([k, l]) => html`<option value="${k}" ${state.sort === k ? 'selected' : ''}>${l}</option>`)}</select></label>${exportButtons('dy')}</div>
+    <p class="small dy-all" id="dyall" hidden></p>
     <section class="tray dy-find" id="dyfind" hidden aria-live="polite"></section>
     <ol class="dy-list" id="dyl"></ol></div>`);
 
@@ -277,6 +278,10 @@ export async function dayPage(root) {
   function onQuery(v, now = false) {
     state.q = v;
     clearTimeout(finder.timer);
+    // the same words in the whole book, with any clue (spec 0032)
+    const all = $('#dyall', root);
+    all.hidden = !v.trim();
+    if (v.trim()) all.innerHTML = String(html`<a href="/books/find?q=${encodeURIComponent(v.trim())}${state.sec !== 'all' ? `&sec=${state.sec}` : ''}" data-link>«${v.trim()}» را در همه دفتر با سرنخ‌یاب بگرد ←</a>`);
     if (hasNumber(v)) {
       findBox.hidden = false;
       state.q = ''; // the day list stays whole under the all-days results
@@ -354,7 +359,7 @@ export async function vaultPage(root) {
           <tr><td>ریال</td><td class="num" data-v="${cashSum + bankSum}">${money(cashSum + bankSum)}</td><td class="num" data-v="${cust('IRR').owedByShop}">${money(cust('IRR').owedByShop)}</td><td class="num" data-v="${cust('IRR').owedToShop}">${money(cust('IRR').owedToShop)}</td><td class="num" data-v="${netOf('IRR', cashSum + bankSum)}"><b>${money(netOf('IRR', cashSum + bankSum))}</b></td></tr>
         </tbody></table></div>
         <p class="small">مظنه نقدی: ${v.prices.mazaneh ? money(v.prices.mazaneh) : '—'} · گرم ۷۵۰: ${P.G750 ? money(P.G750) : '—'}</p></section>
-      <section class="tray"><h3 class="bk-h">صندوق‌ها و بانک‌ها</h3><table class="table-plain" data-sort="vault-cash"><thead><tr><th>حساب</th><th>مانده</th><th data-nosort></th></tr></thead><tbody>${[...Object.entries(v.cash).map(([id, x]) => ['صندوق', id, x]), ...Object.entries(v.bank).map(([id, x]) => ['بانک', id, x])].map(([k, id, x]) => html`<tr><td>${accName[id] ?? id} <span class="small">${k}</span></td><td class="num" data-v="${x}">${money(x)}</td><td>${k === 'بانک' && admin ? html`<a class="chip" href="/books/bank/${id}" data-link>تطبیق</a>` : ''}</td></tr>`)}</tbody></table></section>
+      <section class="tray"><h3 class="bk-h">صندوق‌ها و بانک‌ها</h3><div class="scrollx"><table class="table-plain" data-sort="vault-cash"><thead><tr><th>حساب</th><th>مانده</th><th data-nosort></th></tr></thead><tbody>${[...Object.entries(v.cash).map(([id, x]) => ['صندوق', id, x]), ...Object.entries(v.bank).map(([id, x]) => ['بانک', id, x])].map(([k, id, x]) => html`<tr><td>${accName[id] ?? id} <span class="small">${k}</span></td><td class="num" data-v="${x}">${money(x)}</td><td>${k === 'بانک' && admin ? html`<a class="chip" href="/books/bank/${id}" data-link>تطبیق</a>` : ''}</td></tr>`)}</tbody></table></div></section>
     </div>
     ${v.bars.length ? html`<section class="tray bk-sec"><div class="bk-head"><h3 class="bk-h">شمش‌های داخل گاوصندوق</h3><a class="chip" href="/books/bars" data-link>دفتر شمش‌ها</a></div><div class="scrollx"><table class="table-plain bk-table" data-sort="vault-bars"><thead><tr><th>سریال</th><th>ضامن</th><th>گالری</th><th>وزن</th><th>عیار</th><th>تاریخ پلمپ</th><th>ورود</th></tr></thead><tbody>${v.bars.map((b) => html`<tr><td class="ltr-num" data-v="${b.serial}"><a href="/books/bars?q=${b.serial}" data-link>${fa(b.serial)}</a></td><td>${b.brand}</td><td>${b.gallery}</td><td class="num" data-v="${b.weight ?? ''}">${G(b.weight)}</td><td class="num" data-v="${b.fineness ?? ''}">${fa(b.fineness)}</td><td data-v="${b.sealDate ?? ''}">${b.sealDate ? jd(b.sealDate) : '—'}</td><td data-v="${b.history.at(-1)?.date ?? ''}">${b.history.at(-1) ? jd(b.history.at(-1).date) : ''}</td></tr>`)}</tbody></table></div></section>` : ''}</div>`);
   wireSorts(root);

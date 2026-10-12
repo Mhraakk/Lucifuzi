@@ -101,6 +101,7 @@ export async function elliottPage(root) {
       </details>
     </div>
     <p class="ew-help">کشیدن: جابه‌جایی · چرخ ماوس یا دو انگشت: بزرگ‌نمایی · دوبار کلیک: کل شمارش · کلیدهای جهت و +/− · <a href="/help?ch=18" data-link>فیلم آموزش این بخش</a></p>
+    <section class="ew-card ew-rig" id="ewRig" aria-label="دستگاه موج"></section>
     <div class="ew-cards">
       <section class="ew-card"><h3>الگوهای رایج اصلاحی</h3><div class="ew-pats">${PATTERNS.map(([en, fa2, pts, lb]) => html`<figure><figcaption><b>${en}</b><small>${fa2}</small></figcaption>${patternSvg(pts, lb)}</figure>`)}</div></section>
       <section class="ew-card"><h3>نسبت‌های فیبوناچی مهم</h3><table class="ew-fib"><tbody>${FIBS.map(([r, t, c]) => html`<tr><td style="color:${c}" class="num">${r}</td><td>${t}</td></tr>`)}</tbody></table></section>
@@ -186,5 +187,16 @@ export async function elliottPage(root) {
     }
   });
   await loadData();
-  return () => chart.destroy();
+  // the wave rig (spec 0030): built after the chart has drawn, so the studio never waits for it
+  let rig = null, gone = false;
+  setTimeout(() => import('../figures/wave.mjs').then((m) => {
+    const box = $('#ewRig', root);
+    if (gone || !box) return;
+    rig = m.mountWave(box, { studio: () => S.map, format: f });
+  }).catch(() => {}), 0);
+  return () => {
+    gone = true;
+    rig?.stop();
+    chart.destroy();
+  };
 }

@@ -39,15 +39,16 @@ export function sectionsOf(d) {
 }
 /** Does a figure ({ s }) count inside section `sec`? A document-wide total counts in every section of its document. */
 export const figureIn = (f, sec, docSecs) => !sec || sec === 'all' || f.s === sec || (f.s === 'doc' && docSecs.has(sec));
-const SCALES = new Set(['هزار', 'میلیون', 'ملیون', 'میلیارد']);
+const SCALE_OF = { هزار: 1e3, میلیون: 1e6, ملیون: 1e6, میلیارد: 1e9 };
+const SCALES = new Set(Object.keys(SCALE_OF));
 const SMALL = new Set(['صفر', 'یک', 'یه', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'شیش', 'هفت', 'هشت', 'نه', 'ده', 'یازده', 'دوازده', 'سیزده', 'چهارده', 'پانزده', 'پونزده', 'شانزده', 'شونزده', 'هفده', 'هیفده', 'هجده', 'هیجده', 'نوزده', 'بیست', 'سی', 'چهل', 'پنجاه', 'شصت', 'هفتاد', 'هشتاد', 'نود', 'صد', 'یکصد', 'دویست', 'سیصد', 'چهارصد', 'پانصد', 'پونصد', 'ششصد', 'هفتصد', 'هشتصد', 'نهصد']);
 const BIG_WORD = (t) => SMALL.has(t) && !['صفر', 'یک', 'یه', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'شیش', 'هفت', 'هشت', 'نه'].includes(t);
-const APPROX = new Set(['حدود', 'حدودا', 'حدودای', 'تقریبا', 'تقریبی', 'نزدیک', 'نزدیکه', 'حوالی', 'حول', 'حوش', 'دوروبر', '~', '≈']);
+export const APPROX = new Set(['حدود', 'حدودا', 'حدودای', 'تقریبا', 'تقریبی', 'نزدیک', 'نزدیکه', 'حوالی', 'حول', 'حوش', 'دوروبر', '~', '≈']);
 const GRAM = new Set(['گرم', 'گ', 'g', 'gr']);
 const COUNT = new Set(['تا', 'عدد', 'دونه', 'دانه', 'سکه', 'قطعه']);
 const PRICE = new Set(['مظنه', 'نرخ', 'قیمت']);
 // words that say how, not who: they never narrow the results
-const STOP = new Set([
+export const STOP = new Set([
   'یه', 'یک', 'چیزی', 'چیز', 'پول', 'مبلغ', 'وجه', 'رقم', 'عدد', 'بود', 'بوده', 'شد', 'شده', 'هست', 'است', 'بودیم', 'کردیم', 'کردم', 'کرد', 'کرده', 'کرده‌ایم',
   'زدیم', 'زدم', 'زد', 'زده', 'دادیم', 'دادم', 'داد', 'داده', 'گرفتیم', 'گرفتم', 'گرفت', 'ریختیم', 'ریختم', 'ریخت', 'واریز', 'پرداخت', 'پرداختیم', 'دریافت', 'فرستادیم', 'فرستاد',
   'خریدیم', 'خرید', 'فروختیم', 'فروش', 'برای', 'واسه', 'به', 'از', 'با', 'که', 'و', 'را', 'رو', 'در', 'تو', 'توی', 'این', 'اون', 'آن', 'همین', 'همون', 'یادم', 'یادمه', 'نمیاد',
@@ -55,8 +56,9 @@ const STOP = new Set([
   'پیش', 'قبل', 'سند', 'مشتری', 'طرف', 'حساب', 'بابت', 'مال', 'موقع', 'بهش', 'براش', 'ازش', 'اینا', 'اونا', 'یا', 'هم', 'دیگه', 'فکر', 'کنم', 'شاید', 'ت', 'ر', 'م',
 ]);
 
-const isDigits = (t) => /^\d+(\.\d+)?$/.test(t);
-const tokens = (text) =>
+export const isDigits = (t) => /^\d+(\.\d+)?$/.test(t);
+/** Query tokens: normalized letters and digits, quotes and punctuation dropped (shared with سرنخ‌یاب). */
+export const tokens = (text) =>
   normalize(text)
     .replace(/[«»"'()[\]{}،,;:!?؟…|]/g, ' ')
     .split(/\s+/)
@@ -82,42 +84,55 @@ export function readQuery(text) {
       i++;
       continue;
     }
-    const startsNumber = isDigits(t) || (SMALL.has(t) && (BIG_WORD(t) || SCALES.has(w[i + 1]) || isDigits(w[i + 1] ?? '') || SMALL.has(w[i + 1]) || w[i + 1] === 'و'));
-    const n = startsNumber ? readNumber(w, i, { price: true }) : null;
-    if (n && n.value > 0) {
-      let j = i + n.len, value = n.value, kind = 'any', money = null;
-      const scaled = w.slice(i, j).some((x) => SCALES.has(x));
-      const u = w[j];
-      if (u === 'تومان' || u === 'تومن' || u === 'ت') (kind = 'money'), (money = 'toman'), j++;
-      else if (u === 'ریال' || u === 'ر') (kind = 'money'), (money = 'rial'), j++;
-      else if (u === 'م' && isDigits(t)) {
-        // «۶۰۰م» is six hundred million in a quick note
-        value *= 1e6;
-        j++;
-        kind = 'money';
-        if (w[j] === 'تومان' || w[j] === 'تومن') (money = 'toman'), j++;
-        else if (w[j] === 'ریال') (money = 'rial'), j++;
-      } else if (GRAM.has(u)) {
-        kind = 'gram';
-        j++;
-        // «۴ گرم و ۳۵۰ سوت»
-        if (w[j] === 'و' && isDigits(w[j + 1] ?? '') && w[j + 2] === 'سوت') (value += Number(w[j + 1]) / 1000), (j += 3);
-      } else if (u === 'سوت') (kind = 'gram'), (value /= 1000), j++;
-      else if (u === 'مثقال') (kind = 'mesghal'), j++;
-      else if (COUNT.has(u)) {
-        kind = 'count';
-        j++;
-        if (u === 'تا' && w[j] === 'سکه') j++; // «۳ تا سکه»: the word سکه stays in the reading, not in the filter
-      }
-      else if (scaled) kind = 'money';
-      out.amounts.push({ value, kind, money, said: w.slice(i, j).join(' ') });
-      i = j;
+    const a = amountAt(w, i);
+    if (a) {
+      out.amounts.push({ value: a.value, kind: a.kind, money: a.money, said: a.said });
+      i += a.len;
       continue;
     }
     if (!STOP.has(t) && t.length >= 2 && !/^\d/.test(t)) out.words.push(t);
     i++;
   }
   return out;
+}
+
+/**
+ * The amount that starts at token w[i], read with روزنگار's rules (shared with سرنخ‌یاب, spec 0032), or null:
+ * { value, kind: 'money'|'gram'|'mesghal'|'count'|'any', money: 'toman'|'rial'|null, said, len, scale } where scale is
+ * the last scale word's size (1e6 for «۴۹ میلیون»), 0 without one.
+ */
+export function amountAt(w, i) {
+  const t = w[i];
+  const startsNumber = isDigits(t) || (SMALL.has(t) && (BIG_WORD(t) || SCALES.has(w[i + 1]) || isDigits(w[i + 1] ?? '') || SMALL.has(w[i + 1]) || w[i + 1] === 'و'));
+  const n = startsNumber ? readNumber(w, i, { price: true }) : null;
+  if (!n || !(n.value > 0)) return null;
+  let j = i + n.len, value = n.value, kind = 'any', money = null;
+  const scales = w.slice(i, j).filter((x) => SCALES.has(x));
+  let scale = scales.length ? SCALE_OF[scales.at(-1)] : 0;
+  const u = w[j];
+  if (u === 'تومان' || u === 'تومن' || u === 'ت') (kind = 'money'), (money = 'toman'), j++;
+  else if (u === 'ریال' || u === 'ر') (kind = 'money'), (money = 'rial'), j++;
+  else if (u === 'م' && isDigits(t)) {
+    // «۶۰۰م» is six hundred million in a quick note
+    value *= 1e6;
+    scale = 1e6;
+    j++;
+    kind = 'money';
+    if (w[j] === 'تومان' || w[j] === 'تومن') (money = 'toman'), j++;
+    else if (w[j] === 'ریال') (money = 'rial'), j++;
+  } else if (GRAM.has(u)) {
+    kind = 'gram';
+    j++;
+    // «۴ گرم و ۳۵۰ سوت»
+    if (w[j] === 'و' && isDigits(w[j + 1] ?? '') && w[j + 2] === 'سوت') (value += Number(w[j + 1]) / 1000), (j += 3);
+  } else if (u === 'سوت') (kind = 'gram'), (value /= 1000), j++;
+  else if (u === 'مثقال') (kind = 'mesghal'), j++;
+  else if (COUNT.has(u)) {
+    kind = 'count';
+    j++;
+    if (u === 'تا' && w[j] === 'سکه') j++; // «۳ تا سکه»: the word سکه stays in the reading, not in the filter
+  } else if (scales.length) kind = 'money';
+  return { value, kind, money, said: w.slice(i, j).join(' '), len: j - i, scale };
 }
 
 /** true when the text holds a number this search can read (the روزنگار box then searches every day). */

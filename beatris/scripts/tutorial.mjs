@@ -3,24 +3,27 @@
 // and highlighted clicks, and writes H.264 MP4 files plus a chapter list for the help page.
 //   FFMPEG=/path/to/ffmpeg MUSIC=/path/to/nocturne.mp3 node scripts/tutorial.mjs [--only 3,4]
 //   FILM=1 FFMPEG=… node scripts/tutorial.mjs, then scripts/tutorial-film.mjs: picture only, then cards, explainer and mastered sound
-// Output: public/media/tutorial/NN.mp4, NN.jpg (poster) and chapters.json
+// Output: the master recordings in RAW (default /tmp/beatris-tutorial-raw/NN.mp4, 1920×1080 or 1080×2338, nearly
+// lossless) and chapters.json; without FILM also public/media/tutorial/NN.mp4, NN.webm and NN.jpg (poster)
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, statSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addMusic } from './tutorial-music.mjs';
+import { recordPage, h264, vp9, avc1 } from './screencast.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public', 'media', 'tutorial');
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
+const RAW = process.env.RAW || '/tmp/beatris-tutorial-raw'; // the masters, which scripts/tutorial-film.mjs builds the films from
+mkdirSync(RAW, { recursive: true });
 const only = (process.argv.find((a) => a.startsWith('--only='))?.slice(7) ?? '').split(',').filter(Boolean).map(Number);
 mkdirSync(OUT, { recursive: true });
 const pw = await import(process.env.PLAYWRIGHT ?? '/opt/node22/lib/node_modules/playwright/index.mjs');
 const { chromium } = pw.default ?? pw;
 
 const dataDir = mkdtempSync(path.join(tmpdir(), 'btut-'));
-const rawDir = mkdtempSync(path.join(tmpdir(), 'btut-raw-'));
 const port = 5600 + Math.floor(Math.random() * 300);
 const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.mjs'], { cwd: ROOT, env: { ...process.env, BEATRIS_DEMO: 'true', BEATRIS_DATA_DIR: dataDir, PORT: String(port), NODE_ENV: 'test', BEATRIS_TOKEN_SECRET: 'tutorial-secret-0123456789abcdef' }, stdio: ['ignore', 'ignore', 'inherit'] });
 const base = `http://127.0.0.1:${port}`;
@@ -34,7 +37,7 @@ const ago = (n) => new Date(Date.parse(`${today}T00:00:00Z`) - n * 864e5).toISOS
 
 /* ---------------- the overlay: narration bar, chapter title, cursor, click ring ---------------- */
 const OVERLAY = () => {
-  const css = `#tt-cap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(1120px,calc(100vw - 48px));z-index:2147483646;padding:14px 26px 16px;border-radius:18px;background:rgba(12,11,10,.86);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border:1px solid rgba(232,200,135,.22);color:#fff;font:500 21px/1.8 Estedad,Tahoma,sans-serif;direction:rtl;text-align:right;box-shadow:0 24px 60px -20px rgba(0,0,0,.7);transition:opacity .35s;pointer-events:none}#tt-cap b{display:block;font-size:14px;color:#e8c887;font-weight:700;letter-spacing:0}#tt-cap:empty{opacity:0}#tt-cap .w{display:inline-block;white-space:pre;will-change:transform,filter,opacity}#tt-cur{position:fixed;z-index:2147483647;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:rgba(232,200,135,.55);border:2px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none;transition:left .55s cubic-bezier(.3,.8,.3,1),top .55s cubic-bezier(.3,.8,.3,1);left:50%;top:40%}#tt-ring{position:fixed;z-index:2147483645;pointer-events:none;border:3px solid #e8c887;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18);transition:all .35s;opacity:0}.tt-title{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#2a2419,#0c0b09 70%);color:#fff;font-family:Estedad,Vazirmatn,Tahoma,sans-serif;direction:rtl;text-align:center;pointer-events:none}.tt-title small{display:block;color:#e8c887;font-size:18px;margin-bottom:10px}.tt-title h1{margin:0;font-size:44px;font-weight:800}.tt-title p{margin:12px 0 0;color:#cbbd9f;font-size:20px}.lg-dev,#clSent{display:none!important}`;
+  const css = `#tt-cap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(1120px,calc(100vw - 48px));z-index:2147483646;padding:14px 26px 16px;border-radius:18px;background:rgba(12,11,10,.93);border:1px solid rgba(232,200,135,.22);color:#fff;font:500 21px/1.8 Estedad,Tahoma,sans-serif;direction:rtl;text-align:right;box-shadow:0 24px 60px -20px rgba(0,0,0,.7);transition:opacity .35s;pointer-events:none}#tt-cap b{display:block;font-size:14px;color:#e8c887;font-weight:700;letter-spacing:0}#tt-cap:empty{opacity:0}#tt-cap .w{display:inline-block;white-space:pre;will-change:transform,filter,opacity}#tt-cur{position:fixed;z-index:2147483647;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:rgba(232,200,135,.55);border:2px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none;transition:left .55s cubic-bezier(.3,.8,.3,1),top .55s cubic-bezier(.3,.8,.3,1);left:50%;top:40%}#tt-ring{position:fixed;z-index:2147483645;pointer-events:none;border:3px solid #e8c887;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18);transition:all .35s;opacity:0}.tt-title{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#2a2419,#0c0b09 70%);color:#fff;font-family:Estedad,Vazirmatn,Tahoma,sans-serif;direction:rtl;text-align:center;pointer-events:none}.tt-title small{display:block;color:#e8c887;font-size:18px;margin-bottom:10px}.tt-title h1{margin:0;font-size:44px;font-weight:800}.tt-title p{margin:12px 0 0;color:#cbbd9f;font-size:20px}.lg-dev,#clSent{display:none!important}*{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}body::after{animation-play-state:paused!important}#topbar{background:linear-gradient(var(--vault) 20%,rgba(var(--ink-rgb),.92))!important}html[data-theme='day'] #topbar{background:rgba(255,255,255,.97)!important}#tabbar{background-color:rgba(var(--raise-rgb),.95)!important}.modal{background:rgba(var(--ink-rgb),.8)!important}`;
   const boot = () => {
     if (document.getElementById('tt-cap')) return;
     const st = document.createElement('style');
@@ -52,7 +55,8 @@ const OVERLAY = () => {
   if (document.readyState === 'loading') addEventListener('DOMContentLoaded', boot);
   else boot();
   window.__tt = {
-    // cinematic captions: the old line leaves upward into a blur, the new one arrives word by word out of a blur
+    // cinematic captions: the old line leaves upward, the new one arrives word by word (no blur: it costs the recording
+    // its frame rate)
     // (whole words: Persian letters join), on a soft spring-like curve; a re-loaded page shows its line at once
     say(title, text) {
       boot();
@@ -64,11 +68,11 @@ const OVERLAY = () => {
       const swap = () => {
         cap.innerHTML = html;
         [...cap.querySelectorAll('.w')].forEach((w, i) =>
-          w.animate([{ opacity: 0, transform: 'translateY(14px) scale(.985)', filter: 'blur(12px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 620, delay: Math.min(i * 42, 900), easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' }),
+          w.animate([{ opacity: 0, transform: 'translateY(14px) scale(.985)' }, { opacity: 1, transform: 'none' }], { duration: 620, delay: Math.min(i * 42, 900), easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' }),
         );
       };
       if (!old.length) return swap();
-      Promise.all(old.map((w, i) => w.animate([{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: 'translateY(-10px)', filter: 'blur(8px)' }], { duration: 260, delay: Math.min(i * 8, 120), easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }).finished)).then(swap, swap);
+      Promise.all(old.map((w, i) => w.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-10px)' }], { duration: 260, delay: Math.min(i * 8, 120), easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }).finished)).then(swap, swap);
     },
     move(x, y) {
       boot();
@@ -99,7 +103,9 @@ const codeLogin = async (phone) => {
   return v.token;
 };
 /** The code the page received (hidden in the film; typed into the six cells like the SMS a person reads). */
-const codeOf = (page) => page.$eval('.lg-dev', (b) => b.dataset.code);
+const codeOf = async (page) => (await page.waitForSelector('.lg-dev', { state: 'attached', timeout: 15000 })).evaluate((b) => b.dataset.code);
+/** The sixth digit signs in by itself; the next step waits until it has (a fast, unrecorded run must not leave early). */
+const signedIn = (page) => page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 20000 });
 let pace = 1; // chapters outside --only still run (they build the shop's state) but unrecorded and fast
 function director(page, title) {
   const wait = (ms) => new Promise((r) => setTimeout(r, Math.max(120, ms * pace)));
@@ -177,6 +183,7 @@ const CHAPTERS = [
       await d.click('#pf button[type=submit]', 1200);
       await d.say('کد ۶ رقمی به همین شماره پیامک می‌شود. همان را بزنید؛ با رقم ششم خودبه‌خود وارد می‌شوید.', 3600);
       await d.type('.otp-input', await codeOf(page), 2000);
+      await signedIn(page);
       await d.go('/vendor', 1600);
       await d.say('کنسول ارائه‌دهنده: همه فروشگاه‌ها، اشتراک‌ها و کاربران هر کدام.', 3600);
       await d.point('#vdSms');
@@ -210,6 +217,7 @@ const CHAPTERS = [
       await d.type('#pf input[name=phone]', '09120000010');
       await d.click('#pf button[type=submit]', 1000);
       await d.type('.otp-input', await codeOf(page), 2500);
+      await signedIn(page);
       await d.say('اولین بار، نرم‌افزار مستقیم به «راه‌اندازی فروشگاه» می‌رود تا وضعیت واقعی امروز مغازه ثبت شود. هیچ عدد ساختگی در کار نیست.');
       await d.type('[data-path="identity.address"]', 'تهران، بازار بزرگ، راسته زرگرها');
       await d.type('[data-path="identity.phone"]', '02155667788');
@@ -469,6 +477,7 @@ const CHAPTERS = [
       await d.type('#pf input[name=phone]', '09120000010');
       await d.click('#pf button[type=submit]', 1000);
       await d.type('.otp-input', await codeOf(page), 2200);
+      await signedIn(page);
       await d.go('/books/pulse', 2000);
       await d.say('روی گوشی با همان حساب: نبض امروز، قیمت‌ها و آخرین رویدادها.', 4200);
       await d.go('/books/desk', 1800);
@@ -633,7 +642,7 @@ const CHAPTERS = [
   },
   {
     n: 18, slug: 'elliott', title: 'تحلیل جامع امواج الیوت', sub: 'موتور ترکیبی الیوت + فیبوناچی: شمارش، سطوح بازگشت و دو سناریو', standalone: true,
-    steps: ['موتور ترکیبی: ۱) شمارش موج در دو درجه و سنجش با قواعد الیوت، ۲) فیبوناچی از همان حرکتِ شمرده‌شده (ناحیه طلایی ۰٫۳۸۲ تا ۰٫۶۱۸)، ۳) دو سناریو با احتمال و قیمت ابطال.', 'حسابداری ← «تحلیل الیوت» (یا بازار ← «استودیوی تحلیل جامع الیوت»). نماد، بازه ۱ روزه، هفتگی یا ماهانه و درجه موج را انتخاب کنید.', 'درجه بزرگ نارنجی: (I) تا (V) یا (A)(B)(C). درجه کوچک: ۱ تا ۵ آبی و A B C قرمز؛ فقط وقتی زیرموج‌ها خودشان قواعد را پاس کنند.', 'سطوح فیبوناچی با قیمت، کانال موج، ناحیه حمایت یا مقاومت و ناحیه هدف جایگزین.', 'سناریوی اصلی (سبز) و جایگزین (قرمز) با مسیر، هدف و احتمال؛ پایین صفحه جمله‌های هر سناریو و قیمت ابطال.', 'RSI و MACD زیر نمودار؛ کشیدن، چرخ ماوس و دوبار کلیک برای جابه‌جایی و بزرگ‌نمایی؛ دکمه «تصویر» برای ذخیره.'],
+    steps: ['موتور ترکیبی: ۱) شمارش موج در دو درجه و سنجش با قواعد الیوت، ۲) فیبوناچی از همان حرکتِ شمرده‌شده (ناحیه طلایی ۰٫۳۸۲ تا ۰٫۶۱۸)، ۳) دو سناریو با احتمال و قیمت ابطال.', 'حسابداری ← «تحلیل الیوت» (یا بازار ← «استودیوی تحلیل جامع الیوت»). نماد، بازه ۱ روزه، هفتگی یا ماهانه و درجه موج را انتخاب کنید.', 'درجه بزرگ نارنجی: (I) تا (V) یا (A)(B)(C). درجه کوچک: ۱ تا ۵ آبی و A B C قرمز؛ فقط وقتی زیرموج‌ها خودشان قواعد را پاس کنند.', 'سطوح فیبوناچی با قیمت، کانال موج، ناحیه حمایت یا مقاومت و ناحیه هدف جایگزین.', 'سناریوی اصلی (سبز) و جایگزین (قرمز) با مسیر، هدف و احتمال؛ پایین صفحه جمله‌های هر سناریو و قیمت ابطال.', 'RSI و MACD زیر نمودار؛ کشیدن، چرخ ماوس و دوبار کلیک برای جابه‌جایی و بزرگ‌نمایی؛ دکمه «تصویر» برای ذخیره.', 'زیر نمودار «دستگاه موج»: هر قاعده سخت الیوت یک ضامن است که با شکستن قرمز می‌شود. مثال‌ها را ببینید، لغزنده‌ها را بکشید یا «شمارش همین نمودار» را روی دستگاه بگذارید؛ داوری با همان موتور شمارش است.'],
     async run(page, d) {
       await d.go('/books/elliott', 3200);
       await d.say('تحلیل جامع امواج الیوت، داخل همان منوی حسابداری. همه چیز از قیمت‌های واقعی همین نماد حساب می‌شود، نه عدد ساختگی.', 6500);
@@ -662,7 +671,33 @@ const CHAPTERS = [
       await d.click('[data-deg="1.5"]', 1500);
       await d.say('«درشت» یا «ریز» آستانه موج‌ها را عوض می‌کند تا شمارش درجه دیگری را ببینید.', 4500);
       await d.click('[data-deg="1"]', 1200);
-      await d.scroll(760, 1400);
+      // the wave rig (spec 0030): every hard rule is a part that turns red when it breaks
+      await d.point('#ewRig .iso-stage');
+      await d.say('زیر نمودار «دستگاه موج» است: شش ریل با لغزنده‌هایی در قیمت نقاط چرخش، و خط موج روی صفحه پشت آن‌ها. هر قاعده سخت الیوت اینجا یک قطعه است.', 7500);
+      await d.click('#ewRig [data-ex="deep2"]', 1600);
+      await d.say('موج ۲ پایین‌تر از ابتدای موج ۱: ضامن ریل ۲ قرمز می‌شود و امتیاز صفر. داوری با همان موتوری است که نمودار بالا را شمرده.', 7000);
+      await d.click('#ewRig [data-ex="short3"]', 1600);
+      await d.say('میله‌های سینی جلو طول موج‌های ۱، ۳ و ۵اند. اگر موج ۳ کوتاه‌ترین باشد، میله‌اش قرمز می‌شود.', 6000);
+      await d.click('#ewRig [data-ex="valid"]', 1600);
+      const s4 = await page.locator('#ewRig .wv-slider[data-rail="4"] .wv-block').boundingBox();
+      const rig = await page.locator('#ewRig .wv-svg').boundingBox();
+      if (s4 && rig) {
+        const x = s4.x + s4.width / 2, y0 = s4.y + s4.height / 2, dy = rig.height * 0.2;
+        await page.evaluate(([xx, yy]) => window.__tt.move(xx, yy), [x, y0]);
+        await wait(700);
+        await page.mouse.move(x, y0);
+        await page.mouse.down();
+        for (let i = 1; i <= 24; i++) {
+          await page.mouse.move(x, y0 + (dy * i) / 24);
+          await page.evaluate(([xx, yy]) => window.__tt.move(xx, yy), [x, y0 + (dy * i) / 24]);
+          await wait(45);
+        }
+        await page.mouse.up();
+      }
+      await d.say('لغزنده‌ها کشیدنی‌اند: موج ۴ که به محدوده قیمتی موج ۱ برسد، ضامن ریل ۴ همان لحظه قرمز می‌شود.', 6000);
+      await d.click('#ewRig [data-act="studio"]', 1800);
+      await d.say('«شمارش همین نمودار» شمارش واقعی همین نماد را روی دستگاه می‌گذارد؛ اگر پنج موج کامل نباشد، می‌گوید چرا و چیزی حدس نمی‌زند.', 7000);
+      await d.scroll(520, 1400);
       await d.point('#ewScen');
       await d.say('سناریوهای احتمالی: احتمال هر کدام از کیفیت شمارش، شیب میانگین، RSI و MACD؛ با اطمینان و پوشش نشانه‌ها.', 7000);
       await d.point('.ew-pats');
@@ -832,7 +867,14 @@ try {
     if (await fetch(`${base}/api/health`).then((r) => r.ok).catch(() => false)) break;
     await wait(250);
   }
-  const browser = await chromium.launch();
+  // The browser draws at the real density, not an emulated one: its screencast hands over frames at the window's own
+  // pixel size, so an emulated 1.5× would be recorded at 1280×720 and enlarged. One browser per density and window.
+  const browsers = new Map();
+  const browserFor = async (dsf, vp) => {
+    const key = `${dsf} ${vp.width}×${vp.height}`;
+    if (!browsers.has(key)) browsers.set(key, await chromium.launch({ args: [`--force-device-scale-factor=${dsf}`, `--window-size=${vp.width},${vp.height}`] }));
+    return browsers.get(key);
+  };
   const out = [];
   const last = only.length ? Math.max(...only) : Infinity;
   for (const ch of CHAPTERS) {
@@ -843,9 +885,11 @@ try {
     pace = rec ? 1 : 0.25;
     if (ch.n === 13) await prepControl();
     const vp = ch.viewport ?? { width: 1280, height: 720 };
-    const dir = path.join(rawDir, String(ch.n));
-    mkdirSync(dir, { recursive: true });
-    const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: 1, ...(rec ? { recordVideo: { dir, size: vp } } : {}), ...(ch.viewport ? { isMobile: true, hasTouch: true } : {}) });
+    const nn = String(ch.n).padStart(2, '0');
+    // full HD (spec 0025): the desktop at 1.5× is 1920×1080, the phone at 1080/390 is 1080×2338 — drawn at that density
+    const dsf = ch.viewport ? 1080 / vp.width : 1.5;
+    const frame = { width: Math.round(vp.width * dsf), height: Math.round((vp.height * dsf) / 2) * 2 };
+    const ctx = await (await browserFor(dsf, vp)).newContext({ viewport: null });
     await ctx.addInitScript(OVERLAY);
     await ctx.addInitScript((t) => {
       try {
@@ -864,10 +908,19 @@ try {
       }
     }, ch.n >= 3 && ch.n !== 12 ? S.token : null);
     const page = await ctx.newPage();
+    if (ch.viewport) {
+      // a phone: mobile layout rules and touch, at the real density (0 keeps it)
+      const cdp = await ctx.newCDPSession(page);
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: vp.width, height: vp.height, deviceScaleFactor: 0, mobile: true });
+      await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    }
     page.setDefaultTimeout(30000);
     const errs = [];
     page.on('pageerror', (e) => errs.push(e.message));
     await page.goto(base + (ch.n >= 3 && ch.n !== 12 ? '/books/pulse' : '/login'));
+    // the master: every frame the browser draws, at full density, nearly lossless (scripts/screencast.mjs)
+    const master = path.join(RAW, `${nn}.mp4`);
+    const stop = rec ? await recordPage(page, { ...frame, file: master, ffmpeg: FFMPEG }) : null;
     // FILM=1: scripts/tutorial-film.mjs adds the motion title card, so the recording starts on the page itself
     if (!process.env.FILM) await page.evaluate(([n, t, s]) => window.__tt.title(n, t, s), [ch.n, ch.title, ch.sub]);
     await wait(rec ? (process.env.FILM ? 900 : 3400) : 300);
@@ -877,6 +930,7 @@ try {
       await ch.run(page, d);
     } catch (e) {
       await page.screenshot({ path: path.join(tmpdir(), `tut-fail-${ch.n}.png`) }).catch(() => {});
+      await stop?.().catch(() => {}); // close the encoder, or it would keep the script alive
       throw new Error(`chapter ${ch.n}: ${e.message.split('\n')[0]}`);
     }
     if (!rec) {
@@ -887,23 +941,26 @@ try {
     await page.evaluate(() => window.__tt.say('', ''));
     await wait(600);
     const dur = Math.round((Date.now() - t0) / 1000 + 4);
-    const video = page.video();
+    const took = await stop();
     await ctx.close();
-    const webm = await video.path();
-    const mp4 = path.join(OUT, `${String(ch.n).padStart(2, '0')}.mp4`);
-    const jpg = path.join(OUT, `${String(ch.n).padStart(2, '0')}.jpg`);
-    execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', webm, '-c:v', 'libx264', '-preset', 'slow', '-crf', ch.viewport ? '28' : '26', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-r', '25', mp4]);
-    execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-ss', '5', '-i', mp4, '-frames:v', '1', '-q:v', '4', jpg]);
-    // a VP9 copy for browsers built without H.264 (Chromium builds, some Linux Firefox): the page offers both
-    execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', mp4, '-c:v', 'libvpx-vp9', '-crf', '40', '-b:v', '0', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '4', '-an', mp4.replace(/\.mp4$/, '.webm')]);
-    if (process.env.MUSIC) addMusic(mp4); // the nocturne under the picture (scripts/tutorial-music.mjs)
-    out.push({ n: ch.n, slug: ch.slug, title: ch.title, sub: ch.sub, steps: ch.steps, file: `/media/tutorial/${path.basename(mp4)}`, webm: `/media/tutorial/${path.basename(mp4, '.mp4')}.webm`, poster: `/media/tutorial/${path.basename(jpg)}`, seconds: dur, vertical: !!ch.viewport, bytes: statSync(mp4).size });
+    // the browser must have drawn the whole frame itself; a smaller picture would be an enlargement
+    if (!took.shot || took.shot.width !== frame.width || Math.abs(took.shot.height - frame.height) > 1) throw new Error(`chapter ${ch.n}: the screen was drawn at ${took.shot?.width}×${took.shot?.height}, not ${frame.width}×${frame.height}`);
+    const mp4 = path.join(OUT, `${nn}.mp4`);
+    const jpg = path.join(OUT, `${nn}.jpg`);
+    if (!process.env.FILM) {
+      // without the film step: the chapter as it is, with the in-page title and the music (the older way)
+      execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', master, ...h264(frame), '-movflags', '+faststart', mp4]);
+      execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-ss', '5', '-i', mp4, '-frames:v', '1', '-q:v', '2', jpg]);
+      // a VP9 copy for browsers built without H.264 (Chromium builds, some Linux Firefox): the page offers both
+      execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', mp4, ...vp9, '-an', mp4.replace(/\.mp4$/, '.webm')]);
+      if (process.env.MUSIC) addMusic(mp4); // the nocturne under the picture (scripts/tutorial-music.mjs)
+    }
+    out.push({ n: ch.n, slug: ch.slug, title: ch.title, sub: ch.sub, steps: ch.steps, file: `/media/tutorial/${path.basename(mp4)}`, webm: `/media/tutorial/${path.basename(mp4, '.mp4')}.webm`, poster: `/media/tutorial/${path.basename(jpg)}`, seconds: dur, vertical: !!ch.viewport, ...frame, codec: avc1(frame), ...(existsSync(mp4) && !process.env.FILM ? { bytes: statSync(mp4).size } : {}) });
     saveList(out); // after every chapter, so a later failure never loses finished ones
-    console.log(`chapter ${ch.n} ${ch.title}: ${dur}s, ${(statSync(mp4).size / 1e6).toFixed(1)} MB${errs.length ? ` — page errors: ${errs.join(' | ')}` : ''}`);
+    console.log(`chapter ${ch.n} ${ch.title}: ${dur}s, ${took.frames} frames at ${took.shot.width}×${took.shot.height}, master ${(statSync(master).size / 1e6).toFixed(1)} MB${errs.length ? ` — page errors: ${errs.join(' | ')}` : ''}`);
   }
-  await browser.close();
+  for (const b of browsers.values()) await b.close();
 } finally {
   server.kill();
   rmSync(dataDir, { recursive: true, force: true });
-  rmSync(rawDir, { recursive: true, force: true });
 }

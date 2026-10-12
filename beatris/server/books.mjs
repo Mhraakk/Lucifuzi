@@ -22,6 +22,7 @@ import { understandLine } from './oneline-ai.mjs';
 import { providerFromAssistant } from './agent-platform/provider.mjs';
 import { docDiff, changeText } from '../public/js/docdiff.mjs';
 import * as DS from '../public/js/daysearch.mjs';
+import * as CL from '../public/js/clue.mjs';
 
 export const BOOKS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS bk_parties (
@@ -1745,6 +1746,67 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       total: hits.length, shown: Math.min(hits.length, 300), items: [...days].map(([day, docs]) => ({ day, docs })), searched: { docs: ix.docs.length, figures: ix.figures }, ms: Math.round(performance.now() - t0),
     };
   });
+  /* ---------------- سرنخ‌یاب (spec 0032): any clue → documents and customers ---------------- */
+  // each document's searchable form is kept until the document, its cheques or its seal change
+  const clueCache = new Map(); // doc id -> { key, s }
+  function clueIndex() {
+    return core.memo('cluefind', '', () => {
+      const ix = figureIndex();
+      const cheques = new Map();
+      for (const q of db.all('SELECT doc_id, no, sayad, bank, owner, status FROM bk_cheques')) {
+        if (!cheques.has(q.doc_id)) cheques.set(q.doc_id, []);
+        cheques.get(q.doc_id).push(q);
+      }
+      // the seal of the latest version: the authenticity code printed on the receipt
+      const seals = new Map(db.all('SELECT doc_id, substr(hash,1,12) AS h, MAX(version) AS v FROM bk_versions GROUP BY doc_id').map((r) => [r.doc_id, r]));
+      const docs = [], byId = new Map();
+      for (const rec of ix.docs) {
+        const fc = figCache.get(rec.id), cq = cheques.get(rec.id) ?? [], seal = seals.get(rec.id);
+        const key = `${fc?.version}|${fc?.updated}|${rec.status}|${rec.superseded}|${seal?.h ?? ''}|${cq.map((q) => `${q.no}.${q.status}`).join(',')}`;
+        let c = clueCache.get(rec.id);
+        if (!c || c.key !== key) {
+          c = { key, s: CL.searchableDoc(rec, fc?.figs ?? [], { cheques: cq, auth: seal?.h ?? '', version: seal?.v ?? 1 }) };
+          clueCache.set(rec.id, c);
+        }
+        docs.push(c.s);
+        byId.set(rec.id, rec);
+      }
+      if (clueCache.size > docs.length) for (const id of clueCache.keys()) if (!byId.has(id)) clueCache.delete(id);
+      const rows = db.all('SELECT id, code, name, alias, father, city, grp, tags, note, mobile, phone, nid, deleted_at FROM bk_parties');
+      const parties = rows.map((p) => CL.searchableParty({ ...p, group: p.grp }));
+      const deleted = new Set(rows.filter((p) => p.deleted_at).map((p) => p.id));
+      const users = db.all('SELECT id, name FROM users').filter((u) => u.name);
+      return { docs, byId, parties, deleted, users };
+    });
+  }
+  on('GET', '/api/books/find', 'auth', ({ user, url }) => {
+    const t0 = performance.now();
+    const text = String(url.searchParams.get('q') ?? '').slice(0, 240);
+    const s = settings();
+    const today = tehranDay();
+    const { clues } = CL.readClues(text, { shopMoney: s.money, today, unit: url.searchParams.get('unit'), tol: url.searchParams.get('tol') });
+    const secQ = url.searchParams.get('sec') ?? '';
+    const sec = DS.SECTION_IDS.has(secQ) && secQ !== 'all' ? secQ : null;
+    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 40));
+    // the same reach as روزنگار: a seller without back-dating sees today only
+    const limited = !isAdmin(user) && !s.staffBackdate;
+    const ix = clueIndex();
+    // …and, as in رهگیری, a whole tracking code always opens its document
+    const codes = new Set(clues.filter((c) => c.kind === 'code').map((c) => c.code));
+    const docs = limited ? ix.docs.filter((d) => d.date === today || codes.has(d.track)) : ix.docs;
+    const r = CL.findClues(clues, { docs, parties: ix.parties, users: ix.users, sec, limit, money: s.money });
+    const labels = core.partyLabels();
+    const names = userNames();
+    return {
+      q: text, sec, limited, clues: clues.map(({ kind, said, label }) => ({ kind, said, label })), total: r.total, all: r.all,
+      items: r.items.map((x) => {
+        const d = ix.byId.get(x.id);
+        return { id: d.id, track: d.track, type: d.type, typeLabel: B.DOC_TYPES[d.type]?.label ?? d.type, date: d.date, at: d.at, status: d.status, superseded: d.superseded, by: names[d.byId] ?? null, party: d.partyId ? { id: d.partyId, label: labels.get(d.partyId) ?? '' } : null, summary: DS.summaryOf(d.doc), matched: x.matched, of: x.of, why: x.why, missing: x.missing };
+      }),
+      people: r.people.filter((p) => !ix.deleted.has(p.id)),
+      searched: { docs: docs.length, parties: ix.parties.length }, ms: Math.round(performance.now() - t0),
+    };
+  });
   const finalEvents = (upto = '9999-12-31') => core.events(upto);
   const livePrices = () => {
     const p750 = pricing().p750 * 10; // rial per gram of 750
@@ -1996,6 +2058,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     control?.pulse();
     dashboard.build({ range: '7' });
     figureIndex(); // the روزنگار number search answers at once after a write too
+    clueIndex(); // and so does سرنخ‌یاب
   };
   core.warmSoon(4000); // the first look after a restart
   on('GET', '/api/books/dashboard', 'auth', ({ user, url }) => {

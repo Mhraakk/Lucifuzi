@@ -93,6 +93,7 @@ test('فروش کالای انبار: همان عدد موتور، کالا فر
   assert.equal(sale1.calc.credit, 0);
   assert.equal(sale1.verify.length, 12);
   assert.equal((await ok('GET', '/api/books/items/code/100001', null, E)).status, 'sold');
+  assert.equal((await call('PUT', `/api/books/items/${ring.id}`, { weight: 9 }, E)).status, 409, 'a sold piece is corrected from its own invoice');
   assert.equal((await call('POST', '/api/books/docs', body, E)).status, 409);
   const chain = items.find((i) => i.code === '100002');
   assert.equal((await call('POST', '/api/books/docs', { type: 'sale', lines: [line(chain, { weight: 10 })], payments: [{ method: 'cash', amount: 1 }] }, E)).status, 400);

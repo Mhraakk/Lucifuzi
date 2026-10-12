@@ -1420,7 +1420,7 @@ td.bad, .num.bad { color: var(--carn); }
 .dk-sum .kv.big b { white-space: nowrap; }
 .dy-io { display: grid; gap: 2px; font-size: 16px !important; }
 .dy-io em { display: block; font-style: normal; }
-@media (min-width: 1000px) { .vt-grid { grid-template-columns: minmax(0, 2.3fr) minmax(0, 1fr); } }
+@media (min-width: 1000px) { .vt-grid { grid-template-columns: minmax(0, 2.3fr) minmax(min(100%, 320px), 1fr); } }
 
 /* sortable headers (spec 0027): the header is a button; the arrow says the order */
 .th-sort { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; margin: -4px -2px; padding: 0 2px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: start; white-space: nowrap; cursor: pointer; }
@@ -2798,7 +2798,7 @@ html[data-theme='day'] .tb-card { background: #fff; border-color: var(--hair-2);
 }
 
 /* ---------------- Elliott studio (spec 0003): a fixed dark trading terminal in every theme ---------------- */
-.ew { --ew-bg: #070b16; --ew-panel: #0c1322; --ew-line: #1e293b; --ew-text: #e2e8f0; --ew-dim: #8b9ab0; --ew-gold: #f5c542; --ew-blue: #3b82f6; --ew-red: #ef4444; --ew-green: #22c55e; --ew-orange: #fb923c;
+.ew { --ew-ink: #02040a; --ew-bg: #070b16; --ew-panel: #0c1322; --ew-line: #1e293b; --ew-text: #e2e8f0; --ew-dim: #8b9ab0; --ew-gold: #f5c542; --ew-blue: #3b82f6; --ew-red: #ef4444; --ew-green: #22c55e; --ew-orange: #fb923c;
   background: var(--ew-bg); color: var(--ew-text); padding: 18px clamp(12px, 2vw, 28px) 28px; display: grid; gap: 14px; min-width: 0; font-family: Vazirmatn, Tahoma, sans-serif; }
 .bk-nav + .ew { margin-top: 10px; border-radius: 16px; }
 .ew .num { font-variant-numeric: tabular-nums; }
@@ -3637,3 +3637,148 @@ html[data-tone='light'] .dock-tray { background: rgba(255, 255, 255, 0.97); box-
 @media (max-width: 640px) { .dy-fr { grid-template-columns: 1fr; } .dy-fr-m { justify-items: start; text-align: start; } }
 /* on a phone the official A4 form scrolls inside its own sheet; the page itself never slides sideways */
 @media screen and (max-width: 760px) { .bk-paper.std { overflow-x: auto; } }
+/* spec 0028: anatomy figures (the vendored kit's classes), every colour from the app's tokens, in every skin */
+.iso {
+  --anatomy-card: var(--u-panel); --anatomy-paper: var(--u-panel);
+  --anatomy-text: var(--foreground); --anatomy-strong: var(--foreground); --anatomy-muted: var(--muted-foreground);
+  --anatomy-face: color-mix(in oklab, var(--u-panel) 93%, var(--foreground)); --anatomy-top: color-mix(in oklab, var(--u-panel) 91%, var(--foreground));
+  --anatomy-shade-0: color-mix(in oklab, var(--u-panel) 80%, rgb(var(--ink-rgb))); --anatomy-shade-1: color-mix(in oklab, var(--u-panel) 87%, rgb(var(--ink-rgb)));
+  --anatomy-shade-2: color-mix(in oklab, var(--u-panel) 94%, rgb(var(--ink-rgb))); --anatomy-shade-3: var(--u-panel);
+  --anatomy-lit-top: color-mix(in oklab, var(--u-panel) 78%, var(--accent)); --anatomy-lit-shade: color-mix(in oklab, var(--u-panel) 88%, var(--accent));
+  --anatomy-hi: color-mix(in oklab, var(--foreground) 86%, var(--u-panel)); --anatomy-mid: color-mix(in oklab, var(--foreground) 44%, var(--u-panel));
+  --anatomy-lo: color-mix(in oklab, var(--foreground) 25%, var(--u-panel)); --anatomy-faint: color-mix(in oklab, var(--foreground) 13%, var(--u-panel));
+  --anatomy-lit: var(--accent); --anatomy-halo: rgb(var(--ink-rgb)); --anatomy-halo-opacity: 0.85; --anatomy-dot: var(--foreground);
+  --anatomy-red: var(--negative); --anatomy-green: var(--positive); --anatomy-blue: var(--info); --anatomy-weight: 0.6px;
+}
+html[data-theme='day'] .iso {
+  --anatomy-top: var(--vault-2); --anatomy-face: var(--vault-2); --anatomy-lit-top: color-mix(in oklab, var(--vault-2) 82%, var(--accent));
+  --anatomy-shade-0: color-mix(in oklab, var(--u-panel) 86%, var(--foreground)); --anatomy-shade-1: color-mix(in oklab, var(--u-panel) 90%, var(--foreground));
+  --anatomy-shade-2: color-mix(in oklab, var(--u-panel) 94%, var(--foreground)); --anatomy-shade-3: color-mix(in oklab, var(--u-panel) 97%, var(--foreground));
+  --anatomy-halo: var(--foreground); --anatomy-halo-opacity: 0.22;
+}
+.iso-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.iso-svg path, .iso-svg circle { vector-effect: non-scaling-stroke; }
+.iso-fill { fill: var(--anatomy-paper); stroke: none; }
+.iso-solid[data-lit] > .iso-fill { fill: var(--anatomy-face); }
+.iso-shade, .iso-top { stroke: none; }
+.iso-shade[data-shade='0'] { fill: var(--anatomy-shade-0); } .iso-shade[data-shade='1'] { fill: var(--anatomy-shade-1); }
+.iso-shade[data-shade='2'] { fill: var(--anatomy-shade-2); } .iso-shade[data-shade='3'] { fill: var(--anatomy-shade-3); }
+.iso-top { fill: var(--anatomy-top); }
+.iso-solid[data-lit] > .iso-top { fill: var(--anatomy-lit-top); } .iso-solid[data-lit] > .iso-shade { fill: var(--anatomy-lit-shade); }
+.iso-solid[data-lit] > .iso-edge { stroke: var(--anatomy-lit); }
+.iso-halo { fill: var(--anatomy-halo); stroke: none; filter: blur(9px); opacity: var(--anatomy-halo-opacity); transform: translateY(3px); }
+.iso-line { fill: none; stroke: var(--anatomy-lo); stroke-width: var(--anatomy-weight); stroke-linecap: round; stroke-linejoin: round; }
+.iso-line[data-tone='hi'] { stroke: var(--anatomy-hi); } .iso-line[data-tone='mid'] { stroke: var(--anatomy-mid); }
+.iso-line[data-tone='lo'] { stroke: var(--anatomy-lo); } .iso-line[data-tone='faint'] { stroke: var(--anatomy-faint); }
+.iso-line[data-tone='lit'] { stroke: var(--anatomy-lit); } .iso-line[data-tone='red'] { stroke: var(--anatomy-red); }
+.iso-dots circle { fill: var(--anatomy-dot); stroke: none; opacity: 0.32; }
+.iso-dots[data-tone='hi'] circle { opacity: 0.85; } .iso-dots[data-tone='mid'] circle { opacity: 0.45; } .iso-dots[data-tone='lo'] circle { opacity: 0.22; }
+.iso-face-text { fill: var(--anatomy-mid); font-family: var(--body); font-weight: 600; direction: rtl; }
+.iso-face-text[data-tone='hi'] { fill: var(--anatomy-hi); } .iso-face-text[data-tone='lo'] { fill: var(--anatomy-lo); }
+.iso-figure { margin: 0 0 18px; }
+.iso-plate { position: relative; padding: 46px 18px 54px; border-radius: var(--u-r-lg); background: var(--anatomy-card); border: 1px solid var(--u-line); }
+.iso-plate-corners { position: absolute; inset: 16px 18px; pointer-events: none; }
+.iso-plate-corner { position: absolute; margin: 0; color: var(--anatomy-muted); font: 500 12.5px/1.6 var(--body); }
+.iso-plate-corner[data-corner='fig'] { top: 0; right: 0; color: var(--anatomy-text); }
+.iso-plate-corner[data-corner='title'] { top: 0; left: 0; color: var(--anatomy-text); font-weight: 700; }
+.iso-plate-corner[data-corner='hint'] { bottom: 0; right: 0; }
+.iso-plate-corner[data-corner='readout'] { left: 18px; right: 18px; bottom: 14px; text-align: start; color: var(--anatomy-text); font-variant-numeric: tabular-nums; }
+.iso-stage { outline: none; border-radius: var(--u-r); }
+.iso-stage:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.iso-legend { display: grid; gap: 10px; margin-top: 10px; color: var(--anatomy-muted); font-size: 13px; line-height: 1.9; }
+.iso-keys { display: flex; flex-wrap: wrap; gap: 6px; }
+/* the one-chain figure */
+.oc-fig .oc-key b { font-variant-numeric: tabular-nums; color: var(--anatomy-text); }
+.oc-fig .oc-key[aria-pressed='true'] { border-color: var(--accent); }
+.oc-fig .oc-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.oc-slot > .iso-fill { fill: var(--anatomy-shade-0); }
+.oc-link[data-broken] .oc-plate > .iso-edge { stroke: var(--anatomy-red); }
+.oc-link[data-broken] .oc-plate > .iso-top { fill: color-mix(in oklab, var(--anatomy-top) 82%, var(--anatomy-red)); }
+.oc-needle { stroke-width: 1.1; }
+.oc-drawer { cursor: pointer; }
+.oc-count { font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .iso-plate { padding: 40px 6px 64px; overflow: hidden; }
+  .oc-fig .iso-svg { width: 116%; max-width: none; margin-inline: -8%; }
+  .iso-plate-corner[data-corner='readout'] { left: 12px; right: 12px; }
+}
+/* spec 0030: the wave rig on the Elliott page; the studio is always navy, so the figure takes the studio's tokens in every skin */
+.ew .iso, html[data-theme] .ew .iso {
+  --anatomy-card: var(--ew-panel); --anatomy-paper: var(--ew-panel);
+  --anatomy-text: var(--ew-text); --anatomy-strong: var(--ew-text); --anatomy-muted: var(--ew-dim);
+  --anatomy-face: color-mix(in oklab, var(--ew-panel) 92%, var(--ew-text)); --anatomy-top: color-mix(in oklab, var(--ew-panel) 88%, var(--ew-text));
+  --anatomy-shade-0: color-mix(in oklab, var(--ew-panel) 70%, var(--ew-ink)); --anatomy-shade-1: color-mix(in oklab, var(--ew-panel) 82%, var(--ew-ink));
+  --anatomy-shade-2: color-mix(in oklab, var(--ew-panel) 92%, var(--ew-ink)); --anatomy-shade-3: var(--ew-panel);
+  --anatomy-lit-top: color-mix(in oklab, var(--ew-panel) 72%, var(--ew-blue)); --anatomy-lit-shade: color-mix(in oklab, var(--ew-panel) 86%, var(--ew-blue));
+  --anatomy-hi: color-mix(in oklab, var(--ew-text) 86%, var(--ew-panel)); --anatomy-mid: color-mix(in oklab, var(--ew-text) 46%, var(--ew-panel));
+  --anatomy-lo: color-mix(in oklab, var(--ew-text) 27%, var(--ew-panel)); --anatomy-faint: color-mix(in oklab, var(--ew-text) 14%, var(--ew-panel));
+  --anatomy-lit: var(--ew-blue); --anatomy-halo: var(--ew-ink); --anatomy-halo-opacity: 0.85; --anatomy-dot: var(--ew-text);
+  --anatomy-red: var(--ew-red); --anatomy-green: var(--ew-green); --anatomy-blue: var(--ew-blue);
+}
+.ew-rig { min-width: 0; }
+.ew .iso-figure { margin: 0; }
+.ew .iso-plate { border-color: var(--ew-line); }
+.wv-fig .wv-keys .chip { background: var(--ew-panel); border-color: var(--ew-line); color: var(--ew-dim); }
+.wv-fig .wv-keys .chip:hover { color: var(--ew-text); }
+.wv-fig .wv-keys .chip[aria-pressed='true'] { color: var(--ew-text); border-color: var(--ew-blue); background: color-mix(in oklab, var(--ew-panel) 82%, var(--ew-blue)); }
+.wv-slider { cursor: grab; touch-action: none; }
+.wv-slider:active { cursor: grabbing; }
+.wv-hit { fill: transparent; stroke: none; }
+.iso-line.wv-wave { stroke-width: 1.4px; }
+.wv-stop[data-bad] .wv-collar > .iso-edge, .wv-rodg[data-bad] .wv-rod > .iso-edge { stroke: var(--anatomy-red); }
+.wv-stop[data-bad] .wv-collar > .iso-top, .wv-rodg[data-bad] .wv-rod > .iso-top { fill: color-mix(in oklab, var(--anatomy-top) 62%, var(--anatomy-red)); }
+.wv-stop[data-bad] .wv-collar > .iso-shade, .wv-rodg[data-bad] .wv-rod > .iso-shade { fill: color-mix(in oklab, var(--anatomy-shade-1) 70%, var(--anatomy-red)); }
+.wv-fig[data-bad] [data-readout] { color: var(--anatomy-red); }
+.wv-fib { font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .wv-fig .iso-svg { width: 130%; max-width: none; margin-inline: -15%; }
+}
+.wv-zone { fill: var(--anatomy-lit); opacity: 0.3; stroke: none; }
+@media (min-width: 1100px) {
+  .wv-fig { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 320px); gap: 22px; align-items: center; }
+  .wv-fig .iso-legend { margin-top: 0; }
+}
+.wv-fig .iso-plate { padding-bottom: 66px; }
+/* spec 0032: سرنخ‌یاب — one box for any clue; what was understood, then people, then documents with why */
+.cf-find { display: flex; gap: 8px; margin-bottom: 10px; }
+.cf-find .input { flex: 1; min-height: 54px; font-size: 17px; }
+.cf-ex { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; color: var(--dust); }
+.cf-ex .chip { min-height: 30px; font-size: 12.5px; }
+.cf-hint { padding: 18px 4px; }
+#cfR { display: grid; gap: 18px; margin-top: 14px; }
+#cfR[aria-busy] { opacity: 0.7; }
+.cf-read .bk-h, .cf-people .bk-h, .cf-docs .bk-h { margin: 0 0 8px; }
+.cf-clues { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.cf-clues li { display: grid; gap: 2px; padding: 8px 12px; border-radius: var(--r-md); border: 1px solid var(--hair-2); background: var(--vault-3); max-width: 100%; }
+.cf-clues b { font-size: 14px; color: var(--bone); }
+.cf-clues span { font-size: 12.5px; color: var(--dust); overflow-wrap: anywhere; }
+.cf-meta { margin: 8px 0 0; color: var(--dust-2); }
+.cf-people { display: grid; gap: 8px; }
+.cf-person, .cf-doc { display: grid; gap: 6px; padding: 12px 14px; border-radius: var(--r-md); border: 1px solid var(--hair-2); background: var(--vault-3); color: inherit; text-decoration: none; min-width: 0; }
+.cf-person:hover, .cf-doc:hover { border-color: var(--gold); }
+.cf-person b { font-size: 15px; }
+.cf-docs { display: grid; gap: 8px; }
+.cf-doc-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.cf-doc-h b { font-size: 15px; color: var(--bone); }
+.cf-doc-s { margin: 0; line-height: 1.8; overflow-wrap: anywhere; }
+.cf-doc.void { opacity: 0.85; }
+.cf-n { margin-inline-start: auto; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--hair-2); color: var(--dust); }
+.cf-why { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.cf-why li { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; padding: 3px 10px; border-radius: 999px; background: rgba(var(--gold-rgb), 0.12); font-size: 12.5px; max-width: 100%; }
+.cf-why b { color: var(--gold-hi); font-weight: 600; }
+.cf-why span { color: var(--bone); overflow-wrap: anywhere; }
+.cf-why em { font-style: normal; color: var(--dust); }
+.cf-miss { margin: 0; color: var(--carn); }
+.cf-near .bk-h { color: var(--dust); }
+.cf-more { color: var(--dust-2); }
+html[data-theme='day'] .cf-clues li, html[data-theme='day'] .cf-person, html[data-theme='day'] .cf-doc { background: var(--vault-2); }
+html[data-theme='day'] .cf-why li { background: var(--l-gold-soft); }
+html[data-theme='day'] .cf-why b { color: var(--l-gold-ink); }
+@media (max-width: 640px) { .cf-find .input { min-height: 50px; font-size: 16px; } .cf-n { margin-inline-start: 0; } }
+.pal-list em.k-find { color: var(--accent); }
+.dy-all { margin: -4px 0 10px; } .dy-all a { color: var(--gold-hi); } html[data-theme='day'] .dy-all a { color: var(--l-gold-ink); }
+/* spec 0031: the anatomy teaser above the chapters */
+.hlp-teaser { margin: 0 0 16px; border: 1px solid var(--u-line); border-radius: var(--u-r-lg); background: var(--u-panel); }
+.hlp-teaser summary { display: grid; gap: 2px; padding: 12px 16px; cursor: pointer; }
+.hlp-teaser summary .small { color: var(--muted-foreground); }
+.hlp-teaser video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 0 0 var(--u-r-lg) var(--u-r-lg); background: var(--vault); }
