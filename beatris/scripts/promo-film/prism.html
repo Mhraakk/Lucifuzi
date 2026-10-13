@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<!-- «منشور»: Beatris teaser, 40 s. Every frame is seek(t). The wave count, the Fibonacci levels and the scenarios are
+     computed live by the app's own Elliott engine (public/js/elliott.mjs) on a labelled sample series; the orbs are
+     the app's own thinking orbs (public/js/orb.mjs). Served over http by render.mjs so the modules load. -->
+<style>
+@font-face { font-family: 'Estedad'; src: url('/public/fonts/estedad-arabic-var.woff2') format('woff2'); font-weight: 100 900; }
+@font-face { font-family: 'Estedad'; src: url('/public/fonts/estedad-latin-var.woff2') format('woff2'); font-weight: 100 900; unicode-range: U+0000-00FF; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #07080a; font-family: Estedad, sans-serif; color: #f2ede2; }
+#stage { position: absolute; inset: 0; overflow: hidden; }
+canvas#cv { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+.layer { position: absolute; inset: 0; pointer-events: none; }
+.title { position: absolute; font-weight: 800; line-height: 1.25; white-space: nowrap; }
+.sub { position: absolute; font-weight: 500; color: #c9c1b0; white-space: nowrap; }
+.gold { background: linear-gradient(100deg, #fff1c9 0%, #e2bd6e 45%, #a27c3a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.win { position: absolute; border-radius: 22px; overflow: hidden; box-shadow: 0 60px 120px -30px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.09); background: #13171c; }
+.win img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.chip { position: absolute; display: inline-flex; align-items: center; gap: 16px; padding: 16px 28px; border-radius: 999px; background: rgba(9,10,13,.8); border: 1px solid rgba(226,189,110,.45); font-weight: 700; font-size: 32px; color: #f6e6b8; backdrop-filter: blur(14px); white-space: nowrap; }
+.chip i { width: 13px; height: 13px; border-radius: 50%; background: #e2bd6e; box-shadow: 0 0 18px #e2bd6e; }
+.cap { position: absolute; right: 120px; top: 92px; text-align: right; }
+.cap b { display: block; font-size: 64px; font-weight: 800; }
+.cap span { display: block; margin-top: 10px; font-size: 32px; font-weight: 500; color: #cfc6b4; }
+.foot { position: absolute; left: 48px; bottom: 30px; font-size: 19px; color: rgba(242,237,226,.42); font-weight: 500; }
+</style></head>
+<body><div id="stage">
+  <canvas id="cv" width="1920" height="1080"></canvas>
+
+  <div class="layer" id="L1">
+    <div class="title gold" id="t1" style="left:0;right:0;top:770px;text-align:center;font-size:92px">نور را بشکن، موج را بشمار.</div>
+  </div>
+
+  <div class="layer" id="L3">
+    <div class="cap" id="cap"><b id="capB"></b><span id="capS"></span></div>
+  </div>
+
+  <div class="layer" id="L4"><div class="win" id="wE"><img src="shots/elliott.png"></div><div class="chip" id="cE"><i></i>تحلیل الیوت · در بازار و در دفاتر</div></div>
+
+  <div class="layer" id="L5">
+    <div class="title" id="t5" style="right:150px;top:360px;font-size:78px">عامل‌ها فکر می‌کنند؛</div>
+    <div class="title gold" id="t5b" style="right:150px;top:470px;font-size:78px">عدد را موتور می‌سازد.</div>
+    <div class="sub" id="t5c" style="right:154px;top:612px;font-size:38px"></div>
+  </div>
+
+  <div class="layer" id="L6">
+    <div class="win" id="w6a"><img src="shots/desk.png"></div>
+    <div class="win" id="w6b"><img src="shots/trainer.png"></div>
+    <div class="win" id="w6c"><img src="shots/studio3d.png"></div>
+    <div class="chip" id="c6"><i></i><span id="c6t"></span></div>
+  </div>
+
+  <div class="layer" id="L7">
+    <div class="win" id="k1"><img src="shots/pulse-lapis.png"></div>
+    <div class="win" id="k2"><img src="shots/pulse-day.png"></div>
+    <div class="win" id="k3"><img src="shots/desk-clean.png"></div>
+    <div class="win" id="k4"><img src="shots/pulse.png"></div>
+    <div class="chip" id="c7" style="left:50%;top:960px"><i></i>یک اپ، پانزده پوسته · همه یکدست</div>
+  </div>
+
+  <div class="layer" id="L8">
+    <div class="title gold" id="e1" style="left:0;right:0;top:600px;text-align:center;font-size:124px">بئاتریس</div>
+    <div class="sub" id="e2" style="left:0;right:0;top:770px;text-align:center;font-size:40px;color:#ece6d9">حساب درست، آموزش واقعی، تحلیل شمرده، طراحی قابل ساخت.</div>
+    <div class="chip" id="e3" style="left:50%;top:860px;font-size:30px;direction:ltr">beatris-production-68ac.up.railway.app</div>
+  </div>
+  <div class="foot" id="foot">نمودار با داده نمونه و موتور واقعی تحلیل بئاتریس · تصاویر از نسخه نمایشی</div>
+</div>
+<script type="module">
+import { waveMap } from '/public/js/elliott.mjs';
+import { drawOrb, ORB_STATES } from '/public/js/orb.mjs';
+
+const DUR = 40;
+const W = 1920, H = 1080;
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const outExpo = (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
+const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const outBack = (x) => 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2);
+const inCubic = (x) => x * x * x;
+const lerp = (a, b, x) => a + (b - a) * x;
+const set = (el, css) => Object.assign(el.style, css);
+const fa = (s) => String(s).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]).replace(/\./g, '٫');
+const show = (el, on) => (el.style.display = on ? '' : 'none');
+
+// ---- the sample series (the same clean 5-3-5-3-5 impulse the engine's tests use) and the engine's reading of it ----
+function impulse() {
+  const path = [100];
+  const Wv = (to, n) => { const a = path.at(-1); for (let k = 1; k <= n; k++) path.push(a + ((to - a) * k) / n); };
+  Wv(115, 6); Wv(108, 4); Wv(135, 8); Wv(127, 4); Wv(145, 6); Wv(125, 5); Wv(133, 4); Wv(118, 6);
+  Wv(150, 6); Wv(138, 4); Wv(200, 10); Wv(185, 5); Wv(225, 7); Wv(200, 5); Wv(210, 4); Wv(192, 5);
+  Wv(215, 6); Wv(205, 4); Wv(240, 7); Wv(230, 4); Wv(252, 6);
+  return path.map((c, i) => {
+    const o = i ? path[i - 1] : c;
+    return { d: new Date(Date.UTC(2024, 0, 1) + i * 864e5).toISOString().slice(0, 10), o, h: Math.max(o, c) * 1.002, l: Math.min(o, c) * 0.998, c };
+  });
+}
+const bars = impulse();
+const M = waveMap(bars, { format: (v) => fa(v.toFixed(0)) });
+const N = bars.length;
+const IMAX = 140, PLO = 88, PHI = 300;
+const CH = { x0: 150, x1: 1500, y0: 940, y1: 330 };
+const X = (i) => CH.x0 + (i / IMAX) * (CH.x1 - CH.x0);
+const Y = (p) => CH.y0 - ((p - PLO) / (PHI - PLO)) * (CH.y0 - CH.y1);
+const SPEC = ['#ff4d4d', '#ff9a3c', '#ffd84a', '#6fe07a', '#46c8ff', '#6f7dff', '#c06bff'];
+const GEM = { x: 760, y: 470, r: 150 };
+
+const cv = $('cv'), g = cv.getContext('2d');
+const off = document.createElement('canvas'); off.width = off.height = 448; const oc = off.getContext('2d');
+
+function gemPath(cx, cy, r, k) {
+  const pts = [];
+  for (let j = 0; j < 8; j++) { const a = -Math.PI / 2 + (j * Math.PI) / 4; pts.push([cx + Math.cos(a) * r * k, cy + Math.sin(a) * r * k]); }
+  return pts;
+}
+function drawGem(cx, cy, r, a, draw = 1) {
+  if (a <= 0) return;
+  g.save();
+  g.globalAlpha = a;
+  const grad = g.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  grad.addColorStop(0, '#fff1c9'); grad.addColorStop(0.5, '#e2bd6e'); grad.addColorStop(1, '#a27c3a');
+  g.strokeStyle = grad; g.lineJoin = 'round';
+  const outer = gemPath(cx, cy, r, 1), inner = gemPath(cx, cy, r, 0.47);
+  const poly = (pts, w, p) => {
+    g.lineWidth = w; g.beginPath();
+    const n = Math.max(1, Math.ceil(8 * p));
+    for (let j = 0; j <= n; j++) { const q = pts[j % 8]; j ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }
+    g.stroke();
+  };
+  // a faint inner glass so the gem reads as a solid the light passes through
+  g.fillStyle = 'rgba(226,189,110,0.06)'; g.beginPath(); outer.forEach((q, j) => (j ? g.lineTo(...q) : g.moveTo(...q))); g.closePath(); g.fill();
+  poly(outer, 6, clamp(draw * 1.4));
+  poly(inner, 3.5, clamp(draw * 1.4 - 0.3));
+  g.lineWidth = 2; g.globalAlpha = a * clamp(draw * 2 - 1);
+  g.beginPath();
+  for (let j = 0; j < 8; j++) { g.moveTo(...outer[j]); g.lineTo(...inner[j]); g.moveTo(...outer[j]); g.lineTo(...inner[(j + 1) % 8]); }
+  g.stroke();
+  g.restore();
+}
+function glowDot(x, y, r, col, a) {
+  const gr = g.createRadialGradient(x, y, 0, x, y, r);
+  gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.globalAlpha = a; g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.globalAlpha = 1;
+}
+// the price path as a function of a parameter u ∈ [0,1] along the series
+const priceAt = (u) => { const f = u * (N - 1), i = Math.floor(f), k = f - i; const a = bars[i].c, b = bars[Math.min(N - 1, i + 1)].c; return [X(f), Y(lerp(a, b, k))]; };
+
+function background(t) {
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+  g.fillStyle = '#07080a'; g.fillRect(0, 0, W, H);
+  // a slow warm haze that drifts with time (deterministic)
+  const hx = 1200 + Math.sin(t * 0.21) * 220, hy = 300 + Math.cos(t * 0.17) * 120;
+  const gr = g.createRadialGradient(hx, hy, 0, hx, hy, 1100);
+  gr.addColorStop(0, 'rgba(60,46,24,0.55)'); gr.addColorStop(1, 'rgba(7,8,10,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+}
+
+// ---------------- S1–S2: the beam, the prism, the spectrum that becomes the price ----------------
+function prism(t) {
+  if (t > 7.6) return;
+  const fade = 1 - prog(t, 6.6, 7.6);
+  const beam = inOut(prog(t, 0.15, 1.35));
+  const gemIn = outExpo(prog(t, 0.0, 1.6));
+  const hit = t >= 1.3;
+  const morph = inOut(prog(t, 4.0, 6.4)); // rays → price line
+  const gemOut = inOut(prog(t, 3.8, 5.0));
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  // incoming white beam
+  const bx = lerp(-60, GEM.x - GEM.r * 0.7, beam);
+  if (beam > 0) {
+    g.globalAlpha = 0.95 * fade * (1 - gemOut);
+    const lg = g.createLinearGradient(-60, 0, bx, 0); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(1, 'rgba(255,255,255,0.95)');
+    g.strokeStyle = lg; g.lineWidth = 5; g.beginPath(); g.moveTo(-60, GEM.y + 40); g.lineTo(bx, GEM.y); g.stroke();
+    g.lineWidth = 22; g.globalAlpha = 0.12 * fade * (1 - gemOut); g.stroke();
+  }
+  // flash at the hit
+  if (hit) glowDot(GEM.x, GEM.y, 420 * outExpo(prog(t, 1.3, 2.2)), 'rgba(255,240,200,0.7)', (1 - prog(t, 1.3, 2.6)) * fade);
+  // the spectrum: seven rays out of the right face; while morphing each ray bends onto the price path
+  const grow = outExpo(prog(t, 1.3, 2.7));
+  if (grow > 0) {
+    const ex = [GEM.x + GEM.r * 0.8, GEM.y];
+    for (let k = 0; k < 7; k++) {
+      const ang = ((k - 3) * 4.2 * Math.PI) / 180 + 0.02;
+      const len = 1400 * grow;
+      const spread = (k - 3) * 9 * (1 - morph);
+      g.strokeStyle = SPEC[k];
+      g.globalAlpha = (0.85 - 0.5 * morph) * fade;
+      g.lineWidth = lerp(4, 2, morph);
+      g.beginPath();
+      const S = 60;
+      for (let s = 0; s <= S; s++) {
+        const u = s / S;
+        const rx = ex[0] + Math.cos(ang) * len * u, ry = ex[1] + Math.sin(ang) * len * u;
+        const [px, py] = priceAt(u);
+        const x = lerp(rx, px, morph), y = lerp(ry, py + spread, morph);
+        s ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.stroke();
+      g.lineWidth = 16; g.globalAlpha *= 0.12; g.stroke();
+    }
+  }
+  g.restore();
+  drawGem(lerp(GEM.x, GEM.x, gemOut), lerp(GEM.y, GEM.y - 120, gemOut), GEM.r * lerp(1, 0.6, gemOut), gemIn * (1 - gemOut), outExpo(prog(t, 0.0, 1.5)));
+}
+
+// ---------------- S2–S5: the chart and the engine's reading of it ----------------
+function chart(t) {
+  if (t < 4.6 || t > 18.6) return;
+  // zoom into the app window at the end: the whole chart flies into the screenshot's chart area
+  const z = inOut(prog(t, 15.4, 16.6));
+  const tx = lerp(0, 430, z), ty = lerp(0, 220, z), s = lerp(1, 0.52, z);
+  const out = 1 - prog(t, 16.4, 17.0);
+  g.save();
+  g.setTransform(s, 0, 0, s, tx, ty);
+  g.globalAlpha = out;
+  // grid
+  const gridA = outExpo(prog(t, 5.6, 6.8)) * 0.5;
+  g.strokeStyle = `rgba(255,255,255,${0.06 * gridA * 2})`; g.lineWidth = 1;
+  for (let p = 100; p <= 300; p += 50) { g.beginPath(); g.moveTo(CH.x0, Y(p)); g.lineTo(CH.x1 + 260, Y(p)); g.stroke(); }
+  // candles
+  const cA = outExpo(prog(t, 5.8, 7.0));
+  for (let i = 0; i < N; i++) {
+    const b = bars[i], up = b.c >= b.o, a = cA * clamp((t - 5.8) * 3 - i / N * 2);
+    if (a <= 0) continue;
+    g.globalAlpha = out * a * 0.55;
+    g.strokeStyle = up ? '#5cc2b1' : '#d0613f'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(X(i), Y(b.h)); g.lineTo(X(i), Y(b.l)); g.stroke();
+    g.fillStyle = g.strokeStyle; g.fillRect(X(i) - 3.5, Y(Math.max(b.o, b.c)), 7, Math.max(2, Math.abs(Y(b.o) - Y(b.c))));
+  }
+  g.globalAlpha = out;
+  // the gold close line (what the spectrum became)
+  const lineA = prog(t, 5.8, 6.6);
+  g.strokeStyle = '#e2bd6e'; g.lineWidth = 3.5; g.globalAlpha = out * lineA;
+  g.beginPath(); for (let i = 0; i < N; i++) (i ? g.lineTo : g.moveTo).call(g, X(i), Y(bars[i].c)); g.stroke();
+
+  // Fibonacci of the counted move: spectral levels with the golden zone between 0.382 and 0.618
+  const fibT = prog(t, 10.2, 11.6);
+  if (fibT > 0 && M.fib) {
+    const lv = M.fib.levels, x0 = X(M.major.points[0].i);
+    const zone = lv.filter((l) => l.r === 0.382 || l.r === 0.618).map((l) => Y(l.price));
+    if (zone.length === 2) {
+      g.globalAlpha = out * 0.16 * outExpo(prog(t, 10.8, 11.8));
+      const zg = g.createLinearGradient(x0, 0, CH.x1 + 260, 0); zg.addColorStop(0, 'rgba(226,189,110,0)'); zg.addColorStop(0.4, 'rgba(226,189,110,1)'); zg.addColorStop(1, 'rgba(226,189,110,0.5)');
+      g.fillStyle = zg; g.fillRect(x0, Math.min(...zone), CH.x1 + 260 - x0, Math.abs(zone[0] - zone[1]));
+    }
+    lv.forEach((l, k) => {
+      const p = outExpo(prog(t, 10.2 + k * 0.12, 10.9 + k * 0.12));
+      if (p <= 0) return;
+      const y = Y(l.price), x1 = lerp(x0, CH.x1 + 260, p);
+      g.globalAlpha = out * 0.9; g.strokeStyle = SPEC[k % 7]; g.lineWidth = l.r === 0.618 || l.r === 0.382 ? 2.6 : 1.4;
+      g.setLineDash(l.r === 0 || l.r === 1 ? [] : [10, 8]);
+      g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke(); g.setLineDash([]);
+      g.globalAlpha = out * p; g.fillStyle = SPEC[k % 7]; g.font = '600 24px Estedad'; g.textAlign = 'left';
+      g.fillText(`${fa(String(l.r))}  ·  ${fa(l.price.toFixed(0))}`, CH.x1 + 270, y + 8);
+    });
+  }
+
+  // golden spiral from the start of the count opening to wave V (decorative, φ = 1.618)
+  const spT = prog(t, 11.4, 13.0);
+  if (spT > 0) {
+    const P0 = M.major.points[0], P5 = M.major.points[5];
+    const cx = X(P5.i) - 30, cy = Y(lerp(P0.price, P5.price, 0.618));
+    const phi = 1.618033988749895, b = Math.log(phi) / (Math.PI / 2);
+    const thMax = 4.6 * Math.PI, a = 330 / Math.exp(b * 4.6 * Math.PI);
+    g.globalAlpha = out * lerp(0.9, 0.35, prog(t, 13.0, 13.6)); g.strokeStyle = '#fff1c9'; g.lineWidth = 2;
+    g.beginPath();
+    const steps = Math.floor(400 * spT);
+    for (let s = 0; s <= steps; s++) { const th = (s / 400) * thMax, r = a * Math.exp(b * th); const x = cx - Math.cos(th) * r, y = cy - Math.sin(th) * r; s ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+    g.globalAlpha = out * outExpo(prog(t, 12.4, 13.0)); g.fillStyle = '#fff1c9'; g.font = '700 26px Estedad'; g.textAlign = 'center';
+    g.globalAlpha *= 1 - prog(t, 13.0, 13.5); g.fillText(`φ = ${fa('1.618')}`, cx, cy - 250);
+  }
+
+  // the count: the large degree with labels, then the small degree
+  if (M.major) {
+    const pts = M.major.points;
+    const dT = prog(t, 7.2, 9.6);
+    if (dT > 0) {
+      const segs = pts.length - 1, upto = dT * segs;
+      g.globalAlpha = out; g.strokeStyle = '#fff1c9'; g.lineWidth = 4.5; g.lineJoin = 'round';
+      g.beginPath(); g.moveTo(X(pts[0].i), Y(pts[0].price));
+      for (let k = 1; k <= segs; k++) {
+        const f = clamp(upto - (k - 1)); if (f <= 0) break;
+        g.lineTo(lerp(X(pts[k - 1].i), X(pts[k].i), f), lerp(Y(pts[k - 1].price), Y(pts[k].price), f));
+      }
+      g.stroke();
+      pts.forEach((p, k) => {
+        if (!p.label) return;
+        const at = 7.2 + (k / segs) * 2.4, a = outBack(clamp((t - at) / 0.45));
+        if (t < at) return;
+        const x = X(p.i), y = Y(p.price), above = k % 2 === 1;
+        const ring = prog(t, at, at + 0.9);
+        g.globalAlpha = out * (1 - ring) * 0.9; g.strokeStyle = '#fff1c9'; g.lineWidth = 3;
+        g.beginPath(); g.arc(x, y, 10 + ring * 46, 0, 7); g.stroke();
+        g.globalAlpha = out; g.fillStyle = '#fff1c9'; g.beginPath(); g.arc(x, y, 7, 0, 7); g.fill();
+        g.save(); g.translate(x, y + (above ? -40 : 52)); g.scale(a, a);
+        g.font = '800 38px Estedad'; g.textAlign = 'center'; g.fillStyle = '#ffe7a8'; g.fillText(`(${p.label})`, 0, 0); g.restore();
+      });
+    }
+    // small degree: dots and small labels along each leg
+    const mT = prog(t, 9.0, 10.2);
+    if (mT > 0) {
+      g.font = '600 20px Estedad'; g.textAlign = 'center';
+      M.minor.forEach((leg, li) => {
+        const a = outExpo(clamp(mT * 1.6 - li * 0.15));
+        leg.points.forEach((q) => {
+          if (!q.label) return;
+          g.globalAlpha = out * a * 0.85; g.fillStyle = '#9fd7ff';
+          g.beginPath(); g.arc(X(q.i), Y(q.price), 3.5, 0, 7); g.fill();
+          g.fillText(q.label, X(q.i), Y(q.price) - 14);
+        });
+      });
+    }
+    // scenarios: primary down into the golden zone, alternative up; and the invalidation level
+    const sT = prog(t, 13.0, 14.8);
+    if (sT > 0 && M.scenarios) {
+      const draw = (sc, col, dash, w) => {
+        const P = sc.path; const L = P.length - 1, upto = outExpo(sT) * L;
+        g.strokeStyle = col; g.lineWidth = w; g.setLineDash(dash); g.globalAlpha = out;
+        g.beginPath(); g.moveTo(X(P[0].i), Y(P[0].price));
+        for (let k = 1; k <= L; k++) { const f = clamp(upto - (k - 1)); if (f <= 0) break; g.lineTo(lerp(X(P[k - 1].i), X(P[k].i), f), lerp(Y(P[k - 1].price), Y(P[k].price), f)); }
+        g.stroke(); g.setLineDash([]);
+        const end = P.at(-1), la = outExpo(prog(t, 14.0, 14.7));
+        g.globalAlpha = out * la; g.fillStyle = col; g.font = '700 26px Estedad'; g.textAlign = 'right';
+        g.fillText(`${sc === M.scenarios.primary ? 'سناریوی اصلی' : 'جایگزین'} ${fa(Math.round(sc.p * 100))}٪`, X(end.i) + 40, Y(end.price) + (sc.dir > 0 ? -20 : 40));
+      };
+      draw(M.scenarios.primary, '#ffd84a', [14, 10], 4);
+      draw(M.scenarios.alternative, '#46c8ff', [6, 10], 2.5);
+      const inv = M.major.invalid;
+      if (Number.isFinite(inv)) {
+        g.globalAlpha = out * outExpo(prog(t, 14.2, 14.9)) * 0.9; g.strokeStyle = '#ff6b5b'; g.lineWidth = 2; g.setLineDash([3, 7]);
+        g.beginPath(); g.moveTo(X(M.major.points[5].i) - 160, Y(inv)); g.lineTo(CH.x1 + 120, Y(inv)); g.stroke(); g.setLineDash([]);
+        g.fillStyle = '#ff6b5b'; g.font = '600 22px Estedad'; g.textAlign = 'right'; g.fillText(`ابطال ${fa(inv.toFixed(0))}`, X(M.major.points[5].i) - 170, Y(inv) + 8);
+      }
+    }
+  }
+  g.restore();
+}
+
+// ---------------- S5: the spiral's light gathers into the thinking orb ----------------
+function orbs(t) {
+  if (t < 17.4 || t > 22.6) return;
+  const a = outExpo(prog(t, 17.6, 18.6)) * (1 - prog(t, 21.9, 22.5));
+  const states = ['solving', 'connecting', 'composing'];
+  const k = t < 19.3 ? 0 : t < 20.6 ? 1 : 2;
+  const swap = k === 0 ? 1 : outExpo(prog(t, k === 1 ? 19.3 : 20.6, (k === 1 ? 19.3 : 20.6) + 0.45));
+  // gathering sparks (deterministic) converge into the orb
+  const gT = prog(t, 17.4, 18.5);
+  if (gT < 1) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (let j = 0; j < 60; j++) {
+      const ang = j * 2.39996, r0 = 380 + (j % 7) * 40, r = r0 * (1 - inOut(gT));
+      glowDot(560 + Math.cos(ang) * r, 540 + Math.sin(ang) * r, 14, SPEC[j % 7], (1 - gT) * 0.8);
+    }
+    g.restore();
+  }
+  // the orb paints (and clears) its own square, so it is drawn off screen and laid over the film
+  const tint = { r: 236, g: 200, b: 120 };
+  const paintOrb = (state, alpha) => {
+    oc.setTransform(1, 0, 0, 1, 0, 0); oc.clearRect(0, 0, 448, 448); oc.setTransform(7, 0, 0, 7, 0, 0);
+    drawOrb(oc, state, 64, t, { dark: true, tint });
+    g.save(); g.globalAlpha = alpha; g.globalCompositeOperation = 'lighter'; g.drawImage(off, 560 - 224, 540 - 224); g.restore();
+  };
+  glowDot(560, 540, 330, 'rgba(226,189,110,0.22)', a);
+  paintOrb(states[k], a * swap);
+  if (k > 0 && swap < 1) paintOrb(states[k - 1], a * (1 - swap));
+  return { state: states[k], a };
+}
+
+// ---------------- spectral wipe used between screens: seven skewed bands sweep right → left ----------------
+function wipe(t, at, dur = 0.7) {
+  const p = prog(t, at, at + dur);
+  if (p <= 0 || p >= 1) return;
+  g.save(); g.globalCompositeOperation = 'lighter';
+  const x = lerp(W + 400, -700, inOut(p));
+  for (let k = 0; k < 7; k++) {
+    g.globalAlpha = 0.55;
+    g.fillStyle = SPEC[k];
+    g.beginPath(); const bx = x + k * 46;
+    g.moveTo(bx, 0); g.lineTo(bx + 40, 0); g.lineTo(bx - 200 + 40, H); g.lineTo(bx - 200, H); g.closePath(); g.fill();
+  }
+  g.restore();
+}
+
+// ---------------- DOM beats ----------------
+function capText(t) {
+  const beats = [
+    [7.0, 'موتور ترکیبی الیوت + فیبوناچی', 'شمارش موج را خودش پیدا می‌کند و قواعد را می‌سنجد'],
+    [9.0, 'موج‌های بزرگ و کوچک', `${fa(M.major.rules.filter((r) => r.ok).length)} قاعده الیوت برقرار · زیرموج‌ها ۵-۳-۵-۳-۵`],
+    [10.4, 'فیبوناچی از همان حرکتِ شمرده‌شده', 'ناحیه طلایی ۰٫۳۸۲ تا ۰٫۶۱۸، نه خط‌های دلبخواه'],
+    [13.0, 'دو سناریو با احتمال', `اصلی ${fa(Math.round(M.scenarios.primary.p * 100))}٪ · جایگزین ${fa(Math.round(M.scenarios.alternative.p * 100))}٪ · و نقطه ابطال`],
+  ];
+  let cur = null;
+  for (const b of beats) if (t >= b[0]) cur = b;
+  return cur;
+}
+
+window.DUR = DUR;
+window.seek = function seek(t) {
+  background(t);
+  prism(t);
+  chart(t);
+  const o = orbs(t);
+  wipe(t, 21.9); wipe(t, 24.2); wipe(t, 26.5); wipe(t, 28.8, 0.8);
+
+  // L1 title over the prism
+  {
+    const on = t < 4.4; show($('L1'), on);
+    if (on) {
+      const i = outExpo(prog(t, 2.0, 2.8)), x = inCubic(prog(t, 3.7, 4.3));
+      set($('t1'), { opacity: i * (1 - x), transform: `translateY(${lerp(40, 0, i) - x * 30}px)`, filter: `blur(${(1 - i) * 10 + x * 8}px)` });
+    }
+  }
+  // L3 captions during the analysis
+  {
+    const on = t >= 7.0 && t < 15.6; show($('L3'), on);
+    if (on) {
+      const c = capText(t);
+      if ($('capB').textContent !== c[1]) { $('capB').textContent = c[1]; $('capS').textContent = c[2]; }
+      const i = outExpo(prog(t, c[0], c[0] + 0.5)), x = inCubic(prog(t, 15.0, 15.6));
+      set($('cap'), { opacity: i * (1 - x), transform: `translateY(${lerp(24, 0, i)}px)`, filter: `blur(${(1 - i) * 8}px)` });
+    }
+  }
+  // L4 the real Elliott studio window receives the chart
+  {
+    const on = t >= 15.4 && t < 17.9; show($('L4'), on);
+    if (on) {
+      const i = inOut(prog(t, 15.4, 16.6)), x = inCubic(prog(t, 17.3, 17.9));
+      set($('wE'), { left: '200px', top: '120px', width: '1520px', height: '855px', opacity: clamp(i * 1.4) * (1 - x), transform: `perspective(1600px) rotateX(${lerp(10, 0, i)}deg) scale(${lerp(1.18, 1, i) * lerp(1, 0.9, x)})` });
+      const c = outExpo(prog(t, 16.2, 16.8));
+      set($('cE'), { right: '240px', top: '900px', opacity: c * (1 - x), transform: `translateY(${lerp(30, 0, c)}px)` });
+    }
+  }
+  // L5 the orb's words
+  {
+    const on = t >= 17.8 && t < 22.6; show($('L5'), on);
+    if (on) {
+      const a = outExpo(prog(t, 18.3, 19.0)), b = outExpo(prog(t, 18.7, 19.4)), x = inCubic(prog(t, 21.8, 22.4));
+      set($('t5'), { opacity: a * (1 - x), transform: `translateX(${lerp(-40, 0, a)}px)` });
+      set($('t5b'), { opacity: b * (1 - x), transform: `translateX(${lerp(-40, 0, b)}px)` });
+      const label = `${ORB_STATES[o?.state ?? 'solving']}…`;
+      if ($('t5c').textContent !== label) $('t5c').textContent = label;
+      set($('t5c'), { opacity: outExpo(prog(t, 18.8, 19.4)) * (1 - x) });
+    }
+  }
+  // L6 the product, three screens between spectral wipes
+  {
+    const on = t >= 22.0 && t < 29.4; show($('L6'), on);
+    if (on) {
+      const beats = [['w6a', 22.2, 24.5, 'میز معامله · خرید، فروش و پرداخت ترکیبی'], ['w6b', 24.5, 26.8, 'حسابداری عملی با مربی · نمره از موتور حسابداری'], ['w6c', 26.8, 29.1, 'استودیو · وزن از حجم واقعی فلز']];
+      let chip = '';
+      for (const [id, a, b, text] of beats) {
+        const vis = t >= a - 0.1 && t < b + 0.2;
+        show($(id), vis);
+        if (!vis) continue;
+        const i = outExpo(prog(t, a, a + 0.6)), drift = prog(t, a, b);
+        set($(id), { left: '250px', top: '110px', width: '1420px', height: '800px', opacity: clamp(i * 1.5), transform: `perspective(1800px) rotateY(${lerp(-12, -3, drift)}deg) translateX(${lerp(60, -30, drift)}px) scale(${lerp(0.94, 1.0, i)})` });
+        if (t >= a) chip = text;
+      }
+      if ($('c6t').textContent !== chip) $('c6t').textContent = chip;
+      set($('c6'), { right: '230px', top: '940px', opacity: chip ? 1 : 0 });
+    }
+  }
+  // L7 skins: four windows, each painted by one colour band of the last wipe
+  {
+    const on = t >= 28.9 && t < 33.6; show($('L7'), on);
+    if (on) {
+      const pos = [[180, 120], [990, 120], [180, 540], [990, 540]];
+      ['k1', 'k2', 'k3', 'k4'].forEach((id, k) => {
+        const i = outExpo(prog(t, 29.0 + k * 0.16, 29.7 + k * 0.16)), x = inCubic(prog(t, 32.9, 33.6));
+        set($(id), { left: `${pos[k][0]}px`, top: `${pos[k][1]}px`, width: '750px', height: '400px', opacity: i * (1 - x), transform: `translateY(${lerp(50, 0, i)}px) scale(${lerp(0.9, 1, i) * lerp(1, 0.94, x)})`, boxShadow: `0 40px 90px -30px rgba(0,0,0,.8), 0 0 0 2px ${SPEC[k * 2]}88` });
+      });
+      const c = outExpo(prog(t, 30.0, 30.6));
+      set($('c7'), { opacity: c * (1 - inCubic(prog(t, 32.9, 33.6))), transform: `translateX(-50%) translateY(${lerp(30, 0, c)}px)` });
+    }
+  }
+  // L8 end card: the beam passes the gem once more and the spectrum gathers into the name
+  {
+    const on = t >= 33.4; show($('L8'), on);
+    if (on) {
+      const T = t - 33.4;
+      const gemA = outExpo(prog(T, 0, 0.9));
+      drawGem(960, 360, 130, gemA, outExpo(prog(T, 0, 1.0)));
+      const beam = inOut(prog(T, 0.4, 1.2));
+      if (beam > 0) {
+        g.save(); g.globalCompositeOperation = 'lighter';
+        g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 4; g.globalAlpha = 1 - prog(T, 2.4, 3.4);
+        g.beginPath(); g.moveTo(-40, 380); g.lineTo(lerp(-40, 860, beam), 360); g.stroke();
+        const grow = outExpo(prog(T, 1.2, 2.2));
+        for (let k = 0; k < 7; k++) {
+          const ang = ((k - 3) * 2.2 * Math.PI) / 180, len = 1100 * grow;
+          g.strokeStyle = SPEC[k]; g.globalAlpha = 0.8 * (1 - prog(T, 2.6, 3.6)); g.lineWidth = 3;
+          g.beginPath(); g.moveTo(1065, 360); g.lineTo(1065 + Math.cos(ang) * len, 360 + Math.sin(ang) * len); g.stroke();
+        }
+        g.restore();
+      }
+      const n = outExpo(prog(T, 1.4, 2.1)), s = outExpo(prog(T, 1.9, 2.6)), u = outExpo(prog(T, 2.4, 3.0));
+      set($('e1'), { opacity: n, transform: `translateY(${lerp(40, 0, n)}px)`, filter: `blur(${(1 - n) * 10}px)` });
+      set($('e2'), { opacity: s, transform: `translateY(${lerp(24, 0, s)}px)` });
+      set($('e3'), { opacity: u, transform: `translateX(-50%) translateY(${lerp(20, 0, u)}px)` });
+    }
+  }
+  set($('foot'), { opacity: t > 5.8 && t < 17 ? 1 : t > 33.6 ? 0.8 : 0.0 });
+};
+document.fonts.ready.then(() => { window.READY = true; window.seek(0); });
+</script>
+</body></html>

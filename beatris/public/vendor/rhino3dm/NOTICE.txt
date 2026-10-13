@@ -1,0 +1,3 @@
+rhino3dm 8.35.0 — https://github.com/mcneel/rhino3dm — MIT License, Copyright (c) Robert McNeel & Associates.
+Files: rhino3dm.min.js, rhino3dm.wasm (unmodified, npm tarball sha512-YcMDgOT7m132Zd/Nw1AAMFkrtpx2SD30V7Mq3P7jfab6ItURXCOdS8dHe+bMGiNQPRJuYEX+Nvos6c9T1xJ6tA==).
+Used only inside r3dm-worker.js to write .3dm files from the studio.

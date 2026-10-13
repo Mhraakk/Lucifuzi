@@ -1,0 +1,17 @@
+export * from 'three';
+export { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+export { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+export { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+export { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+export { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js';
+export { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js';
+export { PLYExporter } from 'three/examples/jsm/exporters/PLYExporter.js';
+export { USDZExporter } from 'three/examples/jsm/exporters/USDZExporter.js';
+export { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+export { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+export { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+export { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+export { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
+export { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
+export { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
+export * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
