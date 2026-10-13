@@ -1,3 +1,4 @@
+import { BUILD } from './build.mjs';
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
@@ -119,7 +120,7 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
   });
   /** Deep health: the database answers, the price feed is fresh, the queue has no dead jobs, a recent backup exists. */
   function health() {
-    const out = { ok: true, time: new Date().toISOString(), db: 'ok' };
+    const out = { ok: true, time: new Date().toISOString(), build: BUILD, db: 'ok' };
     try {
       db.get('SELECT 1 AS x');
     } catch {

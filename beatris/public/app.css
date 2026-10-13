@@ -2912,6 +2912,10 @@ html[data-theme='day'] .tb-card { background: #fff; border-color: var(--hair-2);
 .pos-station.warn i { background: var(--warning); }
 @media (max-width: 760px) { .pos-station { inset-block-end: calc(76px + env(safe-area-inset-bottom, 0px)); } }
 @media (prefers-reduced-motion: reduce) { .pos-st .pos-dot, .pos-station i { animation: none !important; } }
+/* نسخه‌ی تازه (spec 0036): a new deploy is offered, never forced, on a page where something may be half-typed */
+.fresh-bar { position: fixed; left: 50%; transform: translateX(-50%); inset-block-end: 16px; z-index: 70; display: flex; align-items: center; gap: 12px; max-inline-size: min(460px, calc(100vw - 32px)); padding: 8px 8px 8px 16px; border-radius: 999px; background: var(--surface-elevated); border: 1px solid var(--accent); box-shadow: 0 8px 24px rgba(var(--ink-rgb), 0.35); font-size: 14px; }
+.fresh-bar span { flex: 1; }
+@media (max-width: 760px) { .fresh-bar { inset-block-end: calc(76px + env(safe-area-inset-bottom, 0px)); } }
 
 /* =====================================================================================================
    نظام یکدست (spec 0006) — one calm system for every screen, both themes: a clear type scale, framed panels with

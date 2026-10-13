@@ -1,3 +1,4 @@
+import { BUILD } from './build.mjs';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { capsOf, can } from './rbac.mjs';
 import { createAgentSystem, registerAgentRoutes } from './agents/index.mjs';
@@ -134,7 +135,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   // the shared price feed, product-page leads, MCP and the coin photo library belong to the vendor's main shop
   const MAIN_ONLY = new Set(['POST /api/coin-photos', 'DELETE /api/coin-photos/:id', 'POST /api/market/bars', 'DELETE /api/market/bars/:symbol/:day', 'GET /api/market/feed', 'PUT /api/market/feed', 'POST /api/market/sync', 'GET /api/leads', 'PATCH /api/leads/:id', 'DELETE /api/leads/:id', 'GET /api/mcp', 'POST /api/mcp/token', 'DELETE /api/mcp/token']);
 
-  on('GET', '/api/health', 'public', () => ({ ok: true, time: now() }));
+  on('GET', '/api/health', 'public', () => ({ ok: true, time: now(), build: BUILD }));
   on('GET', '/api/intro', 'public', () => {
     // a few public market prices for the product page's ticker (the same board staff see; sample data is flagged)
     const b = market.board();

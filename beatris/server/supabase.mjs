@@ -4,11 +4,13 @@
 //   BEATRIS_SUPABASE_KEY  the publishable key (sb_publishable_…, or the legacy anon key)
 // For a code rather than a link, the project's «Magic Link» email template must contain {{ .Token }}.
 
+/** message: the sentence the person signing in reads; detail: the cause and its fix, for the vendor console only. */
 export class SupaError extends Error {
-  constructor(status, message, { reach = true } = {}) {
+  constructor(status, message, { reach = true, detail = '' } = {}) {
     super(message);
     this.status = status;
     this.reach = reach;
+    this.detail = detail;
   }
 }
 
@@ -48,8 +50,8 @@ export async function sendEmailCode(cfg, email, opts = {}) {
   const r = await call(cfg, `/auth/v1/otp${q}`, { email, create_user: true }, opts);
   if (r.ok) return { ok: true };
   if (r.status === 429 || r.code === 'over_email_send_rate_limit' || r.code === 'over_request_rate_limit') throw new SupaError(429, 'کد ایمیل همین حالا فرستاده شد؛ کمی بعد دوباره امتحان کنید.');
-  if (/not authorized|email_address_not_authorized/i.test(`${r.message} ${r.code}`)) throw new SupaError(502, 'سرویس ایمیل این پروژه هنوز فقط به اعضای تیم Supabase نامه می‌فرستد؛ ارائه‌دهنده باید SMTP اختصاصی را در Supabase تنظیم کند.');
-  if (r.status === 401 || r.status === 403) throw new SupaError(502, 'کلید Supabase پذیرفته نشد؛ BEATRIS_SUPABASE_KEY را بررسی کنید.');
+  if (/not authorized|email_address_not_authorized/i.test(`${r.message} ${r.code}`)) throw new SupaError(502, 'فرستادن کد به این ایمیل هنوز ممکن نیست؛ کمی بعد دوباره امتحان کنید.', { detail: 'Supabase با ایمیل پیش‌فرض خودش فقط به اعضای تیم پروژه نامه می‌فرستد. برای همه‌ی نشانی‌ها یک‌بار SMTP اختصاصی وصل کنید: Authentication → Emails → SMTP Settings.' });
+  if (r.status === 401 || r.status === 403) throw new SupaError(502, 'سرویس ایمیل الان پاسخ نمی‌دهد؛ چند دقیقه دیگر دوباره امتحان کنید.', { detail: 'کلید Supabase پذیرفته نشد؛ BEATRIS_SUPABASE_KEY را بررسی کنید.' });
   if (r.status === 400 || r.status === 422) throw new SupaError(400, 'این نشانی ایمیل پذیرفته نشد؛ درست بودنش را بررسی کنید.');
   throw new SupaError(502, `ارسال ایمیل انجام نشد (${r.status}).`);
 }

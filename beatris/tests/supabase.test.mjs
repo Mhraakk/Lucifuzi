@@ -151,17 +151,27 @@ test('Supabase down, or refusing an address its mailer does not serve: a plain s
   const r = await down.call('POST', '/api/auth/code', { email: 'owner@shop.ir' });
   assert.equal(r.status, 502);
   assert.match(r.body.error, /در دسترس نیست/);
-  const { call } = await boot({ env: withSupa() });
+  const clock = { t: Date.now() };
+  const { call, ok, emailLogin } = await boot({ env: withSupa(), clock });
   sb.mode = 'refused';
   try {
     const x = await call('POST', '/api/auth/code', { email: 'owner@shop.ir' });
     assert.equal(x.status, 502);
-    assert.match(x.body.error, /SMTP/);
+    // the person signing in is never sent to the shop's owner or the vendor; the console names the cause and the fix
+    assert.match(x.body.error, /کمی بعد دوباره امتحان کنید/);
+    assert.doesNotMatch(x.body.error, /SMTP|ارائه‌دهنده|مالک|Supabase/);
   } finally {
     sb.mode = null;
   }
-  const health = await (await fetch(`${(await boot({ env: withSupa() })).base}/api/health?deep=1`)).json();
+  clock.t += 61_000;
+  const vendor = await emailLogin('owner@shop.ir');
+  assert.match((await ok('GET', '/api/vendor/sms', null, vendor)).email.lastError.error, /SMTP/);
+  const b = (await boot({ env: withSupa() })).base;
+  const health = await (await fetch(`${b}/api/health?deep=1`)).json();
   assert.equal(health.email, 'supabase');
+  // spec 0036: the build an open page compares with, the same in the public and the deep health
+  assert.match(health.build, /^\S{6,40}$/);
+  assert.equal((await (await fetch(`${b}/api/health`)).json()).build, health.build);
 });
 
 test('an email nobody may sign in with gets the same answer, and nothing is sent; sign-up by email asks for the mobile', async () => {
@@ -280,7 +290,8 @@ test('demo and development show the code on the page; production without Supabas
   const prod = await boot({ env: { ...OWNER, NODE_ENV: 'production' } });
   const off = await prod.call('POST', '/api/auth/code', { email: 'someone@mail.com' });
   assert.equal(off.status, 503);
-  assert.match(off.body.error, /Supabase/);
+  assert.match(off.body.error, /هنوز راه نیفتاده/);
+  assert.doesNotMatch(off.body.error, /ارائه‌دهنده|مالک/, 'the person signing in is not sent to anyone');
   const pinned = await boot({ env: { ...OWNER, NODE_ENV: 'production', BEATRIS_OWNER_PIN: '482913' } });
   const p = await pinned.ok('POST', '/api/auth/code', { email: 'owner@shop.ir' });
   assert.equal(p.via, 'owner-pin');

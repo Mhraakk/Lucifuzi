@@ -267,7 +267,7 @@ export function createOtp({ db, secret, sealer, env = process.env, quiet = false
     const c = supa();
     return !!c && !c.error;
   };
-  const EMAIL_OFF = 'ورود با ایمیل هنوز راه نیفتاده است؛ ارائه‌دهنده باید Supabase را در Railway تنظیم کند.';
+  const EMAIL_OFF = 'ورود با ایمیل هنوز راه نیفتاده است؛ کمی بعد دوباره امتحان کنید.';
   // the vendor's own way in while Supabase is not set up: the email from Railway and the PIN from Railway, as for SMS
   const ownerEmail = () => normalizeEmail(env.BEATRIS_OWNER_EMAIL);
   const ownerPinByEmail = () => prod && !emailReady() && validEmail(ownerEmail()) && validPin(env.BEATRIS_OWNER_PIN);
@@ -312,8 +312,10 @@ export function createOtp({ db, secret, sealer, env = process.env, quiet = false
         await sendEmailCode(supa(), email, { ...supaOpts, redirectTo });
       } catch (e) {
         const why = e instanceof SupaError ? e.message : 'خطای ناشناخته در ارسال ایمیل';
-        db.run('UPDATE otp_sends SET ok=0, error=? WHERE id=?', why.slice(0, 300), id);
-        if (!quiet) console.error(`[beatris] supabase → ${email.replace(/^(.).*@/, '$1…@')}: ${why}`);
+        // the vendor console keeps the cause and its fix; the person signing in reads only a plain sentence
+        const cause = (e instanceof SupaError && e.detail) || why;
+        db.run('UPDATE otp_sends SET ok=0, error=? WHERE id=?', cause.slice(0, 300), id);
+        if (!quiet) console.error(`[beatris] supabase → ${email.replace(/^(.).*@/, '$1…@')}: ${cause}`);
         throw new OtpError(e instanceof SupaError ? e.status : 502, why);
       }
       db.run('UPDATE otp_sends SET ok=1 WHERE id=?', id);

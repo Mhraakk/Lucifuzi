@@ -815,6 +815,32 @@ async function loginUI(page, email = EMAIL) {
     } else check('day close: the day is open with a sign-by-code form', false, 'no [data-sign-code]');
   });
 
+  if (!live) await step('a new deploy reaches open pages (spec 0036): the sign-in page reloads itself, a working page offers it', async () => {
+    const next = (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, build: 'e2e-next-build' }) });
+    const loaded = (p) => p.waitForEvent('load', { timeout: 10000 }).then(() => true).catch(() => false);
+    const pub = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const p = await pub.newPage();
+    p.on('pageerror', (e) => errors.push(`[fresh] pageerror: ${e.message}`));
+    await p.goto(base + '/login');
+    await p.waitForSelector('#ef input[name=email]');
+    await p.waitForTimeout(800);
+    await p.route('**/api/health', next);
+    const again = loaded(p);
+    await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    check('fresh: the untouched sign-in page reloads itself on a new build', await again);
+    await pub.close();
+    await go(page, '/books/desk', 1500);
+    await page.route('**/api/health', next);
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForSelector('.fresh-bar', { timeout: 6000 }).catch(() => null);
+    check('fresh: a working page offers the new build and stays put', /نسخه‌ی تازه/.test(await text(page, '.fresh-bar')) && new URL(page.url()).pathname === '/books/desk');
+    await page.unroute('**/api/health', next);
+    const reloaded = loaded(page);
+    await page.click('.fresh-bar button');
+    check('fresh: «به‌روزرسانی» reloads the page', await reloaded);
+    await page.waitForTimeout(1500);
+  });
+
   await step('light layer: hand light, ripple, sunrise theme switch, stillness when asked (spec 0012)', async () => {
     await go(page, '/books/desk', 1500);
     await page.mouse.move(600, 400, { steps: 6 });
