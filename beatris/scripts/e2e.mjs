@@ -2980,7 +2980,7 @@ await step('motion (spec 0039): a dialog arrives, nothing loops on a work page, 
   check('motion: with «حرکت کمتر» the page and the dialog arrive at once and nothing loops', page <= 0.01 && sd.s <= 0.01 && stillLoops.length === 0, JSON.stringify({ page, dialog: sd, loops: stillLoops }));
   // the day book's rows arrive one after another (one stagger, spec 0039); with «حرکت کمتر» they are all there at once
   await go(still.page, '/books/day', 1500);
-  const rows = await still.page.$eval('.dy-e', (es) => es.map((e) => { const cs = getComputedStyle(e); return Math.max(...cs.animationDuration.split(',').map(parseFloat)) + Math.max(...cs.animationDelay.split(',').map(parseFloat)); }));
+  const rows = await still.page.$$eval('.dy-e', (es) => es.map((e) => { const cs = getComputedStyle(e); return Math.max(...cs.animationDuration.split(',').map(parseFloat)) + Math.max(...cs.animationDelay.split(',').map(parseFloat)); }));
   check('motion: with «حرکت کمتر» a list arrives whole: every row of the day book is there at once', rows.length > 0 && rows.every((s) => s <= 0.01), JSON.stringify({ rows: rows.length, slowest: Math.max(0, ...rows) }));
   await still.ctx.close();
 });
