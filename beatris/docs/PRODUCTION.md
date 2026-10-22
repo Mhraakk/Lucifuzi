@@ -24,7 +24,7 @@
 
 ## به‌روزرسانی
 1. `npm run gate` (check + ۱۷۹ تست واحد + eval، شامل fuzz دفاتر) و `npm run e2e` (۳۴۰+ بررسی مرورگر).
-2. push روی شاخه متصل = دیپلوی. پس از آن هش فایل زنده = محلی و `/api/health?deep=1`.
+2. push روی شاخه = دیپلوی، به شرط آنکه GitHub در Render وصل باشد (Account Settings ← Git Deployment Credentials)؛ وگرنه Manual Deploy. پس از آن `build` در `/api/health` = commit، و `/api/health?deep=1`.
 3. نصب‌کننده ویندوز فقط وقتی نشانی سرور عوض شود دوباره ساخته می‌شود (`desktop/windows/build.sh`).
 
 ## محدودیت‌های شناخته‌شده

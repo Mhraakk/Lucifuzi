@@ -163,7 +163,7 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
 ## استقرار (سرور دائمی، نه serverless)
 - **پروداکشن روی Render** (از ۳۰ مهر ۱۴۰۵؛ Railway دیگر commitهای تازه را دیپلوی نمی‌کرد):
   - https://beatris-6u77.onrender.com، service `beatris` (`srv-dbd36u7avr4c7399qkf0`)، فرانکفورت، پلن starter؛
-  - شاخه `claude/vercel-deployment-pj3uux` با دیپلوی خودکار؛
+  - شاخه `claude/vercel-deployment-pj3uux`. سرویس با نشانی عمومی مخزن ساخته شد و Render برای چنین سرویسی با push دیپلوی نمی‌کند («Auto-deploys require a connected Git provider»). تا GitHub در Account Settings ← Git Deployment Credentials وصل و برای سرویس انتخاب نشده، دیپلوی دستی است (Manual Deploy، یا `trigger_deploy` در connector)؛
   - با connector ساخته شد، نه Blueprint: build `cd beatris && npm install --omit=dev --no-audit --no-fund`، start `cd beatris && npm start`؛
   - دیسک `/data` و Health Check Path را فقط داشبورد Render می‌گذارد. تا دیسک وصل نشده، `BEATRIS_DATA_DIR=/opt/render/project/src/beatris-data` است و هر دیپلوی داده را پاک می‌کند؛
   - نشانی و QR تیزر و اینفوگرافیک، و نصب‌کننده‌ی ویندوز (`desktop/windows`) به همین نشانی اشاره می‌کنند.

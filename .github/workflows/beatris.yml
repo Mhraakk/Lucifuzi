@@ -1,4 +1,4 @@
-# Release gates for Beatris (spec 0001 #19). Render (production) deploys the connected branch on push; these checks show on
+# Release gates for Beatris (spec 0001 #19). Render serves production from this branch; these checks show on
 # every push and pull request so a red gate is visible before anyone relies on the deploy.
 name: beatris
 on:
