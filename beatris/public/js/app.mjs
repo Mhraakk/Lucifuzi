@@ -13,6 +13,7 @@ import { gooTabs } from './goo.mjs';
 import { initDock } from './dock.mjs';
 import { initCaret } from './caret.mjs';
 import { initFresh } from './fresh.mjs';
+import { ACTIONS, reachable } from './workspace.mjs';
 
 /* ---------- پوسته‌ها (spec 0014): the chosen skin, its automatic modes and the picker — remembered per device ---------- */
 const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.6-1.6-1.8-1.6-3.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-3.9-4-7-9-7Z"/><circle cx="7.5" cy="11" r="1.1"/><circle cx="10" cy="7" r="1.1"/><circle cx="15" cy="7" r="1.1"/></svg>';
@@ -54,6 +55,9 @@ route('/join', () => navigate('/login', { replace: true }), { public: true, bare
 route('/intro', lazy('./pages/intro.mjs', 'introPage'), { public: true, bare: true, tone: 'full' });
 route('/intro/:tab', lazy('./pages/intro.mjs', 'introPage'), { public: true, bare: true, tone: 'full' });
 route('/', lazy('./pages/home.mjs', 'homePage'), { tab: 'home', tone: 'full' });
+// فضای کاری (spec 0038): sign-in lands on the profile's own place; /work is each profile's home
+route('/start', () => navigate(store.me?.workspace?.start ?? '/', { replace: true }));
+route('/work', lazy('./pages/work.mjs', 'workPage'), { tab: 'home', tone: 'wide', title: 'میز کار من' });
 route('/learn', lazy('./pages/learn.mjs', 'learnPage'), { tab: 'learn' });
 route('/train/accounting', lazy('./pages/acctrain.mjs', 'accountingPage'), { tab: 'learn', tone: 'wide' });
 route('/train/team', lazy('./pages/acctrain.mjs', 'trainingTeamPage'), { tab: 'learn', tone: 'wide', staff: true });
@@ -74,6 +78,9 @@ route('/market/elliott', lazy('./pages/elliott.mjs', 'elliottPage'), { tab: 'mar
 route('/market/data', lazy('./pages/marketdata.mjs', 'marketDataPage'), { tab: 'market', staff: true, tone: 'wide' });
 route('/books', lazy('./pages/books.mjs', 'booksHome'), { tab: 'books', tone: 'wide' });
 route('/books/desk', lazy('./pages/desk.mjs', 'deskPage'), { tab: 'books', tone: 'wide', title: 'میز معامله' });
+// میز فروش زنده (spec 0037) and the customer's own screen, which needs no sign-in: it only shows what this device's desk sends
+route('/books/sell', lazy('./pages/sell.mjs', 'sellPage'), { tab: 'books', tone: 'wide', title: 'میز فروش' });
+route('/books/sell/screen', lazy('./pages/sellscreen.mjs', 'sellScreenPage'), { public: true, bare: true, tone: 'full', title: 'صفحه‌ی مشتری' });
 route('/books/dashboard', lazy('./pages/dashboard.mjs', 'dashboardPage'), { tab: 'books', tone: 'full', bare: true });
 route('/books/memory', lazy('./pages/memory.mjs', 'memoryPage'), { tab: 'books', tone: 'wide' });
 route('/books/pulse', lazy('./pages/pulse.mjs', 'pulsePage'), { tab: 'books', tone: 'wide' });
@@ -158,8 +165,11 @@ setShell((opts) => {
   const u = store.me?.user;
   if (u) startHarness();
   top.hidden = false;
+  const ws = store.me?.workspace;
+  document.body.classList.toggle('dense', ws?.density === 'compact');
+  const pins = ws ? reachable(ws.pins, { admin: store.isAdmin() }) : [];
   const shop = store.me?.brand?.shopName || SHOP_NAME;
-  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><span class="net-pill" id="netPill" hidden role="status" aria-live="polite"></span><button class="theme-btn" id="palBtn" title="جستجو با هر سرنخ: نام، عدد، کد، چک، روز (Ctrl+K)" aria-label="جستجو با هر سرنخ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a>${canInstall() ? html`<button class="theme-btn" id="insBtn" title="نصب اپ روی همین دستگاه" aria-label="نصب اپ روی همین دستگاه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg></button>` : ''}<button class="theme-btn" id="themeBtn" title="پوسته: ${skinName()}" aria-label="پوسته (${skinName()})" aria-haspopup="dialog">${raw(SKIN_ICON)}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
+  top.innerHTML = String(html`<a class="brand" href="/" data-link>${brandMark}<span class="brand-t"><b>${shop}</b><small>بئاتریس · حساب و آموزش</small></span></a><span class="who"><span class="net-pill" id="netPill" hidden role="status" aria-live="polite"></span>${ws ? html`<details class="tb-work"><summary class="theme-btn" title="میز کار من و میان‌برها" aria-label="میز کار من و میان‌برها"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></summary><nav class="tb-work-m"><a href="/work" data-link><b>میز کار من</b></a>${pins.map((k) => html`<a href="${ACTIONS[k].href}" ${ACTIONS[k].blank ? html`target="beatris-screen"` : html`data-link`}>${ACTIONS[k].label}</a>`)}</nav></details>` : ''}<button class="theme-btn" id="palBtn" title="جستجو با هر سرنخ: نام، عدد، کد، چک، روز (Ctrl+K)" aria-label="جستجو با هر سرنخ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button><a class="theme-btn help-btn" href="/help" data-link title="راهنمای تصویری" aria-label="راهنمای تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3Z"/></svg></a>${canInstall() ? html`<button class="theme-btn" id="insBtn" title="نصب اپ روی همین دستگاه" aria-label="نصب اپ روی همین دستگاه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg></button>` : ''}<button class="theme-btn" id="themeBtn" title="پوسته: ${skinName()}" aria-label="پوسته (${skinName()})" aria-haspopup="dialog">${raw(SKIN_ICON)}</button><a class="who" href="/me" data-link style="text-decoration:none"><span>${u?.name} · ${ROLE_FA[u?.role] ?? ''}</span><i>${(u?.name ?? '؟').trim()[0]}</i></a></span>`);
   netPill();
   $('#palBtn', top)?.addEventListener('click', () => openPalette());
   $('#insBtn', top)?.addEventListener('click', () => install());

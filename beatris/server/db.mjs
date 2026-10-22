@@ -190,6 +190,8 @@ function migrate(db) {
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL');
   // ورود با ایمیل (spec 0034): an optional email per account, lower-case, one account per email in a shop
   if (!cols.includes('email')) db.exec('ALTER TABLE users ADD COLUMN email TEXT');
+  // فضای کاری (spec 0038): the person's chosen profile, density and pins; null = the role's defaults
+  if (!cols.includes('workspace_json')) db.exec('ALTER TABLE users ADD COLUMN workspace_json TEXT');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 }
 

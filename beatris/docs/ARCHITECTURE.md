@@ -122,6 +122,32 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
 - موتور استودیو قطعی در `public/js/studio/` (واحد، هندسه، آلیاژ، بریف، نگین، یافته ساخت جدا از نقد زیبایی، بهینه‌سازی وزن، مرز CAD)؛ مدل زبانی هرگز عدد نمی‌دهد. Rhino واقعی فقط خروجی `.3dm` مرورگر است؛ آداپتور RhinoCommon/Compute پیاده نشده.
 - صفحه‌ها: `/train/accounting`، `/train/team`، `/studio/coach`، `/agents` (مدیر). تست‌ها: `agents`، `studio-engine`، `studioapi`، `trainingapi`.
 
+## میز فروش زنده و فضای کار هر نقش (spec `docs/specs/0037-live-sales-desk.md` و `0038-role-workspaces.md`)
+- **موتور خالص** `public/js/sell.mjs` (بی‌DOM، روی `calcLine`/`calcDoc` همان موتور حسابداری):
+  - `lineFromItem`، `priceOf`، `totals`، `docOf`؛
+  - سناریوهای «اگر…؟» (`SCENARIOS`: ۳٪ تخفیف، اجرت نصف، بدون سود، گرد به میلیون پایین، طلا ±۱٪). تخفیف فقط از اجرت و سود کم می‌شود و ارزش طلا دست نمی‌خورد. بی‌اجازه‌ی تخفیف، سناریو `needsManager` دارد و اعمال نمی‌شود؛
+  - `budget` (کمترین تخفیف تا بودجه‌ی مشتری، یا کف ممکن)؛
+  - `suggest` (مکمل از `COMPLEMENT`، جایگزین هم‌قالب ±۲۵٪ وزن، سلیقه‌ی مشتری اول)؛
+  - `compare` (تا ۴ قطعه)؛
+  - `customerView` و `shareText` (بی‌درصد سود).
+  - آزمون: `tests/sell.test.mjs`.
+- **صفحه** `/books/sell` (`pages/sell.mjs`):
+  - مشتری با `F3` و پرونده‌ی سریع از `GET /api/books/parties/:id/profile` (خرید، جمع، میانگین، سلیقه‌ی گروه‌ها، وزن معمول، مانده، آخرین قطعه‌ها)؛
+  - ویترین با نام یا بارکد (`F2`، Enter)، مقایسه، سبد با اجرت/سود/تخفیف طبق `staffCanEditPrice`/`staffCanDiscount`، معاوضه (خط `used` سمت `in`)، بودجه و پرداخت چندروشی؛
+  - ثبت با `Ctrl+Enter` از همان outbox (`submit`) و کارتخوان spec 0035؛ رزرو = پیش‌فاکتور (`proforma`) که قطعه را `reserved` می‌کند.
+  - پیش‌نویس سبد در `drafts('sell')` می‌ماند.
+- **صفحه‌ی مشتری** `/books/sell/screen` (`pages/sellscreen.mjs`، عمومی و بی‌قاب): فقط از `BroadcastChannel('beatris-sell')` همین دستگاه می‌خواند (`ask` → `cart`/`idle`/`done`)؛ چیزی نمی‌گیرد و نگه نمی‌دارد. پس از فروش، «سپاس» تا قطعه‌ی بعدی یا ۴۵ ثانیه می‌ماند.
+- **فضای کار** `public/js/workspace.mjs` (مشترک سرور و مرورگر):
+  - `ACTIONS` و `PROFILES` (رئیس، اپراتور، فروشنده، کارمند)؛
+  - `DEFAULT_BY_ROLE`، `normalizeWorkspace`، `cleanWorkspace`، `reachable` (میان‌برِ مدیریتی برای غیرمدیر هرگز نشان داده نمی‌شود).
+  - سرور: ستون `users.workspace_json`؛ `GET /api/me` کلید `workspace` را برمی‌گرداند؛ `PUT /api/me/workspace`؛ `PUT /api/team/:id/workspace` (مدیر؛ فضای مالک فقط با خود مالک).
+  - مرورگر: ورود به `/start` می‌رود و آن به `workspace.start`؛ `/work` (`pages/work.mjs`) خانه‌ی هر نیمرخ است؛ منوی `.tb-work` در نوار بالا؛ `body.dense` برای تراکم فشرده؛ انتخابگر `wsform.mjs` در «من» و «تیم».
+  - نیمرخ هیچ مجوزی نمی‌دهد. آزمون: `tests/workspace.test.mjs` و e2e مرحله‌ی `live sales desk`.
+
+## نسخه‌ی تازه روی صفحه‌های باز (spec `docs/specs/0036-fresh-build.md`)
+- `server/build.mjs`: `BUILD` از `BEATRIS_BUILD`، `RAILWAY_GIT_COMMIT_SHA` یا `RAILWAY_DEPLOYMENT_ID`؛ در `/api/health` (ساده و `deep=1`).
+- `public/js/fresh.mjs`: هنگام آمدن به صفحه، بازگشت به برگه و هر ۵ دقیقه مقایسه می‌کند. صفحه‌ی ورودِ دست‌نخورده خودش بازخوانی می‌شود؛ صفحه‌ی کاری فقط نوار «به‌روزرسانی» نشان می‌دهد.
+
 ## استقرار (Railway — سرور دائمی، نه serverless)
 - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.

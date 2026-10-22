@@ -3,6 +3,7 @@ import { back, ICON, ringEl, barEl, courseTitle, faDate, faTime } from '../ui.mj
 import { fmt, parseNum } from '../calc.mjs';
 import { statusStamp } from './learn.mjs';
 import { confirmBox, askBox } from '../dialog.mjs';
+import { workspaceForm } from '../wsform.mjs';
 
 const ROLE_ORDER = { owner: 0, manager: 1, trainer: 2, employee: 3 };
 
@@ -65,7 +66,7 @@ export async function teamPage(root) {
 }
 
 export async function memberPage(root, { id }) {
-  const { user: u, progress: p, attendance, recentExams } = await api(`/api/team/${id}`);
+  const { user: u, progress: p, attendance, recentExams, workspace } = await api(`/api/team/${id}`);
   const fl = new Map(p.floor.map((f) => [f.taskId, f]));
   const isAdmin = store.isAdmin();
   const self = u.id === store.me.user.id;
@@ -108,7 +109,11 @@ export async function memberPage(root, { id }) {
         <label class="field">موبایل<input class="input ltr" id="nphone" inputmode="tel" value="${fa(u.phone)}"></label>
         <div style="align-self:end"><button class="btn block" data-act="save">ذخیره</button></div>
       </div>
-      <div class="actions"><button class="btn ${u.active ? 'danger' : ''}" data-act="toggle">${u.active ? 'غیرفعال کردن حساب' : 'فعال کردن حساب'}</button></div>` : ''}`);
+      <div class="actions"><button class="btn ${u.active ? 'danger' : ''}" data-act="toggle">${u.active ? 'غیرفعال کردن حساب' : 'فعال کردن حساب'}</button></div>
+      <h2 id="workspace">فضای کار</h2><div id="wsf"></div>` : ''}`);
+  // spec 0038: the manager sets how this colleague works — never more than their role allows
+  if (workspace && root.querySelector('#wsf'))
+    workspaceForm(root.querySelector('#wsf'), { workspace, who: u.name, admin: ['manager', 'owner'].includes(u.role), save: async (body) => (await api(`/api/team/${u.id}/workspace`, { method: 'PUT', body })).workspace });
 
   const patch = async (el, body, msg) => {
     busy(el, true);

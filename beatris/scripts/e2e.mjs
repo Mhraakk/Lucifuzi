@@ -127,6 +127,12 @@ async function loginUI(page, email = EMAIL) {
   await step('login', () => loginUI(page));
 
   await step('home', async () => {
+    // spec 0038: a manager's workspace is the boss's, so sign-in lands on their own desk; the classic home is one tap away
+    if (!live) {
+      await page.waitForURL((u) => u.pathname !== '/start', { timeout: 8000 }).catch(() => {});
+      check('workspace: the manager signs in to their own desk (/work)', new URL(page.url()).pathname === '/work', page.url());
+    }
+    await go(page, '/', 1000);
     await page.waitForTimeout(4000);
     const w = await text(page, '#w');
     check('home: hero weight computed from 3D model', /[۰-۹]/.test(w) && noBadNumbers(w), w);
@@ -2383,6 +2389,154 @@ async function loginUI(page, email = EMAIL) {
     }
   });
 
+  if (!live) await step('live sales desk (spec 0037) and workspaces (spec 0038): the customer file, showcase, compare, what-ifs, old gold, split payment, the sale, a reservation, the customer screen; each person starts at their own desk', async () => {
+    const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);
+    const en = (s) => Number(String(s).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[^\d]/g, ''));
+    const lastToast = () => page.$$eval('#toasts .toast', (t) => t.at(-1)?.textContent ?? '');
+    const p750 = (await auth('/api/me')).pricing.p750;
+    // the showcase: two rings and a pair of earrings; a customer who bought a ring before and still owes for it
+    const rings = (await auth('/api/books/items', { method: 'POST', body: JSON.stringify({ tpl: 'ring-w', title: 'انگشتر ویترین آینه', showcase: 'آ۱', batch: [{ weight: 3.2 }, { weight: 3.6, title: 'انگشتر ویترین آینه دو' }] }) })).items;
+    const ear = (await auth('/api/books/items', { method: 'POST', body: JSON.stringify({ tpl: 'er-stud', title: 'گوشواره ویترین آینه', weight: 2.1, showcase: 'آ۲' }) })).items[0];
+    const cust = await auth('/api/books/parties', { method: 'POST', body: JSON.stringify({ name: 'مهسا پیشخوانی', mobile: '09127778899' }) });
+    await auth('/api/books/docs', { method: 'POST', body: JSON.stringify({ type: 'sale', partyId: cust.id, lines: [{ kind: 'jewel', tpl: 'ring-w', title: 'انگشتر زنانه', weight: 2.9, fineness: 750, p750, ojratMode: 'pct', ojrat: 18, profitPct: 7 }], payments: [], status: 'final' }) });
+    await go(page, '/books/sell', 1800);
+    if (await page.$('#lines .sl-line')) await page.click('[data-act=clear]');
+    check('sales desk: one screen — the customer, the showcase, the cart and today’s price', !!(await page.$('.sl-who #who')) && !!(await page.$('.sl-shelf #items')) && !!(await page.$('.sl-cart #tot')) && /[۰-۹]/.test(await text(page, '#live')), await text(page, '#live'));
+    // F3: the customer by a piece of the name; the quick file opens
+    await page.keyboard.press('F3');
+    await page.keyboard.type('پیشخوانی');
+    await page.waitForSelector(`#pdrop [data-pick="${cust.id}"]`, { timeout: 8000 });
+    await page.click(`#pdrop [data-pick="${cust.id}"]`);
+    await page.waitForSelector('.sl-file', { timeout: 8000 });
+    const file = await text(page, '#file');
+    check('sales desk: the customer file — one purchase, rings, the usual weight, what is owed', /۱ بار/.test(file) && /انگشتر/.test(file) && /۲٫۹/.test(file) && /بدهکار/.test(file), file.replace(/\s+/g, ' ').slice(0, 220));
+    // the showcase by name, two rings side by side
+    await page.fill('#iq', 'ویترین آینه');
+    await page.waitForTimeout(300);
+    check('sales desk: the showcase finds the pieces by name, each with its price', (await page.$$('.sl-item')).length === 3 && /[۰-۹]/.test(await text(page, '.sl-item em')), String((await page.$$('.sl-item')).length));
+    await page.check(`[data-cmp="${rings[0].id}"]`);
+    await page.check(`[data-cmp="${rings[1].id}"]`);
+    await page.waitForSelector('.sl-cmp table', { timeout: 5000 });
+    const cmp = await text(page, '.sl-cmp');
+    check('sales desk: two rings side by side, the cheaper one named', /ارزان‌ترین/.test(cmp) && cmp.includes('انگشتر ویترین آینه دو'), cmp.replace(/\s+/g, ' ').slice(0, 200));
+    // a tap on the card, then a barcode and Enter
+    await page.click(`.sl-item-main[data-add="${rings[0].id}"]`);
+    await page.waitForSelector('#lines .sl-line');
+    const sugg = await text(page, '#sugg');
+    check('sales desk: suggestions — a piece to go with it and an alternative ring', /مکمل/.test(sugg) && /جایگزین/.test(sugg), sugg.replace(/\s+/g, ' ').slice(0, 200));
+    await page.fill('#iq', ear.code);
+    await page.press('#iq', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('#lines .sl-line').length === 2, null, { timeout: 5000 });
+    check('sales desk: a barcode and Enter put the piece in the cart', (await text(page, '#lines')).includes('گوشواره ویترین آینه'));
+    // «اگر سه درصد تخفیف بدهم چه می‌شود؟» — seen first, applied on request
+    const total = async () => en(await text(page, '.sl-tot-row.big b'));
+    const t0 = await total();
+    await page.click('[data-sc=disc3]');
+    await page.waitForSelector('[data-apply=disc3]', { timeout: 5000 });
+    check('sales desk: «۳٪ تخفیف» shows its total and changes nothing until applied', t0 === (await total()) && /[۰-۹]/.test(await text(page, '.sl-sc.on')), (await text(page, '.sl-sc.on')).replace(/\s+/g, ' '));
+    await page.click('[data-apply=disc3]');
+    await page.waitForTimeout(300);
+    const t1 = await total();
+    check('sales desk: applied, the total falls by about three percent', t1 < t0 && t1 > t0 * 0.95, `${t0} → ${t1}`);
+    // the customer's old gold in the same step
+    await page.click('#tin summary');
+    await page.fill('[data-t=weight]', '2.5');
+    await page.click('[data-act=tin-add]');
+    await page.waitForSelector('#tins .sl-line.in', { timeout: 5000 });
+    const t2 = await total();
+    check('sales desk: the old gold comes off what is to pay', t2 < t1 && /معاوضه/.test(await text(page, '#tot')), `${t1} → ${t2}`);
+    // half in cash, the rest card to card
+    await page.click('[data-pay=cash]');
+    await page.waitForSelector('[data-p="0"]');
+    await page.fill('[data-p="0"]', String(Math.round(en(await page.inputValue('[data-p="0"]')) / 2)));
+    check('sales desk: half in cash leaves the rest open', /مانده/.test(await text(page, '#tot')), await text(page, '#tot'));
+    await page.click('[data-pay=c2c]');
+    await page.waitForSelector('[data-p="1"]');
+    check('sales desk: the second method takes exactly what is left', !/مانده/.test(await text(page, '#tot')) && en(await page.inputValue('[data-p="1"]')) > 0, (await text(page, '#tot')).replace(/\s+/g, ' '));
+    // the customer's own screen, on a second window of the same computer
+    const scr = await ctx.newPage();
+    scr.on('pageerror', (e) => errors.push(`[screen] pageerror: ${e.message}`));
+    await scr.goto(base + '/books/sell/screen');
+    await scr.waitForSelector('.ss-lines .ss-line', { timeout: 8000 });
+    const shown = await text(scr, '.ss');
+    check('customer screen: the pieces, «اجرت و سود» as one figure, the old gold, what is paid — no profit rate', shown.includes('انگشتر ویترین آینه') && shown.includes('گوشواره ویترین آینه') && /اجرت و سود/.test(shown) && /معاوضه/.test(shown) && /پرداخت‌شده/.test(shown) && !/٪/.test(shown), shown.replace(/\s+/g, ' ').slice(0, 260));
+    // Ctrl+Enter books it: the ordinary sale invoice, through the same outbox
+    await page.evaluate(() => Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }));
+    await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(base).origin });
+    await page.keyboard.press('Control+Enter');
+    await page.waitForSelector('#done .sl-done a[href^="/books/doc/"]', { timeout: 15000 });
+    const id = await page.$eval('#done .sl-done a[href^="/books/doc/"]', (a) => a.getAttribute('href').split('/').pop());
+    const doc = await auth(`/api/books/docs/${id}`);
+    const jewels = doc.lines.filter((l) => l.kind === 'jewel');
+    check('sales desk: booked as the ordinary sale — two pieces with the discount, the old gold, cash and card to card, the customer, settled', doc.type === 'sale' && doc.status === 'final' && doc.partyId === cust.id && jewels.length === 2 && jewels.every((l) => l.discount > 0) && doc.lines.some((l) => l.kind === 'used' && l.side === 'in') && doc.payments.map((p) => p.method).sort().join() === 'c2c,cash' && Math.abs(doc.calc.credit) < 10, JSON.stringify({ t: doc.type, s: doc.status, n: doc.lines.length, p: doc.payments.map((p) => p.method), c: doc.calc.credit }));
+    await scr.waitForSelector('.ss-thanks', { timeout: 5000 }).catch(() => null);
+    check('customer screen: «سپاس از خرید شما» with the invoice number', /سپاس از خرید شما/.test(await text(scr, '.ss')) && /فاکتور/.test(await text(scr, '.ss')), (await text(scr, '.ss')).replace(/\s+/g, ' '));
+    await page.click('#done [data-act=share]');
+    await page.waitForTimeout(400);
+    const shared = await page.evaluate(() => navigator.clipboard.readText()).catch(() => '');
+    check('sales desk: «ارسال برای مشتری» gives the invoice as text — the pieces, the total, settled, the authenticity code', shared.includes('انگشتر ویترین آینه') && /جمع:/.test(shared) && /تسویه شد/.test(shared) && shared.includes(doc.verify), shared.replace(/\n/g, ' | ').slice(0, 260));
+    check('sales desk: the sold pieces leave the showcase', (await auth(`/api/books/items/code/${ear.code}`)).status === 'sold' && !(await page.$(`.sl-item-main[data-add="${rings[0].id}"]`)));
+    // a reservation is for a customer: refused without one, then the piece is set aside on a proforma
+    await page.fill('#iq', 'ویترین آینه دو');
+    await page.waitForTimeout(250);
+    await page.click(`.sl-item-main[data-add="${rings[1].id}"]`);
+    await page.waitForSelector('#lines .sl-line');
+    await page.click('[data-act=reserve]');
+    await page.waitForTimeout(300);
+    check('sales desk: no customer, no reservation', /مشتری را انتخاب کنید/.test(await lastToast()) && (await auth(`/api/books/items/code/${rings[1].code}`)).status === 'stock', await lastToast());
+    await page.keyboard.press('F3');
+    await page.keyboard.type('پیشخوانی');
+    await page.waitForSelector(`#pdrop [data-pick="${cust.id}"]`, { timeout: 8000 });
+    await page.click(`#pdrop [data-pick="${cust.id}"]`);
+    await page.waitForSelector('.sl-file', { timeout: 8000 });
+    check('sales desk: the file already counts today’s sale', /۲ بار/.test(await text(page, '#file')), (await text(page, '#file')).replace(/\s+/g, ' ').slice(0, 120));
+    await page.click('[data-act=reserve]');
+    await page.waitForFunction(() => /رزرو شد/.test(document.querySelector('#done')?.innerText ?? ''), null, { timeout: 10000 });
+    check('sales desk: «رزرو برای مشتری» sets the piece aside on a proforma', (await auth(`/api/books/items/code/${rings[1].code}`)).status === 'reserved' && (await auth('/api/books/docs?type=proforma&status=final')).items.some((d) => d.partyId === cust.id));
+    await scr.close();
+    // spec 0038: the boss's desk — the pulse, the pins, and the reservation just made
+    await go(page, '/work', 2000);
+    await page.waitForSelector('.wk-card', { timeout: 10000 });
+    const desk = await text(page, '.wk');
+    check('workspace: the boss’s desk — pulse, pins, today and the reservation', /میز کار رئیس/.test(desk) && /نبض فروشگاه/.test(desk) && desk.includes('مهسا پیشخوانی') && (await page.$$('.wk-pin')).length >= 6, desk.replace(/\s+/g, ' ').slice(0, 220));
+    await page.click('.tb-work > summary');
+    check('workspace: the same pins one tap away in the top bar', (await page.$$('.tb-work-m a')).length >= 7);
+    await page.click('.tb-work > summary');
+    // a seller signs in straight to the sales desk, makes the operator's way their own, and a boss's layout opens nothing more
+    const sCtx = await browser.newContext({ viewport: { width: 1366, height: 860 } });
+    const ps = await sCtx.newPage();
+    ps.on('pageerror', (e) => errors.push(`[seller] pageerror: ${e.message}`));
+    ps.on('console', (m) => m.type() === 'error' && !/favicon|status of 401/.test(m.text()) && errors.push(`[seller] console: ${m.text().slice(0, 200)}`));
+    await loginUI(ps, 'nima@demo.beatris.ir');
+    await ps.waitForURL((u) => u.pathname === '/books/sell', { timeout: 15000 }).catch(() => {});
+    check('workspace: the seller signs in straight to the sales desk', new URL(ps.url()).pathname === '/books/sell' && !!(await ps.waitForSelector('.sl-grid', { timeout: 10000 }).catch(() => null)), ps.url());
+    await go(ps, '/start', 1500);
+    check('workspace: /start always opens the profile’s own place', new URL(ps.url()).pathname === '/books/sell', ps.url());
+    await go(ps, '/me#workspace', 1500);
+    await ps.waitForSelector('#wsf .wsf-card', { timeout: 10000 });
+    await ps.click('#wsf .wsf-card:has(input[value=operator])');
+    await ps.click('#wsf button.btn:not(.ghost)');
+    await ps.waitForTimeout(700);
+    const ws = await ps.evaluate(async () => (await (await fetch('/api/me', { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).workspace);
+    check('workspace: «من» — the seller takes the operator’s way: compact, keyboard pins, kept on the server', ws.profile === 'operator' && ws.density === 'compact' && ws.pins.includes('desk') && (await ps.evaluate(() => document.body.classList.contains('dense'))), JSON.stringify(ws));
+    await go(ps, '/work', 1800);
+    await ps.waitForSelector('.wk-card', { timeout: 10000 });
+    check('workspace: the operator’s home — the send queue and the keys, compact on every page', /صف ارسال/.test(await text(ps, '.wk')) && /Ctrl\+Enter/.test(await text(ps, '.wk')) && (await ps.evaluate(() => document.body.classList.contains('dense'))));
+    await ps.evaluate(() => fetch('/api/me/workspace', { method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('beatris.token')}` }, body: JSON.stringify({ profile: 'boss' }) }));
+    await go(ps, '/work', 1800);
+    await ps.waitForSelector('.wk-card', { timeout: 10000 });
+    check('workspace: a seller on the boss’s layout still sees nothing a seller may not', /میز کار رئیس/.test(await text(ps, '.wk')) && !(await ps.$('.wk-pins a[href="/books/dashboard"], .wk-pins a[href="/staff"], .wk-pins a[href="/books/control"], .tb-work-m a[href="/books/dashboard"]')) && !(await ps.$('.wk-sentence')), (await text(ps, '.wk-pins')).replace(/\s+/g, ' '));
+    await sCtx.close();
+    // the manager sets a colleague's way of working from «تیم»
+    const zahra = (await auth('/api/team')).members.find((m) => m.phone === '09120000005');
+    await go(page, `/staff/${zahra.id}`, 1800);
+    await page.waitForSelector('#wsf .wsf-card', { timeout: 10000 });
+    await page.click('#wsf .wsf-card:has(input[value=staff])');
+    await page.click('#wsf button.btn:not(.ghost)');
+    await page.waitForTimeout(700);
+    check('workspace: the manager sets a colleague’s workspace in «تیم»', (await auth('/api/team')).members.find((m) => m.id === zahra.id).workspace.profile === 'staff');
+  });
+
   await step('web app: installable PWA (manifest, service worker, shortcuts, screenshots) and the install guide', async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const p = await ctx.newPage();
@@ -2543,7 +2697,7 @@ async function loginUI(page, email = EMAIL) {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/find', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott']) {
+    for (const p of ['/', '/work', '/books/sell', '/books/sell/screen', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/find', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott']) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       // name the widest offender so a failure is actionable

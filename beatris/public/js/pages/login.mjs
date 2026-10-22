@@ -31,7 +31,7 @@ function emailLink() {
 }
 
 export async function loginPage(root) {
-  if (auth.token) return navigate('/', { replace: true });
+  if (auth.token) return navigate('/start', { replace: true });
   const link = emailLink();
   const cfg = await api('/api/config').catch(() => ({ demo: false, demoAccounts: [] }));
   const demos = (cfg.demoAccounts ?? []).filter((a) => a.email);
@@ -75,7 +75,8 @@ export async function loginPage(root) {
     auth.token = r.token;
     store.me = null;
     cleanupArt?.();
-    navigate('/', { replace: true });
+    // each way of working starts in its own place (spec 0038)
+    navigate('/start', { replace: true });
   };
   /** After a right code or link: one shop → in; several → pick one; none → a new shop. */
   const after = (v) => (v.token ? done(v) : v.shops ? shopStep(v) : v.signup ? signupStep(v) : null);

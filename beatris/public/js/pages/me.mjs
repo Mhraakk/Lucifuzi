@@ -3,6 +3,7 @@ import { ICON, ringEl, courseTitle, faDate } from '../ui.mjs';
 import { statusStamp } from './learn.mjs';
 import { toggleSkinPicker, skinName } from '../skinpicker.mjs';
 import { confirmBox } from '../dialog.mjs';
+import { workspaceForm } from '../wsform.mjs';
 
 export function mePage(root) {
   const { user, progress: p } = store.me;
@@ -16,6 +17,10 @@ export function mePage(root) {
       ${store.isStaff() ? html`<li><a class="row" href="/staff" data-link><span class="row-main"><span class="row-t">تیم و گزارش‌ها</span><span class="row-s">پیشرفت همکاران، تأیید کار عملی، تنظیمات</span></span><span class="chev">${ICON.chev}</span></a></li>` : ''}
     </ul>
 
+    <h2 id="workspace">فضای کار</h2>
+    <p class="small">صفحه‌ی آغاز پس از ورود، میان‌برها و تراکم صفحه. نیمرخ هیچ دسترسی تازه‌ای نمی‌دهد؛ دسترسی‌ها همان نقش ${ROLE_FA[user.role]} است.</p>
+    <div id="wsf"></div>
+
     <h2>گواهی‌ها</h2>
     ${p.certificates.length
       ? html`<div class="grid2">${p.certificates.map((c) => html`<div class="cert"><span class="stamp">گواهی</span><h3 style="margin-top:8px">${courseTitle(c.courseId)}</h3><p class="code">${c.code}</p><p class="small">نمره ${fa(c.score)}٪ · ${faDate(c.issuedAt)}</p></div>`)}</div>`
@@ -28,6 +33,17 @@ export function mePage(root) {
     <p class="small">${user.email ? html`این حساب با ایمیل <bdi dir="ltr">${user.email}</bdi> و کدی که به همان ایمیل می‌رسد باز می‌شود؛ رمزی ندارد که فراموش یا لو برود.` : html`این حساب هنوز ایمیل ندارد و از دستگاه تازه نمی‌توانید وارد شوید؛ از مدیر فروشگاه بخواهید ایمیل‌تان را در «تیم» ثبت کند.`} برای عوض کردن ایمیل یا موبایل (<bdi class="ltr-num">${fa(user.phone)}</bdi>) از مدیر فروشگاه بخواهید.</p>
     <div class="actions"><button class="btn ghost" data-act="logout">خروج از این دستگاه</button><button class="btn danger" data-act="logoutAll">خروج از همه دستگاه‌ها</button></div>`);
 
+  if (store.me.workspace)
+    workspaceForm(root.querySelector('#wsf'), {
+      workspace: store.me.workspace,
+      admin: store.isAdmin(),
+      save: async (body) => {
+        const ws = (store.me.workspace = (await api('/api/me/workspace', { method: 'PUT', body })).workspace);
+        document.body.classList.toggle('dense', ws.density === 'compact'); // the new density shows at once, not on the next page
+        return ws;
+      },
+    });
+  if (location.hash === '#workspace') root.querySelector('#workspace')?.scrollIntoView({ block: 'start' });
   const out = () => {
     auth.token = null;
     store.me = null;

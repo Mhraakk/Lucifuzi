@@ -1,4 +1,5 @@
 import { BUILD } from './build.mjs';
+import { normalizeWorkspace, cleanWorkspace } from '../public/js/workspace.mjs';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { capsOf, can } from './rbac.mjs';
 import { createAgentSystem, registerAgentRoutes } from './agents/index.mjs';
@@ -190,7 +191,48 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
       setupDone: !!getSetting('setup', { done: false }).done || isMain,
       caps: capsOf(user.role, { main: isMain }),
       flags: flags(),
+      workspace: workspaceOf(user),
     };
+  });
+
+  /* ---------------- فضای کاری (spec 0038) ---------------- */
+  const workspaceOf = (u) => {
+    let raw = null;
+    try {
+      raw = u.workspace_json ? JSON.parse(u.workspace_json) : null;
+    } catch {
+      raw = null; // a damaged value: the role's defaults
+    }
+    return normalizeWorkspace(raw, u.role);
+  };
+  const setWorkspace = (u, body) => {
+    let patch;
+    try {
+      patch = cleanWorkspace(body ?? {});
+    } catch (e) {
+      throw bad(e.message);
+    }
+    const cur = u.workspace_json ? (() => { try { return JSON.parse(u.workspace_json) ?? {}; } catch { return {}; } })() : {};
+    const next = { ...cur, ...patch };
+    // choosing another profile starts from its own pins unless pins came with it
+    if (patch.profile !== undefined && patch.pins === undefined) delete next.pins;
+    if (patch.profile === null) delete next.profile;
+    db.run('UPDATE users SET workspace_json=? WHERE id=?', JSON.stringify(next), u.id);
+    return workspaceOf(db.get('SELECT * FROM users WHERE id=?', u.id));
+  };
+  on('PUT', '/api/me/workspace', 'auth', ({ user, body }) => {
+    const w = setWorkspace(db.get('SELECT * FROM users WHERE id=?', user.id), body);
+    audit(user.id, 'workspace.self', { profile: w.profile, density: w.density });
+    return { workspace: w };
+  });
+  // the owner or a manager sets a colleague's way of working (never the owner's, unless they are the owner)
+  on('PUT', '/api/team/:id/workspace', 'admin', ({ user, params, body }) => {
+    const u = db.get('SELECT * FROM users WHERE id=?', params.id);
+    if (!u) throw notFound();
+    if (u.role === 'owner' && user.role !== 'owner') throw new HttpError(403, 'فضای کار مالک را فقط خود مالک تعیین می‌کند.');
+    const w = setWorkspace(u, body);
+    audit(user.id, 'workspace.set', { id: u.id, profile: w.profile });
+    return { workspace: w };
   });
 
   on('GET', '/api/content', 'auth', () => C.bootstrap());
@@ -465,6 +507,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
           floorPending: p.floor.filter((f) => f.status === 'requested').length,
           sopMissing: p.sopMissing.length,
           today: att ? { inAt: att.in_at, outAt: att.out_at } : null,
+          workspace: workspaceOf(u),
         };
       }),
     };
@@ -475,7 +518,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     if (!u) throw notFound();
     const attendance = db.all('SELECT day, in_at, out_at FROM attendance WHERE user_id=? ORDER BY day DESC LIMIT 30', u.id);
     const recentExams = db.all('SELECT course_id AS courseId, score, passed, created_at AS at FROM exam_attempts WHERE user_id=? ORDER BY created_at DESC LIMIT 10', u.id);
-    return { user: publicUser(u), progress: progressFor(u.id), attendance, recentExams };
+    return { user: publicUser(u), progress: progressFor(u.id), attendance, recentExams, workspace: workspaceOf(u) };
   });
 
   // همکار تازه (spec 0022): a name, a mobile and a role; they sign in with that mobile and an SMS code. Every shop's

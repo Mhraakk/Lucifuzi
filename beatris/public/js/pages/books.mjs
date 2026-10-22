@@ -15,6 +15,7 @@ export function booksNav(cur) {
   const groups = [
     ['کار روزانه', [
       ['desk', '/books/desk', 'میز معامله'],
+      ...(base ? [] : [['sell', '/books/sell', 'میز فروش']]),
       ...(base ? [] : [['new', '/books/new/sale', 'فاکتور جدید'], ['home', '/books', 'پیشخوان']]),
       ['day', '/books/day', 'روزنگار'],
       ['find', '/books/find', 'سرنخ‌یاب'],

@@ -337,6 +337,45 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     });
     return { ok: true };
   });
+  // میز فروش زنده (spec 0037): the customer at a glance — what they bought, how often, their usual taste and their balance
+  on('GET', '/api/books/parties/:id/profile', 'auth', ({ params }) => {
+    const p = db.get('SELECT * FROM bk_parties WHERE id=? AND deleted_at IS NULL', params.id);
+    if (!p) throw notFound('این مشتری پیدا نشد.');
+    const docs = db.all("SELECT id, type, fy, no, date, data_json, calc_json FROM bk_docs WHERE party_id=? AND status='final' ORDER BY date DESC, issued_at DESC", p.id);
+    const sales = docs.filter((d) => d.type === 'sale');
+    const groups = {}, fineness = {}, weights = [], recent = [];
+    let spent = 0;
+    for (const d of sales) {
+      const data = JSON.parse(d.data_json), calc = JSON.parse(d.calc_json);
+      spent += calc.sales ?? 0;
+      (data.lines ?? []).forEach((l, i) => {
+        const c = calc.lines?.[i];
+        if (!c || c.side === 'in') return;
+        if (l.kind === 'jewel') {
+          const g = B.templateById(l.tpl)?.group ?? 'misc';
+          groups[g] = (groups[g] ?? 0) + 1;
+          fineness[c.fineness] = (fineness[c.fineness] ?? 0) + 1;
+          weights.push(c.weight);
+        }
+        if (recent.length < 6) recent.push({ date: d.date, track: B.trackCode(d.type, d.fy, d.no), docId: d.id, title: l.title || B.KIND_LABEL[l.kind], weight: c.weight || null, total: c.total });
+      });
+    }
+    const bal = Object.fromEntries(db.all('SELECT unit, SUM(amt) AS s FROM bk_postings WHERE acct=? GROUP BY unit', `party:${p.id}`).filter((r) => Math.abs(r.s) > 1e-9).map((r) => [r.unit, r.s]));
+    const top = Object.entries(groups).sort((a, b) => b[1] - a[1]);
+    return {
+      party: partyOut(p),
+      balance: bal,
+      visits: new Set(docs.map((d) => d.date)).size,
+      purchases: sales.length,
+      spent,
+      avgTicket: sales.length ? Math.round(spent / sales.length) : 0,
+      lastVisit: docs[0]?.date ?? null,
+      favorites: top.slice(0, 3).map(([g, n]) => ({ group: g, label: B.TEMPLATE_GROUPS.find((x) => x.id === g)?.label ?? g, n })),
+      fineness: Number(Object.entries(fineness).sort((a, b) => b[1] - a[1])[0]?.[0]) || null,
+      weightRange: weights.length ? [Math.min(...weights), Math.max(...weights)] : null,
+      recent,
+    };
+  });
   on('GET', '/api/books/parties/:id', 'auth', ({ params }) => {
     const p = db.get('SELECT * FROM bk_parties WHERE id=?', params.id);
     if (!p) throw notFound('این مشتری پیدا نشد.');
