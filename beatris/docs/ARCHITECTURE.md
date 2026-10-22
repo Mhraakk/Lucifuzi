@@ -167,7 +167,7 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
 - متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`.
 - **جایگزین Render** (`render.yaml` در ریشه‌ی مخزن، Blueprint): همان سرویس با `rootDir: beatris`، `npm start`، سلامت `/api/health`، دیسک پایدار ۲ گیگابایتی روی `/data` (نیازمند پلن پولی) و Node 22.
   - `BEATRIS_TOKEN_SECRET` را Render خودش می‌سازد.
-  - `BEATRIS_SUPABASE_URL`، `_KEY` و `BEATRIS_OWNER_EMAIL` یک بار هنگام ساخت Blueprint پرسیده می‌شوند.
+  - `BEATRIS_SUPABASE_URL`، `_KEY`، `BEATRIS_OWNER_EMAIL`، `BEATRIS_OWNER_PHONE` و `BEATRIS_OWNER_NAME` یک بار هنگام ساخت Blueprint پرسیده می‌شوند. حساب مالک اصلی از `BEATRIS_OWNER_PHONE` ساخته می‌شود (`seedUsers`)؛ بدون آن سرویس تازه هیچ کاربری ندارد.
   - شناسه‌ی نسخه از `RENDER_GIT_COMMIT` می‌آید (spec 0036).
   - سرویس تازه با دیسک خالی شروع می‌شود؛ داده‌ی Railway روی volume خود Railway می‌ماند.
 
