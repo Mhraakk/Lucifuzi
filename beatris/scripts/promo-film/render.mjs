@@ -1,6 +1,5 @@
 // تیزر و اینفوگرافیک بئاتریس — deterministic motion: every frame of teaser.html is seek(t), so a render is repeatable.
 //   node scripts/promo-film/render.mjs teaser [fps=60]   → frames in ./frames, then encode with ffmpeg (see README.md)
-//   node scripts/promo-film/render.mjs infographic        → public/media/promo/beatris-infographic.{png,pdf}
 //   node scripts/promo-film/render.mjs prism [fps=60] [from] [to] → «منشور» frames in ./frames-prism (served over http so
 //                                                         the app's own modules — Elliott engine, thinking orb — load)
 //   node scripts/promo-film/render.mjs anatomy [fps=60]    → «کالبد یک دفتر طلا» (spec 0031) frames in ./frames-anatomy;
@@ -16,15 +15,7 @@ const pw = await import(process.env.PLAYWRIGHT_MODULE || '/opt/node22/lib/node_m
 const { chromium } = pw.default ?? pw;
 const what = process.argv[2] ?? 'teaser';
 const b = await chromium.launch();
-if (what === 'infographic') {
-  const p = await b.newPage({ viewport: { width: 1200, height: 1000 }, deviceScaleFactor: 2 });
-  await p.goto(pathToFileURL(path.join(DIR, 'infographic.html')).href);
-  await p.evaluate(() => document.fonts.ready);
-  const out = path.join(DIR, '..', '..', 'public', 'media', 'promo');
-  await p.screenshot({ path: path.join(out, 'beatris-infographic.png'), fullPage: true });
-  const h = await p.evaluate(() => document.documentElement.scrollHeight);
-  await p.pdf({ path: path.join(out, 'beatris-infographic.pdf'), width: '1200px', height: `${h + 2}px`, printBackground: true, pageRanges: '1' });
-} else if (what === 'prism') {
+if (what === 'prism') {
   const srv = await serveRoot();
   const fps = Number(process.argv[3] ?? 60);
   const p = await b.newPage({ viewport: { width: 1920, height: 1080 } });

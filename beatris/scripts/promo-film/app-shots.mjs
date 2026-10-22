@@ -1,5 +1,6 @@
-// اینفوگرافیک تذهیب: the real screens the poster shows, captured from a fresh demo server at twice the density.
-//   node scripts/promo-film/ig2-shots.mjs            → scripts/promo-film/ig2/*.jpg
+// The real screens the promo pieces show (infographic, teaser), captured from a fresh demo server at twice the density.
+//   node scripts/promo-film/app-shots.mjs [--skin=day] [--out=shots-day]   → scripts/promo-film/<out>/*.jpg
+// The skin is the app's own (spec 0014): «day» is the ivory light one, «calm» the graphite dark one.
 // The card reader is a stand-in bridge that holds each charge at «swipe the card» until the shot is taken, then approves
 // it, exactly as tests/pos.test.mjs's simulated terminal answers; every amount and code on the screens is the app's own.
 import { spawn } from 'node:child_process';
@@ -11,7 +12,12 @@ import { fileURLToPath } from 'node:url';
 import * as TR from '../../public/js/trade.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const OUT = path.join(ROOT, 'scripts/promo-film/ig2');
+const arg = (k) => process.argv.map((a) => a.replace(/^--/, '')).find((a) => a.startsWith(`${k}=`))?.slice(k.length + 1);
+const SKIN = arg('skin') ?? 'day';
+const ONLY = arg('only'); // «sell»: just the live sales desk, the customer screen and the workspaces
+const LIGHT = !['calm', 'classic'].includes(SKIN) && !/^dark/.test(SKIN);
+const SCHEME = LIGHT ? 'light' : 'dark';
+const OUT = path.join(ROOT, 'scripts/promo-film', arg('out') ?? `shots-${SKIN}`);
 mkdirSync(OUT, { recursive: true });
 const pw = await import(process.env.PLAYWRIGHT ?? '/opt/node22/lib/node_modules/playwright/index.mjs');
 const { chromium } = pw.default ?? pw;
@@ -105,17 +111,25 @@ async function signIn(page, email) {
   await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 20000 });
 }
 const desktop = async () => {
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: 'dark' });
-  await ctx.addInitScript(() => {
-    try {
-      if (!sessionStorage.getItem('ig-skin')) localStorage.setItem('beatris.theme', 'calm'), sessionStorage.setItem('ig-skin', '1');
-    } catch {}
-  });
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: SCHEME });
+  await skinned(ctx);
   return ctx;
 };
-const phone = async () => browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, colorScheme: 'dark' });
+// every page of the shoot wears the chosen skin, set before the app paints
+const skinned = (ctx) =>
+  ctx.addInitScript((skin) => {
+    try {
+      localStorage.setItem('beatris.theme', skin);
+    } catch {}
+  }, SKIN);
+const phone = async () => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, colorScheme: SCHEME });
+  await skinned(ctx);
+  return ctx;
+};
 
 try {
+  if (ONLY !== 'sell') {
   /* 1. sign-in by email, on a phone */
   {
     const ctx = await phone();
@@ -135,7 +149,8 @@ try {
   }
   /* 2. the coin of the sign-in page, large */
   {
-    const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 2, colorScheme: 'dark' });
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 2, colorScheme: SCHEME });
+    await skinned(ctx);
     const p = await ctx.newPage();
     await p.goto(`${base}/login`);
     await settle(p, 7000);
@@ -244,6 +259,9 @@ try {
     ['/books/reports?tab=pnl', 'pnl.jpg', 3000],
     ['/coins?mode=seal', 'coinlab.jpg', 9000],
     ['/studio', 'studio.jpg', 9000],
+    ['/', 'home.jpg', 3000],
+    ['/learn', 'learn.jpg', 2500],
+    ['/books/desk', 'desk-empty.jpg', 2500],
   ]) {
     await d.goto(base + url);
     await settle(d, ms);
@@ -274,6 +292,104 @@ try {
     }
   }
   await dctx.close();
+  }
+  /* 6. the live sales desk (spec 0037), the customer's screen and each role's own desk (spec 0038) */
+  {
+    const p750 = 2400000;
+    const items = async (tpl, title, showcase, batch) => (await J('POST', '/api/books/items', { tpl, title, showcase, batch }, owner)).items;
+    const rings = await items('ring-w', 'انگشتر برگ زیتون', 'ویترین ۱', [{ weight: 3.42 }, { weight: 3.86, title: 'انگشتر برگ زیتون پهن' }, { weight: 4.15, title: 'انگشتر سولیتر نگین‌دار', tpl: 'ring-sol' }]);
+    const ears = await items('er-stud', 'گوشواره میخی مروارید', 'ویترین ۲', [{ weight: 2.08 }, { weight: 1.84, title: 'گوشواره حلقه‌ای ریز', tpl: 'er-hoop' }]);
+    await items('nk-pend', 'آویز ماه و ستاره', 'ویترین ۳', [{ weight: 2.62 }, { weight: 4.9, title: 'گردنبند ریویرا', tpl: 'nk-rivi' }]);
+    await items('br-bangle', 'النگو ساده', 'ویترین ۴', [{ weight: 8.1 }, { weight: 7.6 }]);
+    const mary = parties[1];
+    // what she bought before: the desk reads her taste from these
+    for (const [date, line] of [
+      [ago(40), { kind: 'jewel', tpl: 'ring-w', title: 'انگشتر زنانه', weight: 3.1, fineness: 750, p750: 2280000, ojratMode: 'pct', ojrat: 18, profitPct: 7 }],
+      [ago(12), { kind: 'jewel', tpl: 'er-drop', title: 'گوشواره آویز', weight: 2.4, fineness: 750, p750: 2350000, ojratMode: 'pct', ojrat: 18, profitPct: 7 }],
+    ])
+      await J('POST', '/api/books/docs', { type: 'sale', date, partyId: mary.id, lines: [line], payments: [], status: 'final' }, owner).catch((e) => console.log('history:', e.message));
+    const sctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 2, colorScheme: SCHEME });
+    await skinned(sctx);
+    const s = await sctx.newPage();
+    await signIn(s, 'nima@demo.beatris.ir'); // a seller lands on the sales desk by himself
+    await s.waitForURL((u) => u.pathname === '/books/sell', { timeout: 15000 });
+    await settle(s, 1500);
+    await s.click('#pq');
+    await s.keyboard.type('رضایی', { delay: 40 });
+    await s.waitForSelector(`#pdrop [data-pick="${mary.id}"]`);
+    await s.click(`#pdrop [data-pick="${mary.id}"]`);
+    await s.waitForSelector('.sl-file');
+    await s.click(`.sl-item-main[data-add="${rings[0].id}"]`);
+    await s.fill('#iq', ears[0].code);
+    await s.press('#iq', 'Enter');
+    await s.waitForFunction(() => document.querySelectorAll('#lines .sl-line').length === 2);
+    await s.check(`[data-cmp="${rings[1].id}"]`);
+    await s.check(`[data-cmp="${rings[2].id}"]`);
+    await s.click('#tin summary');
+    await s.fill('[data-t=weight]', '3.1');
+    await s.click('[data-act=tin-add]');
+    await s.click('[data-sc=disc3]');
+    await s.click('[data-pay=cash]');
+    const due = Number(await s.inputValue('[data-p="0"]'));
+    await s.fill('[data-p="0"]', String(Math.round(due / 2 / 10000) * 10000));
+    await s.click('[data-pay=c2c]');
+    await s.evaluate(() => document.activeElement?.blur());
+    await s.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
+    await s.evaluate(() => window.scrollTo(0, 0));
+    await s.$eval('.sl-cart', (c) => (c.scrollTop = 0));
+    await wait(700);
+    await shot(s, 'sell.jpg');
+    await s.$eval('.sl-cart', (c) => (c.scrollTop = 0));
+    await wait(300);
+    await shot(await s.$('.sl-cart'), 'sell-cart.jpg');
+    await shot(await s.$('.sl-who'), 'sell-customer.jpg');
+    await shot(await s.$('#what'), 'sell-whatif.jpg');
+    // the customer's own screen, a second window of the same computer
+    const scr = await sctx.newPage();
+    await scr.setViewportSize({ width: 1280, height: 800 });
+    await scr.goto(`${base}/books/sell/screen`);
+    await scr.waitForSelector('.ss-lines .ss-line', { timeout: 10000 });
+    await wait(800);
+    await shot(scr, 'sell-screen.jpg');
+    await s.bringToFront();
+    await s.keyboard.press('Control+Enter');
+    await s.waitForSelector('#done .sl-done', { timeout: 15000 });
+    await scr.waitForSelector('.ss-thanks', { timeout: 10000 }).catch(() => {});
+    await wait(800);
+    await shot(scr, 'sell-thanks.jpg');
+    await shot(await s.$('#done .sl-done'), 'sell-done.jpg');
+    await scr.close();
+    await s.goto(`${base}/work`);
+    await s.waitForSelector('.wk-card', { timeout: 10000 });
+    await settle(s, 1500);
+    await shot(s, 'work-seller.jpg');
+    await sctx.close();
+    // the boss's desk, and the chooser in «من»
+    const bctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2, colorScheme: SCHEME });
+    await skinned(bctx);
+    const b = await bctx.newPage();
+    await signIn(b, 'manager@demo.beatris.ir');
+    await b.waitForURL((u) => u.pathname === '/work', { timeout: 15000 });
+    await b.waitForSelector('.wk-card', { timeout: 10000 });
+    await settle(b, 2000);
+    await shot(b, 'work-boss.jpg');
+    await b.goto(`${base}/me#workspace`);
+    await b.waitForSelector('#wsf .wsf-card');
+    await settle(b, 800);
+    await shot(await b.$('#wsf'), 'workspace.jpg');
+    await bctx.close();
+    // the same desk on a phone
+    const mctx = await phone();
+    const m = await mctx.newPage();
+    await signIn(m, 'nima@demo.beatris.ir');
+    await m.waitForURL((u) => u.pathname === '/books/sell', { timeout: 15000 });
+    await settle(m, 1500);
+    await m.click(`.sl-item-main[data-add="${rings[1].id}"]`).catch(() => {});
+    await m.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
+    await wait(500);
+    await shot(m, 'phone-sell.jpg');
+    await mctx.close();
+  }
 } finally {
   await browser.close();
   mock.close();
