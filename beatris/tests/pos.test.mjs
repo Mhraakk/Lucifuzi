@@ -40,10 +40,20 @@ const post = (p, b, headers = {}) => fetch(B + p, { method: 'POST', headers: { '
 async function settle(id) {
   for (let i = 0; i < 100; i++) {
     const j = (await get(`/charge/${id}`)).body;
+    if (!j?.state) throw new Error(`no charge ${id}: ${JSON.stringify(j)}`);
     if (!['connecting', 'waiting'].includes(j.state)) return j;
     await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error('charge did not settle');
+}
+// a result is final before the terminal's closing 17 and Dispose; until they end the bridge refuses a new charge as
+// busy (409), so the next charge waits for /status to say the bridge is free
+async function idle() {
+  for (let i = 0; i < 200; i++) {
+    if ((await get('/status')).body?.busy === false) return;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error('bridge stayed busy');
 }
 const plans = new Map(); // amount → terminal behaviour
 before(async () => {
@@ -97,14 +107,17 @@ test('bridge: decline, customer cancel and a bad MAC are never approvals', { ski
   plans.set(510000, { rc: '51' });
   plans.set(980000, { rc: '98' });
   plans.set(770000, { rc: '00', badMac: true });
-  await sep('t-decline-01', 510000);
+  await idle();
+  assert.equal((await sep('t-decline-01', 510000)).status, 202);
   const d = await settle('t-decline-01');
   assert.equal(d.state, 'declined');
   assert.equal(d.code, '51');
   assert.match(d.message, /موجودی/);
-  await sep('t-cancel-001', 980000);
+  await idle();
+  assert.equal((await sep('t-cancel-001', 980000)).status, 202);
   assert.equal((await settle('t-cancel-001')).state, 'cancelled');
-  await sep('t-badmac-001', 770000);
+  await idle();
+  assert.equal((await sep('t-badmac-001', 770000)).status, 202);
   const b = await settle('t-badmac-001');
   assert.equal(b.state, 'unknown');
   assert.match(b.message, /MAC/);
@@ -112,7 +125,8 @@ test('bridge: decline, customer cancel and a bad MAC are never approvals', { ski
 
 test('bridge: waiting can be cancelled from the app; only one charge at a time', { skip }, async () => {
   plans.set(330000, { rc: '00', delay: 4000 });
-  await sep('t-wait-0001', 330000);
+  await idle();
+  assert.equal((await sep('t-wait-0001', 330000)).status, 202);
   // the first charge must really be in progress (sent, the terminal waiting for the card) before the second is tried;
   // a fixed sleep was too short when the whole suite loads the machine
   let st = '';
