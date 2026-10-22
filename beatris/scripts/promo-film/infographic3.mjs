@@ -29,14 +29,18 @@ const H = 10900;
 /* ---------------- the figures, from the engines ---------------- */
 const fa = (s) => String(s).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const R = (rial) => B.fmtMoney(rial, 'rial');
-const P750 = 2400000; // toman per gram of 18k, the demo shop's day price
+// toman per gram of 18k: the demo shop's day price, the one on the desk's own screenshot (240,000,000 rial), so the
+// ring here costs what its card on the customer's screen shows
+const P750 = 24000000;
 const ring = { id: 'demo', code: '100001', tpl: 'ring-w', title: 'انگشتر برگ زیتون', weight: 3.42, fineness: 750, ojratMode: 'pct', ojrat: 18, profitPct: 7, stones: 0 };
 const cart = { lines: [S.lineFromItem(ring, P750)], tradeIns: [], payments: [] };
 const base = S.totals(cart, { vatPct: 10 });
 const whatIf = Object.fromEntries(S.scenarios(cart, { vatPct: 10, canDiscount: true }).map((s) => [s.id, s]));
 const line = base.lines[0];
 const e2e = arg('e2e') ? fa(arg('e2e')) : '۶۴۱';
-const qr = qrSvg('https://beatris-production-68ac.up.railway.app', { size: 220, dark: '#2a1b47', light: '#fff8ec' });
+// the address of the way in; BEATRIS_SITE names another deploy (e.g. Render)
+const SITE = process.env.BEATRIS_SITE || 'https://beatris-production-68ac.up.railway.app';
+const qr = qrSvg(SITE, { size: 220, dark: '#2a1b47', light: '#fff8ec' });
 
 /** The size a JPEG says it is, so a frame keeps every capture at its own proportions. */
 const jpg = (file) => {
@@ -399,7 +403,7 @@ const cta = `
   <p class="en">Tomorrow morning, open your shop with an email.</p>
 </div>
 <div class="abs" style="${at(0, Y.cta + 330, W, null, 'display:flex;justify-content:center;align-items:center;gap:40px')}">
-  <span class="url">beatris-production-68ac.up.railway.app</span>
+  <span class="url">${SITE.replace(/^https?:\/\//, '')}</span>
   <div style="padding:10px;border-radius:22px;background:#fff8ec;box-shadow:0 20px 40px -20px rgba(20,10,50,.6)">${qr}</div>
 </div>
 ${prop('coin', 110, Y.cta + 230, 200, -12)}${prop('ring-band', 1300, Y.cta + 250, 200, 18)}${sparkle(300, Y.cta + 40, 20)}${sparkle(1290, Y.cta + 70, 16)}

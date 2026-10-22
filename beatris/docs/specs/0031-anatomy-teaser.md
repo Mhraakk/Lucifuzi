@@ -80,3 +80,12 @@ poster, and the help centre shows it above the chapters.
   - **Sound:** −14.1 LUFS, with true peak at −1.6 dBFS.
   - **File:** 1920×1080, 30 s, H.264 High 4.2 (`avc1.64002a`) with its index first. The MP4 is 11.1 MB and the WebM
     6.9 MB.
+
+## Amendment — the help centre shows «رؤیای طلایی» (2026-10-22)
+- **Why:** this film's end card says «ورود با شماره موبایل». Spec 0034 retired that sign-in, so the help centre
+  would be promising a door that no longer exists.
+- **Change:** `/help` now opens with the 32 s teaser «رؤیای طلایی» (`public/media/promo/beatris-dream.{mp4,webm,jpg}`,
+  `scripts/promo-film/dream.mjs`). It covers email sign-in, the live sales desk and a desk for every role.
+- **This film:** its sources and files stay in the repository as they are; the film itself is not changed.
+- **Same encoder:** `encode-anatomy.mjs` encodes both films (`FILM=anatomy|dream`) and checks both against this
+  spec's measures: −14 LUFS ±1, a true peak at or below −1.4 dBFS, and no frozen stretch before the end card.

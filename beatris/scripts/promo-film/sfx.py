@@ -3,7 +3,7 @@ glass pings when a wave label or a level lands, one low warm hit when the light 
 gives the same file. Writes a 48 kHz stereo WAV whose events line up with prism.html's timeline.
 
     python3 scripts/promo-film/sfx.py out.wav          # the teaser's effects track
-    python3 scripts/promo-film/sfx.py --kit DIR        # single effects for the tutorial films (whoosh, shimmer, hit)
+    python3 scripts/promo-film/sfx.py --kit DIR        # single effects (whoosh, shimmer, hit; tick, pop, thump for the bright teaser)
 """
 import sys, wave
 import numpy as np
@@ -97,6 +97,11 @@ if len(sys.argv) > 2 and sys.argv[1] == '--kit':
     write(os.path.join(d, 'whoosh.wav'), whoosh(0.9, 400, 3200) * 0.8)
     write(os.path.join(d, 'shimmer.wav'), shimmer(2.4) * 0.6)
     write(os.path.join(d, 'hit.wav'), hit(58, 1.6) * 0.8)
+    # for «رؤیای طلایی»: a code digit landing, a card popping out, the wax seal pressed
+    write(os.path.join(d, 'tick.wav'), ping(2349.3, 0.32, 0.2) * 0.55)
+    n = int(0.28 * SR); t = np.arange(n) / SR
+    write(os.path.join(d, 'pop.wav'), np.sin(2 * np.pi * (380 * t + 900 * t * t)) * np.exp(-t * 18) * np.minimum(1, t / 0.002) * 0.6)
+    write(os.path.join(d, 'thump.wav'), (hit(92, 0.7) * 0.7 + onepole_lp(rng.standard_normal(int(0.7 * SR)), 1800) * np.exp(-np.arange(int(0.7 * SR)) / SR * 40) * 0.5) * 0.8)
     print('kit', d)
     sys.exit(0)
 
