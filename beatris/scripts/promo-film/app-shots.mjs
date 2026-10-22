@@ -169,7 +169,7 @@ try {
   await settle(d);
   await d.$eval('#vdMail details', (x) => (x.open = true)).catch(() => {});
   // the card names the address it runs on; this film-set server shows the one customers really use
-  await d.evaluate(() => document.querySelectorAll('#vdMail code').forEach((c) => (c.textContent = c.textContent.replace(/https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/, 'https://beatris-production-68ac.up.railway.app'))));
+  await d.evaluate(() => document.querySelectorAll('#vdMail code').forEach((c) => (c.textContent = c.textContent.replace(/https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/, 'https://beatris-6u77.onrender.com'))));
   await wait(400);
   await shot(await d.$('#vdMail'), 'vendor-email.jpg');
   await d.goto(`${base}/books/desk`);

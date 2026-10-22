@@ -37,9 +37,9 @@ const cart = { lines: [S.lineFromItem(ring, P750)], tradeIns: [], payments: [] }
 const base = S.totals(cart, { vatPct: 10 });
 const whatIf = Object.fromEntries(S.scenarios(cart, { vatPct: 10, canDiscount: true }).map((s) => [s.id, s]));
 const line = base.lines[0];
-const e2e = arg('e2e') ? fa(arg('e2e')) : '۶۴۱';
-// the address of the way in; BEATRIS_SITE names another deploy (e.g. Render)
-const SITE = process.env.BEATRIS_SITE || 'https://beatris-production-68ac.up.railway.app';
+const e2e = arg('e2e') ? fa(arg('e2e')) : '۶۴۶';
+// the address of the way in: production on Render; BEATRIS_SITE names another deploy
+const SITE = process.env.BEATRIS_SITE || 'https://beatris-6u77.onrender.com';
 const qr = qrSvg(SITE, { size: 220, dark: '#2a1b47', light: '#fff8ec' });
 
 /** The size a JPEG says it is, so a frame keeps every capture at its own proportions. */

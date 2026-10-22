@@ -1,7 +1,8 @@
 # راه‌اندازی و نگهداری در پروداکشن
 
 ## وضعیت
-- نشانی: https://beatris-production-68ac.up.railway.app — Railway، service `beatris`، volume روی `/data` (حذف یا جابه‌جا نشود).
+- نشانی: https://beatris-6u77.onrender.com — Render، service `beatris` (`srv-dbd36u7avr4c7399qkf0`، فرانکفورت)، شاخه `claude/vercel-deployment-pj3uux`. داده روی دیسک `/data` (حذف یا جابه‌جا نشود). تا دیسک وصل نشده، `BEATRIS_DATA_DIR` موقت است و هر دیپلوی داده را پاک می‌کند.
+- پیشین: https://beatris-production-68ac.up.railway.app — Railway، ساخت `600938a` با داده‌ی خودش روی volume `/data` (حذف یا جابه‌جا نشود).
 - متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`، `BEATRIS_OWNER_NAME/PHONE` (حساب مالک) و `BEATRIS_OWNER_PIN` (راه ورود مالک تا پیامک تنظیم شود). پنل پیامک: کنسول ← «پیامک ورود» یا `BEATRIS_SMS_PROVIDER`/`_API_KEY`/`_TEMPLATE` (و `_SENDER`، `_PARAM`، `_USERNAME`، `_BASE_URL`). `BEATRIS_DEMO` باید خاموش بماند.
 - سرآیندهای امنیتی: CSP بدون eval، `X-Frame-Options: DENY`، `nosniff`، `Referrer-Policy`، `Permissions-Policy` و در production `Strict-Transport-Security`. سقف درخواست هر IP: ۱۵۰۰ در دقیقه.
 

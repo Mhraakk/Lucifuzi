@@ -9,7 +9,7 @@ ManifestDPIAware true
 RequestExecutionLevel user
 
 !ifndef URL
-  !define URL "https://beatris-production-68ac.up.railway.app"
+  !define URL "https://beatris-6u77.onrender.com"
 !endif
 !ifndef VERSION
   !define VERSION "2.0.0"

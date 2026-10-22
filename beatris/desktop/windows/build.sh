@@ -3,7 +3,7 @@
 #   [FFMPEG=/path/to/ffmpeg] bash desktop/windows/build.sh [https://your-server]
 set -euo pipefail
 cd "$(dirname "$0")"
-URL="${1:-https://beatris-production-68ac.up.railway.app}"
+URL="${1:-https://beatris-6u77.onrender.com}"
 FF="${FFMPEG:-ffmpeg}"
 VER="$(node -p "require('../../package.json').version")"
 tmp="$(mktemp -d)"

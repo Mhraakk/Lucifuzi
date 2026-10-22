@@ -35,8 +35,8 @@ const cart = {
 };
 const base = S.totals(cart, { vatPct: 10 }).net;
 const disc = S.scenarios(cart, { vatPct: 10, canDiscount: true }).find((s) => s.id === 'disc3').net;
-// the address on the end card; BEATRIS_SITE names another deploy (e.g. Render) without touching the film
-const SITE = process.env.BEATRIS_SITE || 'https://beatris-production-68ac.up.railway.app';
+// the address on the end card: production on Render; BEATRIS_SITE names another deploy without touching the film
+const SITE = process.env.BEATRIS_SITE || 'https://beatris-6u77.onrender.com';
 const qr = qrSvg(SITE, { size: 200, dark: '#2a1b47', light: '#fff8ec' });
 
 const FEATURES = [

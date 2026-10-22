@@ -14,7 +14,7 @@
 - نام خانه «خانه سکه و شمش تاج» (`SHOP_NAME` در `public/js/crown.mjs`) پیش‌فرض سربرگ، فاکتور و رسید است؛ نشان تاج مینیمال (جواهرش سکه، پایه‌اش شمش) در همان فایل. ته حساب با اصطلاح بازار: بدهکار/بستانکار «مالی» (ریالی) و «جنسی» (طلا، سکه، شمش، ارز) جدا، مطالبه و تعهد (`balBoard`، `balSentence` در `bk.mjs`).
 - ممیز (`server/audit.mjs`، `/api/books/audit`، صفحه `/books/audit`): فقط‌خواندنی؛ زنجیره رویداد، موجودی/صندوق منفی، مظنه و قیمت سکه دور از تابلو، شماره پیگیری و سند تکراری، سقف اعتبار، مطالبه معوق، چک سررسیدگذشته، بانک تطبیق‌نشده، آبشده شرطی، معامله کلان بی‌هویت، سند با تاریخ گذشته، ریسک موقعیت طلا. آستانه‌ها در `AUDIT_DEFAULTS` و قابل تنظیم در تنظیمات. پس از ثبت هر سند در میز، هشدارها روی رسید.
 - کلیدهای هوش مصنوعی هر فروشگاه (`/books/ai`، `server/providers.mjs`): Anthropic و هر سرویس سازگار با OpenAI (OpenAI، Gemini، Grok، Qwen، OpenCode، DeepSeek، OpenRouter، Mistral، Groq، نشانی دلخواه https عمومی). کلید با AES-GCM (`makeSealer` در `auth.mjs`، کلید مشتق از `BEATRIS_TOKEN_SECRET` و شناسه فروشگاه) ذخیره و هرگز برگردانده نمی‌شود؛ ترتیب = اولویت، خرابی یکی → بعدی → موتور دفاتر. نام مدل را کاربر از پنل سرویس می‌نویسد (در کد شناسه مدل نگذارید).
-- دستیار حسابرس (`server/assistant.mjs`، `POST /api/books/assistant`): ابزارهای فقط‌خواندنی (هرگز ثبت/ویرایش نمی‌کند). موتور: مدل روی سیستم خود مغازه با `AGENT_LLM_URL` + `AGENT_LLM_MODEL` (سازگار با OpenAI: Ollama/LM Studio)، یا Claude با `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`؛ بدون این‌ها موتور دفاتر (پاسخ مستقیم از دیتابیس). اگر مدل در دسترس نباشد خودکار به موتور دفاتر برمی‌گردد. کلیدها فقط در متغیرهای محیطی Railway، هرگز در مخزن.
+- دستیار حسابرس (`server/assistant.mjs`، `POST /api/books/assistant`): ابزارهای فقط‌خواندنی (هرگز ثبت/ویرایش نمی‌کند). موتور: مدل روی سیستم خود مغازه با `AGENT_LLM_URL` + `AGENT_LLM_MODEL` (سازگار با OpenAI: Ollama/LM Studio)، یا Claude با `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`؛ بدون این‌ها موتور دفاتر (پاسخ مستقیم از دیتابیس). اگر مدل در دسترس نباشد خودکار به موتور دفاتر برمی‌گردد. کلیدها فقط در متغیرهای محیطی میزبان، هرگز در مخزن.
 - رهگیری: هر سند کد `M1405-00012` (`B.trackCode`، پیشوند از `DOC_TYPES.prefix`)، هر ردیف `/L2` و هر پرداخت `/P1`. `GET /api/books/trace?q=` (کد رهگیری، کد اصالت، شماره پیگیری، سریال شمش، چک، کد/موبایل مشتری) کل سرگذشت سند را می‌دهد (`server/trace.mjs`)؛ چاپ و ارسال با `POST /api/books/docs/:id/event` در دفتر رویداد زنجیره‌ای ثبت می‌شود. صفحه `/books/trace`.
 - اصلاح شفاف (spec 0024): `public/js/docdiff.mjs` (خالص) دو محتوای سند را فیلد به فیلد مقایسه می‌کند (ردیف‌ها و پرداخت‌ها با LCS جفت می‌شوند؛ ورودی تومانی نسخه کامل ×۱۰ به ریال)؛ فهرست `{at, n, field, from, to, kind}` در جزئیات `doc.amend`/`doc.update`/`doc.restore` دفتر رویداد زنجیره‌ای می‌نشیند و صفحه سند (`changes`، تغییر هر نسخه) و رهگیری آن را به فارسی نشان می‌دهند. برگرداندن: `POST /api/books/docs/:id/restore` (مدیر، دلیل اجباری) سند جایگزین‌شده را اصلاحیه سند زنده زنجیره و سند باطل را سند تازه با همان تاریخ (`restores`) می‌کند؛ اگر ارقام با اصل یکی نشود (مثلاً گام گرد کردن عوض شده) ۴۰۹ و هیچ ثبتی نمی‌شود؛ افتتاحیه و اصلاح موجودی برگردانده نمی‌شوند. شبیه‌ساز `basis` (روز، آخرین رویداد دفتر، قیمت‌ها) و `fingerprint` برمی‌گرداند؛ با `basis` در درخواست همان قیمت‌ها به کار می‌رود و `since` تعداد اسناد بعد از آن مبنا را می‌گوید. تست: `tests/docdiff.test.mjs`، `tests/restore.test.mjs`.
 - جستجوی عدد در روزنگار (spec 0023): `public/js/daysearch.mjs` (خالص: `readQuery` عدد را با همان `readNumber` میز می‌خواند؛ `bandsOf` بازه را با قاعده ثابت می‌سازد: واحد نوشته‌شده، وگرنه واحد فروشگاه یا سوییچ صفحه؛ دقت ۰/۱/۵/۱۰٪ و «حدود» = ۵٪؛ `figuresOf` همه ارقام هر سند). `GET /api/books/daybook/find?q=&tol=&unit=`: نمایه ارقام همه اسناد (قطعی، باطل، جایگزین‌شده) مرتب برای هر واحد، یک بار برای هر ویرایش دفتر (`core.memo('dayfind')`)؛ هر بازه دو جستجوی دودویی؛ ترتیب: نزدیک‌ترین، بعد تازه‌ترین؛ دسترسی مثل روزنگار. در کادر جستجوی روزنگار، عدد همه روزها را می‌گردد؛ Ctrl+K عدد را به همان‌جا می‌برد. تست: `tests/daysearch.test.mjs`.
@@ -157,15 +157,22 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
   - پیش‌نویسی که پس از ثبت برگردد، سند دوم نمی‌سازد. آزمون: مرحله‌ی «drafts» در E2E.
 
 ## نسخه‌ی تازه روی صفحه‌های باز (spec `docs/specs/0036-fresh-build.md`)
-- `server/build.mjs`: `BUILD` از `BEATRIS_BUILD`، `RAILWAY_GIT_COMMIT_SHA` یا `RAILWAY_DEPLOYMENT_ID`؛ در `/api/health` (ساده و `deep=1`).
+- `server/build.mjs`: `BUILD` از `BEATRIS_BUILD`، `RAILWAY_GIT_COMMIT_SHA`، `RENDER_GIT_COMMIT` یا `RAILWAY_DEPLOYMENT_ID`؛ در `/api/health` (ساده و `deep=1`).
 - `public/js/fresh.mjs`: هنگام آمدن به صفحه، بازگشت به برگه و هر ۵ دقیقه مقایسه می‌کند. صفحه‌ی ورودِ دست‌نخورده خودش بازخوانی می‌شود؛ صفحه‌ی کاری فقط نوار «به‌روزرسانی» نشان می‌دهد.
 
-## استقرار (Railway — سرور دائمی، نه serverless)
+## استقرار (سرور دائمی، نه serverless)
+- **پروداکشن روی Render** (از ۳۰ مهر ۱۴۰۵؛ Railway دیگر commitهای تازه را دیپلوی نمی‌کرد):
+  - https://beatris-6u77.onrender.com، service `beatris` (`srv-dbd36u7avr4c7399qkf0`)، فرانکفورت، پلن starter؛
+  - شاخه `claude/vercel-deployment-pj3uux` با دیپلوی خودکار؛
+  - با connector ساخته شد، نه Blueprint: build `cd beatris && npm install --omit=dev --no-audit --no-fund`، start `cd beatris && npm start`؛
+  - دیسک `/data` و Health Check Path را فقط داشبورد Render می‌گذارد. تا دیسک وصل نشده، `BEATRIS_DATA_DIR=/opt/render/project/src/beatris-data` است و هر دیپلوی داده را پاک می‌کند؛
+  - نشانی و QR تیزر و اینفوگرافیک، و نصب‌کننده‌ی ویندوز (`desktop/windows`) به همین نشانی اشاره می‌کنند.
+- **Railway (پیشین)**: ساخت `600938a` را با داده‌ی خودش نگه می‌دارد.
 - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.
 - Volume دائمی روی `/data` (دیتابیس `beatris-v2.db`)؛ هرگز حذف نشود.
 - متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`.
-- **جایگزین Render** (`render.yaml` در ریشه‌ی مخزن، Blueprint): همان سرویس با `rootDir: beatris`، `npm start`، سلامت `/api/health`، دیسک پایدار ۲ گیگابایتی روی `/data` (نیازمند پلن پولی) و Node 22.
+- **Blueprint برای Render** (`render.yaml` در ریشه‌ی مخزن): همان سرویس با `rootDir: beatris`، `npm start`، سلامت `/api/health`، دیسک پایدار ۲ گیگابایتی روی `/data` (نیازمند پلن پولی) و Node 22.
   - `BEATRIS_TOKEN_SECRET` را Render خودش می‌سازد.
   - `BEATRIS_SUPABASE_URL`، `_KEY`، `BEATRIS_OWNER_EMAIL`، `BEATRIS_OWNER_PHONE` و `BEATRIS_OWNER_NAME` یک بار هنگام ساخت Blueprint پرسیده می‌شوند. حساب مالک اصلی از `BEATRIS_OWNER_PHONE` ساخته می‌شود (`seedUsers`)؛ بدون آن سرویس تازه هیچ کاربری ندارد.
   - شناسه‌ی نسخه از `RENDER_GIT_COMMIT` می‌آید (spec 0036).
