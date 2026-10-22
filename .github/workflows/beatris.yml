@@ -41,4 +41,5 @@ jobs:
         run: |
           npm i -g playwright@1.56
           npx playwright install --with-deps chromium
-      - run: PLAYWRIGHT_MODULE="$(npm root -g)/playwright/index.mjs" npm run e2e
+      # E2E_DEBUG: a failed step prints Playwright's whole message (what it waited for and why), not its first line
+      - run: PLAYWRIGHT_MODULE="$(npm root -g)/playwright/index.mjs" E2E_DEBUG=1 npm run e2e

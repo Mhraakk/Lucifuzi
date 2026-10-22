@@ -7,7 +7,7 @@ import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { T, TU, G, jd, jdInput, parseDay, today, modal, balText, balClass, EX, unitName, moneyWords, K, booksPrefs, prefs } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 import { createHistory, mountDock } from '../undo.mjs';
-import { drafts, submit } from '../outbox.mjs';
+import { drafts, submit, newKey } from '../outbox.mjs';
 import { confirmBox } from '../dialog.mjs';
 import { posConfig, posProblem, posMode, cardWindow, linkCharge } from '../pos.mjs';
 
@@ -72,7 +72,8 @@ export async function docEditorPage(root, params) {
   /* ---------------- state ---------------- */
   const S = editing
     ? { type, date: editing.date, partyId: editing.partyId, party: editing.party, lines: editing.lines.map((l) => toDisp(l, LINE_MONEY)), payments: editing.payments.map((p) => toDisp(p, PAY_MONEY)), creditUnit: editing.creditUnit ?? 'IRR', creditP750: editing.creditP750 != null ? editing.creditP750 * k : p750Live, note: editing.note ?? '', category: editing.category ?? '', ref: editing.ref ?? null, balances: editing.balances ?? [], seller: editing.seller }
-    : { type, date: today(), partyId: null, party: null, lines: [], payments: [], creditUnit: 'IRR', creditP750: p750Live, note: '', category: '', ref: null, balances: [] };
+    : // the client key is born with the document and kept in its draft: a draft that outlives its booking books nothing twice
+      { type, date: today(), partyId: null, party: null, lines: [], payments: [], creditUnit: 'IRR', creditP750: p750Live, note: '', category: '', ref: null, balances: [], clientKey: newKey() };
   // an unpicked category is «سایر», exactly as the select shows it (never a category the user did not see)
   if (CATS[type] && !S.category) S.category = 'سایر';
   const selected = new Set();
@@ -339,7 +340,7 @@ export async function docEditorPage(root, params) {
   /* ---------------- totals ---------------- */
   function docBody() {
     const pays = S.payments.map((p) => ({ ...p, due: p.dueJ !== undefined ? parseDay(p.dueJ) ?? p.dueJ : p.due }));
-    return { type, date: S.date, partyId: S.partyId, lines: S.lines.map((l) => toEngine(l, LINE_MONEY)), payments: pays.map((p) => toEngine(p, PAY_MONEY)), creditUnit: S.creditUnit, creditP750: B.num(S.creditP750) / k, note: S.note, category: S.category || undefined, ref: S.ref, balances: S.balances, money: prefs.money, seller: S.seller };
+    return { type, date: S.date, partyId: S.partyId, lines: S.lines.map((l) => toEngine(l, LINE_MONEY)), payments: pays.map((p) => toEngine(p, PAY_MONEY)), creditUnit: S.creditUnit, creditP750: B.num(S.creditP750) / k, note: S.note, category: S.category || undefined, ref: S.ref, balances: S.balances, money: prefs.money, seller: S.seller, clientKey: editing ? undefined : S.clientKey };
   }
   function safeCalc(body) {
     try {
@@ -442,16 +443,17 @@ export async function docEditorPage(root, params) {
       else {
         const r = await submit({ url: '/api/books/docs', body, label: `${B.DOC_TYPES[type].label}` });
         if (r.queued) {
-          drafts.set(`doc:${type}`, null);
+          await drafts.set(`doc:${type}`, null);
           hist.reset();
           toast('اتصال برقرار نیست؛ سند روی همین دستگاه در صف ماند و به‌محض وصل شدن خودکار ثبت می‌شود (دو بار ثبت نمی‌شود).', 'info');
           return navigate('/books');
         }
         doc = r.doc;
       }
-      drafts.set(`doc:${type}`, null);
+      // the draft is gone before the page leaves: a reload right after booking must not bring the document back
+      await drafts.set(`doc:${type}`, null);
       for (const p of S.payments) if (p.posId && doc?.id) linkCharge(p.posId, doc.id);
-      toast(doc.amends ? `اصلاحیه ثبت شد: ${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} جای سند قبلی را گرفت.` : `${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} ثبت شد.`, 'ok');
+      toast(doc.replayed ? `این سند پیش‌تر ثبت شده بود: ${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} باز شد و سند دومی ساخته نشد.` : doc.amends ? `اصلاحیه ثبت شد: ${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} جای سند قبلی را گرفت.` : `${B.DOC_TYPES[doc.type].short} شماره ${fa(doc.no)} ثبت شد.`, doc.replayed ? 'info' : 'ok');
       for (const w of doc.warnings ?? []) toast(w);
       navigate(`/books/doc/${doc.id}${doc.status === 'final' && ['sale', 'buy', 'return', 'proforma', 'receipt', 'payment'].includes(doc.type) ? '?print=1' : ''}`);
     } catch (e) {
@@ -460,7 +462,7 @@ export async function docEditorPage(root, params) {
         if (await confirmBox('سقف اعتبار', 'سقف اعتبار رد شود و سند ثبت شود؟', { ok: 'ثبت با رد سقف' })) {
           try {
             const doc = await api('/api/books/docs', { method: 'POST', body: { ...body, force: true } });
-            drafts.set(`doc:${type}`, null);
+            await drafts.set(`doc:${type}`, null);
             navigate(`/books/doc/${doc.id}?print=1`);
           } catch (e2) {
             toast(e2.message, 'error');
@@ -635,7 +637,7 @@ export async function docEditorPage(root, params) {
     } else if (act === 'save') save('final', b);
     else if (act === 'paycard') payByCard(b);
     else if (act === 'drop') {
-      Object.assign(S, { partyId: null, party: null, lines: [], payments: [], note: '', balances: [], ref: null });
+      Object.assign(S, { partyId: null, party: null, lines: [], payments: [], note: '', balances: [], ref: null, clientKey: newKey() });
       $('.bk-draft', root)?.remove();
       drawAll();
       commit('شروع تازه (کار قبلی با Ctrl+Z برمی‌گردد)');

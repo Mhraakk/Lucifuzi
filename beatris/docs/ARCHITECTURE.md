@@ -149,6 +149,13 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
   - مرورگر: ورود به `/start` می‌رود و آن به `workspace.start`؛ `/work` (`pages/work.mjs`) خانه‌ی هر نیمرخ است؛ منوی `.tb-work` در نوار بالا؛ `body.dense` برای تراکم فشرده؛ انتخابگر `wsform.mjs` در «من» و «تیم».
   - نیمرخ هیچ مجوزی نمی‌دهد. آزمون: `tests/workspace.test.mjs` و e2e مرحله‌ی `live sales desk`.
 
+## پیش‌نویس و صف ارسال (spec `docs/specs/0013-operator-flow.md`)
+- `public/js/outbox.mjs`: `drafts` (IndexedDB، و localStorage اگر نبود) و `submit` با `clientKey`. سرور همان کلید را همان سند برمی‌گرداند (`replayed`).
+- فرم سند (`pages/bookdoc.mjs`):
+  - کلید یکتا از شروع سند در حالت فرم است و با پیش‌نویس `doc:<type>` ذخیره می‌شود. «شروع تازه» کلید تازه می‌گیرد.
+  - پس از ثبت، فرم منتظر می‌ماند تا پیش‌نویس پاک شود و بعد به صفحه‌ی سند می‌رود (اصلاحیه‌ی 2026-10-22).
+  - پیش‌نویسی که پس از ثبت برگردد، سند دوم نمی‌سازد. آزمون: مرحله‌ی «drafts» در E2E.
+
 ## نسخه‌ی تازه روی صفحه‌های باز (spec `docs/specs/0036-fresh-build.md`)
 - `server/build.mjs`: `BUILD` از `BEATRIS_BUILD`، `RAILWAY_GIT_COMMIT_SHA` یا `RAILWAY_DEPLOYMENT_ID`؛ در `/api/health` (ساده و `deep=1`).
 - `public/js/fresh.mjs`: هنگام آمدن به صفحه، بازگشت به برگه و هر ۵ دقیقه مقایسه می‌کند. صفحه‌ی ورودِ دست‌نخورده خودش بازخوانی می‌شود؛ صفحه‌ی کاری فقط نوار «به‌روزرسانی» نشان می‌دهد.

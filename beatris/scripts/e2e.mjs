@@ -1143,6 +1143,60 @@ async function loginUI(page, email = EMAIL) {
       check('books: event chain is intact', !!(await page.$('.notice.ok')));
     });
 
+  // spec 0013's amendment: the draft goes before the page leaves, and carries the client key, so a draft that outlives
+  // its booking (a reload in that instant) can never book the sale a second time
+  if (!live)
+    await step('drafts: a booked sale never comes back as unfinished work, and a stale draft books nothing twice', async () => {
+      const latest = () => page.evaluate(async () => (await (await fetch('/api/books/docs?limit=1', { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json()).items[0]?.id);
+      const store = (value) =>
+        page.evaluate(
+          (v) =>
+            new Promise((ok) => {
+              const r = indexedDB.open('beatris-local');
+              r.onerror = () => ok('no database');
+              r.onsuccess = () => {
+                const t = r.result.transaction('drafts', v === undefined ? 'readonly' : 'readwrite');
+                const s = t.objectStore('drafts');
+                if (v === undefined) {
+                  const g = s.get('doc:sale');
+                  g.onsuccess = () => ok(g.result ?? null);
+                } else {
+                  s.put(v, 'doc:sale');
+                  t.oncomplete = () => ok(true);
+                }
+              };
+            }),
+          value,
+        );
+      await go(page, '/books/new/sale', 1200);
+      if (await page.$('.bk-draft')) await page.click('[data-act=drop]');
+      await page.click('[data-act=party-new]');
+      await page.fill('#np [name=name]', 'پیش‌نویس دوباره');
+      await page.fill('#np [name=mobile]', '09121113344');
+      await page.click('#np button:not([type])');
+      await page.waitForSelector('.bk-party-sel');
+      await page.click('[data-act=catalog]');
+      await page.fill('#tq', 'ربع');
+      await page.click('[data-tpl=coin-quarter]');
+      await page.click('[data-add-pay=cash]');
+      const kept = await store();
+      check('drafts: the unfinished sale is kept on this device with its client key', !!kept?.S?.clientKey && kept.S.lines.length === 1, JSON.stringify({ key: kept?.S?.clientKey, lines: kept?.S?.lines?.length }));
+      await page.click('[data-act=save]');
+      await page.waitForURL(/\/books\/doc\//, { timeout: 15000 });
+      const id = new URL(page.url()).pathname.split('/').pop();
+      check('drafts: when the document page appears the draft is already gone', (await store()) === null);
+      // what an interrupted page would have left: the draft as it stood before the booking
+      await store(kept);
+      await go(page, '/books/new/sale', 1200);
+      check('drafts: a draft left behind comes back as unfinished work', !!(await page.$('.bk-draft')) && !!(await page.$('.bk-party-sel')));
+      await page.click('[data-act=save]');
+      await page.waitForURL(/\/books\/doc\//, { timeout: 15000 });
+      const again = new URL(page.url()).pathname.split('/').pop();
+      const said = await page.$$eval('#toasts .toast', (t) => t.map((x) => x.textContent).join(' | '));
+      check('drafts: booking it again opens the same document and makes no second one', again === id && (await latest()) === id && /پیش‌تر ثبت شده بود/.test(said), JSON.stringify({ id, again, said: said.slice(0, 160) }));
+      check('drafts: and the draft is gone again', (await store()) === null);
+    });
+
   if (!live)
     await step('base edition: trade desk, receipt, day book, bars, vault, P&L, bank reconciliation', async () => {
       const auth = (path, opt = {}) => page.evaluate(async ([p, o]) => (await fetch(p, { ...o, headers: { 'content-type': 'application/json', Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), [path, opt]);

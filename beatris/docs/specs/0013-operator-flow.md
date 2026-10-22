@@ -64,3 +64,21 @@
 ## Out of scope
 - **همگام‌سازی دو‌طرفه:** بین چند دستگاه برای پیش‌نویس‌ها انجام نمی‌شود؛ پیش‌نویس فقط در همان دستگاه است.
 - **ثبت آفلاین با کارتخوان:** کارتخوان به پل محلی وصل است و بدون آن تراکنش کارت انجام نمی‌شود.
+
+## Amendment — a booked document never comes back as unfinished work (2026-10-22)
+- **What happened:**
+  - After booking, the document form started clearing its draft but did not wait for it, and went straight to the
+    document's page.
+  - When the page reloaded within those few milliseconds, IndexedDB aborted the unfinished delete. The next new
+    invoice then restored the booked sale as «کار ناتمام».
+  - In a test of ten bookings in a row it happened once; it was also the cause of one failed CI run.
+  - Booking it again made a second document, because every save took a fresh client key.
+- **Rule 1:** the document form waits until the draft is gone from IndexedDB, then opens the document's page.
+- **Rule 2:** the document's client key (`clientKey`) is part of the form's state from the moment the document is
+  started.
+  - It is kept with the draft, and «شروع تازه» takes a new one.
+  - A draft that comes back after its document was booked therefore books nothing twice: saving it returns the same
+    document, and the message says «این سند پیش‌تر ثبت شده بود».
+- **Proof:** e2e «drafts»:
+  - When the document's page appears, the `doc:sale` draft is already gone.
+  - A draft put back by hand is restored, and saving it lands on the same document; no second document is made.
