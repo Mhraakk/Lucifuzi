@@ -520,7 +520,7 @@ export async function deskPage(root) {
 
   /* ---------------- summary: before and after ---------------- */
   let lastNet = 0;
-  let netAt = -1e9; // when the net last changed (spec 0039)
+  let snapping = false; // the net changed in the work now running (spec 0039)
   function recalc() {
     const { c, err } = calc();
     const box = $('#sum', root);
@@ -539,13 +539,12 @@ export async function deskPage(root) {
       if (Math.abs(v) > 1e-9) after[u] = u === 'G750' ? B.r3(v) : u.startsWith('FX:') ? Math.round(v * 100) / 100 : Math.round(v);
     }
     const row = (k, v, cls = '') => html`<div class="kv ${cls}"><span>${k}</span><b>${v}</b></div>`;
-    // the net that changed snaps into place (spec 0039): the redraws of the same moment (a line and its payment) keep
-    // the snap, a later redraw with the same net stays still
-    if (c.net !== lastNet) netAt = performance.now();
-    const snap = performance.now() - netAt < 50;
+    // the net that changed snaps into place (spec 0039): every redraw of the same piece of work (a one-line entry draws
+    // its line, its payment and the whole desk) keeps the snap, a redraw after it with the same net stays still
+    if (c.net !== lastNet && !snapping) (snapping = true), setTimeout(() => (snapping = false));
     box.innerHTML = String(html`
       ${row('خرید از مشتری', R(c.buys))}${row('فروش به مشتری', R(c.sells))}
-      ${row(c.net >= 0 ? 'خالص: مشتری باید بپردازد' : 'خالص: ما باید بپردازیم', R(Math.abs(c.net)), snap ? 'big snap' : 'big')}
+      ${row(c.net >= 0 ? 'خالص: مشتری باید بپردازد' : 'خالص: ما باید بپردازیم', R(Math.abs(c.net)), snapping ? 'big snap' : 'big')}
       ${row('دریافت‌شده', R(c.paidIn))}${row('پرداخت‌شده', R(c.paidOut))}
       ${row(c.credit === 0 ? 'تسویه ریالی کامل' : c.credit > 0 ? 'می‌ماند به بدهی ریالی مشتری' : 'می‌ماند به طلب ریالی مشتری', c.credit === 0 ? '✓' : R(Math.abs(c.credit)), c.credit ? 'warn' : 'ok')}
       ${Object.keys(c.goods).length ? html`<div class="kv"><span>جابه‌جایی جنسی</span><b>${Object.entries(c.goods).map(([u, v]) => `${v > 0 ? 'بدهکار' : 'بستانکار'} ${unitAmt(u, Math.abs(v))}`).join(' · ')}</b></div>` : ''}

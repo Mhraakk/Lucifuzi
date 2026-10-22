@@ -261,15 +261,15 @@ export async function sellPage(root) {
     $('#pays', root).innerHTML = String(html`${St.cart.payments.map((p, i) => html`<div class="sl-pay"><span>${B.payMethod(p.method)?.label}${p.dir === 'out' ? ' (پرداخت به مشتری)' : ''}</span><input class="input ltr" data-p="${i}" value="${p.amount ? disp(p.amount) : ''}" inputmode="decimal" aria-label="مبلغ ${B.payMethod(p.method)?.label}">${p.ref ? html`<small>پیگیری ${fa(p.ref)}</small>` : ''}<button class="chip" data-pdel="${i}" aria-label="برداشتن پرداخت">✕</button></div>`)}`);
     drawTotals();
   }
-  // the amount to pay that changed snaps into place (spec 0039); redraws of the same moment keep the snap
+  // the amount to pay that changed snaps into place (spec 0039); every redraw of the same piece of work keeps the snap
   let shownNet = null;
-  let netAt = -1e9;
+  let snapping = false;
   function drawTotals() {
     const c = calc();
     const t = c.t;
-    if (t && shownNet !== null && t.net !== shownNet) netAt = performance.now();
+    if (t && shownNet !== null && t.net !== shownNet && !snapping) (snapping = true), setTimeout(() => (snapping = false));
     shownNet = t ? t.net : null;
-    const snap = performance.now() - netAt < 50 ? ' snap' : '';
+    const snap = snapping ? ' snap' : '';
     $('#tot', root).innerHTML = c.error
       ? String(html`<p class="err">${c.error}</p>`)
       : t
