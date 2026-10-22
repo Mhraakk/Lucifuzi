@@ -27,4 +27,4 @@ Node 22، `node:http` + `node:sqlite`، **بدون وابستگی runtime**؛ SP
 - کارتخوان: «پرداخت با کارتخوان» مبلغ باقی‌مانده را دقیق می‌فرستد؛ گوشی از راه پیشخوان (spec 0005، 0035).
 
 ## استقرار
-Railway، service `beatris`، Root `/beatris`، push روی شاخه متصل = دیپلوی. متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`، `BEATRIS_SUPABASE_URL`/`_KEY`، `BEATRIS_OWNER_EMAIL`؛ پیامک ورود از کنسول یا `BEATRIS_SMS_PROVIDER`/`_API_KEY`/`_TEMPLATE` (`_SENDER`، `_PARAM`، `_USERNAME`، `_BASE_URL`). پس از دیپلوی: هش فایل زنده و `/api/health?deep=1`.
+Railway، service `beatris`، Root `/beatris`، push روی شاخه متصل = دیپلوی. متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`، `BEATRIS_SUPABASE_URL`/`_KEY`، `BEATRIS_OWNER_EMAIL`؛ پیامک ورود از کنسول یا `BEATRIS_SMS_PROVIDER`/`_API_KEY`/`_TEMPLATE` (`_SENDER`، `_PARAM`، `_USERNAME`، `_BASE_URL`). پس از دیپلوی: هش فایل زنده و `/api/health?deep=1`. جایگزین: Render با `render.yaml` در ریشه‌ی مخزن (Blueprint، دیسک `/data`).

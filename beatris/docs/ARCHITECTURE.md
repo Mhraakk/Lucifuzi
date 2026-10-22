@@ -153,6 +153,11 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
 - سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.
 - Volume دائمی روی `/data` (دیتابیس `beatris-v2.db`)؛ هرگز حذف نشود.
 - متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`.
+- **جایگزین Render** (`render.yaml` در ریشه‌ی مخزن، Blueprint): همان سرویس با `rootDir: beatris`، `npm start`، سلامت `/api/health`، دیسک پایدار ۲ گیگابایتی روی `/data` (نیازمند پلن پولی) و Node 22.
+  - `BEATRIS_TOKEN_SECRET` را Render خودش می‌سازد.
+  - `BEATRIS_SUPABASE_URL`، `_KEY` و `BEATRIS_OWNER_EMAIL` یک بار هنگام ساخت Blueprint پرسیده می‌شوند.
+  - شناسه‌ی نسخه از `RENDER_GIT_COMMIT` می‌آید (spec 0036).
+  - سرویس تازه با دیسک خالی شروع می‌شود؛ داده‌ی Railway روی volume خود Railway می‌ماند.
 
 ## قواعد
 - UI کاملاً فارسی و RTL؛ ارقام فارسی در نمایش.
