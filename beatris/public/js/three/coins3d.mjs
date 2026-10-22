@@ -624,15 +624,6 @@ export function loadImg(url) {
   return imgCache.get(url);
 }
 
-/** Load an image as a texture (decoded first, so a 4K texture never stalls a frame). */
-export async function photoTexture(url, { srgb = true, anisotropy = maxAnisotropy() } = {}) {
-  const tex = new T.Texture(await loadImg(url));
-  tex.colorSpace = srgb ? T.SRGBColorSpace : T.NoColorSpace;
-  tex.anisotropy = anisotropy;
-  tex.needsUpdate = true;
-  return tex;
-}
-
 function canvasOf(src, size = src.naturalWidth || src.width) {
   const cv = document.createElement('canvas');
   cv.width = cv.height = size;

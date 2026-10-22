@@ -1575,7 +1575,6 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
   });
 
   /* ---------------- base edition: day book, trading result, vault, bars, bank, conditional assay ---------------- */
-  const docLabel = (d) => `${B.DOC_TYPES[d.type].short} ${d.no}`;
   const userNames = () => Object.fromEntries(db.all('SELECT id, name FROM users').map((u) => [u.id, u.name]));
   const partyRow = (id) => (id ? db.get('SELECT * FROM bk_parties WHERE id=?', id) : null);
   // balance of every customer account after each document, in the order documents happened

@@ -41,11 +41,6 @@ const post = async (data) => {
   M.saved++;
   return d;
 };
-const apiText = async (p) => {
-  const r = await fetch(base + p, { headers: { authorization: `Bearer ${TOKEN}` } });
-  if (!r.ok) throw new Error(`GET ${p} → ${r.status}`);
-  return r.text();
-};
 
 /* ---------------- the report ---------------- */
 const FEAT = new Map();

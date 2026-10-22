@@ -11,7 +11,6 @@ const GRID = 240; // height-field samples across a relief scan (mesh resolution)
 const TEX = 1024; // texture size for colour and fine detail
 const CLOCK8 = [12, 1.5, 3, 4.5, 6, 7.5, 9, 10.5];
 const CLOCK4 = [12, 3, 6, 9];
-const clockLabel = (c) => (Number.isInteger(c) ? `ساعت ${fa(c)}` : `ساعت ${fa(Math.floor(c))}:۳۰`);
 const tick = () => new Promise((r) => setTimeout(r, 16));
 
 /* ---------------------------------------------------------------- image I/O */

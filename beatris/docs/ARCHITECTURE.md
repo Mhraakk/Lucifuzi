@@ -24,6 +24,19 @@
 - شکل‌های anatomy (spec 0028، 0030): کیت `public/vendor/anatomy/iso-kit.mjs` (MIT، درون مخزن). `public/js/figures/onechain.mjs` با `onechain-model.mjs`: دستگاه یک زنجیره بالای `/books/events`؛ کد هر حلقه با قاعده SHA-256 دفتر رویداد (`verifyLog`) و بخش‌ها با `sectionsOf` حساب می‌شوند. `figures/wave.mjs` با `wave-model.mjs`: دستگاه موج زیر نمودار `/books/elliott`؛ حکم‌ها از `ta.elliott` می‌آیند. هر دو گزینه `{ manual: true }` دارند (بی‌ساعت، برای تیزر). تست: `tests/onechain.test.mjs` و `tests/elliottfig.test.mjs`. بررسی سر خط‌ها با `lines.mjs` مهارت anatomy انجام می‌شود (باید ۰ باشد).
 - صد دور (spec 0029): `node scripts/hundred.mjs [--rounds=100]` اپ را روی سرور موقت صد بار مثل یک فروشگاه به کار می‌برد و هر خروجی را با مدلی می‌سنجد که فقط از ورودی‌ها و `trade.mjs` ساخته شده است. گزارش در `hundred-report.json` نوشته می‌شود. دور شکست‌خورده مرحله، پیام صفحه و عکس `hundred-rN.png` را می‌دهد.
 - پوشش آزمون (spec 0033): `scripts/coverage.mjs` نشان می‌دهد هر صفحه (`route` در `app.mjs`) در آزمون مرورگر باز می‌شود و هر مسیر API با همان متد در یک آزمون صدا زده می‌شود. `npm run check` اگر یکی بی‌آزمون بماند شکست می‌خورد. آزمون مسیرهایی که پیش‌تر صدا زده نمی‌شدند در `tests/coverage.test.mjs` است. آزمون‌های PowerShell پل کارتخوان هر جا `pwsh` نصب باشد اجرا می‌شوند.
+- پیوندها و فهم کد (spec 0039):
+  - `scripts/links.mjs` در `npm run check` دو چیز را می‌سنجد: هر import نام‌دار در ماژول مقصد export شده باشد، و هر مسیر `/api` که صفحه‌ها صدا می‌زنند در سرور مسیری داشته باشد. `tests/links.test.mjs` با یک نمونه‌ی ساختگی نشان می‌دهد هر دو خطا گرفته می‌شود.
+  - گراف کد با CodeGraphContext (بیرون از مخزن):
+    1. `pip install codegraphcontext` در یک venv.
+    2. یک کپی از `server`، `public/js`، `scripts` و `tests` (بی `public/vendor` و رسانه) با `DEFAULT_DATABASE=kuzudb cgc index .` نمایه می‌شود.
+    3. توابع بی‌فراخواننده با `cgc query "MATCH (f:Function) WHERE NOT EXISTS { MATCH (g)-[:CALLS]->(f) } RETURN f.name, f.path, f.line_number"` پیدا می‌شوند.
+    4. هر کدام با جست‌وجوی نامش در همه‌ی کد سنجیده می‌شود.
+  - **قاعده‌ی کد مرده:** تابعی حذف می‌شود که نه فراخواننده دارد و نه نامش جای دیگری آمده است. callbackهای مرورگر، getterها و API عمومی موتورها (`books.mjs`، `acct/coa.mjs`، `studio/units.mjs`، `studio/materials.mjs`، `nurbs.mjs`، `elliott.mjs`) می‌مانند.
+  - مهارت‌های طراحی پروژه در `.claude/skills/`:
+    - `frontend-design`؛
+    - `web-design-guidelines` (رونوشت بازبینی‌شده‌ی قواعد Vercel در `command.md`)؛
+    - `accessibility-compliance`؛
+    - `taste-skill`.
 - تیزر «کالبد یک دفتر طلا» (spec 0031): `scripts/promo-film/anatomy.html` و `anatomy.mjs` (`seek(t)` خالص). `render.mjs anatomy` فریم‌ها را می‌سازد (`--check` برای یکسانی، `--stills` برای بازبینی) و `encode-anatomy.mjs` میکس می‌کند و بلندی، پیک و یخ‌زدگی را می‌سنجد. خروجی `public/media/promo/beatris-anatomy.{mp4,webm,jpg}` است.
 - تیزر «رؤیای طلایی» (اصلاحیه‌ی spec 0031): `scripts/promo-film/dream.mjs` صفحه‌ی `dream.html` را می‌سازد (`seek(t)` خالص؛ هفت صحنه).
   - عددهای میز فروش را `sell.mjs` برای همان سبدی حساب می‌کند که در عکس‌های میز است.

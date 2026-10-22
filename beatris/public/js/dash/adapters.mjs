@@ -20,10 +20,6 @@ export const grams = (g) => G(g);
 export const pctText = (p) => (p == null || !Number.isFinite(p) ? '—' : `${faDigits(Math.abs(p).toFixed(1))}٪`);
 export const hourLabel = (h) => faDigits(`${String(h).padStart(2, '0')}:۰۰`);
 const WEEKDAY = new Intl.DateTimeFormat('fa-IR', { weekday: 'long', timeZone: 'UTC' });
-export const dayLabel = (iso, short = false) => {
-  const d = jd(iso);
-  return short ? d.slice(5) : `${WEEKDAY.format(new Date(`${iso}T12:00:00Z`))} ${d}`;
-};
 export const weekday = (iso) => WEEKDAY.format(new Date(`${iso}T12:00:00Z`));
 
 /* ---------------- adapters ---------------- */

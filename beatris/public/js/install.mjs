@@ -5,8 +5,6 @@ import { html } from './core.mjs';
 import { modal } from './bk.mjs';
 
 let deferred = null;
-const subs = new Set();
-const notify = () => subs.forEach((f) => f());
 export const standalone = () => matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: minimal-ui)').matches || navigator.standalone === true;
 const ua = () => navigator.userAgent;
 const isIOS = () => /iphone|ipad|ipod/i.test(ua()) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -19,17 +17,13 @@ export function initInstall() {
   addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferred = e;
-    notify();
   });
   addEventListener('appinstalled', () => {
     deferred = null;
-    notify();
   });
 }
 /** Something useful can happen when the user asks to install here. */
 export const canInstall = () => !standalone();
-export const onInstallChange = (f) => (subs.add(f), () => subs.delete(f));
-export const nativePrompt = () => !!deferred;
 
 export async function install() {
   if (deferred) {
@@ -37,7 +31,6 @@ export async function install() {
     deferred = null;
     e.prompt();
     const r = await e.userChoice.catch(() => ({ outcome: 'dismissed' }));
-    notify();
     if (r.outcome === 'accepted') return 'accepted';
   }
   guide();

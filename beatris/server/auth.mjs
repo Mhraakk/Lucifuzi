@@ -1,4 +1,4 @@
-import { scryptSync, randomBytes, timingSafeEqual, createHmac, randomUUID } from 'node:crypto';
+import { randomBytes, timingSafeEqual, createHmac, randomUUID } from 'node:crypto';
 
 export const ROLES = ['employee', 'trainer', 'manager', 'owner'];
 export const STAFF_ROLES = new Set(['trainer', 'manager', 'owner']);
@@ -10,18 +10,6 @@ export const digits = (v) =>
     .replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
     .trim();
 
-export function hashPin(pin) {
-  const salt = randomBytes(16);
-  const h = scryptSync(digits(pin), salt, 32, { N: 16384, r: 8, p: 1 });
-  return `s1$${salt.toString('base64url')}$${h.toString('base64url')}`;
-}
-export function verifyPin(pin, stored) {
-  const [v, s, h] = String(stored).split('$');
-  if (v !== 's1' || !s || !h) return false;
-  const expect = Buffer.from(h, 'base64url');
-  const got = scryptSync(digits(pin), Buffer.from(s, 'base64url'), expect.length, { N: 16384, r: 8, p: 1 });
-  return got.length === expect.length && timingSafeEqual(got, expect);
-}
 export const validPin = (pin) => /^[0-9]{4,12}$/.test(digits(pin));
 /** Accounts sign in with their mobile and an SMS code (spec 0022): the password column holds this, which matches nothing. */
 export const NO_PIN = '-';

@@ -384,10 +384,6 @@ export function createViewer(container, opts = {}) {
       });
       kick();
     },
-    setAutoRotate(on) {
-      auto = on && !reduced();
-      kick();
-    },
     snapshot() {
       draw((performance.now() - t0) / 1000);
       return canvas.toDataURL('image/png');
