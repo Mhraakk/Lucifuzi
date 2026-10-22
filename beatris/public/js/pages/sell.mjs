@@ -171,7 +171,7 @@ export async function sellPage(root) {
       ? String(html`${list.slice(0, 60).map((it) => {
           const price = priceOf(it);
           return html`<article class="sl-item ${St.compare.has(it.id) ? 'cmp' : ''}">
-            <button class="sl-item-main" data-add="${it.id}"><b>${it.title}</b><span>${G(it.weight)} گرم · عیار ${fa(it.fineness)}${it.showcase ? html` · ویترین ${it.showcase}` : ''}</span><em>${price != null ? TU(price) : '—'}</em></button>
+            <button class="sl-item-main" data-add="${it.id}"><b>${it.title}</b><span>${G(it.weight)} گرم · عیار ${fa(it.fineness)}${it.showcase ? html` · ${/^ویترین/.test(it.showcase) ? it.showcase : `ویترین ${it.showcase}`}` : ''}</span><em>${price != null ? TU(price) : '—'}</em></button>
             <label class="sl-cmpck"><input type="checkbox" data-cmp="${it.id}" ${St.compare.has(it.id) ? 'checked' : ''}> مقایسه</label>
           </article>`;
         })}`)

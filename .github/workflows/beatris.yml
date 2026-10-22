@@ -17,7 +17,8 @@ defaults:
 jobs:
   gate:
     name: gate (check + unit + evals)
-    runs-on: ubuntu-latest
+    # pinned: ubuntu-latest became Ubuntu 26 on 2026-10-19 and the Playwright install step has failed there since
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +29,9 @@ jobs:
   e2e:
     name: e2e (browser)
     needs: gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    # the full walk is ~640 checks with WebGL drawn in software on two cores
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
