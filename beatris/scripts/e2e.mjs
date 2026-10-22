@@ -94,6 +94,13 @@ const freshDesk = async (page) => {
   }
 };
 const noBadNumbers = (s) => !/NaN|undefined|Infinity/.test(s);
+/** From now on, count the redraws of `box` that show its changed figure snapping into place (spec 0039). */
+const watchSnap = (page, sel, box) =>
+  page.evaluate(([s, b]) => {
+    window.__snap = 0;
+    new MutationObserver(() => document.querySelector(s) && window.__snap++).observe(document.querySelector(b), { childList: true, subtree: true });
+  }, [sel, box]);
+const snaps = (page) => page.evaluate(() => window.__snap);
 
 /** Sign in the way people do (spec 0034): the email, then the code. Demo accounts see their code on the page. */
 async function loginUI(page, email = EMAIL) {
@@ -1734,8 +1741,10 @@ async function loginUI(page, email = EMAIL) {
       await page.keyboard.type('خرید - کاظم اپراتوری - دوازده ممیز چهل و پنج گرم - عیار هفتصد و پنجاه - نقد');
       await page.waitForTimeout(300);
       check('operator: the line is understood before it is applied', /۱۲٫۴۵ گرم/.test(await text(page, '#dkLineOut')) && !(await page.$('.dk-part.unknown')), await text(page, '#dkLineOut'));
+      await watchSnap(page, '#sum .kv.big.snap', '#sum');
       await page.keyboard.press('Enter');
       await page.waitForTimeout(1500);
+      check('operator: the net that changed snaps into place (spec 0039)', (await snaps(page)) > 0);
       const one = await page.evaluate(() => ({ lines: document.querySelectorAll('.dk-line').length, pays: document.querySelectorAll('.bk-pay').length, who: document.querySelector('.dk-who b')?.textContent ?? '', s: document.querySelector('#dkSentence')?.textContent ?? '' }));
       check('operator: one line becomes customer + line + payment', one.lines === 1 && one.pays === 1 && one.who.includes('کاظم') && /۱۲٫۴۵۰ گرم آبشده ۷۵۰/.test(one.s), JSON.stringify(one));
       // a slip of the finger, taken back at once with the cursor on the same field
@@ -2488,10 +2497,12 @@ async function loginUI(page, email = EMAIL) {
     await page.click('[data-sc=disc3]');
     await page.waitForSelector('[data-apply=disc3]', { timeout: 5000 });
     check('sales desk: «۳٪ تخفیف» shows its total and changes nothing until applied', t0 === (await total()) && /[۰-۹]/.test(await text(page, '.sl-sc.on')), (await text(page, '.sl-sc.on')).replace(/\s+/g, ' '));
+    await watchSnap(page, '#tot .sl-tot-row.big.snap', '#tot');
     await page.click('[data-apply=disc3]');
     await page.waitForTimeout(300);
     const t1 = await total();
     check('sales desk: applied, the total falls by about three percent', t1 < t0 && t1 > t0 * 0.95, `${t0} → ${t1}`);
+    check('sales desk: the amount to pay that changed snaps into place (spec 0039)', (await snaps(page)) > 0);
     // the customer's old gold in the same step
     await page.click('#tin summary');
     await page.fill('[data-t=weight]', '2.5');
@@ -2502,8 +2513,10 @@ async function loginUI(page, email = EMAIL) {
     // half in cash, the rest card to card
     await page.click('[data-pay=cash]');
     await page.waitForSelector('[data-p="0"]');
+    await watchSnap(page, '#tot .sl-tot-row.big.snap', '#tot');
     await page.fill('[data-p="0"]', String(Math.round(en(await page.inputValue('[data-p="0"]')) / 2)));
     check('sales desk: half in cash leaves the rest open', /مانده/.test(await text(page, '#tot')), await text(page, '#tot'));
+    check('sales desk: a payment typed redraws the totals, and the amount to pay stays still (spec 0039)', (await snaps(page)) === 0);
     await page.click('[data-pay=c2c]');
     await page.waitForSelector('[data-p="1"]');
     check('sales desk: the second method takes exactly what is left', !/مانده/.test(await text(page, '#tot')) && en(await page.inputValue('[data-p="1"]')) > 0, (await text(page, '#tot')).replace(/\s+/g, ' '));
@@ -2747,11 +2760,15 @@ async function loginUI(page, email = EMAIL) {
 }
 
 /* ======================================================= phone */
+// one address for every page (spec 0039): the phone walk opens ROUTES, the walk of both widths and both skins opens
+// ROUTES and MORE_ROUTES (the patterns with an id get a real one there)
+const ROUTES = ['/', '/work', '/books/sell', '/books/sell/screen', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/find', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott'];
+const MORE_ROUTES = ['/intro/features', '/start', '/train/accounting', '/train/team', '/scenario/sc-ojrat', '/cards', '/drill', '/tools/invoice', '/tools/mazaneh', '/setup', '/studio', '/studio/coach', '/agents', '/library', '/sop/sop-open', '/me', '/staff', '/staff/queue', '/staff/access'];
 {
   const { page, ctx } = await session({ width: 390, height: 844 });
   await step('mobile login', () => loginUI(page));
   await step('mobile pages', async () => {
-    for (const p of ['/', '/work', '/books/sell', '/books/sell/screen', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/find', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott']) {
+    for (const p of ROUTES) {
       await go(page, p, 1500);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       // name the widest offender so a failure is actionable
@@ -2788,6 +2805,47 @@ async function loginUI(page, email = EMAIL) {
     await page.click('#gdTheme');
     await page.waitForFunction(() => document.documentElement.dataset.theme === 'calm', null, { timeout: 3000 }).catch(() => {}); // the switch is animated (spec 0012)
     check('light dashboard: theme toggle returns to dark and persists', await page.evaluate(() => document.documentElement.dataset.theme === 'calm' && localStorage.getItem('beatris.theme') === 'calm'));
+  });
+  // Every route on a phone and a desktop, in the light and the dark skin (spec 0039): no sideways scroll, and any
+  // console error fails the run as everywhere. The phone in the dark skin has walked ROUTES above. Not opened here:
+  // /login and /join (the sign-in steps, both widths), /exam/:id (the exam step: its 409 before the course is done is
+  // by design), /s/:token, /verify/:code and /staff/:id, /books/bank/:id (each from its own step, with its own link).
+  await step('every route at both widths in both skins (spec 0039): no sideways scroll, no console error', async () => {
+    const token = await page.evaluate(() => localStorage.getItem('beatris.token'));
+    const ids = await page.evaluate(async () => {
+      const get = (p) => fetch(p, { headers: { authorization: `Bearer ${localStorage.getItem('beatris.token')}` } }).then((r) => r.json());
+      const first = (x) => (Array.isArray(x) ? x : Object.values(x ?? {}).find(Array.isArray))?.[0]?.id;
+      return { doc: first(await get('/api/books/docs')), party: first(await get('/api/books/parties')) };
+    });
+    const byId = [...(ids.doc ? [`/books/doc/${ids.doc}`, `/books/doc/${ids.doc}/edit`] : []), ...(ids.party ? [`/books/party/${ids.party}`] : [])];
+    check('every route: a real document and a real customer to open', byId.length === 3, JSON.stringify(ids));
+    const all = [...ROUTES, ...MORE_ROUTES, ...byId];
+    const walks = [
+      { width: 390, height: 844, theme: 'calm', routes: [...MORE_ROUTES, ...byId] },
+      { width: 390, height: 844, theme: 'day', routes: all },
+      { width: 1440, height: 900, theme: 'calm', routes: all },
+      { width: 1440, height: 900, theme: 'day', routes: all },
+    ];
+    // the four walks run side by side; each closes its own window, and a walk that breaks fails the step
+    const done = await Promise.allSettled(
+      walks.map(async ({ theme, routes, ...viewport }) => {
+        const w = await session(viewport);
+        try {
+          await w.ctx.addInitScript(([t, th]) => (localStorage.setItem('beatris.token', t), localStorage.setItem('beatris.theme', th)), [token, theme]);
+          const wide = [];
+          for (const p of routes) {
+            await go(w.page, p, 1500);
+            const st = await w.page.evaluate(() => ({ theme: document.documentElement.dataset.theme, ov: document.documentElement.scrollWidth - innerWidth }));
+            if (st.ov > 1 || st.theme !== theme) wide.push(`${p} ${st.ov}px ${st.theme}`);
+          }
+          check(`every route, ${viewport.width} px, ${theme === 'day' ? 'light' : 'dark'} skin: ${routes.length} pages, none scrolls sideways`, wide.length === 0, wide.join(' · '));
+        } finally {
+          await w.ctx.close();
+        }
+      }),
+    );
+    const broke = done.find((d) => d.status === 'rejected');
+    if (broke) throw broke.reason;
   });
   await ctx.close();
 }
@@ -2880,6 +2938,51 @@ await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a sup
   });
   check('teaser: the film is a 32 s full-HD video/mp4', tz.ok && /video\/mp4/.test(tz.type ?? '') && tz.w === 1920 && tz.h === 1080 && tz.d === 32, JSON.stringify(tz));
   await k8.ctx.close();
+});
+
+/* ======================================================= motion (spec 0039) */
+// One motion system: a dialog arrives the same way everywhere, nothing on a work page loops for its own sake, and
+// «حرکت کمتر» settles every layer at once.
+await step('motion (spec 0039): a dialog arrives, nothing loops on a work page, reduced motion settles every layer', async () => {
+  const open = async (opts = {}) => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, ...opts });
+    ctx.setDefaultTimeout(process.env.CI ? 120000 : 30000);
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(`[motion] ${page.url()} pageerror: ${e.message}`));
+    return { ctx, page };
+  };
+  const loops = (page) => page.evaluate(() => document.getAnimations().filter((a) => a.effect?.getTiming?.().iterations === Infinity && a.playState === 'running').map((a) => a.animationName || 'script'));
+  // the app's own dialog, opened as any page opens it
+  const dialog = (page) =>
+    page.evaluate(async () => {
+      const { confirmBox } = await import('/js/dialog.mjs');
+      confirmBox('آزمون حرکت', 'این پنجره برای سنجش حرکت باز شده است.');
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const cs = getComputedStyle(document.querySelector('.modal > div'));
+      return { name: cs.animationName, s: parseFloat(cs.animationDuration) };
+    });
+  const live = await open();
+  await loginUI(live.page);
+  const session = await live.page.evaluate(() => localStorage.getItem('beatris.token'));
+  await go(live.page, '/work', 1800);
+  const running = await loops(live.page);
+  check('motion: on a work page only the living light loops (the crown coin turns on hover, not every six seconds)', running.every((n) => n === 'lt-breathe'), JSON.stringify(running));
+  const d = await dialog(live.page);
+  check('motion: a dialog rises out of a slight scale in panel time', d.name === 'u-dialog' && Math.abs(d.s - 0.32) < 0.001, JSON.stringify(d));
+  await live.page.keyboard.press('Escape');
+  await live.ctx.close();
+  const still = await open({ reducedMotion: 'reduce' });
+  await still.ctx.addInitScript((t) => localStorage.setItem('beatris.token', t), session);
+  await go(still.page, '/work', 1500);
+  const page = await still.page.$eval('#main > .page', (el) => parseFloat(getComputedStyle(el).animationDuration));
+  const sd = await dialog(still.page);
+  const stillLoops = await loops(still.page);
+  check('motion: with «حرکت کمتر» the page and the dialog arrive at once and nothing loops', page <= 0.01 && sd.s <= 0.01 && stillLoops.length === 0, JSON.stringify({ page, dialog: sd, loops: stillLoops }));
+  // the day book's rows arrive one after another (one stagger, spec 0039); with «حرکت کمتر» they are all there at once
+  await go(still.page, '/books/day', 1500);
+  const rows = await still.page.$eval('.dy-e', (es) => es.map((e) => { const cs = getComputedStyle(e); return Math.max(...cs.animationDuration.split(',').map(parseFloat)) + Math.max(...cs.animationDelay.split(',').map(parseFloat)); }));
+  check('motion: with «حرکت کمتر» a list arrives whole: every row of the day book is there at once', rows.length > 0 && rows.every((s) => s <= 0.01), JSON.stringify({ rows: rows.length, slowest: Math.max(0, ...rows) }));
+  await still.ctx.close();
 });
 
 await browser.close();

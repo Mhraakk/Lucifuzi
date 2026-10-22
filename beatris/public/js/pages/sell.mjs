@@ -261,14 +261,20 @@ export async function sellPage(root) {
     $('#pays', root).innerHTML = String(html`${St.cart.payments.map((p, i) => html`<div class="sl-pay"><span>${B.payMethod(p.method)?.label}${p.dir === 'out' ? ' (پرداخت به مشتری)' : ''}</span><input class="input ltr" data-p="${i}" value="${p.amount ? disp(p.amount) : ''}" inputmode="decimal" aria-label="مبلغ ${B.payMethod(p.method)?.label}">${p.ref ? html`<small>پیگیری ${fa(p.ref)}</small>` : ''}<button class="chip" data-pdel="${i}" aria-label="برداشتن پرداخت">✕</button></div>`)}`);
     drawTotals();
   }
+  // the amount to pay that changed snaps into place (spec 0039); redraws of the same moment keep the snap
+  let shownNet = null;
+  let netAt = -1e9;
   function drawTotals() {
     const c = calc();
     const t = c.t;
+    if (t && shownNet !== null && t.net !== shownNet) netAt = performance.now();
+    shownNet = t ? t.net : null;
+    const snap = performance.now() - netAt < 50 ? ' snap' : '';
     $('#tot', root).innerHTML = c.error
       ? String(html`<p class="err">${c.error}</p>`)
       : t
         ? String(html`<div class="sl-tot-row"><span>جمع کالا</span><b>${TU(t.sales)}</b></div>${t.tradeIn ? html`<div class="sl-tot-row"><span>معاوضه</span><b>− ${TU(t.tradeIn)}</b></div>` : ''}
-          <div class="sl-tot-row big"><span>${t.net < 0 ? 'مغازه می‌پردازد' : 'قابل پرداخت'}</span><b>${TU(Math.abs(t.net))}</b></div>
+          <div class="sl-tot-row big${snap}"><span>${t.net < 0 ? 'مغازه می‌پردازد' : 'قابل پرداخت'}</span><b>${TU(Math.abs(t.net))}</b></div>
           ${t.paidIn || t.paidOut ? html`<div class="sl-tot-row"><span>پرداخت‌شده</span><b>${TU(t.paidIn - t.paidOut)}</b></div>` : ''}
           ${t.credit ? html`<div class="sl-tot-row ${St.party ? '' : 'warn'}"><span>${t.credit > 0 ? 'مانده (نسیه)' : 'مانده به نفع مشتری'}</span><b>${TU(Math.abs(t.credit))}</b></div>${!St.party && t.credit ? html`<p class="small warn">برای نسیه، مشتری را انتخاب کنید.</p>` : ''}` : ''}`)
         : '';
