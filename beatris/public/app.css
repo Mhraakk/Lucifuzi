@@ -3832,7 +3832,8 @@ html[data-theme='day'] .cf-why b { color: var(--l-gold-ink); }
 .hlp-teaser { margin: 0 0 16px; border: 1px solid var(--u-line); border-radius: var(--u-r-lg); background: var(--u-panel); }
 .hlp-teaser summary { display: grid; gap: 2px; padding: 12px 16px; cursor: pointer; }
 .hlp-teaser summary .small { color: var(--muted-foreground); }
-.hlp-teaser video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 0 0 var(--u-r-lg) var(--u-r-lg); background: var(--vault); }
+.hlp-teaser video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: var(--vault); }
+.hlp-teaser > p { margin: 0; padding: 10px 16px 12px; color: var(--muted-foreground); }
 /* spec 0037: میز فروش زنده — the customer, the showcase and the cart side by side; the cart stays in view */
 .sl-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin: 0 0 var(--u-gap); padding-bottom: 12px; border-bottom: 1px solid var(--u-line-soft); }
 .sl-top > div:first-child { flex: 1 1 320px; min-width: 0; }

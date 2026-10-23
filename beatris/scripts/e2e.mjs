@@ -3180,17 +3180,17 @@ await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a sup
   await k8.page.click('#hpList [data-ch="12"]');
   const f12 = await film('12');
   check('films: the phone chapter is 1080×2338 standing, its source names level 5.0', f12.w === 1080 && f12.h === 2338 && f12.type?.includes('avc1.640032'), JSON.stringify(f12));
-  // the teaser above the chapters («رؤیای طلایی», spec 0031's amendment): its file answers as a video, its picture is full HD
-  check('teaser: the help centre lists «رؤیای طلایی»', /رؤیای طلایی/.test(await text(k8.page, '#hpTeaser summary')));
+  // the teaser above the chapters («یک گرم، یک حساب», spec 0042): its file answers as a video, its picture is full HD
+  check('teaser: the help centre lists «یک گرم، یک حساب»', /یک گرم، یک حساب/.test(await text(k8.page, '#hpTeaser summary')));
   const tz = await k8.page.evaluate(async () => {
-    const r = await fetch('/media/promo/beatris-dream.mp4', { method: 'HEAD' });
+    const r = await fetch('/media/promo/beatris-one-gram.mp4', { method: 'HEAD' });
     const v = document.querySelector('#hpTeaserV');
     v.preload = 'metadata';
     v.load();
     await new Promise((ok) => (v.readyState >= 1 ? ok() : v.addEventListener('loadedmetadata', ok, { once: true })));
     return { ok: r.ok, type: r.headers.get('content-type'), w: v.videoWidth, h: v.videoHeight, d: Math.round(v.duration) };
   });
-  check('teaser: the film is a 32 s full-HD video/mp4', tz.ok && /video\/mp4/.test(tz.type ?? '') && tz.w === 1920 && tz.h === 1080 && tz.d === 32, JSON.stringify(tz));
+  check('teaser: the film is a 30 s full-HD video/mp4', tz.ok && /video\/mp4/.test(tz.type ?? '') && tz.w === 1920 && tz.h === 1080 && tz.d === 30, JSON.stringify(tz));
   await k8.ctx.close();
 });
 

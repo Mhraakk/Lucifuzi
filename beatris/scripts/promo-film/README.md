@@ -1,5 +1,53 @@
 # تیزر و اینفوگرافیک بئاتریس
 
+## تیزر «یک گرم، یک حساب» (۳۰ ثانیه، 1080p60، آبان ۱۴۰۵) — `public/media/promo/beatris-one-gram.{mp4,webm,jpg}` (spec 0042)
+- با OpenMontage ساخته شده است: خط تولید animation (پژوهش، پیشنهاد، فیلم‌نامه، نقشه‌ی صحنه، دارایی‌ها، تدوین، ترکیب، انتشار) و موتور HyperFrames آن.
+  - OpenMontage مجوز AGPL دارد و فقط ابزار است. هیچ کدی از آن در این مخزن نیست.
+  - پرونده‌های پیش‌تولید (پژوهش، پیشنهاد، دفتر تصمیم‌ها) در پروژه‌ی `beatris-one-gram` همان OpenMontage می‌مانند.
+- یک سکه‌ی واقعی، تمام بهار آزادی با عکس خود اپ، داستان را از وزن و عیارش تا نشانی اپ می‌برد. صحنه‌ها روی میزان‌های موسیقی (۱۱۷٫۱ ضرب در دقیقه) چیده شده‌اند:
+  1. واقعیت‌های سکه؛
+  2. قیمت امروز، رقم به رقم؛
+  3. حلقه‌ی ویترین و پنجره‌ی سکه (spec 0041)؛
+  4. میز فروش زنده (spec 0037)؛
+  5. «بکشید تا ثبت شود» و امضای مشتری (spec 0040)؛
+  6. روزنگار؛
+  7. قاعده‌ی مالیات؛
+  8. بازار و هشدار قیمت؛
+  9. آزمایشگاه سکه؛
+  10. میز هر نقش (spec 0038)؛
+  11. کارت پایانی.
+- پرونده‌ها در `one-gram/`:
+  - `index.html` ترکیب است: یک تایم‌لاین متوقف GSAP که هر مقدارش تابع زمان است؛
+  - `stage.mjs` آن را با قلم‌ها، صفحه‌ها، عکس سکه‌ها، موسیقی و افکت‌ها در پروژه‌ی OpenMontage می‌چیند؛
+  - `mix.mjs` صدا را از روی خود تگ‌های `<audio>` ترکیب می‌سازد، آن را به −۱۶ LUFS با سقف −۱ dBTP می‌رساند و زیر تصویر HyperFrames می‌گذارد. ویدیو دوباره رمزگذاری نمی‌شود.
+- صفحه‌ها را `app-shots.mjs --out=shots-gram` و `showcase-shots.mjs` از یک فروشگاه نمایشی با پوسته‌ی روز می‌گیرند. فقط نُه صفحه‌ای که فیلم به کار می‌برد در `shots-gram/` نگه داشته شده است.
+- قیمت‌ها نمونه‌اند و هم صحنه‌ی قیمت و هم کارت پایانی این را می‌گویند. وزن، عیار و قطر سکه از `coins.mjs` می‌آیند.
+- موسیقی «Autofahren» از Mauro Urbina است (Mixkit، مجوز رایگان موسیقی Mixkit). برشی ۳۰ ثانیه‌ای روی میزان‌های خودش دارد و در مخزن نیست.
+- افکت‌ها از کتابخانه‌ی HyperFrames هستند (مجوز Pixabay):
+  - یک whoosh نرم روی هر جابه‌جایی پهلویی؛
+  - pop روی واقعیت‌های سکه، مهر و میدان هشدار؛
+  - click روی ضربه‌ها و فشار دکمه؛
+  - یک chime روی «ثبت شد»؛
+  - sparkle روی درخشش سکه و نوار مالیات؛
+  - صدای تایپ روی رقم هدف هشدار.
+- افکت‌ها طوری شروع می‌شوند که صدای شنیدنی‌شان با رویداد تصویر هم‌زمان باشد؛ سکوت ابتدای پرونده‌ها با `data-playback-start` کنار گذاشته می‌شود.
+- بلندی هر افکت در باند فرکانسی خودش در برابر موسیقی حل شده است. این موسیقی تیره است و در ۲ تا ۸ کیلوهرتز تقریباً خاموش است، برای همین کف −۳۰ dB برای سطح و برای این باند گذاشته شد. صداهای تکراری هم‌سطح نگه داشته شده‌اند.
+- GSAP 3.13.0 (مجوز رایگان GreenSock) از `npm pack gsap@3.13.0` می‌آید و در مخزن نیست.
+- ساخت:
+  ```
+  node scripts/promo-film/app-shots.mjs --skin=day --out=shots-gram
+  node scripts/promo-film/showcase-shots.mjs
+  GSAP=…/gsap.min.js MUSIC=…/music-edit.wav node scripts/promo-film/one-gram/stage.mjs
+  cd $OM/projects/beatris-one-gram/hyperframes
+  npx hyperframes lint . && npx hyperframes validate .
+  npx hyperframes render . -o ../renders/final-60.mp4 --fps 60 --quality high
+  cd -   # بازگشت به beatris
+  node scripts/promo-film/one-gram/mix.mjs $OM/projects/beatris-one-gram/renders/final-60.mp4 public/media/promo/beatris-one-gram.mp4 --crf=18
+  ffmpeg -i public/media/promo/beatris-one-gram.mp4 -c:v libvpx-vp9 -crf 30 -b:v 0 -row-mt 1 -deadline good -cpu-used 3 -c:a libopus -b:a 128k public/media/promo/beatris-one-gram.webm
+  ffmpeg -ss 3.8 -i public/media/promo/beatris-one-gram.mp4 -frames:v 1 -q:v 2 public/media/promo/beatris-one-gram.jpg
+  ```
+- بازبینی را خود سازنده با برگه‌های فریم و سنجه‌ها انجام داده است. سنجه‌ها `frozen-time.sh` و `loudness.sh` از مهارت business-motion-film بودند. منتقد مستقل فیلم را نسنجیده است و کسی هم آن را گوش نداده است.
+
 ## اینفوگرافیک «رؤیای طلایی» (۱۶۰۰×۱۰۹۰۰، مهر ۱۴۰۵) — `public/media/promo/beatris-infographic-3.{jpg,pdf}`
 - جای دو اینفوگرافیک تیره‌ی قبلی را گرفته است. منظره‌ای روشن و سوررئال دارد: آسمان پاستلی، طاق‌ها، کف شطرنجی و طلایی که در هوا معلق است. بخش‌ها:
   - **ورود با ایمیل** (spec 0034)؛

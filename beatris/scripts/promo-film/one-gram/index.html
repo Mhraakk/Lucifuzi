@@ -1,0 +1,590 @@
+<!doctype html>
+<!-- «یک گرم، یک حساب» — 30 s promo for Beatris, a HyperFrames composition (OpenMontage animation pipeline, atelier mode).
+     One real coin carries the story: its facts, today's price digit by digit, the 3D showcase, the live sales desk, slide to
+     book, the customer's signature, the day book, the tax rule, the market alert, the coin lab, the role desks, the address.
+     Cuts sit on the bar grid of the music (117.139 BPM: a bar is 2.0488 s). Every screen is the app's own, from a seeded
+     demo shop (scripts/promo-film/app-shots.mjs, showcase-shots.mjs); prices are sample. Built by stage.mjs. -->
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>بئاتریس — یک گرم، یک حساب</title>
+    <script src="assets/js/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: 'Markazi'; src: url(assets/fonts/markazi-arabic-700.woff2) format('woff2'); font-weight: 700; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC; }
+      @font-face { font-family: 'Markazi'; src: url(assets/fonts/markazi-arabic-600.woff2) format('woff2'); font-weight: 600; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC; }
+      @font-face { font-family: 'Markazi'; src: url(assets/fonts/markazi-arabic-400.woff2) format('woff2'); font-weight: 400; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC; }
+      @font-face { font-family: 'Markazi'; src: url(assets/fonts/markazi-latin-600.woff2) format('woff2'); font-weight: 400 900; unicode-range: U+0000-00FF, U+2000-206F; }
+      @font-face { font-family: 'Estedad'; src: url(assets/fonts/estedad-arabic-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-066A, U+066D-06FF, U+0750-077F, U+200C-200E, U+2010-2011, U+FB50-FDFF, U+FE70-FEFC; }
+      @font-face { font-family: 'Estedad'; src: url(assets/fonts/estedad-latin-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0000-00FF, U+2000-206F, U+2190-2193, U+2212; }
+      :root {
+        --paper: #f5efe3;
+        --paper-2: #ece2cd;
+        --ink: #161a24;
+        --ink-2: rgba(22, 26, 36, 0.62);
+        --ink-3: rgba(22, 26, 36, 0.4);
+        --hair: rgba(22, 26, 36, 0.14);
+        --gold: #a8802f;
+        --gold-ink: #85601b; /* gold for text on paper: 4.5:1 and up */
+        --gold-2: #d6b263;
+        --gold-3: #f1dca2;
+        --velvet: #15110b;
+        --velvet-2: #2e2517;
+        --white: #fffdf8;
+        --green: #1f7a4d;
+        --serif: 'Markazi', serif;
+        --sans: 'Estedad', sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: var(--paper); }
+      body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+      .clip { position: absolute; inset: 0; }
+      .fill { position: absolute; inset: 0; }
+      /* paper, a warm light and a fine grain (an SVG turbulence: deterministic) */
+      #bg .paper { position: absolute; inset: 0; background: radial-gradient(1200px 700px at 78% 18%, #fbf6ec 0%, rgba(251, 246, 236, 0) 70%), radial-gradient(900px 600px at 12% 92%, rgba(214, 178, 99, 0.18) 0%, rgba(214, 178, 99, 0) 70%), linear-gradient(180deg, var(--paper), var(--paper-2)); }
+      #bg .grain { position: absolute; inset: 0; opacity: 0.07; mix-blend-mode: multiply; }
+      /* type */
+      .kick { position: absolute; display: flex; align-items: center; gap: 16px; font: 500 26px/1 var(--sans); color: var(--ink-2); }
+      .kick .rule { display: block; width: 56px; height: 2px; background: var(--gold); }
+      .kick .dot { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+      .title { position: absolute; right: 110px; width: 660px; text-align: right; }
+      .title h2 { margin: 0; font: 700 112px/1.25 var(--serif); color: var(--ink); }
+      .title h2 em { font-style: normal; color: var(--gold-ink); }
+      .title p { margin: 26px 0 0; font: 400 32px/1.6 var(--sans); color: var(--ink-2); }
+      .num { position: absolute; font: 600 24px/1 var(--sans); color: var(--gold-ink); }
+      .mask { display: block; overflow: hidden; padding: 0.1em 0 0.18em; margin: -0.1em 0 -0.18em; }
+      .mask > span { display: block; }
+      /* a framed screen */
+      .shot { position: absolute; border-radius: 22px; overflow: hidden; background: var(--white); box-shadow: 0 40px 90px rgba(22, 26, 36, 0.18), 0 6px 18px rgba(22, 26, 36, 0.08); }
+      .shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+      .strips { position: absolute; }
+      .strips .s { position: absolute; left: 0; width: 100%; overflow: hidden; }
+      .strips .s img { position: absolute; left: 0; display: block; }
+      /* the coin */
+      #coin { pointer-events: none; }
+      .coin3d { position: absolute; left: 0; top: 0; width: 700px; height: 700px; transform-style: preserve-3d; }
+      .coin3d .face { position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+      .coin3d .face img { width: 100%; height: 100%; border-radius: 50%; display: block; }
+      .coin3d .back { transform: rotateY(180deg); }
+      .coin3d .sheen { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+      .coin3d .sheen i { position: absolute; top: -20%; left: -60%; width: 40%; height: 140%; background: linear-gradient(90deg, rgba(255, 250, 230, 0), rgba(255, 250, 230, 0.55), rgba(255, 250, 230, 0)); transform: rotate(18deg); }
+      .coinshadow { position: absolute; width: 560px; height: 90px; border-radius: 50%; background: radial-gradient(closest-side, rgba(60, 42, 10, 0.28), rgba(60, 42, 10, 0)); }
+      .chip { position: absolute; padding: 14px 26px; border-radius: 999px; background: var(--white); border: 1px solid var(--hair); box-shadow: 0 10px 30px rgba(22, 26, 36, 0.1); font: 600 30px/1 var(--sans); color: var(--ink); white-space: nowrap; }
+      .lead { position: absolute; height: 2px; background: var(--gold-2); transform-origin: right center; }
+      /* the price */
+      .price { position: absolute; display: flex; direction: ltr; align-items: flex-end; gap: 0; font: 800 150px/1 var(--sans); color: var(--ink); }
+      .price .col { display: block; width: 0.62em; height: 1.12em; overflow: hidden; }
+      .price .col .reel { display: flex; flex-direction: column; }
+      .price .col .reel b { display: block; height: 1.12em; line-height: 1.12em; font-weight: 800; text-align: center; }
+      .price .sep { display: block; width: 0.3em; height: 1.12em; line-height: 1.12em; text-align: center; color: var(--ink-3); }
+      /* the showcase ring */
+      .ringstage { position: absolute; left: 60px; top: 110px; width: 1120px; height: 860px; perspective: 1500px; perspective-origin: 50% 42%; }
+      .ring { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
+      .card { position: absolute; left: -180px; top: -245px; width: 360px; height: 490px; border-radius: 22px; overflow: hidden; background: radial-gradient(90% 70% at 50% 38%, var(--velvet-2), var(--velvet)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+      .card img { position: absolute; left: 7%; top: 9%; width: 86%; border-radius: 50%; }
+      .card .nm { position: absolute; right: 24px; bottom: 60px; font: 700 36px/1 var(--serif); color: var(--white); }
+      .card .pr { position: absolute; left: 24px; bottom: 24px; direction: ltr; font: 700 24px/1 var(--sans); color: var(--gold-3); }
+      .card .tg { position: absolute; left: 18px; top: 16px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.3); font: 600 16px/1 var(--sans); color: var(--white); }
+      /* slide to book */
+      .slide { position: absolute; left: 120px; top: 470px; width: 860px; height: 132px; border-radius: 999px; background: #e6dcc6; box-shadow: inset 0 2px 8px rgba(22, 26, 36, 0.12); overflow: hidden; }
+      .slide .fill { position: absolute; top: 0; right: 0; height: 100%; width: 100%; background: linear-gradient(270deg, var(--gold-2), var(--gold)); transform-origin: right center; }
+      .slide .lbl { position: absolute; inset: 0; display: grid; place-items: center; font: 600 40px/1 var(--sans); color: var(--ink-2); }
+      .slide .done { position: absolute; inset: 0; display: grid; place-items: center; font: 700 44px/1 var(--sans); color: var(--white); }
+      .handle { position: absolute; left: 860px; top: 482px; width: 108px; height: 108px; border-radius: 50%; background: linear-gradient(160deg, var(--gold-3), var(--gold)); box-shadow: 0 12px 30px rgba(120, 86, 20, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.6); display: grid; place-items: center; }
+      .handle svg { width: 48px; height: 48px; }
+      /* signature */
+      .sigbox { position: absolute; border-radius: 18px; background: var(--white); border: 1px solid var(--hair); box-shadow: 0 30px 70px rgba(22, 26, 36, 0.14); }
+      .sigbox .cap { position: absolute; right: 30px; top: 22px; font: 600 26px/1 var(--sans); color: var(--ink-2); }
+      .sigbox .line { position: absolute; left: 40px; right: 40px; bottom: 70px; height: 2px; background: var(--hair); }
+      .stamp { position: absolute; padding: 12px 22px; border-radius: 12px; border: 2px solid var(--green); color: var(--green); font: 700 28px/1 var(--sans); }
+      /* tax */
+      .bar { position: absolute; display: flex; height: 70px; border-radius: 14px; overflow: hidden; }
+      .bar .g { background: #dcd3c1; display: grid; place-items: center; font: 600 30px/1 var(--sans); color: var(--ink-2); }
+      .bar .m { position: relative; overflow: hidden; background: linear-gradient(90deg, var(--gold-2), var(--gold)); display: grid; place-items: center; font: 700 30px/1 var(--sans); color: var(--white); }
+      .brace { position: absolute; border: 3px solid var(--gold); border-bottom: 0; border-radius: 16px 16px 0 0; height: 34px; }
+      /* alert pill */
+      .pill { position: absolute; display: flex; align-items: center; gap: 18px; height: 96px; padding: 0 12px 0 34px; border-radius: 999px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(0, 0, 0, 0.12); box-shadow: 0 24px 60px rgba(22, 26, 36, 0.18); }
+      .pill .in { font: 400 30px/1 var(--sans); color: var(--ink-3); }
+      .pill .bt { display: flex; align-items: center; gap: 12px; height: 72px; padding: 0 34px; border-radius: 999px; background: #000; color: #fff; font: 700 28px/1 var(--sans); }
+      .shim { position: absolute; top: -20%; left: 0; width: 150px; height: 140%; background: linear-gradient(90deg, rgba(255, 250, 230, 0), rgba(255, 250, 230, 0.7), rgba(255, 250, 230, 0)); transform: skewX(-18deg); }
+      .nib { position: absolute; left: 0; top: 0; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--gold-3), var(--gold)); box-shadow: 0 6px 14px rgba(22, 26, 36, 0.3); }
+      .pill .ty { position: absolute; right: 0; top: 0; direction: ltr; unicode-bidi: isolate; color: var(--ink); font-weight: 600; }
+      .scan { position: absolute; height: 6px; background: linear-gradient(90deg, rgba(214, 178, 99, 0), var(--gold-2), rgba(214, 178, 99, 0)); box-shadow: 0 0 30px rgba(214, 178, 99, 0.9); }
+      /* end card */
+      .word { position: absolute; left: 0; right: 0; text-align: center; font: 700 220px/1 var(--serif); color: var(--ink); }
+      .tagline { position: absolute; left: 0; right: 0; text-align: center; font: 600 64px/1.2 var(--serif); color: var(--gold-ink); }
+      .cta { position: absolute; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 26px; }
+      .cta .b { padding: 22px 40px; border-radius: 999px; background: var(--ink); color: var(--white); font: 700 34px/1 var(--sans); }
+      .cta .u { direction: ltr; font: 600 40px/1 var(--sans); color: var(--ink); }
+      .foot { position: absolute; left: 0; right: 0; bottom: 46px; text-align: center; font: 400 20px/1.4 var(--sans); color: var(--ink-2); }
+      /* the chapter rail (Odyssée's numbered progress) */
+      #rail .track { position: absolute; left: 96px; right: 96px; bottom: 62px; height: 2px; background: var(--hair); }
+      #rail .prog { position: absolute; left: 96px; bottom: 62px; width: 1728px; height: 2px; background: var(--ink); transform-origin: right center; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-duration="30" data-fps="60">
+      <!-- background, all the way through -->
+      <div id="bg" class="clip" data-start="0" data-duration="30" data-track-index="0">
+        <div class="paper"></div>
+        <svg class="grain" width="1920" height="1080" aria-hidden="true"><filter id="nz"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter><rect width="1920" height="1080" filter="url(#nz)" /></svg>
+      </div>
+
+      <!-- 1–2 · «هر گرم طلا، یک حساب دقیق.» and the coin's facts -->
+      <section id="s1" class="clip" data-start="0" data-duration="4.35" data-track-index="1">
+        <div class="kick" id="s1-kick" style="right: 120px; top: 300px"><i class="rule"></i><span>بئاتریس</span><i class="dot"></i><span>دفتر طلا و سکه</span></div>
+        <div class="title" style="top: 350px; width: 760px">
+          <h2 style="font-size: 138px"><span class="mask"><span id="s1-a">هر گرم طلا،</span></span><span class="mask"><span id="s1-b">یک حساب <em>دقیق</em>.</span></span></h2>
+        </div>
+        <i class="lead" id="lead1" style="left: 600px; top: 300px; width: 90px"></i>
+        <div class="chip" id="chip1" style="left: 690px; top: 266px">۸٫۱۳۳ گرم</div>
+        <i class="lead" id="lead2" style="left: 700px; top: 556px; width: 80px"></i>
+        <div class="chip" id="chip2" style="left: 780px; top: 522px">عیار ۹۰۰</div>
+        <i class="lead" id="lead3" style="left: 600px; top: 812px; width: 90px"></i>
+        <div class="chip" id="chip3" style="left: 690px; top: 778px">قطر ۲۲ میلی‌متر</div>
+      </section>
+
+      <!-- 3 · today's price, digit by digit -->
+      <section id="s3" class="clip" data-start="3.9" data-duration="2.55" data-track-index="2">
+        <div class="kick" id="s3-kick" style="right: 120px; top: 330px"><i class="rule"></i><span>قیمت امروز تمام بهار آزادی</span><i class="dot"></i><span>نمونه</span></div>
+        <div class="price" id="price" style="right: 120px; top: 400px"></div>
+        <div class="title" style="top: 640px"><p id="s3-p" style="margin: 0; font-size: 36px">رقم به رقم، همان لحظه که بازار تکان می‌خورد.</p></div>
+      </section>
+
+      <!-- the coin: the one actor from the first frame to the showcase -->
+      <div id="coin" class="clip" data-start="0" data-duration="6.75" data-track-index="9">
+        <div class="coinshadow" id="coin-shadow" style="left: 110px; top: 900px"></div>
+        <div id="coin-move" style="position: absolute; left: 40px; top: 190px; width: 700px; height: 700px; perspective: 1800px">
+          <div class="coin3d" id="coin-3d">
+            <div class="face"><img src="assets/img/bahar-obv.webp" alt="" /></div>
+            <div class="face back"><img src="assets/img/bahar-rev.webp" alt="" /></div>
+            <div class="sheen" id="coin-sheen"><i id="coin-sheen-i"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 · the coin showcase: the 3D ring -->
+      <section id="s4" class="clip" data-start="6.0" data-duration="2.55" data-track-index="1">
+        <div class="ringstage"><div class="ring" id="ring"></div></div>
+        <div class="num" style="right: 120px; top: 250px">۰۱ — ویترین</div>
+        <div class="title" style="top: 300px"><h2><span class="mask"><span id="s4-h">ویترین سکه‌ها</span></span></h2><p id="s4-p">جلو و پشت هر سکه، با عکس واقعی و قیمت امروز.</p></div>
+      </section>
+
+      <!-- 5 · a card opens into its window -->
+      <section id="s5" class="clip" data-start="8.05" data-duration="2.5" data-track-index="2">
+        <div class="shot" id="s5-shot" style="left: 100px; top: 228px; width: 1000px; height: 625px"><img src="assets/img/showcase-window.jpg" alt="" style="position: absolute; left: -392.9px; top: -245.5px; width: 1785.7px; height: 1116.1px; max-width: none; object-fit: fill" /></div>
+        <div class="num" style="right: 120px; top: 300px">۰۲ — پنجره‌ی سکه</div>
+        <div class="title" style="top: 350px"><h2><span class="mask"><span id="s5-h">وزن، عیار، <em>قیمت</em></span></span></h2><p id="s5-p">و راهِ آزمایشگاه سه‌بعدی و آزمون اصالت.</p></div>
+      </section>
+
+      <!-- 6 · the live sales desk, in strips -->
+      <section id="s6" class="clip" data-start="10.1" data-duration="2.5" data-track-index="1">
+        <div class="shot" id="s6-shot" style="left: 80px; top: 215px; width: 1040px; height: 650px"><div class="strips" id="s6-strips" data-src="assets/img/sell.jpg" data-w="1040" data-h="650" data-n="10" style="inset: 0"></div><i id="s6-ring" style="position: absolute; left: 26px; top: 65px; width: 262px; height: 390px; border: 4px solid var(--gold-2); border-radius: 18px"></i></div>
+        <div class="num" style="right: 120px; top: 300px">۰۳ — میز فروش زنده</div>
+        <div class="title" style="top: 350px"><h2><span class="mask"><span id="s6-h">میز فروش <em>زنده</em></span></span></h2><p id="s6-p">مشتری، ویترین، سبد و «اگر…؟» در یک صفحه.</p></div>
+      </section>
+
+      <!-- 7 · slide to book -->
+      <section id="s7" class="clip" data-start="12.15" data-duration="2.5" data-track-index="2">
+        <div id="s7-g" style="position: absolute; inset: 0">
+        <div class="slide" id="s7-track"><div class="fill" id="s7-fill"></div><div class="lbl" id="s7-lbl">بکشید تا ثبت شود</div><div class="done" id="s7-done">ثبت شد ✓</div></div>
+        <i id="s7-ripple" style="position: absolute; left: 132px; top: 482px; width: 108px; height: 108px; border-radius: 50%; border: 3px solid var(--gold-2)"></i>
+        <div class="handle" id="s7-handle"><svg viewBox="0 0 24 24" fill="none" stroke="#5a3f0c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg></div>
+        </div>
+        <div class="num" style="right: 120px; top: 300px">۰۴ — ثبت فروش</div>
+        <div class="title" style="top: 350px"><h2><span class="mask"><span id="s7-h">با یک <em>کشیدن</em>، ثبت</span></span></h2><p id="s7-p">روی گوشی دستگیره جای دکمه است؛ ضربه‌ی اشتباهی چیزی ثبت نمی‌کند.</p></div>
+      </section>
+
+      <!-- 8 · the customer's signature -->
+      <section id="s8" class="clip" data-start="14.2" data-duration="2.5" data-track-index="1">
+        <div class="shot" id="s8-receipt" style="left: 110px; top: 130px; width: 420px; height: 555px"><img src="assets/img/receipt.jpg" alt="" /></div>
+        <div class="sigbox" id="s8-box" style="left: 380px; top: 440px; width: 620px; height: 330px">
+          <div class="cap">امضای مشتری</div>
+          <svg style="position: absolute; left: 50px; top: 70px" width="520" height="190" viewBox="0 0 520 190" fill="none"><path id="s8-sig" d="M18 132 C 60 40, 92 30, 104 92 S 132 168, 160 104 S 196 30, 222 96 S 252 150, 276 108 C 292 82, 304 70, 318 88 C 336 110, 330 140, 352 132 C 376 124, 392 70, 418 74 C 446 78, 440 126, 470 118 C 486 114, 496 104, 506 96" stroke="#161a24" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          <div class="line"></div>
+          <i class="nib" id="s8-nib"></i>
+        </div>
+        <div class="stamp" id="s8-stamp" style="left: 430px; top: 800px">امضا شد · در زنجیره‌ی سند</div>
+        <div class="num" style="right: 120px; top: 300px">۰۵ — امضا</div>
+        <div class="title" style="top: 350px"><h2><span class="mask"><span id="s8-h">امضای <em>مشتری</em>، روی سند</span></span></h2><p id="s8-p">با سند قطعی چاپ می‌شود؛ جایگزینی‌اش فقط با مدیر.</p></div>
+      </section>
+
+      <!-- 9 · the day book keeps itself -->
+      <section id="s9" class="clip" data-start="16.25" data-duration="2.5" data-track-index="2">
+        <div class="shot" id="s9-shot" style="left: 80px; top: 215px; width: 1040px; height: 650px"><div class="strips" id="s9-strips" data-src="assets/img/daybook.jpg" data-w="1040" data-h="650" data-n="10" style="inset: 0"></div><i id="s9-under" style="position: absolute; left: 38px; top: 597px; width: 962px; height: 5px; background: var(--gold-2); border-radius: 3px; transform-origin: right center"></i></div>
+        <div class="num" style="right: 120px; top: 300px">۰۶ — روزنگار</div>
+        <div class="title" style="top: 350px"><h2><span class="mask"><span id="s9-h">دفتر، <em>خودبه‌خود</em></span></span></h2><p id="s9-p">آبشده، سکه، شمش، ارز و پول؛ هر رویداد با مانده‌ی مشتری.</p></div>
+      </section>
+
+      <!-- 10 · the tax rule -->
+      <section id="s10" class="clip" data-start="18.3" data-duration="2.5" data-track-index="1">
+        <div id="s10-g" style="position: absolute; inset: 0">
+        <div class="num" style="right: 120px; top: 230px">۰۷ — مالیات</div>
+        <div class="title" style="top: 270px; width: 1500px"><h2 style="font-size: 190px"><span class="mask"><span id="s10-h">مالیات <em>۱۰٪</em></span></span></h2><p id="s10-p" style="font: 600 64px/1.3 var(--serif); color: var(--ink)">فقط روی اجرت و سود.</p></div>
+        <div class="brace" id="s10-brace" style="left: 1296px; width: 504px; top: 708px"></div>
+        <div class="bar" id="s10-bar" style="left: 120px; top: 760px; width: 1680px"><div class="m" style="width: 30%">اجرت و سود · ۱۰٪<i class="shim" id="s10-shim"></i></div><div class="g" style="width: 70%">طلا · معاف</div></div>
+        <div style="position: absolute; right: 120px; top: 862px; font: 400 26px/1 var(--sans); color: var(--ink-2)" id="s10-f">قاعده‌ی ۱۴۰۵ · اصل طلا، سنگ و سکه معاف‌اند</div>
+        </div>
+      </section>
+
+      <!-- 11 · market and the price alert -->
+      <section id="s11" class="clip" data-start="20.35" data-duration="2.5" data-track-index="2">
+        <div class="shot" id="s11-shot" style="left: 80px; top: 215px; width: 1040px; height: 650px"><div class="strips" id="s11-strips" data-src="assets/img/market.jpg" data-w="1040" data-h="650" data-n="10" style="inset: 0"></div></div>
+        <div class="pill" id="s11-pill" style="left: 260px; top: 800px; width: 760px"><svg id="s11-bell" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(22,26,36,.5)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9" /><path d="M10 19.5a2 2 0 0 0 4 0" /></svg><span class="in" id="s11-in" style="flex: 1; position: relative; height: 30px"><span id="s11-ph" style="position: absolute; right: 0; top: 0; white-space: nowrap">قیمت هدف تمام بهار (ریال)</span></span><span class="bt" id="s11-bt">خبرم کن ←</span></div>
+        <div class="num" style="right: 120px; top: 300px">۰۸ — بازار</div>
+        <div class="title" style="top: 350px"><h2><span class="mask"><span id="s11-h">بازار و <em>هشدار</em> قیمت</span></span></h2><p id="s11-p">نمودار و شاخص‌ها؛ هشدار روی همین دستگاه.</p></div>
+      </section>
+
+      <!-- 12 · the coin lab -->
+      <section id="s12" class="clip" data-start="22.4" data-duration="2.5" data-track-index="1">
+        <div class="shot" id="s12-shot" style="left: 80px; top: 215px; width: 1040px; height: 650px"><img id="s12-img" src="assets/img/coinlab.jpg" alt="" /></div>
+        <i class="scan" id="s12-scan" style="left: 80px; top: 215px; width: 1040px"></i>
+        <div class="num" style="right: 120px; top: 300px">۰۹ — آزمایشگاه</div>
+        <div class="title" style="top: 350px"><h2><span class="mask"><span id="s12-h">آزمون <em>اصالت</em> سکه</span></span></h2><p id="s12-p">سه‌بعدی، با عکس واقعی و احتمال.</p></div>
+      </section>
+
+      <!-- 13 · every role, its own desk -->
+      <section id="s13" class="clip" data-start="24.45" data-duration="2.45" data-track-index="2">
+        <div id="s13-g" style="position: absolute; inset: 0">
+        <div class="shot" id="s13-c" style="left: 210px; top: 250px; width: 840px; height: 525px"><img src="assets/img/dashboard.jpg" alt="" /></div>
+        <div class="shot" id="s13-b" style="left: 210px; top: 250px; width: 840px; height: 525px"><img src="assets/img/work-seller.jpg" alt="" /></div>
+        <div class="shot" id="s13-a" style="left: 210px; top: 250px; width: 840px; height: 525px"><img src="assets/img/work-boss.jpg" alt="" /></div>
+        </div>
+        <div class="num" style="right: 120px; top: 300px">۱۰ — فضای کار</div>
+        <div class="title" style="top: 350px"><h2><span class="mask"><span id="s13-h">هر نقش، <em>میز خودش</em></span></span></h2><p id="s13-p">مدیر، فروشنده، صندوق و کارمند.</p></div>
+      </section>
+
+      <!-- 14 · the end card -->
+      <section id="end" class="clip" data-start="26.55" data-duration="3.45" data-track-index="1">
+        <div style="position: absolute; left: 885px; top: 120px; width: 150px; height: 150px" id="end-coin-w"><img id="end-coin" src="assets/img/bahar-obv.webp" alt="" style="width: 150px; height: 150px; border-radius: 50%; display: block" /><div style="position: absolute; inset: 0; border-radius: 50%; overflow: hidden"><i id="end-sheen" style="position: absolute; top: -20%; left: -60%; width: 40%; height: 140%; background: linear-gradient(90deg, rgba(255, 250, 230, 0), rgba(255, 250, 230, 0.65), rgba(255, 250, 230, 0)); transform: rotate(18deg)"></i></div></div>
+        <div class="word" id="end-word" style="top: 300px">بئاتریس</div>
+        <div class="tagline" id="end-tag" style="top: 560px">حساب طلا، دقیق و آرام</div>
+        <div class="cta" id="end-cta" style="top: 700px"><span class="b">ورود با ایمیل</span><span class="u">beatris-6u77.onrender.com</span></div>
+        <div class="foot" id="end-foot">قیمت‌ها نمونه‌اند · عکس سکه: M.samei، CC BY-SA 4.0 · موسیقی: Autofahren از Mauro Urbina (Mixkit)</div>
+      </section>
+
+      <!-- the chapter rail -->
+      <div id="rail" class="clip" data-start="0" data-duration="26.7" data-track-index="8"><div class="track"></div><div class="prog" id="rail-prog"></div></div>
+
+      <!-- sound: the music edit, then the bundled effects (HyperFrames library, Pixabay Content License). Each effect starts so
+           that its audible onset meets its picture event; its volume is solved in its own band against the music (a level
+           floor and a 2–8 kHz floor of −30 dB, since the score is dark), repeated sounds kept level. mix.mjs masters this mix. -->
+      <audio id="music" src="assets/audio/music-edit.wav" data-start="0" data-duration="30" data-track-index="20" data-volume="0.92"></audio>
+      <audio id="fx-sparkle1" src="assets/audio/sparkle.mp3" data-start="0.4" data-duration="1.8" data-track-index="21" data-volume="0.12"></audio><!-- the glint crosses the coin -->
+      <audio id="fx-w0" src="assets/audio/whoosh-short.mp3" data-start="2.2" data-duration="0.57" data-track-index="22" data-volume="0.12"></audio><!-- the coin turns over -->
+      <audio id="fx-pop1" src="assets/audio/pop.mp3" data-start="2.54" data-duration="0.72" data-track-index="23" data-volume="0.2"></audio><!-- weight -->
+      <audio id="fx-pop2" src="assets/audio/pop.mp3" data-start="3.05" data-duration="0.72" data-track-index="24" data-volume="0.2"></audio><!-- fineness -->
+      <audio id="fx-pop3" src="assets/audio/pop.mp3" data-start="3.565" data-duration="0.72" data-track-index="25" data-volume="0.2"></audio><!-- diameter -->
+      <audio id="fx-w1" src="assets/audio/whoosh-short.mp3" data-start="5.91" data-duration="0.57" data-track-index="26" data-volume="0.13"></audio><!-- the coin dives into the ring -->
+      <audio id="fx-click1" src="assets/audio/click-soft.mp3" data-start="8.02" data-duration="0.37" data-track-index="27" data-volume="0.64"></audio><!-- a card is tapped open -->
+      <audio id="fx-w2" src="assets/audio/whoosh-short.mp3" data-start="9.99" data-duration="0.57" data-track-index="28" data-volume="0.17"></audio><!-- the sales desk slides in -->
+      <audio id="fx-click2" src="assets/audio/click-soft.mp3" data-start="12.7" data-duration="0.37" data-track-index="29" data-volume="0.64"></audio><!-- the handle is taken -->
+      <audio id="fx-chime" src="assets/audio/chime.mp3" data-start="13.66" data-duration="2.1" data-playback-start="0.38" data-track-index="30" data-volume="0.9"></audio><!-- booked -->
+      <audio id="fx-stamp" src="assets/audio/pop.mp3" data-start="15.77" data-duration="0.72" data-track-index="31" data-volume="0.18"></audio><!-- the stamp -->
+      <audio id="fx-w3" src="assets/audio/whoosh-short.mp3" data-start="16.15" data-duration="0.57" data-track-index="32" data-volume="0.17"></audio><!-- the day book slides in -->
+      <audio id="fx-sparkle2" src="assets/audio/sparkle.mp3" data-start="19.6" data-duration="1.8" data-track-index="33" data-volume="0.12"></audio><!-- the glint crosses the taxed part -->
+      <audio id="fx-w4" src="assets/audio/whoosh-short.mp3" data-start="20.25" data-duration="0.57" data-track-index="34" data-volume="0.17"></audio><!-- the market slides in -->
+      <audio id="fx-pop4" src="assets/audio/pop.mp3" data-start="20.98" data-duration="0.72" data-track-index="35" data-volume="0.2"></audio><!-- the alert field -->
+      <audio id="fx-typing" src="assets/audio/typing.mp3" data-start="21.46" data-duration="0.48" data-playback-start="0.43" data-track-index="36" data-volume="1"></audio><!-- the target is typed -->
+      <audio id="fx-click3" src="assets/audio/click-soft.mp3" data-start="21.92" data-duration="0.37" data-track-index="37" data-volume="0.64"></audio><!-- «خبرم کن» is pressed -->
+      <audio id="fx-w5" src="assets/audio/whoosh-short.mp3" data-start="24.35" data-duration="0.57" data-track-index="38" data-volume="0.17"></audio><!-- the role desks rise -->
+      <audio id="fx-w6" src="assets/audio/whoosh-short.mp3" data-start="26.42" data-duration="0.57" data-track-index="39" data-volume="0.13"></audio><!-- the coin flies to the end card -->
+    </div>
+
+    <script>
+      // one paused timeline, built synchronously; every value is a function of time
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const BAR = 60 / 117.139 * 4, BEAT = BAR / 4;
+      const bar = (n, beats = 0) => n * BAR + beats * BEAT;
+      const OUT = 'expo.out', IN = 'power3.in', IO = 'power2.inOut';
+      const FA = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+      // a seeded generator for the few "random" things (digit reels' start)
+      let seed = 9;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+      // headlines: each rises out of its mask, and leaves upward before the next scene
+      const rise = (sel, t, d = 0.7) => tl.fromTo(sel, { yPercent: 150 }, { yPercent: 0, duration: d, ease: OUT }, t);
+      const leave = (sel, t, d = 0.3) => tl.to(sel, { yPercent: -150, duration: d, ease: IN }, t);
+      const fadeIn = (sel, t, d = 0.6, y = 24) => tl.fromTo(sel, { opacity: 0, y }, { opacity: 1, y: 0, duration: d, ease: OUT }, t);
+      const fadeOut = (sel, t, d = 0.28) => tl.to(sel, { opacity: 0, duration: d, ease: IN }, t);
+      // no reading hold stands still: the title block rises a little while the picture pushes in and slides the other way
+      const drift = (sel, t, d, y = -26) => tl.fromTo(sel, { y: 0 }, { y, duration: d, ease: 'none' }, t);
+      const push = (sel, t, d, k = 1.06, xp = -2) => tl.fromTo(sel, { scale: 1, xPercent: 0 }, { scale: k, xPercent: xp, duration: d, ease: 'none' }, t);
+      const hold = (n) => drift(`#s${n} .title, #s${n} .num`, bar(n - 1) - 0.1, BAR - 0.1);
+
+      // strips: a screen arrives as ten bands from alternate sides (the Odyssée cut), then lies still
+      function strips(id, t) {
+        const host = document.getElementById(id);
+        const n = +host.dataset.n, w = +host.dataset.w, h = +host.dataset.h, hs = h / n;
+        for (let i = 0; i < n; i++) {
+          const s = document.createElement('div');
+          s.className = 's';
+          s.style.top = `${i * hs}px`;
+          s.style.height = `${Math.ceil(hs) + 1}px`;
+          const img = document.createElement('img');
+          img.src = host.dataset.src;
+          img.style.width = `${w}px`;
+          img.style.height = `${h}px`;
+          img.style.top = `${-i * hs}px`;
+          s.appendChild(img);
+          host.appendChild(s);
+          tl.fromTo(s, { x: (i % 2 ? -1 : 1) * 160, opacity: 0 }, { x: 0, opacity: 1, duration: 0.62, ease: OUT }, t + i * 0.035);
+        }
+      }
+
+      /* ---------- 1–2 ---------- */
+      // frame 0 is already a finished frame: the first line stands in place and settles; the second rises on the bar
+      tl.set('#s1-b', { yPercent: 150 }, 0);
+      tl.fromTo('#s1-a', { yPercent: 12 }, { yPercent: 0, duration: 0.9, ease: OUT }, 0);
+      rise('#s1-b', bar(1) - 0.1, 0.75);
+      tl.fromTo('#coin-3d', { rotationY: -24, rotationX: 6 }, { rotationY: 14, rotationX: 0, duration: bar(1), ease: 'sine.inOut' }, 0);
+      tl.fromTo('#coin-sheen-i', { x: 0 }, { x: 1400, duration: 1.1, ease: 'power2.inOut' }, 0.35);
+      tl.fromTo('#coin-move', { y: 10 }, { y: -6, duration: bar(2), ease: 'sine.inOut' }, 0);
+      // the flip, and the three facts on the beats
+      tl.to('#coin-3d', { rotationY: 194, duration: 0.7, ease: 'power3.inOut' }, bar(1) + 0.05);
+      [['#chip1', '#lead1'], ['#chip2', '#lead2'], ['#chip3', '#lead3']].forEach(([c, l], i) => {
+        const t = bar(1, 1 + i);
+        tl.fromTo(l, { scaleX: 0 }, { scaleX: 1, duration: 0.3, ease: OUT }, t - 0.08);
+        tl.fromTo(c, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(2)' }, t);
+      });
+      // out: the facts and the headline go, the coin turns back and steps aside for the price
+      tl.to('#chip1, #chip2, #chip3, #lead1, #lead2, #lead3', { opacity: 0, x: -30, duration: 0.25, ease: IN, stagger: 0.03 }, bar(2) - 0.3);
+      leave('#s1-a', bar(2) - 0.25);
+      leave('#s1-b', bar(2) - 0.2);
+      tl.to('#s1-kick', { opacity: 0, duration: 0.2 }, bar(2) - 0.25);
+      tl.to('#coin-3d', { rotationY: 360, duration: 0.8, ease: 'power3.inOut' }, bar(2) - 0.3);
+      tl.to('#coin-move', { x: 20, y: 120, scale: 0.62, duration: 0.8, ease: 'power3.inOut' }, bar(2) - 0.3);
+      tl.to('#coin-shadow', { opacity: 0, duration: 0.4 }, bar(2) - 0.3);
+
+      /* ---------- 3 · the price reels ---------- */
+      {
+        const host = document.getElementById('price');
+        const digits = '2334970000';
+        const groups = [1, 3, 3, 3];
+        let k = 0;
+        groups.forEach((g, gi) => {
+          if (gi) {
+            const sep = document.createElement('span');
+            sep.className = 'sep';
+            sep.textContent = '٬';
+            host.appendChild(sep);
+          }
+          for (let j = 0; j < g; j++, k++) {
+            const d = +digits[k];
+            const col = document.createElement('span');
+            col.className = 'col';
+            const reel = document.createElement('span');
+            reel.className = 'reel';
+            // two turns of the reel, ending on the digit
+            for (let r = 0; r < 20 + d + 1; r++) {
+              const b = document.createElement('b');
+              b.textContent = FA[r % 10];
+              reel.appendChild(b);
+            }
+            col.appendChild(reel);
+            host.appendChild(col);
+            const start = Math.floor(rnd() * 6);
+            tl.fromTo(reel, { yPercent: (-start * 100) / (21 + d) }, { yPercent: (-(20 + d) * 100) / (21 + d), duration: 1.15 + k * 0.05, ease: 'power3.out' }, bar(2) + 0.05 + k * 0.035);
+          }
+        });
+        const unit = document.createElement('span');
+        unit.textContent = 'ریال';
+        unit.style.cssText = 'font: 600 52px/1 var(--sans); color: var(--ink-2); margin-left: 26px; margin-bottom: 30px';
+        host.appendChild(unit);
+      }
+      fadeIn('#s3-kick', bar(2) - 0.05, 0.5, 18);
+      tl.fromTo('#price', { opacity: 0 }, { opacity: 1, duration: 0.25 }, bar(2));
+      fadeIn('#s3-p', bar(2) + 0.6, 0.6, 18);
+      fadeOut('#s3-kick, #price, #s3-p', bar(3) - 0.22, 0.25);
+      // the drop: the coin dives into the front card of the ring
+      tl.to('#coin-move', { x: 300, y: -35, scale: 0.42, duration: 0.55, ease: 'power3.in' }, bar(3) - 0.45);
+      tl.to('#coin-3d', { rotationY: 720, duration: 0.55, ease: 'power3.in' }, bar(3) - 0.45);
+      tl.to('#coin-move', { opacity: 0, duration: 0.18 }, bar(3) + 0.12);
+
+      /* ---------- 4 · the ring ---------- */
+      {
+        const ring = document.getElementById('ring');
+        const faces = [['bahar-obv', 'تمام بهار', 'جلو', '۲٬۳۳۴٬۹۷۰٬۰۰۰'], ['bahar-rev', 'تمام بهار', 'پشت', '۲٬۳۳۴٬۹۷۰٬۰۰۰'], ['emami-obv', 'تمام امامی', 'جلو', '۲٬۴۱۰٬۴۱۰٬۰۰۰'], ['emami-rev', 'تمام امامی', 'پشت', '۲٬۴۱۰٬۴۱۰٬۰۰۰'], ['half-obv', 'نیم بهار', 'جلو', '۱٬۲۳۱٬۶۵۰٬۰۰۰'], ['half-rev', 'نیم بهار', 'پشت', '۱٬۲۳۱٬۶۵۰٬۰۰۰'], ['quarter-obv', 'ربع بهار', 'جلو', '۶۵۳٬۵۰۰٬۰۰۰'], ['quarter-rev', 'ربع بهار', 'پشت', '۶۵۳٬۵۰۰٬۰۰۰']];
+        faces.forEach(([img, nm, tg, pr], i) => {
+          const c = document.createElement('div');
+          c.className = 'card';
+          c.innerHTML = `<img src="assets/img/${img}.webp" alt=""><span class="tg">${tg}</span><span class="nm">${nm}</span><span class="pr">${pr}</span>`;
+          c.style.transform = `rotateY(${i * -45}deg) translateZ(540px)`;
+          ring.appendChild(c);
+        });
+        tl.fromTo('#ring', { rotationY: -80, z: -120 }, { rotationY: 22, z: -380, duration: bar(1) + 0.4, ease: 'power2.out' }, bar(3) - 0.1);
+        tl.fromTo('#ring', { opacity: 0 }, { opacity: 1, duration: 0.25 }, bar(3) - 0.1);
+      }
+      drift('#s4 .title, #s4 .num', bar(3) - 0.1, BAR);
+      rise('#s4-h', bar(3) + 0.1);
+      fadeIn('#s4-p', bar(3) + 0.35);
+      leave('#s4-h', bar(4) - 0.28);
+      fadeOut('#s4-p', bar(4) - 0.28);
+      tl.to('#ring', { z: -100, opacity: 0, duration: 0.3, ease: IN }, bar(4) - 0.25);
+
+      /* ---------- 5 · the window ---------- */
+      tl.fromTo('#s5-shot', { scale: 0.32, x: 120, y: 30, borderRadius: 60, opacity: 0 }, { scale: 1, x: 0, y: 0, borderRadius: 22, opacity: 1, duration: 0.75, ease: 'expo.out' }, bar(4) - 0.12);
+      push('#s5-shot', bar(4) + 0.63, BAR - 0.89, 1.06, -2.5);
+      hold(5);
+      rise('#s5-h', bar(4) + 0.1);
+      fadeIn('#s5-p', bar(4) + 0.35);
+      leave('#s5-h', bar(5) - 0.28);
+      fadeOut('#s5-p', bar(5) - 0.28);
+      tl.to('#s5-shot', { x: -140, opacity: 0, duration: 0.3, ease: IN }, bar(5) - 0.26);
+
+      /* ---------- 6 · the sales desk ---------- */
+      strips('s6-strips', bar(5) - 0.12);
+      tl.fromTo('#s6-ring', { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 0.45, ease: OUT }, bar(5, 2));
+      push('#s6-shot', bar(5), BAR - 0.26);
+      hold(6);
+      rise('#s6-h', bar(5) + 0.1);
+      fadeIn('#s6-p', bar(5) + 0.35);
+      leave('#s6-h', bar(6) - 0.28);
+      fadeOut('#s6-p, #s6-ring', bar(6) - 0.28);
+      tl.to('#s6-shot', { x: -140, opacity: 0, duration: 0.3, ease: IN }, bar(6) - 0.26);
+
+      /* ---------- 7 · slide to book ---------- */
+      fadeIn('#s7-track', bar(6) - 0.08, 0.45, 30);
+      fadeIn('#s7-handle', bar(6) - 0.04, 0.45, 30);
+      tl.set('#s7-fill', { scaleX: 0 }, 0);
+      tl.set('#s7-done', { opacity: 0 }, 0);
+      tl.to('#s7-handle', { x: -728, duration: 0.95, ease: 'power2.inOut' }, bar(6) + 0.45);
+      tl.to('#s7-fill', { scaleX: 1, duration: 0.95, ease: 'power2.inOut' }, bar(6) + 0.45);
+      tl.to('#s7-lbl', { opacity: 0, duration: 0.3 }, bar(6) + 0.6);
+      tl.set('#s7-ripple', { opacity: 0 }, 0);
+      tl.fromTo('#s7-done', { opacity: 0, scale: 0.86 }, { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(2.4)' }, bar(6) + 1.38);
+      tl.fromTo('#s7-ripple', { opacity: 0.95, scale: 1 }, { opacity: 0, scale: 2.7, duration: 0.75, ease: 'power2.out', immediateRender: false }, bar(6) + 1.38);
+      tl.fromTo('#s7-g', { scale: 1 }, { scale: 1.05, transformOrigin: '550px 536px', duration: BAR - 0.18, ease: 'none' }, bar(6) - 0.08);
+      hold(7);
+      tl.to('#s7-handle', { scale: 0.86, duration: 0.18, ease: 'power2.out' }, bar(6) + 1.38);
+      rise('#s7-h', bar(6) + 0.1);
+      fadeIn('#s7-p', bar(6) + 0.35);
+      leave('#s7-h', bar(7) - 0.28);
+      fadeOut('#s7-p', bar(7) - 0.28);
+      tl.to('#s7-track, #s7-handle', { y: -60, opacity: 0, duration: 0.3, ease: IN }, bar(7) - 0.26);
+
+      /* ---------- 8 · the signature ---------- */
+      fadeIn('#s8-receipt', bar(7) - 0.12, 0.6, 60);
+      fadeIn('#s8-box', bar(7) + 0.05, 0.55, 40);
+      {
+        const p = document.getElementById('s8-sig');
+        const L = Math.ceil(p.getTotalLength());
+        p.style.strokeDasharray = `${L}`;
+        const T0 = bar(7) + 0.35, D = 1.05, N = 48, ease = gsap.parseEase('power1.inOut');
+        tl.fromTo(p, { strokeDashoffset: L }, { strokeDashoffset: 0, duration: D, ease: 'power1.inOut' }, T0);
+        // the pen's nib rides the head of the stroke: the same eased length, sampled into short straight steps
+        const at = (k) => p.getPointAtLength(ease(k / N) * L);
+        const a = at(0);
+        tl.set('#s8-nib', { x: 50 + a.x, y: 70 + a.y, opacity: 0 }, 0);
+        tl.to('#s8-nib', { opacity: 1, duration: 0.15 }, T0 - 0.15);
+        tl.to('#s8-nib', { keyframes: Array.from({ length: N }, (_, i) => { const q = at(i + 1); return { x: 50 + q.x, y: 70 + q.y, duration: D / N, ease: 'none' }; }), ease: 'none' }, T0);
+        tl.to('#s8-nib', { opacity: 0, scale: 0.4, duration: 0.25 }, T0 + D);
+      }
+      tl.fromTo('#s8-receipt', { yPercent: 0 }, { yPercent: -7, duration: BAR, ease: 'none' }, bar(7) - 0.12);
+      tl.fromTo('#s8-box', { scale: 1 }, { scale: 1.04, duration: BAR - 0.3, ease: 'none' }, bar(7));
+      hold(8);
+      tl.fromTo('#s8-stamp', { opacity: 0, scale: 1.4, rotation: -8 }, { opacity: 1, scale: 1, rotation: -4, duration: 0.35, ease: 'back.out(2.2)' }, bar(7) + 1.45);
+      rise('#s8-h', bar(7) + 0.1);
+      fadeIn('#s8-p', bar(7) + 0.35);
+      leave('#s8-h', bar(8) - 0.28);
+      fadeOut('#s8-p, #s8-stamp', bar(8) - 0.28);
+      tl.to('#s8-receipt, #s8-box', { x: -140, opacity: 0, duration: 0.3, ease: IN, stagger: 0.04 }, bar(8) - 0.28);
+
+      /* ---------- 9 · the day book ---------- */
+      strips('s9-strips', bar(8) - 0.12);
+      tl.fromTo('#s9-under', { scaleX: 0 }, { scaleX: 1, duration: 0.9, ease: 'power2.inOut' }, bar(8) + 0.55);
+      push('#s9-shot', bar(8), BAR - 0.26);
+      hold(9);
+      rise('#s9-h', bar(8) + 0.1);
+      fadeIn('#s9-p', bar(8) + 0.35);
+      leave('#s9-h', bar(9) - 0.28);
+      fadeOut('#s9-p, #s9-under', bar(9) - 0.28);
+      tl.to('#s9-shot', { x: -140, opacity: 0, duration: 0.3, ease: IN }, bar(9) - 0.26);
+
+      /* ---------- 10 · the tax rule ---------- */
+      rise('#s10-h', bar(9) - 0.05, 0.75);
+      fadeIn('#s10-p', bar(9) + 0.3);
+      tl.fromTo('#s10-bar', { scaleX: 0, transformOrigin: 'right center' }, { scaleX: 1, duration: 0.7, ease: 'power3.out' }, bar(9) + 0.45);
+      tl.fromTo('#s10-brace', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4, ease: OUT }, bar(9) + 1.0);
+      fadeIn('#s10-f', bar(9) + 1.1, 0.5, 10);
+      tl.fromTo('#s10-g', { scale: 1, y: 0 }, { scale: 1.05, y: -12, transformOrigin: '960px 560px', duration: BAR + 0.1, ease: 'none' }, bar(9) - 0.1);
+      tl.fromTo('#s10-shim', { x: 560 }, { x: -220, duration: 0.75, ease: 'power2.inOut' }, bar(9) + 1.12);
+      leave('#s10-h', bar(10) - 0.28);
+      fadeOut('#s10-p, #s10-bar, #s10-brace, #s10-f', bar(10) - 0.28);
+
+      /* ---------- 11 · market and the alert ---------- */
+      strips('s11-strips', bar(10) - 0.12);
+      tl.fromTo('#s11-pill', { opacity: 0, y: 60, scale: 0.92 }, { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: 'back.out(1.6)' }, bar(10, 1));
+      {
+        // the target typed digit by digit, grouped as the field groups it: ۲ … ۲٬۴۰۰٬۰۰۰٬۰۰۰
+        const host = document.getElementById('s11-in');
+        const fa = (t) => t.replace(/\d/g, (d) => FA[d]).replace(/,/g, '٬');
+        const T = bar(10, 1) + 0.46;
+        tl.to('#s11-ph', { opacity: 0, duration: 0.06 }, T - 0.04);
+        '2400000000'.split('').forEach((_, i, all) => {
+          const sp = document.createElement('span');
+          sp.className = 'ty';
+          sp.textContent = fa(Number(all.slice(0, i + 1).join('')).toLocaleString('en-US'));
+          host.appendChild(sp);
+          tl.set(sp, { opacity: 0 }, 0);
+          tl.set(sp, { opacity: 1 }, T + i * 0.045);
+          if (i < all.length - 1) tl.set(sp, { opacity: 0 }, T + (i + 1) * 0.045);
+        });
+        tl.to('#s11-bt', { scale: 0.9, duration: 0.08, ease: 'power2.out' }, T + 0.5);
+        tl.to('#s11-bt', { scale: 1, duration: 0.32, ease: 'back.out(3)' }, T + 0.58);
+        tl.to('#s11-bell', { keyframes: [14, -12, 9, -6, 3, 0].map((r) => ({ rotation: r, duration: 0.06, ease: 'sine.inOut' })), transformOrigin: '50% 12%' }, T + 0.56);
+      }
+      push('#s11-shot', bar(10), BAR - 0.26);
+      hold(11);
+      rise('#s11-h', bar(10) + 0.1);
+      fadeIn('#s11-p', bar(10) + 0.35);
+      leave('#s11-h', bar(11) - 0.28);
+      fadeOut('#s11-p, #s11-pill', bar(11) - 0.28);
+      tl.to('#s11-shot', { x: -140, opacity: 0, duration: 0.3, ease: IN }, bar(11) - 0.26);
+
+      /* ---------- 12 · the coin lab ---------- */
+      tl.fromTo('#s12-shot', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: OUT }, bar(11) - 0.12);
+      tl.fromTo('#s12-img', { scale: 1 }, { scale: 1.16, transformOrigin: '45% 45%', duration: 2.2, ease: 'power1.inOut' }, bar(11) - 0.1);
+      tl.fromTo('#s12-scan', { y: 0, opacity: 0 }, { y: 644, opacity: 1, duration: 1.5, ease: 'power1.inOut' }, bar(11) + 0.25);
+      tl.to('#s12-scan', { opacity: 0, duration: 0.2 }, bar(11) + 1.6);
+      hold(12);
+      rise('#s12-h', bar(11) + 0.1);
+      fadeIn('#s12-p', bar(11) + 0.35);
+      leave('#s12-h', bar(12) - 0.28);
+      fadeOut('#s12-p', bar(12) - 0.28);
+      tl.to('#s12-shot', { x: -140, opacity: 0, duration: 0.3, ease: IN }, bar(12) - 0.26);
+
+      /* ---------- 13 · the role desks fan out ---------- */
+      [['#s13-a', 0, -2], ['#s13-b', 1, 5], ['#s13-c', 2, 12]].forEach(([s, i, r]) => {
+        tl.fromTo(s, { opacity: 0, y: 80, rotation: 0 }, { opacity: 1, y: 0, duration: 0.5, ease: OUT }, bar(12) - 0.1 + i * 0.25);
+        tl.to(s, { rotation: r, x: i * 70, y: -i * 34, duration: 0.9, ease: 'power2.out' }, bar(12, 1) + i * 0.06);
+      });
+      tl.fromTo('#s13-g', { scale: 1, x: 0 }, { scale: 1.06, x: -36, transformOrigin: '630px 512px', duration: BAR - 0.2, ease: 'none' }, bar(12) - 0.1);
+      hold(13);
+      rise('#s13-h', bar(12) + 0.1);
+      fadeIn('#s13-p', bar(12) + 0.35);
+      leave('#s13-h', bar(13) - 0.28);
+      fadeOut('#s13-p', bar(13) - 0.28);
+      tl.to('#s13-a, #s13-b, #s13-c', { y: -60, opacity: 0, duration: 0.3, ease: IN, stagger: 0.03 }, bar(13) - 0.3);
+
+      /* ---------- 14 · the end card ---------- */
+      tl.fromTo('#end-coin-w', { x: -620, y: 260, rotation: -200, scale: 2.4, opacity: 0 }, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1, duration: 0.85, ease: 'expo.out' }, bar(13) - 0.08);
+      tl.fromTo('#end-word', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: OUT }, bar(13) + 0.1);
+      tl.fromTo('#end-tag', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: OUT }, bar(13) + 0.45);
+      tl.fromTo('#end-cta', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: OUT }, bar(13) + 0.7);
+      tl.fromTo('#end-foot', { opacity: 0 }, { opacity: 1, duration: 0.6 }, bar(13) + 1.0);
+      tl.fromTo('#end-sheen', { x: 0 }, { x: 330, duration: 0.9, ease: 'power2.inOut' }, bar(13) + 1.1);
+      tl.fromTo('#end-coin', { rotation: 0 }, { rotation: 12, duration: 30 - bar(13) - 0.8, ease: 'sine.inOut' }, bar(13) + 0.8);
+      // a slow 3% push keeps the reading hold alive
+      tl.fromTo('#end', { scale: 1 }, { scale: 1.03, duration: 30 - bar(13), ease: 'none' }, bar(13));
+
+      /* ---------- the rail ---------- */
+      tl.fromTo('#rail-prog', { scaleX: 0 }, { scaleX: 1, duration: bar(13), ease: 'none' }, 0);
+      tl.to('#rail', { opacity: 0, duration: 0.3 }, bar(13) - 0.3);
+
+      window.__timelines['main'] = tl;
+    </script>
+  </body>
+</html>

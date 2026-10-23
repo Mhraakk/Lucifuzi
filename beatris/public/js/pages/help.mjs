@@ -40,8 +40,9 @@ export async function helpPage(root, { ch } = {}) {
 
   root.innerHTML = String(html`<section class="hlp">
     <header class="hlp-head"><div><h1>راهنمای تصویری از صفر تا صد</h1><p class="small">${fa(list.length)} فصل · ${clock(total)} دقیقه · هر فصل با نمونه واقعی ثبت می‌شود؛ هر جا خواستید مکث کنید و همان کار را در برنامه انجام دهید.</p><p class="small"><button type="button" class="linkish" id="hpInstall">نصب وب‌اپ روی همین دستگاه</button> (گوشی، تبلت، کامپیوتر) · <a href="/downloads/Beatris-Setup-x64.exe" download>نصب‌کننده ویندوز ۱۱ (۶۴ بیت)</a> · <a href="/media/compare/beatris-vs-marquise.mp4" target="_blank" rel="noopener">ویدیوی مقایسه با نسخه پایه مارکیز</a></p></div><div class="hlp-prog" id="hpProg"></div></header>
-    <details class="hlp-teaser" id="hpTeaser"><summary><b>فیلم معرفی ۳۲ ثانیه‌ای: رؤیای طلایی</b><span class="small">ورود با یک ایمیل، میز فروش زنده، میز هر نقش و همه‌ی گالری</span></summary>
-      <video id="hpTeaserV" controls playsinline preload="none" poster="/media/promo/beatris-dream.jpg"><source src="/media/promo/beatris-dream.mp4" type="video/mp4; codecs=avc1.64002A"><source src="/media/promo/beatris-dream.webm" type="video/webm; codecs=vp9"></video></details>
+    <details class="hlp-teaser" id="hpTeaser"><summary><b>فیلم معرفی ۳۰ ثانیه‌ای: یک گرم، یک حساب</b><span class="small">ویترین سکه‌ها، میز فروش زنده، امضای مشتری، روزنگار، قاعده‌ی مالیات، هشدار قیمت و میز هر نقش</span></summary>
+      <video id="hpTeaserV" controls playsinline preload="none" poster="/media/promo/beatris-one-gram.jpg"><source src="/media/promo/beatris-one-gram.mp4" type="video/mp4; codecs=avc1.64002A"><source src="/media/promo/beatris-one-gram.webm" type="video/webm; codecs=vp9"></video>
+      <p class="small">قیمت‌ها نمونه‌اند · عکس سکه: M.samei، CC BY-SA 4.0 · موسیقی: Autofahren از Mauro Urbina (Mixkit) · فیلم پیشین: <a href="/media/promo/beatris-dream.mp4" target="_blank" rel="noopener">رؤیای طلایی (۳۲ ثانیه)</a></p></details>
     <div class="hlp-grid">
       <div class="hlp-main">
         <div class="hlp-stage" id="hpStage"><video id="hpVideo" controls playsinline preload="metadata"><source id="hpMp4" type="video/mp4; codecs=avc1.64001F"><source id="hpWebm" type="video/webm; codecs=vp9"></video></div>
