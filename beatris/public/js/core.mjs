@@ -232,7 +232,7 @@ if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') 
 
 export function reveal(root) {
   if (!io || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const els = $$(':scope > *:not(.home-hero):not(.studio3d):not(.paper):not(.printable), .rows > li, .grid2 > *, .bento > *, .tool-grid > *, .stats > div, .era-item', root);
+  const els = $$(':scope > *:not(.home-hero):not(.studio3d):not(.paper):not(.printable):not(.sh-root), .rows > li, .grid2 > *, .bento > *, .tool-grid > *, .stats > div, .era-item', root);
   els.forEach((el, i) => {
     if (el.classList.contains('rv')) return;
     el.classList.add('rv');

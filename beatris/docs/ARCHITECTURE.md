@@ -82,6 +82,11 @@
     - این کار را `server/supabase.mjs` انجام می‌دهد: REST بدون SDK، فقط از سرور، با `BEATRIS_SUPABASE_URL`/`_KEY`.
     - مسیرها: `/api/auth/code {email}` → `/api/auth/verify {email, code}` یا `{accessToken}` → در صورت نیاز `/api/auth/finish`.
   - **صفحه ورود:** فقط ایمیل.
+  - **ورودی (spec 0046):** `/login` همان قهرمانِ پرامپت انگلیسی «Sculpture Hero» (اثر guglielmogiannattasio.it) است که خط به خط به JS ساده برگردانده شده.
+    - `public/js/liquid.mjs`: موتور `LiquidEngine` (ذرات GPGPU با WebGL2؛ شیدرها بدون تغییر)، `computeRect`، `hexToRgb` و `mountSculpture(root, {src})`. موتور در زمان بیکاری صفحه راه می‌افتد و در حال سکون می‌ایستد. بی WebGL2 تصویر ثابت می‌ماند (`data-gl="off"`).
+    - مجسمه: `public/media/hero/sculpture.webp` (رشته‌های طلای درهم‌تافته تا سه کنگره‌ی تاج، با سکه؛ زمینه شفاف). ساخت دوباره: `node scripts/sculpture.mjs`.
+    - فرم ورود در ستون کناری قهرمان است و رفتارش عوض نشده. کلید روشن/تیره `flipSkin` جفت پوسته‌ی اپ را برمی‌گرداند. زمینه‌ها همان دو رنگ پرامپت‌اند (`--sh-*` در لایه آخر `app.css`).
+    - تست: `tests/liquid.test.mjs` و مرحله «entrance» در E2E.
   - **ایمیل‌ها:** کوچک‌حرف ذخیره می‌شوند و در هر فروشگاه یکتا هستند (`users.email`). ایمیل مالک اصلی از `BEATRIS_OWNER_EMAIL` می‌آید.
   - **در تولید بدون Supabase:** فقط `BEATRIS_OWNER_EMAIL` با `BEATRIS_OWNER_PIN` وارد می‌شود.
   - **مسیرهای پیامکی:** روی سرور مانده‌اند؛ کد امضای بستن روز هنوز پیامکی است.

@@ -421,21 +421,9 @@ dl.gloss dd { margin: 2px 0 0; color: var(--bone); }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--dust-2); margin-inline-end: 6px; }
 .dot.on { background: var(--turq); box-shadow: 0 0 8px var(--turq); }
 
-/* ---------- login ---------- */
-.login-wrap { min-height: 100dvh; display: grid; grid-template-columns: 1fr; }
-.login-art { position: relative; min-height: 42vh; overflow: hidden; background: radial-gradient(ellipse at 50% 60%, #2b2213, var(--void) 70%); }
-.login-art canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.login-art .quote { position: absolute; inset-inline: 24px; bottom: 22px; z-index: 2; font-family: var(--display); font-size: clamp(20px, 2.4vw, 28px); color: var(--gold-hi); line-height: 1.5; max-width: 26ch; }
-.login-art .quote small { display: block; font: var(--label); color: var(--dust); margin-top: 8px; }
-.login { display: grid; align-content: center; padding: 36px 24px 48px; max-width: 460px; width: 100%; margin: 0 auto; }
-.login h1 { font-size: clamp(48px, 8vw, 76px); }
-.login .mark { width: 58px; height: 58px; margin-bottom: 22px; }
+/* ---------- login: the entrance hero is at the end of this file (spec 0046) ---------- */
 .demo { margin-top: 28px; }
 .demo button { width: 100%; text-align: start; }
-@media (min-width: 900px) {
-  .login-wrap { grid-template-columns: 1.15fr 1fr; }
-  .login-art { min-height: 100dvh; border-inline-end: 1px solid var(--hair); }
-}
 
 /* ---------- home ---------- */
 .home-hero { position: relative; min-height: min(88vh, 820px); display: grid; align-items: end; overflow: hidden; border-bottom: 1px solid var(--hair); }
@@ -548,9 +536,6 @@ a.tile:active, .tool-card:active, a.row:active, .chip:active, .iconbtn:active, .
   .home-hero h1 { font-size: clamp(46px, 13vw, 60px); }
   .home-hero .era { display: none; }
   .home-hero .copy { gap: 14px; }
-  .login-art { min-height: 38vh; }
-  .login-art .quote { font-size: 17px; bottom: 14px; }
-  .login { padding-top: 22px; }
   /* grouped inset lists, as in native iOS settings */
   .page > .rows, .section .rows { border: 1px solid var(--hair); border-radius: var(--r-lg); background: rgba(var(--raise-rgb), 0.55); padding: 0 14px; }
   .page > .rows > li:last-child, .section .rows > li:last-child { border-bottom: 0; }
@@ -4336,4 +4321,97 @@ html:not([data-theme='day']) .od.od-skin { --od-paper: #0f1118; --od-ink: #efe6d
   .od-era { grid-template-columns: 1fr; }
   .od-era.flip .od-art { order: 0; }
   .od-bar { gap: 18px; }
+}
+
+/* ---------- the entrance (spec 0046): the prompt's «Sculpture Hero» by guglielmogiannattasio.it, in Persian ---------- */
+.sh-root {
+  --sh-paper: #ebe9e5; --sh-ink: #151514; --sh-night: #111110; --sh-moon: #f1efea;
+  --sh-bg: var(--sh-paper); --sh-fg: var(--sh-ink); --sh-acc: var(--sh-fg); --sh-h: 100svh;
+  --sh-head: 'Estedad', var(--body); --sh-accent: 'Markazi', var(--serif); --sh-body: 'Estedad', var(--body);
+  /* the sign-in's own fields, rows and lines take the hero's two colours */
+  --foreground: var(--sh-fg); --muted-foreground: color-mix(in srgb, var(--sh-fg) 62%, transparent);
+  --bone: var(--sh-fg); --dust: color-mix(in srgb, var(--sh-fg) 66%, transparent); --dust-2: color-mix(in srgb, var(--sh-fg) 48%, transparent);
+  --u-line: color-mix(in srgb, var(--sh-fg) 22%, transparent); --vault-4: var(--u-line); --hair: color-mix(in srgb, var(--sh-fg) 10%, transparent); --hair-2: var(--u-line);
+  --vault-3: color-mix(in srgb, var(--sh-fg) 4%, transparent);
+  position: relative; width: 100%; min-height: var(--sh-h); overflow: hidden; isolation: isolate; container-type: inline-size;
+  display: flex; flex-direction: column; box-sizing: border-box; touch-action: pan-y;
+  background: var(--sh-bg); color: var(--sh-fg); font-family: var(--sh-body); -webkit-font-smoothing: antialiased;
+}
+html[data-tone='dark'] .sh-root { --sh-bg: var(--sh-night); --sh-fg: var(--sh-moon); }
+.sh-root *, .sh-root *::before, .sh-root *::after { box-sizing: border-box; }
+.sh-stage { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.sh-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity var(--t-reveal) var(--ease-out); }
+.sh-fallback { position: absolute; display: block; max-width: none; user-select: none; -webkit-user-drag: none; transition: opacity var(--t-reveal) var(--ease-out); }
+.sh-root[data-gl='on'] .sh-canvas { opacity: 1; }
+.sh-root[data-gl='on'] .sh-fallback { opacity: 0; }
+.sh-alt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* the giant word behind the sculpture: Latin, so it keeps the prompt's tight tracking */
+.sh-backdrop { position: absolute; left: 50%; z-index: 0; transform: translate(-50%, -50%); direction: ltr; white-space: nowrap; pointer-events: none; user-select: none; font-family: var(--sh-head); font-weight: 600; letter-spacing: -0.06em; line-height: 0.8; color: color-mix(in srgb, var(--sh-fg) 5%, transparent); }
+.sh-nav { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 26px clamp(20px, 3.2cqw, 48px) 0; }
+.sh-brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--sh-head); font-weight: 600; font-size: 17px; color: inherit; text-decoration: none; }
+.sh-brand .crown { width: 26px; height: 26px; }
+.sh-links { display: flex; align-items: center; gap: clamp(18px, 2.4cqw, 36px); list-style: none; margin: 0; padding: 0; }
+.sh-link { padding: 0; border: 0; background: none; font: inherit; font-size: 13.5px; color: inherit; text-decoration: none; cursor: pointer; opacity: 0.72; transition: opacity var(--t-hover) var(--ease-out); }
+.sh-theme { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; cursor: pointer; color: inherit; background: transparent; border: 1px solid color-mix(in srgb, var(--sh-fg) 22%, transparent); transition: background-color var(--t-ui) var(--ease-out), color var(--t-ui) var(--ease-out); }
+.sh-theme .sh-sun, html[data-tone='dark'] .sh-theme .sh-moon { display: none; }
+html[data-tone='dark'] .sh-theme .sh-sun { display: block; }
+.sh-navcta { padding: 8px 14px; border: 1px solid color-mix(in srgb, var(--sh-fg) 22%, transparent); border-radius: 999px; font-size: 13.5px; color: inherit; text-decoration: none; transition: background-color var(--t-ui) var(--ease-out), color var(--t-ui) var(--ease-out); }
+.sh-hint { position: absolute; z-index: 1; transform: translate(-50%, 0); display: flex; align-items: center; gap: 10px; white-space: nowrap; font-size: 12px; opacity: 0.5; pointer-events: none; transition: opacity var(--t-slow) var(--ease-out); }
+.sh-hint::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: sh-pulse 2.4s ease-in-out infinite; }
+.sh-root[data-touched='1'] .sh-hint { opacity: 0; }
+.sh-root[data-touched='1'] .sh-hint::before { animation: none; }
+@keyframes sh-pulse { 0%, 100% { transform: scale(0.6); opacity: 0.45; } 50% { transform: scale(1); opacity: 1; } }
+.sh-spacer { flex: 1 1 auto; min-height: 0; }
+.sh-content { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: end; gap: clamp(24px, 4cqw, 72px); padding: 0 clamp(20px, 3.2cqw, 48px) clamp(28px, 3.4cqw, 52px); }
+.sh-eyebrow { display: flex; align-items: center; gap: 12px; margin: 0 0 clamp(14px, 1.6cqw, 22px); font-size: 13px; opacity: 0.62; }
+.sh-eyebrow::before { content: ''; width: 28px; height: 1px; background: currentColor; opacity: 0.7; }
+/* Persian needs room above and below the line: the prompt's 0.92 becomes 1.14 */
+.sh-h1 { margin: 0; font-family: var(--sh-head); font-weight: 500; font-size: clamp(40px, min(6.6cqw, 11.5svh), 124px); line-height: 1.14; text-wrap: balance; }
+.sh-h1 .sh-line { display: block; }
+.sh-accent { font-family: var(--sh-accent); font-weight: 400; font-size: 1.12em; color: var(--sh-acc); }
+.sh-aside { justify-self: end; width: 100%; max-width: 400px; padding-bottom: 0.6em; }
+.sh-txt { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--sh-fg) 30%, transparent); font-size: 14.5px; font-weight: 500; color: inherit; text-decoration: none; }
+/* the arrows point the way the page reads */
+.sh-arrow { transform: scaleX(-1); transition: transform var(--t-ui) var(--ease-out); }
+.sh-root a:focus-visible, .sh-root button:focus-visible { outline: 2px solid var(--sh-fg); outline-offset: 4px; }
+.sh-credit { position: absolute; z-index: 2; inset-inline-end: clamp(20px, 3.2cqw, 48px); bottom: 10px; font-size: 10px; letter-spacing: 0.06em; color: inherit; opacity: 0.38; text-decoration: none; }
+/* the sign-in in the aside: its first line is the prompt's body, then the prompt's pill and line for the app's gold */
+.sh-root .lg-step > .lead { margin: 0 0 14px; font-size: clamp(15px, 1.1cqw, 17px); font-weight: 400; line-height: 1.75; color: inherit; opacity: 0.78; text-wrap: pretty; }
+.sh-root .form { gap: 10px; }
+/* (one more class than the skins' own field and button rules, so the day skin's white boxes and gold edges stay out) */
+.sh-root .lg-step .input { min-height: 48px; padding: 8px 2px; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--sh-fg) 30%, transparent); border-radius: 0; background: transparent; color: var(--sh-fg); font-size: 17px; }
+.sh-root .lg-step .input:focus { border-bottom-color: var(--sh-fg); box-shadow: 0 1px 0 0 var(--sh-fg); }
+.sh-root .lg-step .lg-email { text-align: right; }
+.sh-root .lg-step .btn:not(.ghost) { min-height: 46px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--sh-fg); color: var(--sh-bg); box-shadow: none; font-weight: 500; font-size: 14.5px; transition: transform var(--t-ui) var(--ease-out), opacity var(--t-hover) var(--ease-out); }
+.sh-root .lg-step .btn.ghost { border-radius: 999px; border: 1px solid color-mix(in srgb, var(--sh-fg) 22%, transparent); background: transparent; color: var(--sh-fg); }
+/* the prompt's ground is still: no lamp following the hand over the sculpture (it has its own light) */
+body:has(.sh-root) .lt-lamp { display: none; }
+.sh-demos { max-width: 520px; margin: 0 auto; padding: 8px clamp(16px, 4vw, 28px) 40px; }
+@media (hover: hover) {
+  .sh-link:hover { opacity: 1; }
+  .sh-theme:hover, .sh-navcta:hover { background: var(--sh-fg); color: var(--sh-bg); }
+  .sh-root .lg-step .btn:not(.ghost):hover { transform: translateY(-1px); }
+  .sh-txt:hover .sh-arrow { transform: scaleX(-1) translateX(3px); }
+  .sh-credit:hover { opacity: 0.8; }
+}
+@container (max-width: 1023px) {
+  .sh-content { grid-template-columns: 1fr; gap: 28px; }
+  .sh-aside { justify-self: start; max-width: 520px; padding-bottom: 0; }
+  .sh-h1 { font-size: clamp(40px, min(9.5cqw, 9svh), 96px); }
+}
+@container (max-width: 767px) {
+  .sh-links li:not(.sh-keep) { display: none; }
+}
+@container (max-width: 639px) {
+  .sh-nav { padding-top: 20px; }
+  .sh-h1 { font-size: clamp(34px, min(11cqw, 7.2svh), 56px); }
+  /* the sculpture keeps a third of a phone's height, however long the sign-in grows */
+  .sh-spacer { min-height: 30svh; }
+  .sh-eyebrow { font-size: 12px; }
+  .sh-content { padding-bottom: 40px; }
+  .sh-credit { inset-inline-end: auto; left: 50%; transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sh-hint::before { animation: none; }
+  .sh-canvas, .sh-fallback, .sh-arrow { transition: none; }
 }

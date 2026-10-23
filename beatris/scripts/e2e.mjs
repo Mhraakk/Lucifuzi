@@ -864,7 +864,9 @@ async function loginUI(page, email = EMAIL) {
   if (!live) await step('a new deploy reaches open pages (spec 0036): the sign-in page reloads itself, a working page offers it', async () => {
     const next = (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, build: 'e2e-next-build' }) });
     const loaded = (p) => p.waitForEvent('load', { timeout: 10000 }).then(() => true).catch(() => false);
-    const pub = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    // no service worker here: once one controls the page, Playwright's route no longer sees the page's own fetches, and the
+    // «new build» below would never reach it (the worker passes /api through untouched, so nothing else changes)
+    const pub = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
     const p = await pub.newPage();
     p.on('pageerror', (e) => errors.push(`[fresh] pageerror: ${e.message}`));
     await p.goto(base + '/login');
@@ -2711,6 +2713,77 @@ async function loginUI(page, email = EMAIL) {
     check('workspace: the manager sets a colleague’s workspace in «تیم»', (await auth('/api/team')).members.find((m) => m.id === zahra.id).workspace.profile === 'staff');
   });
 
+  await step('entrance (spec 0046): the liquid gold sculpture, both tones, desktop and phone', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await ctx.newPage();
+    const seen = [], foreign = [];
+    p.on('pageerror', (e) => seen.push(e.message));
+    p.on('console', (m) => m.type() === 'error' && seen.push(m.text()));
+    p.on('request', (r) => !r.url().startsWith(base) && !/^(data|blob):/.test(r.url()) && foreign.push(r.url()));
+    await p.goto(base + '/login');
+    await p.waitForSelector('#ef input[name=email]');
+    const gl = await p.waitForFunction(() => document.querySelector('.sh-root')?.dataset.gl, null, { timeout: 20000 }).then((h) => h.jsonValue()).catch(() => 'none');
+    await p.waitForTimeout(900); // the canvas fades in over the still image
+    const shown = await p.evaluate(() => ({ canvas: Number(getComputedStyle(document.querySelector('.sh-canvas') ?? document.body).opacity), still: Number(getComputedStyle(document.querySelector('.sh-fallback')).opacity), loaded: document.querySelector('.sh-fallback').naturalWidth }));
+    check('entrance: the sculpture is drawn by the liquid engine, or shown still without WebGL2', (gl === 'on' && shown.canvas === 1) || (gl === 'off' && shown.still === 1 && shown.loaded > 0), `${gl} ${JSON.stringify(shown)}`);
+    const lay = await p.evaluate(() => {
+      const r = (q) => document.querySelector(q).getBoundingClientRect();
+      return { over: document.documentElement.scrollWidth - innerWidth, hero: r('.sh-root').height, nav: r('.sh-nav').bottom, art: r('.sh-fallback'), copy: r('.sh-content').top, word: document.querySelector('.sh-backdrop').textContent, credit: [document.querySelector('.sh-credit').href, document.querySelector('.sh-credit').rel] };
+    });
+    // the prompt's layout: centred on the band between the nav and the copy, at most 1.1 × its height
+    const band = { top: lay.nav + 8, bottom: lay.copy - 8 };
+    check('entrance: the hero fills a desktop screen with no scrolling, the sculpture centred in the band between the nav and the copy', lay.over === 0 && Math.abs(lay.hero - 900) < 2 && Math.abs(lay.art.top + lay.art.height / 2 - (band.top + band.bottom) / 2) < 2 && lay.art.height <= (band.bottom - band.top) * 1.1 + 1 && lay.art.width > 600, JSON.stringify(lay));
+    check('entrance: the word behind it and the credit to the prompt\'s author', lay.word === 'beatris' && lay.credit[0] === 'https://guglielmogiannattasio.it/' && lay.credit[1] === 'noopener', JSON.stringify(lay.credit));
+    if (gl === 'on') {
+      // at rest the canvas is the crisp image; the pointer turns it liquid; it settles back to the very same pixels
+      // (above the cue, which pulses; after the canvas has faded in)
+      const clip = { x: lay.art.x + lay.art.width * 0.2, y: lay.art.y, width: lay.art.width * 0.6, height: lay.art.height * 0.85 };
+      await p.waitForTimeout(900);
+      const rest = await p.screenshot({ clip });
+      for (let i = 0; i <= 24; i++) {
+        await p.mouse.move(clip.x + clip.width * (0.1 + i * 0.033), clip.y + clip.height * (0.6 - Math.sin(i / 4) * 0.15));
+        await p.waitForTimeout(16);
+      }
+      const stirred = await p.screenshot({ clip });
+      // the hand leaves the hero (the material stays stirred while the pointer is over it, as in the prompt)
+      await p.dispatchEvent('.sh-root', 'pointerleave', { pointerType: 'mouse' });
+      let settled = null;
+      for (let i = 0; i < 24 && !(settled && settled.equals(rest)); i++) {
+        await p.waitForTimeout(500);
+        settled = await p.screenshot({ clip });
+      }
+      check('entrance: the pointer turns the gold liquid, and it settles back into the crisp image', !stirred.equals(rest) && settled.equals(rest), `stirred ${stirred.equals(rest) ? 'same' : 'changed'}, settled ${settled.equals(rest) ? 'same' : 'different'}`);
+    }
+    // the switch flips the app's own skin pair, and the hero takes the prompt's ground for each tone
+    const tone0 = await p.evaluate(() => document.documentElement.dataset.tone);
+    await p.click('[data-act=tone]');
+    const after = await p.evaluate(() => ({ tone: document.documentElement.dataset.tone, bg: getComputedStyle(document.querySelector('.sh-root')).backgroundColor, label: document.querySelector('[data-act=tone]').getAttribute('aria-label') }));
+    const want = after.tone === 'dark' ? 'rgb(17, 17, 16)' : 'rgb(235, 233, 229)';
+    check('entrance: the light/dark switch flips the skin pair; the hero takes the prompt\'s ground', after.tone !== tone0 && after.bg === want && /پوسته/.test(after.label), JSON.stringify(after));
+    await p.click('[data-act=tone]');
+    check('entrance: only this server is asked for anything, and no page error', foreign.length === 0 && seen.length === 0, JSON.stringify({ foreign, seen }).slice(0, 300));
+    await ctx.close();
+
+    // a phone: the sculpture keeps its third of the screen, the whole sign-in is reachable, the touch cue
+    const ph = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const q = await ph.newPage();
+    await q.goto(base + '/login');
+    await q.waitForSelector('#ef input[name=email]');
+    const m = await q.evaluate(() => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect();
+      return { over: document.documentElement.scrollWidth - innerWidth, art: r('.sh-fallback').height, email: r('#ef input[name=email]').width, button: r('#ef button[type=submit]').bottom, page: document.documentElement.scrollHeight, hint: document.querySelector('.sh-hint').textContent };
+    });
+    check('entrance (phone): no sideways scroll; a large sculpture; the email and its button fully there; the touch cue', m.over === 0 && m.art > 200 && m.email > 300 && m.button < m.page && m.hint === 'طلا را لمس کنید', JSON.stringify(m));
+    await ph.close();
+
+    // less motion: the cue stands still
+    const rm = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+    const r2 = await rm.newPage();
+    await r2.goto(base + '/login');
+    await r2.waitForSelector('.sh-hint');
+    check('entrance (less motion): the cue under the sculpture stands still', (await r2.evaluate(() => getComputedStyle(document.querySelector('.sh-hint'), '::before').animationName)) === 'none');
+    await rm.close();
+  });
   await step('web app: installable PWA (manifest, service worker, shortcuts, screenshots) and the install guide', async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const p = await ctx.newPage();

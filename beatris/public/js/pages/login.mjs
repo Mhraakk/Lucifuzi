@@ -1,11 +1,13 @@
 // ورود با ایمیل (spec 0034): an email, then the code Supabase sends to it — or the link in the same email. No username,
 // no password, no shop code. The email finds its shop by itself; an email in several shops picks one; an email with no
 // account may open its own shop. Demo accounts and development servers show the code on the screen instead of sending it.
-import { html, api, auth, store, navigate, $, busy, fa, actions } from '../core.mjs';
+import { html, raw, api, auth, store, navigate, $, busy, fa, actions } from '../core.mjs';
 import { brandMark } from '../ui.mjs';
 import { install, canInstall } from '../install.mjs';
 import { ROLE_FA } from '../core.mjs';
 import { codeBox, initCodeBox } from '../otp.mjs';
+import { mountSculpture } from '../liquid.mjs';
+import { flipSkin } from '../skinpicker.mjs';
 
 const toLatin = (s) => String(s ?? '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 /** «09121234567», «+98 912 123 4567», «۹۱۲۱۲۳۴۵۶۷» → 09121234567 (or what was typed, for the server to refuse). */
@@ -31,35 +33,61 @@ function emailLink() {
   }
 }
 
+/** The entrance sculpture (spec 0046): gold filaments woven into the crown's three points, the coin for its jewel. */
+const SCULPTURE = '/media/hero/sculpture.webp';
+const ARROW = raw('<svg class="sh-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+const SUN = raw('<svg class="sh-sun" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M3.2 12.8l1.1-1.1M11.7 4.3l1.1-1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>');
+const MOON = raw('<svg class="sh-moon" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.6 10.1A5.9 5.9 0 0 1 5.9 2.4a5.9 5.9 0 1 0 7.7 7.7Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>');
+const toneLabel = () => (document.documentElement.dataset.tone === 'dark' ? 'پوسته‌ی روشن' : 'پوسته‌ی تیره');
+
 export async function loginPage(root) {
   if (auth.token) return navigate('/start', { replace: true });
   const link = emailLink();
   const cfg = await api('/api/config').catch(() => ({ demo: false, demoAccounts: [] }));
   const demos = (cfg.demoAccounts ?? []).filter((a) => a.email);
+  // the entrance is the prompt's hero (spec 0046): nav, the sculpture between the nav and the copy, the word behind
+  // it, the headline, and in the aside — where the prompt has its body and buttons — the sign-in itself
   root.innerHTML = String(html`
-    <div class="login-wrap">
-    <div class="login-art" id="art"><p class="quote">«دریک، سکه زر داریوش، با وزن و عیار یکسان در سراسر شاهنشاهی پذیرفته می‌شد.»<small>اعتماد، از دقت در وزن و عیار آغاز می‌شود</small></p></div>
-    <section class="login">
-      <div class="mark">${brandMark}</div>
-      <span class="eyebrow">${cfg.shopName ? cfg.shopName : 'آکادمی گالری طلا'}</span>
-      <h1 class="gold-text" style="margin:10px 0 6px">بئاتریس</h1>
-      <div class="lg-step" id="step" aria-live="polite"></div>
-      <p class="small"><a href="/intro" data-link>آشنایی با بئاتریس برای فروشگاه شما</a> · <a href="/downloads/Beatris-Setup-x64.exe" download>نسخه ویندوز ۱۱ (۶۴ بیت)</a>${canInstall() ? html` · <button type="button" class="linkish" data-act="install">نصب وب‌اپ روی همین دستگاه</button>` : ''}</p>
-      ${cfg.demo && demos.length
-        ? html`<div class="demo tray"><h3>حساب‌های نمایشی</h3><p class="small">کد ورود این حساب‌ها روی همین صفحه نشان داده می‌شود.</p>
-            <ul class="rows">${demos.map((a) => html`<li><button class="row btn ghost small" style="border:0;border-radius:0" data-act="demo" data-email="${a.email}">
-              <span class="row-main"><span class="row-t">${a.name}</span><span class="row-s">${ROLE_FA[a.role]} · <bdi dir="ltr">${a.email}</bdi></span></span></button></li>`)}</ul></div>`
-        : ''}
+    <section class="sh-root" aria-label="ورود به بئاتریس">
+      <div class="sh-backdrop" aria-hidden="true">beatris</div>
+      <div class="sh-stage" aria-hidden="true"><img class="sh-fallback" src="${SCULPTURE}" alt="" draggable="false"></div>
+      <span class="sh-alt">مجسمه‌ای از رشته‌های درهم‌تافته‌ی طلا که به سه کنگره‌ی تاج بئاتریس می‌رسد، با سکه‌ای بر نوک آن</span>
+      <nav class="sh-nav" aria-label="اصلی">
+        <a class="sh-brand" href="/intro" data-link>${brandMark}<span>بئاتریس</span></a>
+        <ul class="sh-links">
+          <li><a class="sh-link" href="/intro" data-link>معرفی</a></li>
+          <li><a class="sh-link" href="/intro/features" data-link>امکانات</a></li>
+          <li><a class="sh-link" href="/intro/packages" data-link>بسته‌ها</a></li>
+          <li><a class="sh-link" href="/downloads/Beatris-Setup-x64.exe" download>نسخه ویندوز</a></li>
+          ${canInstall() ? html`<li><button type="button" class="sh-link" data-act="install">نصب وب‌اپ</button></li>` : ''}
+          <li class="sh-keep"><button type="button" class="sh-theme" data-act="tone" aria-label="${toneLabel()}">${SUN}${MOON}</button></li>
+          <li class="sh-keep"><a class="sh-navcta" href="/intro/demo" data-link>درخواست نمایش</a></li>
+        </ul>
+      </nav>
+      <div class="sh-hint" aria-hidden="true" data-hint="روی طلا حرکت کنید" data-touch="طلا را لمس کنید"></div>
+      <div class="sh-spacer"></div>
+      <div class="sh-content">
+        <div>
+          <p class="sh-eyebrow">${cfg.shopName ? cfg.shopName : 'آکادمی گالری طلا'}</p>
+          <h1 class="sh-h1"><span class="sh-line">هر گرم طلا</span><span class="sh-line"><span class="sh-accent">حساب پس می‌دهد.</span></span></h1>
+        </div>
+        <div class="sh-aside">
+          <div class="lg-step" id="step" aria-live="polite"></div>
+          <a class="sh-txt" href="/intro" data-link>آشنایی با بئاتریس ${ARROW}</a>
+        </div>
+      </div>
+      <a class="sh-credit" href="https://guglielmogiannattasio.it" target="_blank" rel="noopener" dir="ltr">by guglielmogiannattasio.it</a>
     </section>
-    </div>`);
+    ${cfg.demo && demos.length
+      ? html`<section class="sh-demos"><div class="demo tray"><h3>حساب‌های نمایشی</h3><p class="small">کد ورود این حساب‌ها روی همین صفحه نشان داده می‌شود.</p>
+          <ul class="rows">${demos.map((a) => html`<li><button class="row btn ghost small" data-act="demo" data-email="${a.email}">
+            <span class="row-main"><span class="row-t">${a.name}</span><span class="row-s">${ROLE_FA[a.role]} · <bdi dir="ltr">${a.email}</bdi></span></span></button></li>`)}</ul></div></section>`
+      : ''}`);
 
   const step = $('#step', root);
   const S = { email: '', timer: 0, code: null, left: false, ticket: null };
-  // the turning coin is decoration: it is built only after the form is on screen and the page is idle, so the email
-  // field never waits for it (building its geometry takes a moment on a slow phone)
-  let cleanupArt = null;
-  const startArt = () => !S.left && coinArt($('#art', root)).then((c) => (S.left ? c?.() : (cleanupArt = c)));
-  requestAnimationFrame(() => setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(startArt, { timeout: 1500 }) : startArt()), 60));
+  // the sculpture lays itself out at once; its engine starts when the page is idle, so the email field never waits
+  const hero = mountSculpture($('.sh-root', root), { src: SCULPTURE });
   const stop = () => clearInterval(S.timer);
   const show = (markup) => {
     stop();
@@ -75,7 +103,7 @@ export async function loginPage(root) {
   const done = (r) => {
     auth.token = r.token;
     store.me = null;
-    cleanupArt?.();
+    hero.dispose();
     // each way of working starts in its own place (spec 0038)
     navigate('/start', { replace: true });
   };
@@ -215,6 +243,13 @@ export async function loginPage(root) {
 
   actions(root, {
     install: () => install(),
+    // the prompt's light/dark switch flips the app's own skin pair (spec 0014), so the choice carries into the app
+    // (at once: every line and the ground change together, so nothing is ever drawn in the new colour on the old ground)
+    tone: (el) => {
+      flipSkin();
+      hero.refresh();
+      el.setAttribute('aria-label', toneLabel());
+    },
     edit: () => emailStep(S.email),
     fill: (el) => S.code?.fill(el.dataset.code),
     resend: (el) => send(S.email, el),
@@ -250,39 +285,6 @@ export async function loginPage(root) {
   return () => {
     S.left = true;
     stop();
-    cleanupArt?.();
+    hero.dispose();
   };
-}
-
-/** A daric-like gold coin with the Persepolis rosette, turning slowly. */
-async function coinArt(host) {
-  try {
-    const [{ createStage, T }, J, Mt] = await Promise.all([import('../three/stage.mjs'), import('../three/jewelry.mjs'), import('../three/materials.mjs')]);
-    const stage = createStage(host, { controls: false, transparent: true, env: 'studio', hero: true });
-    if (!stage) return null;
-    const P = J.PIECES.coin;
-    const meshes = await P.build({ ...Object.fromEntries(Object.entries(P.params).map(([k, v]) => [k, v[0]])), ...P.opts, design: 'rosette', relief: 0.5 });
-    const g = new T.Group();
-    meshes.forEach((m) => ((m.material = Mt.metalMaterial('au24', 'polish')), g.add(m)));
-    const box = new T.Box3().setFromObject(g);
-    g.position.set(0, -box.getCenter(new T.Vector3()).y, -box.getCenter(new T.Vector3()).z);
-    const pivot = new T.Group();
-    pivot.add(g);
-    stage.root.add(pivot);
-    stage.setShadow(false);
-    stage.frame(stage.root, { instant: true, pitch: 0.05, yaw: 0, pad: innerWidth < 900 ? 2.3 : 1.6 });
-    // asked for less motion: the coin rests at a three-quarter turn, and its still frame is drawn at the sharpest
-    const t0 = performance.now();
-    pivot.rotation.y = 0.45;
-    const stop = stage.quality.motion
-      ? stage.onTick((t) => {
-          const k = (t - t0) / 1000;
-          pivot.rotation.y = Math.sin(k * 0.45) * 0.9;
-          pivot.rotation.x = Math.sin(k * 0.3) * 0.12;
-        })
-      : () => {};
-    return () => (stop(), stage.dispose());
-  } catch {
-    return null;
-  }
 }

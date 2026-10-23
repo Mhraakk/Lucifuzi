@@ -14,6 +14,7 @@ const LOOPS = {
   'gd-sk': 'a skeleton while the dashboard loads',
   'lt-breathe': 'the living light, which «نور زنده» and reduced motion turn off (spec 0014)',
   'lux-marquee': 'the one marquee of the product site',
+  'sh-pulse': 'the cue on the entrance sculpture, until the first touch (spec 0046)',
 };
 // the few moves that keep a curve of their own, each for its reason
 const OWN_CURVE = {

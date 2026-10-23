@@ -147,17 +147,15 @@ try {
     await shot(p, 'login-code.jpg');
     await ctx.close();
   }
-  /* 2. the coin of the sign-in page, large */
+  /* 2. the entrance (spec 0046): the liquid gold sculpture, at rest, drawn by its engine */
   {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 2, colorScheme: SCHEME });
     await skinned(ctx);
     const p = await ctx.newPage();
     await p.goto(`${base}/login`);
-    await settle(p, 7000);
-    // the coin alone: a square around the centre of the turning-coin area
-    const a = await (await p.$('#art')).boundingBox();
-    const side = Math.round(Math.min(a.width, a.height) * 0.62);
-    await shot(p, 'coin-hero.jpg', { clip: { x: Math.round(a.x + a.width / 2 - side / 2), y: Math.round(a.y + a.height / 2 - side / 2), width: side, height: side } });
+    await p.waitForFunction(() => document.querySelector('.sh-root')?.dataset.gl, null, { timeout: 30000 }).catch(() => {});
+    await settle(p, 1500);
+    await shot(p, 'entrance.jpg');
     await ctx.close();
   }
   /* 3. the counter computer: its card reader, the one-tap button, the card window, the receipt; the vendor's email card */
