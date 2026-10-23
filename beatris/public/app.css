@@ -468,35 +468,6 @@ dl.gloss dd { margin: 2px 0 0; color: var(--bone); }
 .tile.rosette { background: linear-gradient(270deg, rgba(var(--ink-rgb), 0.97) 35%, rgba(var(--ink-rgb), 0.55)), var(--rosette) 0 0 / 70px, linear-gradient(160deg, rgba(var(--raise-rgb), 0.92), rgba(var(--ink-rgb), 0.97)); }
 .tile .big { font-family: var(--display); font-size: 64px; line-height: 1; font-weight: 600; }
 
-/* ---------- history ---------- */
-.hist-hero { position: relative; padding: clamp(40px, 9vh, 110px) clamp(18px, 5vw, 64px) 30px; max-width: 1240px; margin: 0 auto; }
-.hist-hero h1 { font-size: clamp(52px, 10vw, 132px); line-height: 0.95; }
-.timeline { position: relative; max-width: 1240px; margin: 0 auto; padding: 20px clamp(18px, 5vw, 64px) 80px; }
-.timeline::before { content: ''; position: absolute; top: 0; bottom: 0; inset-inline-start: calc(clamp(18px, 5vw, 64px) + 158px); width: 1px; background: linear-gradient(var(--gold), var(--hair) 40%, var(--hair) 80%, transparent); }
-.era-item { position: relative; display: grid; grid-template-columns: 140px 1fr; gap: 40px; padding: 34px 0; }
-.era-item .y { font-family: var(--display); font-size: 30px; line-height: 1.1; color: var(--gold-hi); text-align: end; padding-inline-end: 6px; font-variant-numeric: tabular-nums; }
-.era-item .y small { display: block; font: var(--label); font-size: 11.5px; color: var(--dust); }
-.era-item::before { content: ''; position: absolute; top: 46px; inset-inline-start: 153px; width: 11px; height: 11px; border-radius: 50%; background: var(--vault); border: 1.5px solid var(--gold); box-shadow: 0 0 0 5px var(--vault), 0 0 22px rgba(var(--gold-rgb), 0.5); }
-.era-item .body { display: grid; gap: 14px; grid-template-columns: 1fr; align-items: start; }
-.era-item h2 { margin: 0; font-size: clamp(30px, 4vw, 46px); }
-.era-item .place { font: var(--label); color: var(--gold); }
-.era-item p { color: var(--dust); max-width: 62ch; font-size: 16.5px; }
-.era-item .fact { display: flex; gap: 10px; flex-wrap: wrap; }
-.era-item .fact span { font-size: 12.5px; padding: 3px 12px; border-radius: 99px; border: 1px solid var(--hair-2); color: var(--gold-hi); }
-.era-item .art { position: relative; height: 260px; border-radius: var(--r-xl); overflow: hidden; border: 1px solid var(--hair); background: radial-gradient(ellipse at 50% 45%, #2a2114, var(--void) 75%); }
-.era-item .art canvas { width: 100%; height: 100%; }
-.era-item .lesson { border-inline-start: 2px solid var(--gold); padding: 6px 14px; color: var(--bone); font-size: 15px; background: linear-gradient(270deg, rgba(var(--gold-rgb), 0.07), transparent); }
-@media (min-width: 900px) {
-  .era-item .body { grid-template-columns: 1.1fr 1fr; gap: 30px; }
-  .era-item .art { height: 300px; }
-}
-@media (max-width: 640px) {
-  .timeline::before { inset-inline-start: 26px; }
-  .era-item { grid-template-columns: 1fr; gap: 10px; padding-inline-start: 44px; }
-  .era-item::before { inset-inline-start: 21px; top: 42px; }
-  .era-item .y { text-align: start; padding: 0; }
-}
-
 /* ---------- studio (3D) ---------- */
 .studio3d { position: relative; display: grid; grid-template-columns: 1fr; height: calc(100dvh - var(--top-h) - var(--nav-h) - 30px); min-height: 560px; }
 .studio3d .viewport { position: relative; min-height: 52vh; overflow: hidden; background: #0a0907; }
@@ -819,8 +790,6 @@ a.tile:active, .tool-card:active, a.row:active, .chip:active, .iconbtn:active, .
 .intro-stats span { font-size: 13px; color: var(--dust); }
 .intro-sec { padding: 26px 0 6px; }
 .intro-sec h2 { margin: 0 0 16px; }
-.intro-pains { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
-.intro-pains h3 { color: #ef8b88; margin-bottom: 6px; }
 .intro-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
 .intro-grid.three { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
 .intro-feat { display: grid; gap: 8px; align-content: start; }
@@ -4281,3 +4250,90 @@ html[dir='ltr'] .u-slide-k { transform: translateX(var(--slide, 0px)); }
 .cs-layer.phone .cs-prev { inset-inline-end: calc(50% + 8px); }
 .cs-layer.phone .cs-next { inset-inline-start: calc(50% + 8px); }
 .cs-fly { position: fixed; z-index: 1; margin: 0; border-radius: 50%; object-fit: cover; filter: drop-shadow(0 24px 30px rgba(0, 0, 0, 0.55)); pointer-events: none; }
+
+/* ---------- spec 0043: the Odyssée editorial grammar: /intro's paper chapter and /history ----------
+   A statement with an indented first line, numbered chapters over a hairline, pictures cut by a shifted strip, a
+   counter that follows the chapter. The intro chapter is paper in both skins (the intro site is one fixed look);
+   /history follows the skin: paper by day, ink by night. */
+.od { --od-paper: #fbf8f1; --od-ink: #1d2541; --od-ink-2: rgba(29, 37, 65, 0.74); --od-line: rgba(29, 37, 65, 0.16); --od-gold: #7d5a16; --od-on-pic: #fffaf0; --od-tint: rgba(29, 37, 65, 0.05); --od-scrim: rgba(0, 0, 0, 0.5); --od-pad: clamp(16px, 4vw, 48px);
+  position: relative; background: var(--od-paper); color: var(--od-ink); }
+html:not([data-theme='day']) .od.od-skin { --od-paper: #0f1118; --od-ink: #efe6d2; --od-ink-2: rgba(239, 230, 210, 0.74); --od-line: rgba(239, 230, 210, 0.16); --od-gold: #d9b56a; --od-tint: rgba(239, 230, 210, 0.05); }
+.od-big { margin: 0; font: 400 clamp(28px, 4.1vw, 56px)/1.36 'Markazi', var(--serif); text-indent: 3.2em; color: var(--od-ink); text-wrap: pretty; }
+.od-sub { margin: 22px 0 0; max-width: 38ch; font: 400 15.5px/1.95 var(--body); color: var(--od-ink-2); }
+.od-small { font: 500 13px/1.6 var(--body); color: var(--od-ink-2); }
+.od-link { display: inline-block; margin-top: 18px; padding-bottom: 2px; border-bottom: 1px solid currentColor; font: 600 14px/1.6 var(--body); color: var(--od-ink); text-decoration: none; transition: color var(--t-hover) var(--ease-out); }
+@media (hover: hover) { .od-link:hover { color: var(--od-gold); } }
+.od-statement { display: grid; grid-template-columns: minmax(64px, 120px) minmax(0, 1fr); gap: clamp(16px, 7vw, 120px); align-items: start; padding: clamp(44px, 8vw, 104px) var(--od-pad); }
+.od-thumb { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }
+/* the counter, the chapter's name and the hairline whose dark part grows with the chapter */
+.od-bar { display: flex; align-items: baseline; gap: clamp(16px, 13vw, 200px); padding-block: 14px 10px; font: 500 13px/1.6 var(--body); color: var(--od-ink); }
+.od-count { min-width: 3.6em; font-variant-numeric: tabular-nums; }
+.od-name { flex: 1; }
+.od-pause { padding: 0; border: 0; background: none; font: inherit; color: var(--od-ink-2); cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
+.od-line { position: relative; height: 1px; background: var(--od-line); }
+.od-line i { position: absolute; inset: 0; background: var(--od-ink); transform: scaleX(var(--p, 0.25)); transform-origin: 100% 50%; transition: transform var(--t-slow) var(--ease-in-out); } /* grows from the start side (RTL) */
+/* numbered chapters: tiles are tabs; the inactive pictures fade; the chosen one's text stands under it */
+.od-chapters { padding: 0 var(--od-pad) clamp(44px, 7vw, 96px); }
+.od-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 2px; margin-top: 18px; }
+.od-tile { display: grid; align-content: start; gap: 12px; padding: 0; border: 0; background: none; color: inherit; text-align: start; cursor: pointer; }
+.od-tile:focus-visible { outline: 2px solid var(--od-ink); outline-offset: 3px; }
+.od-tile-pic { display: block; aspect-ratio: 4 / 3; overflow: hidden; background: var(--od-tint); }
+.od-tile-pic img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0.3; filter: grayscale(0.7); transition: opacity var(--t-reveal) var(--ease-out), filter var(--t-reveal) var(--ease-out); }
+.od-tile[aria-selected='true'] .od-tile-pic img { opacity: 1; filter: none; }
+.od-cap { padding-inline: 2px; font: 400 clamp(19px, 1.9vw, 24px)/1.4 'Markazi', var(--serif); color: var(--od-ink-2); }
+.od-cap i { margin-inline-end: 8px; font: 500 12px/1 var(--body); font-style: normal; }
+.od-tile[aria-selected='true'] .od-cap { color: var(--od-ink); }
+.od-panel { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 6px; }
+.od-panel p { grid-column: var(--col, 1); max-width: 36ch; margin: 0; padding-inline: 2px; font: 400 15px/1.95 var(--body); color: var(--od-ink); }
+/* a picture cut by a shifted strip: a second layer of the same picture, clipped to a band and moved sideways */
+.od-pic { --fit: cover; position: relative; margin: 0; overflow: hidden; background: var(--od-tint); }
+.od-pic > img { display: block; width: 100%; height: 100%; object-fit: var(--fit); }
+.od-cut { position: absolute; inset: 0; background: var(--src) center / var(--fit) no-repeat; clip-path: inset(var(--a) 0 var(--b) 0); transform: scale(1.06); transition: transform var(--t-slow) var(--ease-out); }
+.od-pic.in .od-cut { transform: translateX(var(--shift)) scale(1.06); }
+.od-words { position: absolute; z-index: 1; top: 34%; inset-inline: var(--od-pad); display: flex; justify-content: space-between; gap: 12px; font: 500 13px/1 var(--body); color: var(--od-on-pic); text-shadow: 0 1px 10px var(--od-scrim); pointer-events: none; }
+.od-wide { aspect-ratio: 16 / 7; }
+.od-tall { aspect-ratio: 4 / 5; }
+.od-square { aspect-ratio: 1; }
+/* the collage: a small picture and its line beside a large picture whose top strip is moved */
+.od-collage { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(150px, 250px) minmax(0, 1.5fr); align-items: start; padding: clamp(36px, 6vw, 88px) var(--od-pad) clamp(52px, 8vw, 112px); }
+.od-collage-side { display: grid; gap: 4px; }
+.od-collage-side .od-sub { margin-top: 10px; font-size: 14.5px; }
+.od-collage .od-tall { margin-top: clamp(36px, 7vw, 96px); }
+/* /intro: the chapter sits between the ticker and the numbers; the numbers' paper edge meets it */
+.od-intro .od-statement:first-child { padding-top: clamp(56px, 9vw, 120px); }
+/* /history: the picture runs full width with its words on a light scrim; the title stands on the paper under it */
+.od-hist { min-height: 100%; }
+.od-full { aspect-ratio: 16 / 7; max-height: 78vh; width: 100%; }
+.od-full > img, .od-full .od-cut { object-position: center 46%; background-position: center 46%; }
+.od-full::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, var(--od-scrim), transparent 32%); pointer-events: none; }
+.od-full .od-words { top: 12%; }
+.od-head { display: grid; gap: 6px; padding: clamp(28px, 5vw, 64px) var(--od-pad) 0; }
+.od-head h1 { margin: 0; font: 400 clamp(44px, 8vw, 116px)/1.06 'Markazi', var(--serif); color: var(--od-ink); }
+.od-head + .od-statement { padding-top: clamp(24px, 4vw, 56px); }
+.od-sticky { position: sticky; top: var(--top-h); z-index: 3; padding: 0 var(--od-pad); background: var(--od-paper); }
+.od-era { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(20px, 5vw, 80px); align-items: center; padding: clamp(36px, 6vw, 88px) var(--od-pad); }
+.od-era + .od-era { border-top: 1px solid var(--od-line); }
+.od-era.flip .od-art { order: 2; }
+.od-art { --fit: contain; aspect-ratio: 3 / 2; }
+.od-art > img { opacity: 0; transition: opacity var(--t-slow) var(--ease-out); }
+.od-art.ready > img { opacity: 1; }
+.od-era h2 { margin: 6px 0 14px; font: 400 clamp(30px, 3.8vw, 50px)/1.22 'Markazi', var(--serif); color: var(--od-ink); }
+.od-era-copy > p:not(.od-facts) { max-width: 60ch; margin: 0; font: 400 16px/2 var(--body); color: var(--od-ink-2); }
+.od-quote { margin: 22px 0 0; font: 400 clamp(20px, 2.1vw, 26px)/1.6 'Markazi', var(--serif); text-indent: 2.4em; color: var(--od-ink); }
+.od-facts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 18px 0 0; font: 500 13px/1.6 var(--body); color: var(--od-gold); }
+.od-close { border-top: 1px solid var(--od-line); }
+@media (max-width: 760px) {
+  .od-statement { grid-template-columns: 1fr; gap: 22px; }
+  .od-statement > :first-child { width: 72px; }
+  .od-big { text-indent: 2em; }
+  .od-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 2px; }
+  .od-panel { grid-template-columns: 1fr; }
+  .od-panel p { grid-column: 1; }
+  .od-wide, .od-full { aspect-ratio: 4 / 3; }
+  .od-collage { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr); }
+  .od-collage > span:first-child { display: none; }
+  .od-collage .od-tall { margin-top: 48px; }
+  .od-era { grid-template-columns: 1fr; }
+  .od-era.flip .od-art { order: 0; }
+  .od-bar { gap: 18px; }
+}

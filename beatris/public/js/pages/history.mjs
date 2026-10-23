@@ -1,4 +1,5 @@
-import { html, $, $$ } from '../core.mjs';
+import { html, $, $$, fa } from '../core.mjs';
+import { pic, statement, bar, watchPics, wireCounter } from '../odyssee.mjs';
 
 /* Each era: facts kept deliberately conservative ("حدود") — this page teaches, it must not mislead. */
 export const ERAS = [
@@ -86,30 +87,28 @@ export const ERAS = [
 ];
 
 export async function historyPage(root) {
-  root.innerHTML = String(html`
-    <section class="hist-hero">
-      <span class="eyebrow">گنجینه</span>
-      <h1 style="margin-top:14px"><span class="gold-text">سه هزار سال</span><br>طلا در دست انسان</h1>
-      <p class="lead" style="margin-top:18px">از نوب مصری تا دریک هخامنشی و سکه بهار آزادی؛ هر دوره درسی دارد که امروز پشت ویترین به کار می‌آید. تصویر هر دوره با همان موتور سه‌بعدی استودیو ساخته شده است.</p>
-    </section>
-    <div class="timeline">${ERAS.map(
-      (e, i) => html`<article class="era-item" id="era-${i}">
-        <div class="y">${e.y}<small>${e.u}</small></div>
-        <div class="body">
-          <div>
-            <div class="place">${e.place}</div>
-            <h2>${e.title}</h2>
-            <p>${e.body}</p>
-            <div class="fact" style="margin:14px 0">${e.facts.map((f) => html`<span>${f}</span>`)}</div>
-            <div class="lesson">${e.lesson}</div>
-          </div>
-          <div class="art" data-art="${i}"><div class="loading" style="min-height:100%"><span></span></div></div>
+  // spec 0043: the history as an editorial book in the Odyssée manner; it follows the skin (paper by day, ink by night)
+  root.innerHTML = String(html`<div class="od od-skin od-hist">
+    ${pic({ src: '/promo/coin.webp', alt: 'سکه‌ی تمام بهار آزادی', cut: [46, 30], shift: 2.5, cls: 'od-full', words: ['نوب', 'دریک', 'بهار آزادی'], lazy: false })}
+    <header class="od-head"><span class="od-small">گنجینه</span><h1>سه هزار سال،<br>طلا در دست انسان</h1></header>
+    ${statement({ text: 'از نوب مصری تا دریک هخامنشی و سکه‌ی بهار آزادی؛ هر دوره درسی دارد که امروز پشت ویترین به کار می‌آید.', sub: 'تصویر هر دوره با همان موتور سه‌بعدی استودیو ساخته می‌شود.', thumb: { src: '/coins/photos/bahar1358-rev-s.webp', alt: 'پشت سکه‌ی بهار آزادی' } })}
+    <div class="od-sticky">${bar(0, ERAS.length, ERAS[0].place)}</div>
+    <div class="od-eras">${ERAS.map(
+      (e, i) => html`<article class="od-era ${i % 2 ? 'flip' : ''}" id="era-${i}" data-name="${e.place}">
+        ${pic({ cut: i % 2 ? [8, 70] : [62, 18], shift: i % 2 ? 3 : -3, cls: 'od-art', fit: 'contain' })}
+        <div class="od-era-copy">
+          <span class="od-small">${fa(i + 1).padStart(2, '۰')} · ${e.y}${e.u ? ` ${e.u}` : ''} · ${e.place}</span>
+          <h2>${e.title}</h2>
+          <p>${e.body}</p>
+          <blockquote class="od-quote">${e.lesson}</blockquote>
+          <p class="od-facts">${e.facts.map((f) => html`<span>${f}</span>`)}</p>
         </div>
       </article>`,
     )}</div>
-    <section class="section" style="padding-bottom:40px;text-align:center">
-      <a class="btn" href="/studio" data-link>در استودیو بسازید</a>
-    </section>`);
+    ${statement({ text: 'هر نقشی که در این سه هزار سال دیدید، در استودیو پیش از ساخت دیده می‌شود و وزن طلایش معلوم است.', link: { href: '/studio', text: 'در استودیو بسازید' }, cls: 'od-close' })}
+  </div>`);
+  const unPics = watchPics(root);
+  const unCount = wireCounter($('.od-sticky', root), $$('.od-era', root));
 
   // One offscreen renderer paints every artefact once, so the page never holds more than one WebGL context.
   const host = document.createElement('div');
@@ -121,7 +120,7 @@ export async function historyPage(root) {
     const stage = createStage(host, { controls: false, env: 'studio', transparent: true, backdrop: 'vault' });
     if (!stage) return;
     // each picture as dense as the screen shows its slot (3:2, never under 900×600)
-    const H = Math.max(600, Math.round(($('[data-art="0"]', root)?.clientHeight || 300) * stage.quality.pixelRatio));
+    const H = Math.max(600, Math.round(($('#era-0 .od-art', root)?.clientHeight || 300) * stage.quality.pixelRatio));
     const W = Math.round(H * 1.5);
     for (let i = 0; i < ERAS.length && alive; i++) {
       const a = ERAS[i].art;
@@ -134,14 +133,14 @@ export async function historyPage(root) {
       stage.ground();
       stage.frame(stage.root, { instant: true, pitch: a.kind === 'gem' ? 0.55 : 0.25, yaw: 0.5, pad: 1.1 });
       const { blob } = await stage.snapshot({ width: W, height: H, transparent: true });
-      const slot = $(`[data-art="${i}"]`, root);
+      const slot = $(`#era-${i} .od-art`, root);
       if (!slot || !alive) break;
       const img = new Image();
       img.alt = ERAS[i].title;
       img.src = URL.createObjectURL(blob);
-      img.style.cssText = 'width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 1s';
-      img.onload = () => (img.style.opacity = '1');
-      slot.replaceChildren(img);
+      img.onload = () => slot.classList.add('ready');
+      slot.style.setProperty('--src', `url(${img.src})`);
+      slot.prepend(img);
     }
     stage.dispose();
     host.remove();
@@ -149,7 +148,9 @@ export async function historyPage(root) {
   return () => {
     alive = false;
     host.remove();
-    $$('.era-item img', root).forEach((im) => URL.revokeObjectURL(im.src));
+    unPics();
+    unCount();
+    $$('.od-era img', root).forEach((im) => URL.revokeObjectURL(im.src));
   };
 }
 

@@ -3,6 +3,7 @@
 // counted from the app itself; nothing here is a testimonial or a made-up statistic.
 import { html, fa, api, auth, $, busy, toast } from '../core.mjs';
 import { brandMark, ICON } from '../ui.mjs';
+import { pic, statement, chapters, wireChapters, watchPics } from '../odyssee.mjs';
 
 const FEATURES = [
   ['book', 'حسابداری کامل فروشگاه و فاکتور رسمی', 'فروش، تعویض، خرید مستعمل، سکه و آب‌شده با اجرت درصدی، گرمی یا ثابت؛ هر پول ورودی و خروجی: نقد، کارتخوان، کارت به کارت، ساتنا، پایا، پل، حواله، چک و تسویه طلایی. فاکتور رسمی الگوی طلای سامانه مودیان با شماره منحصربه‌فرد مالیاتی، QR اصالت، نسخه‌های ویرایش و دفتر رویداد ضددستکاری.', () => '۶۵ قالب کالا · ۱۴ روش پرداخت · خروجی اکسل، CSV، JSON و PDF'],
@@ -15,13 +16,13 @@ const FEATURES = [
   ['team', 'مدیریت تیم', 'پیشرفت هر کارمند، آزمون‌ها، کارهای عملی در شعبه با تأیید مدیر، رویه‌های فروشگاه، حضور و غیاب و گزارش.', () => '۴ نقش: فروشنده، مربی، مدیر، مالک'],
   ['orbit', 'اتصال به هوش مصنوعی', 'Claude و دستیارهای سازگار با MCP می‌توانند ابزارهای محاسبه، میز بازار و ماشین‌حساب تقلب همین فروشگاه را به کار ببرند؛ بدون دسترسی به اطلاعات کارکنان.', () => '۱۱ ابزار MCP · توکن قابل ابطال'],
 ];
-const PAINS = [
-  ['حساب‌وکتاب پراکنده', 'فاکتور یک‌جا، دفتر چک جای دیگر، بدهی طلایی مشتری در دفترچه؛ ویرایش سند ردی نمی‌گذارد و آخر ماه مالیات اجرت و سود دستی جمع می‌شود.'],
-  ['سکه و پلمپ تقلبی', 'کارمند تازه‌کار سکه برنجی آب‌طلاکاری‌شده یا بسته بازپلمپ‌شده را نمی‌شناسد؛ یک اشتباه به اندازه سود یک ماه ضرر دارد.'],
-  ['کندی و خطای ثبت آب‌شده', 'هر اپراتور یک‌جور حساب می‌کند؛ مظنه خرید و فروش جابه‌جا می‌شود و آخر روز صندوق و موجودی نمی‌خوانند.'],
-  ['خرید و فروش بی‌نقشه', 'نمی‌دانید امروز کجا بخرید و کجا بفروشید، حباب سکه چقدر است و قیمت داخلی از انس و دلار جلو افتاده یا عقب مانده.'],
-  ['آموزش پرهزینه و فراموش‌شدنی', 'هر کارمند تازه چند هفته وقت مدیر را می‌گیرد و باز هم دانسته‌ها یکسان نیست.'],
-];
+// spec 0043: the paper chapter in the Odyssée manner; each chapter answers a pain of the counter
+const WHY = [
+  ['/promo/halo.webp', 'یک دفتر برای همه‌چیز', 'فاکتور رسمی، دفتر چک، بدهی طلایی مشتری و مالیات اجرت و سود در یک دفتر؛ هر ویرایش ردّ خود را در تاریخچه‌ی سند می‌گذارد.'],
+  ['/promo/coin.webp', 'سکه و پلمپ، بی‌شبهه', 'آزمایشگاه سکه با عکس واقعی، ترازو، کولیس، وزن در آب و احتمال تقلب زنده، تا کارمند تازه‌کار هم سکه‌ی برنجی و پلمپ دست‌خورده را بشناسد.'],
+  ['/promo/bar.webp', 'آب‌شده، بی‌خطا', 'الگوهای ثابت دفتر آب‌شده، تمرین‌گر با زمان‌سنج و ثبت سریع پشت پیشخوان، تا مظنه‌ی خرید و فروش جابه‌جا نشود و صندوق آخر روز بخواند.'],
+  ['/promo/eternity.webp', 'بازار، پیش از دیگران', 'مظنه، دلار، انس و حباب سکه، با نمودار، شاخص‌ها، امواج الیوت و هشدار قیمت؛ تصمیم با خود شماست.'],
+].map(([src, title, text]) => ({ src, title, text }));
 const PACKAGES = [
   ['راه‌اندازی شعبه', ['نصب روی سرور اختصاصی فروشگاه', 'حساب مالک و ورود کارکنان', 'حسابداری کامل، فاکتور رسمی و انبار با بارکد', 'همه دوره‌ها، ابزارها، آزمایشگاه سکه و میز بازار', 'آموزش مدیر برای راه‌اندازی مسیر آموزشی']],
   ['حرفه‌ای', ['هرچه در راه‌اندازی شعبه است', 'اتصال منبع قیمت زنده و قیمت پایه خودکار', 'اتصال دستیار هوش مصنوعی (MCP)', 'بارگذاری عکس سکه‌های مرجع شعبه', 'پشتیبانی و به‌روزرسانی']],
@@ -144,9 +145,15 @@ export async function introPage(root, params = {}) {
       </div>
     </section>
     ${ticker.length ? html`<div class="lux-ticker" aria-label="قیمت‌های بازار"><div class="lux-track">${ticker}${ticker}</div>${counts.sample ? html`<span class="lux-tag">داده نمونه</span>` : ''}</div>` : ''}
+    <div class="od od-intro">
+      ${statement({ text: 'بئاتریس برای طلافروشی‌ای ساخته شده که هر گرمش حساب دارد: فاکتور رسمی، دفتر آب‌شده، سکه و بازار، در یک اپ و روی سرور خود فروشگاه.', sub: 'حساب، آموزش و ابزار پشت پیشخوان در یک جا. هر عدد این صفحه از خود اپ شمرده می‌شود.', link: { href: '/intro/demo', text: 'درخواست نمایش رایگان' }, thumb: { src: '/coins/photos/bahar1358-obv-s.webp', alt: 'سکه‌ی تمام بهار آزادی' } })}
+      ${chapters({ id: 'odWhy', label: 'چرا بئاتریس؟', items: WHY })}
+      ${pic({ src: '/promo/pendant.webp', alt: 'آویز شمسه، ساخته‌ی استودیوی سه‌بعدی بئاتریس', cut: [40, 33], shift: -3, cls: 'od-wide', words: ['حساب', 'دانش', 'بازار'] })}
+      ${statement({ text: 'دانش زرگری را کنار حساب دقیق گذاشتیم تا هر سند همان‌قدر روشن باشد که خودِ طلا.', link: { href: '/intro/features', text: 'همه‌ی امکانات' } })}
+      <div class="od-collage"><span aria-hidden="true"></span><div class="od-collage-side">${pic({ src: '/coins/photos/emami1370-obv-s.webp', alt: 'سکه‌ی تمام امامی', cut: [0, 100], shift: 0, cls: 'od-square', fit: 'contain' })}<p class="od-sub">پاسخ هر پرسش عددی و هر فرمول با همان موتوری وارسی می‌شود که ماشین‌حساب‌ها با آن کار می‌کنند.</p></div>${pic({ src: '/promo/signet.webp', alt: 'انگشتر رکاب‌دار، ساخته‌ی استودیوی سه‌بعدی بئاتریس', cut: [0, 62], shift: 4, cls: 'od-tall' })}</div>
+    </div>
     <div class="intro">
     <section class="lux-stats reveal"><div><b>${fa(counts.courses)}</b><span>دوره</span></div><div><b>${fa(counts.lessons)}</b><span>درس</span></div><div><b>${fa(counts.questions)}</b><span>پرسش با پاسخ وارسی‌شده</span></div><div><b>۳۶</b><span>نمودار و شاخص بازار</span></div></section>
-    <section class="intro-sec"><h2 class="reveal">دردهایی که هر روز پشت ویترین هست</h2><div class="intro-pains">${PAINS.map(([t, d], i) => html`<div class="lux-card reveal" style="--d:${i * 90}ms"><h3>${t}</h3><p>${d}</p></div>`)}</div></section>
     <section class="intro-sec lux-feat-bg" style="--bg:url(/promo/signet.webp)"><h2 class="reveal">بئاتریس چه می‌کند</h2>${featureCards(FEATURES.slice(0, 3))}<p class="lux-more reveal"><a class="btn ghost" href="/intro/features" data-link>همه ${fa(FEATURES.length)} امکان ←</a></p></section>
     <section class="lux-band reveal" style="--bg:url(/promo/name.webp)"><div><h2>اسم مشتری را طلا کنید، پیش از آن‌که ذوب شود</h2><p>پلاک اسم فارسی با وزن دقیق طلا و فایل آماده ریخته‌گری، در چند ثانیه.</p></div></section>
     <section class="intro-sec"><h2 class="reveal">بسته‌ها</h2>${packCards}<p class="lux-more reveal"><a class="btn ghost" href="/intro/packages" data-link>مقایسه کامل بسته‌ها ←</a></p></section>
@@ -186,6 +193,10 @@ export async function introPage(root, params = {}) {
     const d = e.target.closest('[data-slide]');
     if (d) show(Number(d.dataset.slide));
   });
+  // the paper chapter (spec 0043)
+  const why = $('#odWhy', root);
+  const unWhy = why ? wireChapters(why, WHY) : null;
+  const unPics = watchPics(root);
 
   const form = $('#lf', root);
   if (form) {
@@ -216,5 +227,7 @@ export async function introPage(root, params = {}) {
   return () => {
     clearInterval(timer);
     io?.disconnect();
+    unWhy?.();
+    unPics();
   };
 }

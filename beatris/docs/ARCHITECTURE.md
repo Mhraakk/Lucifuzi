@@ -154,6 +154,14 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
   - `signaturePad(canvas)` و `public/js/signdoc.mjs`: امضای مشتری روی سند قطعی، `PUT /api/books/docs/:id/signature` (PNG تا ۲۰۰KB، بدنه تا ۴۰۰KB)، جدول `bk_signatures`، رویداد `doc.sign` با هش PNG در زنجیره. جایگزینی فقط با مدیر. در چاپ (`invoice.mjs`، `sigImg`) در کادر مشتری می‌آید. آزمون: `tests/signature.test.mjs`.
   - `rollTo(el, figure)`: فقط رقم‌های عوض‌شده می‌غلتند. عدد کامل در `.sr` است و واحد بیرون از آن.
   - کد امضای بستن روز در `smart.mjs` همان `codeBox` ورود است (`#clCode`).
+- سبک ویراستاری Odyssée (spec 0043) فقط روی `/intro` و `/history` است:
+  - **بخش مشترک** `public/js/odyssee.mjs`:
+    - `statement`: جمله‌ی بزرگ با تورفتگی سطر اول؛
+    - `chapters` و `wireChapters`: فصل‌های شماره‌دار به شکل tab، با کلیدهای جهت (در RTL چپ یعنی بعدی)، پیشروی خودکار فقط وقتی دیده می‌شود و «توقف»؛
+    - `pic`: عکس با نوار جابه‌جاشده؛ لایه‌ی دوم همان عکس است و `<img>` متن جایگزین را نگه می‌دارد؛
+    - `watchPics` و `wireCounter`: شمارنده‌ی «n : ۹» که فصل روی صفحه را دنبال می‌کند.
+  - **رنگ‌ها** توکن‌های `--od-*` در لایه‌ی آخر `app.css` هستند. فصل `/intro` در هر دو پوسته کاغذی است، چون سایت معرفی یک ظاهر ثابت دارد؛ `/history` با کلاس `od-skin` از پوسته پیروی می‌کند.
+  - **e2e:** گام‌های intro و history.
 - ویترین سکه‌ها (spec 0041)، `/coins/showcase`:
   - **بخش خالص** `public/js/showcasemath.mjs` (`tests/showcase.test.mjs`):
     - `ringPos`: جای کارت روی حلقه؛ طول حلقه دقیقاً N گام است.

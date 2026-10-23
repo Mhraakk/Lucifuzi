@@ -236,10 +236,17 @@ async function loginUI(page, email = EMAIL) {
 
   await step('history', async () => {
     await go(page, '/history', 1000);
-    const eras = await page.$$eval('.era-item', (x) => x.length);
+    const eras = await page.$$eval('.od-era', (x) => x.length);
     check('history: 9 eras', eras === 9, String(eras));
-    await page.waitForFunction(() => document.querySelectorAll('.era-item img').length >= 2, null, { timeout: 90000 });
-    check('history: artefacts rendered by the 3D engine', true);
+    await page.waitForFunction(() => document.querySelectorAll('.od-era img').length >= 2, null, { timeout: 90000 });
+    check('history: artefacts rendered by the 3D engine, each with its shifted strip', await page.$eval('.od-era .od-art', (f) => !!f.querySelector('img') && /url\(/.test(f.style.getPropertyValue('--src'))));
+    // spec 0043: the counter follows the era on screen
+    const counter = () => text(page, '.od-sticky .od-count');
+    const first = await counter();
+    await page.$eval('#era-4', (el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+    await page.waitForTimeout(500);
+    const fifth = await counter();
+    check('history: the counter reads «۱ : ۹» at the top and follows the era on screen', /۱\s*:\s*۹/.test(first) && /۵\s*:\s*۹/.test(fifth), JSON.stringify({ first, fifth }));
   });
 
   await step('library + me + staff', async () => {
@@ -637,6 +644,14 @@ async function loginUI(page, email = EMAIL) {
     await p2.waitForTimeout(1500);
     check('intro: opens without login, with real content counts', /مغز دوم طلافروشی/.test(await text(p2, 'h1')) && /۱۲/.test(await text(p2, '.lux-stats')));
     check('intro: slides, ticker, 3 feature cards, 3 packages, no invented prices', (await p2.$$eval('.lux-slide', (x) => x.length)) === 4 && (await p2.$$eval('.lux-ticker .tk', (x) => x.length)) >= 8 && (await p2.$$eval('.intro-feat', (x) => x.length)) === 3 && (await p2.$$eval('.intro-pack', (x) => x.length)) === 3 && !/تومان/.test(await text(p2, '.intro')));
+    // spec 0043: one paper chapter in the Odyssée manner: the statement's first line indented, four chapter tabs, one chosen
+    const od = await p2.evaluate(() => ({ indent: parseFloat(getComputedStyle(document.querySelector('.od-intro .od-big')).textIndent), tabs: document.querySelectorAll('#odWhy [role=tab]').length, chosen: document.querySelectorAll('#odWhy [role=tab][aria-selected=true]').length }));
+    check('intro: the paper chapter: an indented statement, four chapter tabs, one chosen', od.indent > 20 && od.tabs === 4 && od.chosen === 1, JSON.stringify(od));
+    await p2.click('#odWhy-t2');
+    const third = await p2.evaluate(() => ({ text: document.querySelector('#odWhy-p').textContent, col: document.querySelector('#odWhy').style.getPropertyValue('--col'), count: document.querySelector('#odWhy .od-count').textContent }));
+    await p2.keyboard.press('ArrowLeft'); // in RTL, left is the next chapter
+    const fourth = await p2.evaluate(() => ({ on: document.activeElement?.id, chosen: document.querySelector('#odWhy [aria-selected=true]')?.id }));
+    check('intro: a chapter tab shows its text under it; the left arrow goes to the next one', /آب‌شده/.test(third.text) && third.col === '3' && /۳/.test(third.count) && fourth.on === 'odWhy-t3' && fourth.chosen === 'odWhy-t3', JSON.stringify({ third, fourth }));
     check('intro: nav items are real pages, not same-page anchors', (await p2.$$eval('#luxNav a', (a) => a.map((x) => x.getAttribute('href')).join(' '))) === '/intro /intro/features /intro/packages /intro/demo' && (await p2.$eval('#luxNav a[aria-current=page]', (a) => a.getAttribute('href')).catch(() => '')) === '/intro');
     await p2.click('#luxNav a[href="/intro/features"]');
     await p2.waitForTimeout(1000);
