@@ -10,7 +10,8 @@ import { codeBox, initCodeBox } from '../otp.mjs';
 const toLatin = (s) => String(s ?? '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 /** «09121234567», «+98 912 123 4567», «۹۱۲۱۲۳۴۵۶۷» → 09121234567 (or what was typed, for the server to refuse). */
 export function phoneOf(raw) {
-  const d = toLatin(raw).replace(/\D/g, '');
+  let d = toLatin(raw).replace(/\D/g, '');
+  if (d.startsWith('0098')) d = d.slice(2); // the international 00 prefix: 0098 912 … is +98 912 …
   if (/^989\d{9}$/.test(d)) return `0${d.slice(2)}`;
   if (/^9\d{9}$/.test(d)) return `0${d}`;
   return d;

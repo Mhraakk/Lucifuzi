@@ -6,6 +6,7 @@
 import { MESGHAL_G, MAZANEH_FINENESS } from './calc.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from './coins.mjs';
 import { num, rnd, r3, digitsOnly, BookError, calcPayment, payMethod } from './books.mjs';
+import { mulDiv, quant, sum } from './exact.mjs';
 
 export const TRADE_KINDS = { melt: 'آبشده', coin: 'سکه', bar: 'شمش پلمپ', fx: 'ارز' };
 export const FX_CODES = {
@@ -43,22 +44,26 @@ export const normSerial = (v) =>
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
     .replace(/\s+/g, '')
     .toUpperCase();
-export const roundTo =(x, step = 1) => (step > 1 ? Math.round(x / step) * step : rnd(x));
+/** A decimal rounded half away from zero to a multiple of step, exactly (spec 0045). */
+export const roundTo = (x, step = 1) => quant(x, step);
 
 /* ---------------- gold arithmetic (rial) ---------------- */
 /** Rial price of one gram of 750 from the rial مظنه (price of one mesghal of 705 gold). */
 export const g750FromMazaneh = (mazR) => (num(mazR) * 750) / (MESGHAL_G * MAZANEH_FINENESS);
 export const mazanehFromG750 = (g750R) => (num(g750R) * MESGHAL_G * MAZANEH_FINENESS) / 750;
 /** Weight equivalents of a piece: 750-grams (the account unit), mesghals of 705, pure grams. */
-export const equivalents = (w, f) => ({ eq750: r3((w * f) / 750), mesghal: r3((w * f) / MAZANEH_FINENESS / MESGHAL_G), pure: r3((w * f) / 1000) });
+export const equivalents = (w, f) => ({ eq750: mulDiv([w, f], [750], 0.001), mesghal: mulDiv([w, f], [MAZANEH_FINENESS, MESGHAL_G], 0.001), pure: mulDiv([w, f], [1000], 0.001) });
 
-/** Price of gold by its basis: مظنه, price of a gram of 750, or an agreed total. */
+/**
+ * Price of gold by its basis: مظنه, price of a gram of 750, or an agreed total. Exact (spec 0045): by مظنه the value is
+ * eq750 × مظنه × 750 ÷ (4.6083 × 705), one fraction, rounded once to the step.
+ */
 function goldValue(l, eq750, step) {
   const basis = l.basis ?? 'mazaneh';
-  if (basis === 'amount') return rnd(pos(l.amount, 'مبلغ توافقی'));
-  if (basis === 'gram750') return roundTo(eq750 * pos(l.g750, 'قیمت گرم ۷۵۰'), step);
+  if (basis === 'amount') return quant(pos(l.amount, 'مبلغ توافقی'));
+  if (basis === 'gram750') return mulDiv([eq750, pos(l.g750, 'قیمت گرم ۷۵۰')], [], step);
   need(basis === 'mazaneh', 'مبنای قیمت نامعتبر است.');
-  return roundTo(eq750 * g750FromMazaneh(pos(l.mazaneh, 'مظنه')), step);
+  return mulDiv([eq750, pos(l.mazaneh, 'مظنه'), 750], [MESGHAL_G, MAZANEH_FINENESS], step);
 }
 
 /**
@@ -71,7 +76,7 @@ export function tradeLine(l, { round = 10000 } = {}) {
   const priced = l.priced !== false;
   const o = { kind: l.kind, dir, priced, value: 0, fee: 0, eq750: 0, mesghal: 0, pure: 0, weight: 0, fineness: 0, count: 0, unit: '', amt: 0, stock: '', impliedMazaneh: 0 };
   if (l.kind === 'melt' || l.kind === 'bar') {
-    o.weight = r3(pos(l.weight, 'وزن', 1e6));
+    o.weight = quant(pos(l.weight, 'وزن', 1e6), 0.001);
     o.fineness = fineness(l.fineness ?? 750);
     Object.assign(o, equivalents(o.weight, o.fineness));
     if (l.kind === 'melt') {
@@ -90,14 +95,16 @@ export function tradeLine(l, { round = 10000 } = {}) {
     if (priced) {
       o.value = goldValue(l, o.eq750, round);
       if (l.kind === 'bar' && l.fee) {
-        o.fee = rnd(num(l.fee));
-        need(Number.isFinite(o.fee) && o.fee >= 0, 'اجرت پلمپ نامعتبر است.');
+        const fee = num(l.fee);
+        need(Number.isFinite(fee), 'اجرت پلمپ نامعتبر است.');
+        o.fee = quant(fee);
+        need(o.fee >= 0, 'اجرت پلمپ نامعتبر است.');
         o.value += o.fee;
       }
-      o.impliedMazaneh = rnd(mazanehFromG750((o.value - o.fee) / o.eq750));
+      o.impliedMazaneh = o.eq750 ? mulDiv([o.value - o.fee, MESGHAL_G, MAZANEH_FINENESS], [o.eq750, 750]) : 0;
       o.basis = l.basis ?? 'mazaneh';
-      if (o.basis === 'mazaneh') o.mazaneh = rnd(num(l.mazaneh)); // the rate agreed at the counter, as typed
-      if (o.basis === 'gram750') o.g750Price = rnd(num(l.g750));
+      if (o.basis === 'mazaneh') o.mazaneh = quant(num(l.mazaneh)); // the rate agreed at the counter, as typed
+      if (o.basis === 'gram750') o.g750Price = quant(num(l.g750));
     }
   } else if (l.kind === 'coin') {
     need(COIN_TYPES[l.coin], 'نوع سکه نامعتبر است.');
@@ -109,21 +116,21 @@ export function tradeLine(l, { round = 10000 } = {}) {
     o.stock = `coin:${l.coin}`;
     if (priced) {
       const basis = l.basis ?? 'count';
-      if (basis === 'count') o.value = o.count * rnd(pos(l.price, 'قیمت هر سکه'));
+      if (basis === 'count') o.value = o.count * quant(pos(l.price, 'قیمت هر سکه'));
       else if (basis === 'weight') {
-        o.weight = r3(pos(l.weight, 'وزن سکه‌ها', 1e5));
-        o.value = roundTo(o.weight * pos(l.gramPrice, 'قیمت هر گرم'), round);
-      } else if (basis === 'amount') o.value = rnd(pos(l.amount, 'مبلغ توافقی'));
+        o.weight = quant(pos(l.weight, 'وزن سکه‌ها', 1e5), 0.001);
+        o.value = mulDiv([o.weight, pos(l.gramPrice, 'قیمت هر گرم')], [], round);
+      } else if (basis === 'amount') o.value = quant(pos(l.amount, 'مبلغ توافقی'));
       else throw new BookError('مبنای قیمت سکه نامعتبر است.');
     }
   } else {
     const code = String(l.code ?? '').toUpperCase();
     need(FX_CODES[code], 'نوع ارز نامعتبر است.');
     o.code = code;
-    o.amt = Math.round(pos(l.fxAmount, 'مقدار ارز', 1e12) * 100) / 100;
+    o.amt = quant(pos(l.fxAmount, 'مقدار ارز', 1e12), 0.01);
     o.unit = `FX:${code}`;
     o.stock = `fx:${code}`;
-    if (priced) o.value = rnd(o.amt * pos(l.rate, 'نرخ ارز'));
+    if (priced) o.value = mulDiv([o.amt, pos(l.rate, 'نرخ ارز')]);
   }
   return o;
 }
@@ -163,7 +170,7 @@ export function calcTrade(doc, { round = 10000 } = {}) {
   for (const l of lines) if (!l.priced) goods[l.unit] = r(goods[l.unit], (l.dir === 'out' ? 1 : -1) * l.amt, l.unit);
   return { type: 'trade', lines, payments, sells, buys, net, paidIn, paidOut, credit: net - paidIn + paidOut, goods, round: step, sales: sells, tradeIn: buys, vat: 0, creditUnit: 'IRR', creditG: 0 };
 }
-const r = (a, b, unit) => (unit === 'G750' ? r3((a ?? 0) + b) : Math.round(((a ?? 0) + b) * 100) / 100);
+const r = (a, b, unit) => sum([a ?? 0, b], unit === 'G750' ? 0.001 : 0.01);
 
 /** Units a customer account can hold. */
 export function validUnit(u) {
@@ -172,13 +179,13 @@ export function validUnit(u) {
 const qty = (u, v, label) => {
   const x = num(v);
   need(Number.isFinite(x) && x !== 0, `${label} نامعتبر است.`);
-  if (u === 'IRR') return rnd(x);
-  if (u === 'G750') return r3(x);
+  if (u === 'IRR') return quant(x);
+  if (u === 'G750') return quant(x, 0.001);
   if (u.startsWith('COIN:') || u.startsWith('BAR:')) {
     need(Number.isInteger(x), 'تعداد باید عدد صحیح باشد.');
     return x;
   }
-  return Math.round(x * 100) / 100;
+  return quant(x, 0.01);
 };
 
 /** حواله: one customer's balance moves to another (A becomes debtor by the amount, B creditor). */
@@ -201,8 +208,8 @@ function calcConvert(doc, step) {
   need(!c.unit.startsWith('BAR:'), 'شمش پلمپ را با ردیف فروش یا خرید تبدیل کنید.');
   const amount = qty(c.unit, c.amount, 'مقدار');
   let value;
-  if (c.unit === 'G750') value = c.basis === 'gram750' ? roundTo(Math.abs(amount) * pos(c.g750, 'قیمت گرم ۷۵۰'), step) : roundTo(Math.abs(amount) * g750FromMazaneh(pos(c.mazaneh, 'مظنه')), step);
-  else value = rnd(Math.abs(amount) * pos(c.price, 'نرخ'));
+  if (c.unit === 'G750') value = c.basis === 'gram750' ? mulDiv([Math.abs(amount), pos(c.g750, 'قیمت گرم ۷۵۰')], [], step) : mulDiv([Math.abs(amount), pos(c.mazaneh, 'مظنه'), 750], [MESGHAL_G, MAZANEH_FINENESS], step);
+  else value = mulDiv([Math.abs(amount), pos(c.price, 'نرخ')]);
   const s = Math.sign(amount);
   return { type: 'convert', lines: [], payments: [], convert: { unit: c.unit, amount, value }, net: s * value, paidIn: 0, paidOut: 0, credit: s * value, sales: 0, tradeIn: 0, vat: 0, creditUnit: 'IRR', creditG: 0 };
 }
@@ -220,7 +227,7 @@ function calcWriteoff(doc) {
   if (w.unit === 'IRR') o.value = amount;
   if (w.unit.startsWith('BAR:')) {
     need(Math.abs(amount) === 1, 'هر شمش یک عدد است.');
-    if (num(w.eq750) > 0) o.eq750 = r3(num(w.eq750));
+    if (num(w.eq750) > 0) o.eq750 = quant(num(w.eq750), 0.001);
   }
   return { type: 'writeoff', lines: [], payments: [], writeoff: o, net: 0, paidIn: 0, paidOut: 0, credit: 0, sales: 0, tradeIn: 0, vat: 0, creditUnit: 'IRR', creditG: 0 };
 }
@@ -236,14 +243,14 @@ function calcTransform(doc) {
       const o = tradeLine({ ...l, priced: false });
       need(o.kind !== 'fx', 'ارز ذوب نمی‌شود.');
       if (o.dir === 'in') need(o.kind !== 'coin', 'از ذوب، آبشده یا شمش بیرون می‌آید، نه سکه.');
-      if (o.kind === 'coin') o.eq750 = r3(o.count * coinEq750(o.coin));
+      if (o.kind === 'coin') o.eq750 = mulDiv([o.count, COIN_TYPES[o.coin].weight, COIN_TYPES[o.coin].fineness], [750], 0.001);
       return o;
     } catch (e) {
       throw e instanceof BookError ? new BookError(`ردیف ${i + 1}: ${e.message}`) : e;
     }
   });
-  const inputs = r3(lines.filter((l) => l.dir === 'out').reduce((s, l) => s + l.eq750, 0));
-  const outputs = r3(lines.filter((l) => l.dir === 'in').reduce((s, l) => s + l.eq750, 0));
+  const inputs = sum(lines.filter((l) => l.dir === 'out').map((l) => l.eq750), 0.001);
+  const outputs = sum(lines.filter((l) => l.dir === 'in').map((l) => l.eq750), 0.001);
   need(inputs > 0, 'آنچه به ذوب می‌رود (خروج از گاوصندوق) را وارد کنید.');
   need(outputs > 0, 'آنچه از ذوب برمی‌گردد (ورود به گاوصندوق) را وارد کنید.');
   // a melting neither doubles gold nor loses half of it: such a figure is a typing mistake
@@ -260,7 +267,7 @@ function calcTransform(doc) {
     }
   });
   const paidOut = payments.reduce((s, p) => s + p.value, 0);
-  return { type: 'transform', lines, payments, inputs, outputs, wastage: r3(inputs - outputs), fee: paidOut, net: 0, paidIn: 0, paidOut, credit: 0, sales: 0, tradeIn: 0, vat: 0, creditUnit: 'IRR', creditG: 0 };
+  return { type: 'transform', lines, payments, inputs, outputs, wastage: sum([inputs, -outputs], 0.001), fee: paidOut, net: 0, paidIn: 0, paidOut, credit: 0, sales: 0, tradeIn: 0, vat: 0, creditUnit: 'IRR', creditG: 0 };
 }
 
 /**

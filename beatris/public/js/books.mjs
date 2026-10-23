@@ -15,6 +15,7 @@
 import { MAZANEH_FINENESS, MESGHAL_G } from './calc.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from './coins.mjs';
 import { calcTrade, tradePostings, TRADE_DOCS } from './trade.mjs';
+import { mulDiv, sum as exactSum } from './exact.mjs';
 
 /* ---------------- numbers ---------------- */
 const FA = '۰۱۲۳۴۵۶۷۸۹';
@@ -38,7 +39,10 @@ export const digitsOnly = (v) =>
 /** Round half away from zero (Math.round rounds −0.5 up, which would make refunds differ from sales by a rial). */
 export const rnd = (x) => Math.sign(x) * Math.round(Math.abs(x));
 export const r3 = (x) => rnd(x * 1000) / 1000;
-export const toRial = (toman) => rnd(num(toman) * 10);
+/** Π nums ÷ Π dens rounded exactly (spec 0045); NaN when an input is not a number, so the validation that follows refuses it. */
+export const exact = (nums, dens = [], step = 1) => ([...nums, ...dens].every(Number.isFinite) ? mulDiv(nums, dens, step) : NaN);
+/** Toman (as typed) to whole rials, exactly. */
+export const toRial = (toman) => exact([num(toman), 10]);
 export const toToman = (rial) => rial / 10;
 
 /* ---------------- identifiers (official check digits) ---------------- */
@@ -91,7 +95,8 @@ export function validSheba(v) {
 }
 export const validMobile = (v) => /^09\d{9}$/.test(normalizeMobile(v));
 export function normalizeMobile(v) {
-  const d = digitsOnly(v);
+  let d = digitsOnly(v);
+  if (d.startsWith('0098')) d = d.slice(2); // the international 00 prefix: 0098 912 … is +98 912 …
   if (/^9809\d{9}$/.test(d)) return d.slice(2);
   if (/^989\d{9}$/.test(d)) return `0${d.slice(2)}`;
   if (/^9\d{9}$/.test(d)) return `0${d}`;
@@ -289,12 +294,12 @@ const fin = (v, label) => {
 };
 
 /** Rial price of one gram at a fineness from the toman price of one gram of 750. */
-export const feePerGram = (p750, fineness) => rnd((num(p750) * 10 * num(fineness)) / 750);
+export const feePerGram = (p750, fineness) => exact([num(p750), 10, num(fineness)], [750]);
 /** Molten gold, the ledger's order: 750-equivalent rounded to 3 decimals, priced, rounded to 1000 toman. */
 export const meltValueRial = (w, fineness, mazaneh) => {
-  const eq = r3((num(w) * num(fineness)) / 750);
-  const g18 = (num(mazaneh) * 750) / (MESGHAL_G * MAZANEH_FINENESS);
-  return Math.round((eq * g18) / 1000) * 10000;
+  const eq = exact([num(w), num(fineness)], [750], 0.001);
+  // eq × مظنه × 750 ÷ (4.6083 × 705) toman, × 10 rials, to the nearest 1000 toman: one exact fraction (spec 0045)
+  return exact([eq, num(mazaneh), 750, 10], [MESGHAL_G, MAZANEH_FINENESS], 10000);
 };
 
 /**
@@ -312,28 +317,28 @@ export function calcLine(line, { vatPct = 10 } = {}) {
     const w = pos(line.weight, 'وزن', { max: 1e5 });
     const f = fin(line.fineness ?? 750, 'کالا');
     const p750 = pos(line.p750, 'قیمت هر گرم ۱۸ عیار', { max: 1e11 });
-    o.weight = r3(w);
+    o.weight = exact([w], [], 0.001);
     o.fineness = f;
     o.fee = feePerGram(p750, f);
     o.am = o.weight;
-    o.principal = rnd(o.weight * o.fee);
+    o.principal = exact([o.weight, o.fee]);
     const mode = line.ojratMode ?? 'pct';
     const oj = opt(line.ojrat, 0);
     need(Number.isFinite(oj) && oj >= 0, 'اجرت نامعتبر است.');
     if (mode === 'pct') {
       need(oj <= 300, 'درصد اجرت بیش از ۳۰۰٪ است.');
-      o.consfee = rnd((o.principal * oj) / 100);
-    } else if (mode === 'gram') o.consfee = rnd(o.weight * oj * 10);
-    else if (mode === 'fixed') o.consfee = rnd(oj * 10);
+      o.consfee = exact([o.principal, oj], [100]);
+    } else if (mode === 'gram') o.consfee = exact([o.weight, oj, 10]);
+    else if (mode === 'fixed') o.consfee = exact([oj, 10]);
     else throw new BookError('نوع اجرت نامعتبر است.');
     const pp = opt(line.profitPct, 7);
     need(Number.isFinite(pp) && pp >= 0 && pp <= 100, 'درصد سود نامعتبر است.');
-    o.spro = rnd(((o.principal + o.consfee) * pp) / 100);
-    o.bros = rnd(opt(line.bros, 0) * 10);
+    o.spro = exact([o.principal + o.consfee, pp], [100]);
+    o.bros = exact([opt(line.bros, 0), 10]);
     need(o.bros >= 0, 'حق‌العمل نامعتبر است.');
-    o.stones = rnd(opt(line.stones, 0) * 10);
+    o.stones = exact([opt(line.stones, 0), 10]);
     need(o.stones >= 0, 'مبلغ سنگ نامعتبر است.');
-    o.discount = rnd(opt(line.discount, 0) * 10);
+    o.discount = exact([opt(line.discount, 0), 10]);
     need(o.discount >= 0, 'تخفیف نامعتبر است.');
     need(o.discount <= o.spro + o.consfee, 'تخفیف بیش از اجرت و سود است؛ ارزش طلا را نمی‌توان تخفیف داد.');
     const fromProfit = Math.min(o.discount, o.spro);
@@ -341,7 +346,7 @@ export function calcLine(line, { vatPct = 10 } = {}) {
     o.consfee -= o.discount - fromProfit;
     o.tcpbs = o.consfee + o.spro + o.bros;
     o.vra = vatRate;
-    o.vat = rnd((o.tcpbs * vatRate) / 100);
+    o.vat = exact([o.tcpbs, vatRate], [100]);
     o.total = o.principal + o.stones + o.tcpbs + o.vat;
   } else if (kind === 'coin') {
     const c = COIN_TYPES[line.coin];
@@ -352,19 +357,19 @@ export function calcLine(line, { vatPct = 10 } = {}) {
     o.coin = line.coin;
     o.count = n;
     o.am = n;
-    o.fee = rnd(price * 10);
+    o.fee = exact([price, 10]);
     o.principal = n * o.fee;
     o.total = o.principal;
   } else if (kind === 'melt') {
     const w = pos(line.weight, 'وزن', { max: 1e6 });
     const f = fin(line.fineness, 'آب‌شده');
     const maz = pos(line.mazaneh, 'مظنه', { max: 1e12 });
-    o.weight = r3(w);
+    o.weight = exact([w], [], 0.001);
     o.fineness = f;
     o.am = o.weight;
     o.principal = meltValueRial(o.weight, f, maz);
-    o.fee = o.weight ? rnd(o.principal / o.weight) : 0;
-    o.g750 = r3((o.weight * f) / 750);
+    o.fee = o.weight ? exact([o.principal], [o.weight]) : 0;
+    o.g750 = exact([o.weight, f], [750], 0.001);
     o.total = o.principal;
   } else if (kind === 'used') {
     need(side === 'in', 'طلای مستعمل فقط خریده می‌شود.');
@@ -375,34 +380,34 @@ export function calcLine(line, { vatPct = 10 } = {}) {
     const p750 = pos(line.p750, 'قیمت خرید هر گرم ۱۸', { max: 1e11 });
     const ded = opt(line.deductPct, 0);
     need(Number.isFinite(ded) && ded >= 0 && ded < 100, 'درصد کسر نامعتبر است.');
-    o.weight = r3(w - sw);
+    o.weight = exactSum([w, -sw], 0.001);
     o.fineness = f;
     o.am = o.weight;
     o.fee = feePerGram(p750, f);
-    const gross = rnd(o.weight * o.fee);
-    o.discount = rnd((gross * ded) / 100);
+    const gross = exact([o.weight, o.fee]);
+    o.discount = exact([gross, ded], [100]);
     o.principal = gross - o.discount;
-    o.g750 = r3((o.weight * f) / 750);
+    o.g750 = exact([o.weight, f], [750], 0.001);
     o.total = o.principal;
   } else if (kind === 'service') {
     const amt = pos(line.amount, 'مبلغ خدمت', { max: 1e11 });
     need(side === 'out', 'خدمت فقط فروخته می‌شود.');
     o.am = 1;
-    o.consfee = rnd(amt * 10); // a service is labour: it is the making-charge field of the gold pattern
+    o.consfee = exact([amt, 10]); // a service is labour: it is the making-charge field of the gold pattern
     o.tcpbs = o.consfee;
     o.vra = vatRate;
-    o.vat = rnd((o.tcpbs * vatRate) / 100);
+    o.vat = exact([o.tcpbs, vatRate], [100]);
     o.total = o.tcpbs + o.vat;
   } else if (kind === 'goods') {
     const q = pos(line.qty ?? 1, 'تعداد', { max: 1e6 });
     const price = pos(line.price, 'قیمت واحد', { max: 1e11 });
     o.am = q;
-    o.fee = rnd(price * 10);
-    o.principal = rnd(q * o.fee);
-    o.discount = rnd(opt(line.discount, 0) * 10);
+    o.fee = exact([price, 10]);
+    o.principal = exact([q, o.fee]);
+    o.discount = exact([opt(line.discount, 0), 10]);
     need(o.discount >= 0 && o.discount <= o.principal, 'تخفیف نامعتبر است.');
     o.vra = vatRate;
-    o.vat = rnd(((o.principal - o.discount) * vatRate) / 100); // ordinary goods: VAT on the whole price
+    o.vat = exact([o.principal - o.discount, vatRate], [100]); // ordinary goods: VAT on the whole price
     o.total = o.principal - o.discount + o.vat;
   } else throw new BookError('نوع ردیف نامعتبر است.');
   return o;
@@ -509,7 +514,7 @@ export function calcDoc(doc, { vatPct = 10, round = 10000 } = {}) {
   let creditG = 0;
   if (credit && creditUnit === 'G750') {
     const p = pos(doc.creditP750, 'قیمت گرم ۱۸ برای تبدیل نسیه به طلا', { max: 1e11 });
-    creditG = r3(credit / (p * 10));
+    creditG = exact([credit], [p, 10], 0.001);
   }
   // tax-system settlement: setm 1 cash, 2 credit, 3 both; cap/insp are the paid and unpaid parts of the bill
   const bill = doc.type === 'sale' ? S.sales : 0;
@@ -527,8 +532,8 @@ export function calcPayment(p, docType) {
     const w = pos(p.weight, 'وزن طلا', { max: 1e6 });
     const f = fin(p.fineness ?? 750, 'طلا');
     const p750 = pos(p.p750, 'قیمت گرم ۱۸ تسویه', { max: 1e11 });
-    o.g750 = r3((w * f) / 750);
-    o.value = rnd(o.g750 * p750 * 10);
+    o.g750 = exact([w, f], [750], 0.001);
+    o.value = exact([o.g750, p750, 10]);
   } else if (m.id === 'coin') {
     need(COIN_TYPES[p.coin], 'نوع سکه نامعتبر است.');
     const n = pos(p.count, 'تعداد سکه', { max: 1e6 });
@@ -536,9 +541,9 @@ export function calcPayment(p, docType) {
     const price = pos(p.price, 'قیمت هر سکه', { max: 1e11 });
     o.coin = p.coin;
     o.count = n;
-    o.value = n * rnd(price * 10);
+    o.value = n * exact([price, 10]);
   } else {
-    o.value = rnd(pos(p.amount, 'مبلغ', { max: 1e12 }) * 10);
+    o.value = exact([pos(p.amount, 'مبلغ', { max: 1e12 }), 10]);
   }
   if (m.card && p.card) need(validCard(p.card) || /^\d{4}$/.test(digitsOnly(p.card)), 'شماره کارت نامعتبر است (۱۶ رقم یا ۴ رقم آخر).');
   if (m.sheba && p.sheba) need(validSheba(p.sheba), 'شماره شبا نامعتبر است.');
@@ -766,7 +771,7 @@ export function words(n) {
   const teens = ['ده', 'یازده', 'دوازده', 'سیزده', 'چهارده', 'پانزده', 'شانزده', 'هفده', 'هجده', 'نوزده'];
   const tens = ['', '', 'بیست', 'سی', 'چهل', 'پنجاه', 'شصت', 'هفتاد', 'هشتاد', 'نود'];
   const hundreds = ['', 'یکصد', 'دویست', 'سیصد', 'چهارصد', 'پانصد', 'ششصد', 'هفتصد', 'هشتصد', 'نهصد'];
-  const scales = ['', 'هزار', 'میلیون', 'میلیارد', 'هزار میلیارد'];
+  const scales = ['', 'هزار', 'میلیون', 'میلیارد', 'هزار میلیارد', 'میلیون میلیارد']; // up to 10^18, past every amount the books allow
   const three = (x) => {
     const p = [];
     if (x >= 100) p.push(hundreds[Math.floor(x / 100)]);

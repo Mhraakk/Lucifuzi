@@ -19,11 +19,33 @@ const pick = (a) => a[Math.floor(rnd() * a.length)];
 const int = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
 
 // the oracle: the market formulas written out again, independently of public/js
-const r3 = (x) => Math.round(x * 1000) / 1000;
-const meltValue = (w, f, mz, step = 10000) => {
-  const eq = r3((r3(w) * f) / 750);
-  return Math.round((eq * ((mz * 750) / (4.6083 * 705))) / step) * step;
+const r3 = (x) => Math.round(x * 1000) / 1000; // sums of figures already on the 0.001 grid
+// spec 0045: products are exact decimal fractions, rounded once, half away from zero (written apart from exact.mjs)
+const D = (x) => {
+  const [i, f = ''] = String(x).split('.');
+  return [BigInt(i + f), f.length];
 };
+function X(nums, dens = [], step = 1) {
+  let n = 1n, d = 1n;
+  for (const x of nums) {
+    const [m, s] = D(x);
+    (n *= m), (d *= 10n ** BigInt(s));
+  }
+  for (const x of dens) {
+    const [m, s] = D(x);
+    (d *= m), (n *= 10n ** BigInt(s));
+  }
+  const [sm, ss] = D(step);
+  (n *= 10n ** BigInt(ss)), (d *= sm);
+  const neg = n < 0n !== d < 0n;
+  if (n < 0n) n = -n;
+  if (d < 0n) d = -d;
+  let q = n / d;
+  if ((n % d) * 2n >= d) q += 1n;
+  return (Number(neg ? -q : q) * Number(sm)) / 10 ** ss;
+}
+const eqOf = (w, f) => X([X([w], [], 0.001), f], [750], 0.001);
+const meltValue = (w, f, mz, step = 10000) => X([eqOf(w, f), mz, 750], [4.6083, 705], step);
 
 let server, base, db, M;
 const call = async (method, p, body) => {
@@ -59,7 +81,6 @@ function effectOf(body) {
   // what the document does, computed from its inputs only
   const e = { gold: 0, coins: {}, fx: {}, barsIn: [], barsOut: [], cash: 0, party: {}, other: {}, income: 0, expense: 0, woIRR: 0 };
   const P = body.partyId;
-  const eqOf = (w, f) => r3((r3(w) * f) / 750);
   if (body.type === 'writeoff') {
     // the balance shrinks toward zero; nothing physical moves
     const w = body.writeoff;
@@ -85,7 +106,7 @@ function effectOf(body) {
       if (p.method === 'gold') {
         const g = eqOf(p.weight, p.fineness);
         e.gold = r3(e.gold + k * g);
-        e[body.type] += Math.round(g * p.p750 * 10);
+        e[body.type] += X([g, p.p750, 10]);
       } else {
         e.cash += k * p.amount * 10;
         e[body.type] += p.amount * 10;
@@ -102,7 +123,7 @@ function effectOf(body) {
   }
   if (body.type === 'convert') {
     const c = body.convert, s = Math.sign(c.amount);
-    const value = Math.round((Math.abs(c.amount) * ((c.mazaneh * 750) / (4.6083 * 705))) / 10000) * 10000;
+    const value = X([X([Math.abs(c.amount)], [], 0.001), c.mazaneh, 750], [4.6083, 705], 10000);
     addTo(e.party, 'G750', -c.amount, r3);
     addTo(e.party, 'IRR', s * value);
     return { e, P };
@@ -111,7 +132,7 @@ function effectOf(body) {
   for (const l of body.lines) {
     const k = l.dir === 'in' ? 1 : -1;
     if (l.kind === 'melt') {
-      const eq = r3((r3(l.weight) * l.fineness) / 750);
+      const eq = eqOf(l.weight, l.fineness);
       e.gold = r3(e.gold + k * eq);
       if (l.priced === false) addTo(e.party, 'G750', -k * eq, r3);
       else net += -k * meltValue(l.weight, l.fineness, l.mazaneh);
@@ -121,7 +142,7 @@ function effectOf(body) {
       else net += -k * l.count * l.price;
     } else if (l.kind === 'fx') {
       addTo(e.fx, l.code, k * l.fxAmount, (x) => Math.round(x * 100) / 100);
-      net += -k * Math.round(l.fxAmount * l.rate);
+      net += -k * X([l.fxAmount, l.rate]);
     } else if (l.kind === 'bar') {
       (k > 0 ? e.barsIn : e.barsOut).push(l.serial);
       net += -k * meltValue(l.weight, l.fineness, l.mazaneh);
@@ -167,10 +188,10 @@ function randomDoc(parties) {
     const dir = pick(['in', 'out']);
     if (kind === 'melt') lines.push({ kind, dir, weight: Math.round((0.1 + rnd() * 80) * 1000) / 1000, fineness: pick([750, 740, 705, 900, 995, 585]), mazaneh: int(300, 520) * 1e6, ...(rnd() < 0.2 ? { priced: false } : {}) });
     else if (kind === 'coin') lines.push({ kind, dir, coin: pick(COINS), count: int(1, 6), price: int(100, 1200) * 1e6, ...(rnd() < 0.15 ? { priced: false } : {}) });
-    else if (kind === 'fx') lines.push({ kind, dir, code: pick(FX), fxAmount: Math.round(rnd() * 5000 * 100) / 100 + 1, rate: int(400000, 900000) });
+    else if (kind === 'fx') lines.push({ kind, dir, code: pick(FX), fxAmount: Math.round((rnd() * 5000 + 1) * 100) / 100, rate: int(400000, 900000) });
     else if (dir === 'in' || !barsIn().length) {
       const weight = pick([100, 50, 250]);
-      model.barEq[`FZ-${++barNo}`] = r3((weight * 995) / 750);
+      model.barEq[`FZ-${++barNo}`] = X([weight, 995], [750], 0.001);
       model.barW[`FZ-${barNo}`] = weight;
       lines.push({ kind, dir: 'in', serial: `FZ-${barNo}`, weight, fineness: 995, mazaneh: int(300, 520) * 1e6 });
     }
@@ -196,13 +217,13 @@ function randomMelt() {
   }
   const w = Math.round((5 + rnd() * 120) * 1000) / 1000, f = pick([750, 740, 705, 900, 585]);
   lines.push({ kind: 'melt', dir: 'out', weight: w, fineness: f });
-  eqIn += r3((r3(w) * f) / 750);
+  eqIn += eqOf(w, f);
   if (eqIn >= 30 && rnd() < 0.3) lines.push({ kind: 'coin', dir: 'out', coin: pick(COINS), count: 1 });
   const back = r3(eqIn * (0.95 + rnd() * 0.05));
   if (back >= 60 && rnd() < 0.4) {
     // a new sealed bar of 995 holding what came back
     const bw = Math.round(((back * 750) / 995) * 1000) / 1000;
-    model.barEq[`FZ-${++barNo}`] = r3((r3(bw) * 995) / 750);
+    model.barEq[`FZ-${++barNo}`] = eqOf(bw, 995);
     model.barW[`FZ-${barNo}`] = bw;
     lines.push({ kind: 'bar', dir: 'in', serial: `FZ-${barNo}`, weight: bw, fineness: 995, brand: 'آزمون' });
   } else lines.push({ kind: 'melt', dir: 'in', weight: back, fineness: 750 });
@@ -292,9 +313,9 @@ test(`fuzz: ${N} random operations through the API equal an independent model`, 
         const [a, b] = [pick(parties), pick(parties)];
         if (a === b) continue;
         const unit = pick(['IRR', 'G750']);
-        body = { type: 'hawala', date: ago(int(0, 30)), hawala: { from: a, to: b, unit, amount: unit === 'IRR' ? int(1, 900) * 1e6 : Math.round(rnd() * 40 * 1000) / 1000 + 0.001 } };
+        body = { type: 'hawala', date: ago(int(0, 30)), hawala: { from: a, to: b, unit, amount: unit === 'IRR' ? int(1, 900) * 1e6 : Math.round((rnd() * 40 + 0.001) * 1000) / 1000 } };
       } else if (kind < 0.13) {
-        body = { type: 'convert', date: ago(int(0, 30)), partyId: pick(parties), convert: { unit: 'G750', amount: (rnd() < 0.5 ? -1 : 1) * (Math.round(rnd() * 20 * 1000) / 1000 + 0.001), mazaneh: int(300, 520) * 1e6 } };
+        body = { type: 'convert', date: ago(int(0, 30)), partyId: pick(parties), convert: { unit: 'G750', amount: (rnd() < 0.5 ? -1 : 1) * (Math.round((rnd() * 20 + 0.001) * 1000) / 1000), mazaneh: int(300, 520) * 1e6 } };
       } else if (kind < 0.17) {
         // سوخت: part or all of one customer's balance in one unit, toward zero
         const cand = parties.flatMap((p) => Object.entries(model.party[p] ?? {}).filter(([u, v]) => ['IRR', 'G750'].includes(u) || u.startsWith('COIN:') ? Math.abs(v) >= (u === 'G750' ? 0.002 : 1) : false).map(([u, v]) => [p, u, v]));

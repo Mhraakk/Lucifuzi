@@ -2,6 +2,7 @@
 // fast, and a generator of realistic counter trades for the ledger trainer. Shared by browser, server and tests.
 // Constants come from calc.mjs so every screen of the app agrees to the last digit.
 import { MESGHAL_G, MAZANEH_FINENESS, MAZANEH_TO_G750, rng, fmt } from './calc.mjs';
+import { mulDiv, sum } from './exact.mjs';
 
 /* ---------------- arithmetic ---------------- */
 export const eq750 = (w, ayar) => (w * ayar) / 750; // grams of 18 k (750) equivalent
@@ -12,8 +13,12 @@ export const valueOf = (w, ayar, maz) => eq750(w, ayar) * gram18(maz);
 /** House rules of the ledger: grams to 3 decimals, money to the nearest thousand toman. */
 export const r3 = (x) => Math.round(x * 1000) / 1000;
 export const rT = (x) => Math.round(x / 1000) * 1000;
+/** The ledger's 750-equivalent, rounded to 3 decimals exactly (spec 0045): 1.047 g at 875 is 1.222, never 1.221. */
+export const ledgerEq = (w, ayar) => mulDiv([w, ayar], [750], 0.001);
+/** Grams of 750 priced at a مظنه, to the nearest thousand toman, as one exact fraction. */
+export const ledgerPrice = (eq, maz) => mulDiv([eq, maz, 750], [MESGHAL_G, MAZANEH_FINENESS], 1000);
 /** The ledger's own order of operations: round the 750-equivalent first, then price it. */
-export const ledgerValue = (w, ayar, maz) => rT(r3(eq750(w, ayar)) * gram18(maz));
+export const ledgerValue = (w, ayar, maz) => ledgerPrice(ledgerEq(w, ayar), maz);
 
 /** Coefficients a counter keeps in mind: 750-equivalent = weight × factor. */
 export const AYAR_FACTORS = [705, 720, 730, 735, 740, 745, 750, 760, 900, 995, 999.9].map((ayar) => ({ ayar, factor: ayar / 750 }));
@@ -56,10 +61,10 @@ export function makeTrade(seed, level = 1, basePrice = 8500000) {
   const w = roundTo(3 + r() * 60, 0.01);
   const ayar = pick(r, [705, 720, 735, 740, 742, 745, 748, 750]);
   const f = (id, label, unit, answer, how, tol) => ({ id, label, unit, answer, how, tol: tol ?? (unit === 'گرم' ? 0.002 : Math.max(2000, Math.abs(answer) * 0.0005)) });
-  const eq = r3(eq750(w, ayar));
+  const eq = ledgerEq(w, ayar);
   switch (kind) {
     case 'buy': {
-      const g = gram18(buyMaz), value = rT(eq * g);
+      const g = gram18(buyMaz), value = ledgerPrice(eq, buyMaz);
       return {
         kind, seed, level, title: 'خرید آب‌شده از مشتری (نقدی)',
         prompt: `مشتری یک قطعه آب‌شده ${fmt(w, 2)} گرمی با عیار ${fmt(ayar)} (ری‌گیری‌شده) می‌فروشد. مظنه خرید شما ${fmt(buyMaz)} تومان است. نقد پرداخت می‌کنید.`,
@@ -73,7 +78,7 @@ export function makeTrade(seed, level = 1, basePrice = 8500000) {
       };
     }
     case 'sell': {
-      const g = gram18(sellMaz), value = rT(eq * g);
+      const g = gram18(sellMaz), value = ledgerPrice(eq, sellMaz);
       return {
         kind, seed, level, title: 'فروش آب‌شده به مشتری (نقدی)',
         prompt: `یک قطعه آب‌شده ${fmt(w, 2)} گرمی با عیار ${fmt(ayar)} می‌فروشید. مظنه فروش ${fmt(sellMaz)} تومان است. مشتری نقد می‌پردازد.`,
@@ -89,9 +94,9 @@ export function makeTrade(seed, level = 1, basePrice = 8500000) {
     case 'assay': {
       const declared = pick(r, [740, 745, 750]);
       const measured = declared - pick(r, [2, 3, 5, 7, 8, 10, 12]);
-      const eqD = r3(eq750(w, declared)), eqM = r3(eq750(w, measured));
-      const diff = r3(eqM - eqD);
-      const g = gram18(buyMaz), value = rT(eqM * g);
+      const eqD = ledgerEq(w, declared), eqM = ledgerEq(w, measured);
+      const diff = sum([eqM, -eqD], 0.001);
+      const g = gram18(buyMaz), value = ledgerPrice(eqM, buyMaz);
       return {
         kind, seed, level, title: 'ری‌گیری: عیار واقعی کمتر از ادعا',
         prompt: `مشتری قطعه ${fmt(w, 2)} گرمی را «عیار ${fmt(declared)}» معرفی کرده؛ ری‌گیری ${fmt(measured)} داده است. با مظنه خرید ${fmt(buyMaz)} تومان و بر پایه عیار ری‌گیری می‌خرید.`,
@@ -104,7 +109,7 @@ export function makeTrade(seed, level = 1, basePrice = 8500000) {
       };
     }
     case 'credit': {
-      const g = gram18(sellMaz), value = rT(eq * g);
+      const g = gram18(sellMaz), value = ledgerPrice(eq, sellMaz);
       const paid = roundTo(value * (0.3 + r() * 0.5), 1000000);
       return {
         kind, seed, level, title: 'فروش نسیه (پرداخت بخشی از مبلغ)',
@@ -122,7 +127,7 @@ export function makeTrade(seed, level = 1, basePrice = 8500000) {
       const debt = roundTo(20 + r() * 180, 0.001);
       const g = gram18(maz);
       const pay = roundTo(debt * g * (0.35 + r() * 0.5), 1000000);
-      const settled = r3(pay / g), left = r3(debt - settled);
+      const settled = mulDiv([pay, MESGHAL_G, MAZANEH_FINENESS], [maz, 750], 0.001), left = sum([debt, -settled], 0.001);
       return {
         kind, seed, level, title: 'تسویه بخشی از بدهی طلایی به بنکدار با پول',
         prompt: `مغازه ${fmt(debt, 3)} گرم ۷۵۰ به بنکدار بدهکار است. امروز ${fmt(pay)} تومان با مظنه ${fmt(maz)} تومان تسویه می‌کنید.`,

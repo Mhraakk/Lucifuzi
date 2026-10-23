@@ -5,7 +5,7 @@ import { html, fa, store, toast, $, $$ } from '../core.mjs';
 import { held } from '../blocks.mjs';
 import { back } from '../ui.mjs';
 import { fmt, parseNum, MAZANEH_TO_G750 } from '../calc.mjs';
-import { eq750, gram18, r3, ledgerValue, AYAR_FACTORS } from '../melt.mjs';
+import { gram18, r3, ledgerEq, ledgerValue, AYAR_FACTORS } from '../melt.mjs';
 
 const KEY = 'beatris.melt.session';
 const SPREAD_KEY = 'beatris.melt.spread';
@@ -63,7 +63,7 @@ export function meltToolPage(root) {
     const w = v('w'), ayar = v('ayar'), m = v('mid'), sp = v('spread');
     if (!(w > 0 && ayar > 0 && ayar <= 1000 && m > 0 && sp >= 0 && sp < m)) return null;
     const maz = side === 'buy' ? m - sp : m + sp;
-    const eq = r3(eq750(w, ayar));
+    const eq = ledgerEq(w, ayar);
     return { side, w, ayar, maz, eq, g: gram18(maz), value: ledgerValue(w, ayar, maz) };
   };
   const live = () => {

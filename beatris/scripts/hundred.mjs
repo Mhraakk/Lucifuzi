@@ -21,7 +21,7 @@ const { chromium } = pw.default ?? pw;
 
 /* ---------------- a fresh server ---------------- */
 const dataDir = mkdtempSync(path.join(tmpdir(), 'b100-'));
-const port = 6400 + Math.floor(Math.random() * 300);
+const port = 7300 + Math.floor(Math.random() * 300); // clear of the ports fetch refuses (6566, 6665–6669, 6679, 6697)
 const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.mjs'], { cwd: ROOT, env: { ...process.env, BEATRIS_DEMO: 'true', BEATRIS_DATA_DIR: dataDir, PORT: String(port), NODE_ENV: 'test', BEATRIS_TOKEN_SECRET: 'hundred-secret-0123456789abcdef', BEATRIS_RATE_LIMIT: '1000000' }, stdio: ['ignore', 'ignore', 'inherit'] });
 const base = `http://127.0.0.1:${port}`;
 for (let i = 0; i < 120; i++) {

@@ -14,10 +14,11 @@ export const validPin = (pin) => /^[0-9]{4,12}$/.test(digits(pin));
 /** Accounts sign in with their mobile and an SMS code (spec 0022): the password column holds this, which matches nothing. */
 export const NO_PIN = '-';
 export function normalizePhone(p) {
-  const d = String(p ?? '')
+  let d = String(p ?? '')
     .replace(/[۰-۹]/g, (c) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
     .replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
     .replace(/\D/g, '');
+  if (d.startsWith('0098')) d = d.slice(2); // the international 00 prefix: 0098 912 … is +98 912 …
   if (/^9809\d{9}$/.test(d)) return d.slice(2);
   if (/^989\d{9}$/.test(d)) return `0${d.slice(2)}`;
   if (/^9\d{9}$/.test(d)) return `0${d}`;

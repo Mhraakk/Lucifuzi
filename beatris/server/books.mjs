@@ -16,6 +16,7 @@ import { makeSetup } from './setup.mjs';
 import { makeIdeas } from './ideas.mjs';
 import { PROVIDERS, checkBaseUrl, keyHint } from './providers.mjs';
 import * as TR from '../public/js/trade.mjs';
+import * as E from '../public/js/exact.mjs';
 import { tehranDay } from './tz.mjs';
 import { makePos } from './pos.mjs';
 import { understandLine } from './oneline-ai.mjs';
@@ -262,7 +263,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     if (postal && !B.validPostal(postal)) throw bad('کد پستی ۱۰ رقم است.');
     const birth = body.birth ? String(body.birth) : '';
     if (birth && !DAY_RE.test(birth)) throw bad('تاریخ تولد نامعتبر است.');
-    const creditLimit = Math.max(0, B.rnd(B.num(body.creditLimit || 0) * (body.money === 'rial' ? 1 : 10)) || 0);
+    const creditLimit = Math.max(0, B.exact([B.num(body.creditLimit || 0), body.money === 'rial' ? 1 : 10]) || 0);
     for (const [col, v, label] of [['mobile', mobile, 'این موبایل'], ['nid', nid, 'این کد ملی']]) {
       if (!v) continue;
       const dup = db.get(`SELECT code, name FROM bk_parties WHERE ${col}=? AND deleted_at IS NULL AND id<>?`, v, id ?? '');
@@ -780,7 +781,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       if (Math.sign(a) !== Math.sign(cur) || Math.abs(a) - Math.abs(cur) > (unit === 'G750' ? 0.0005 : unit.startsWith('FX:') ? 0.005 : 0.5)) throw bad(`مانده ${party.name} در این واحد ${cur ? `${cur > 0 ? 'بدهی' : 'طلب'} ${Math.abs(cur)}` : 'صفر'} است؛ سوخت بیشتر از مانده یا خلاف جهت آن ممکن نیست.`);
       if (unit.startsWith('BAR:')) {
         const info = barInfo(unit.slice(4));
-        if (info.weight) doc.writeoff.eq750 = B.r3((info.weight * (info.fineness ?? 995)) / 750);
+        if (info.weight) doc.writeoff.eq750 = B.exact([info.weight, info.fineness ?? 995], [750], 0.001);
       }
     }
     if (type === 'adjust') {
@@ -882,15 +883,15 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
         if (!db.get('SELECT 1 FROM bk_parties WHERE id=?', acct.slice(6))) throw bad('مشتری مانده افتتاحیه پیدا نشد.');
         const v = B.num(b.amount);
         if (!Number.isFinite(v) || v === 0) throw bad('مقدار مانده نامعتبر است.');
-        return { acct, unit: b.unit, amt: b.unit === 'G750' ? B.r3(v) : b.unit.startsWith('FX:') ? Math.round(v * 100) / 100 : Math.round(v) };
+        return { acct, unit: b.unit, amt: b.unit === 'G750' ? B.exact([v], [], 0.001) : b.unit.startsWith('FX:') ? B.exact([v], [], 0.01) : Math.round(v) };
       }
       if (acct.startsWith('fx:') || acct.startsWith('bar:')) {
         const v = B.num(b.amount);
         if (!Number.isFinite(v) || v === 0) throw bad('مقدار مانده نامعتبر است.');
-        const cost = b.cost ? B.rnd(B.num(b.cost) * k) : undefined;
+        const cost = b.cost ? B.exact([B.num(b.cost), k]) : undefined;
         // a sealed bar keeps its card (weight, fineness, maker) so the vault and the bar registry know it from day one
-        const meta = acct.startsWith('bar:') && B.num(b.weight) > 0 ? { weight: B.r3(B.num(b.weight)), fineness: Math.min(1000, Math.max(1, B.num(b.fineness ?? 995) || 995)), brand: txt(b.brand, 40), gallery: txt(b.gallery, 40), sealDate: txt(b.sealDate, 20) } : {};
-        return { acct, unit: acct.startsWith('fx:') ? 'FX' : 'COUNT', amt: acct.startsWith('fx:') ? Math.round(v * 100) / 100 : Math.round(v), cost, ...meta };
+        const meta = acct.startsWith('bar:') && B.num(b.weight) > 0 ? { weight: B.exact([B.num(b.weight)], [], 0.001), fineness: Math.min(1000, Math.max(1, B.num(b.fineness ?? 995) || 995)), brand: txt(b.brand, 40), gallery: txt(b.gallery, 40), sealDate: txt(b.sealDate, 20) } : {};
+        return { acct, unit: acct.startsWith('fx:') ? 'FX' : 'COUNT', amt: acct.startsWith('fx:') ? B.exact([v], [], 0.01) : Math.round(v), cost, ...meta };
       }
       if (acct.startsWith('party:') && !db.get('SELECT 1 FROM bk_parties WHERE id=?', acct.slice(6))) throw bad('مشتری مانده افتتاحیه پیدا نشد.');
       if (/^(cash|bank):/.test(acct) && !db.get('SELECT 1 FROM bk_accounts WHERE id=? AND kind=?', acct.split(':')[1], acct.split(':')[0])) throw bad(`حساب ${acct} پیدا نشد.`);
@@ -898,8 +899,8 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       const unit = acct === 'gold' ? 'G750' : acct.startsWith('coin:') ? 'COUNT' : b.unit === 'G750' && acct.startsWith('party:') ? 'G750' : 'IRR';
       const v = B.num(b.amount);
       if (!Number.isFinite(v) || v === 0) throw bad('مبلغ یا مقدار مانده نامعتبر است.');
-      const amt = unit === 'IRR' ? B.rnd(v * k) : unit === 'G750' ? B.r3(v) : Math.round(v);
-      const cost = b.cost && (acct === 'gold' || acct.startsWith('coin:')) ? B.rnd(B.num(b.cost) * k) : undefined;
+      const amt = unit === 'IRR' ? B.exact([v, k]) : unit === 'G750' ? B.exact([v], [], 0.001) : Math.round(v);
+      const cost = b.cost && (acct === 'gold' || acct.startsWith('coin:')) ? B.exact([B.num(b.cost), k]) : undefined;
       return { acct, unit, amt, cost };
     });
   }
@@ -930,7 +931,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     for (const p of doc.payments) {
       if (p.method !== 'cheque') continue;
       // the base edition types money in rial (trade.mjs divides by 10 before the shared validator); the full one in toman
-      const amount = B.DOC_TYPES[doc.type]?.base ? B.rnd(B.num(p.amount)) : B.rnd(B.num(p.amount) * 10);
+      const amount = B.exact([B.num(p.amount), B.DOC_TYPES[doc.type]?.base ? 1 : 10]); // the payment's own figure (spec 0045)
       const dir = p.dir === 'out' ? 'out' : 'in';
       if (p.chequeId && prevIds.has(p.chequeId)) {
         const c = db.get('SELECT * FROM bk_cheques WHERE id=?', p.chequeId);
@@ -1440,7 +1441,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       /* market not available */
     }
     const COIN_MAP = { bahar: 'sekeb', emami: 'sekee', halfOld: 'nim', half: 'nim', quarterOld: 'rob', quarter: 'rob', gerami: 'gerami', parsian: null };
-    const coinPrice = Object.fromEntries(Object.keys(COIN_TYPES).map((k) => [k, COIN_MAP[k] && coins[COIN_MAP[k]] ? coins[COIN_MAP[k]] : Math.round((COIN_TYPES[k].weight * COIN_TYPES[k].fineness * p750) / 750)]));
+    const coinPrice = Object.fromEntries(Object.keys(COIN_TYPES).map((k) => [k, COIN_MAP[k] && coins[COIN_MAP[k]] ? coins[COIN_MAP[k]] : B.exact([COIN_TYPES[k].weight, COIN_TYPES[k].fineness, p750], [750])]));
     return { p750, coinPrice };
   };
   on('GET', '/api/books/summary', 'auth', ({ user, url }) => {
@@ -1482,9 +1483,10 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const all = {};
     for (const r of db.all('SELECT acct, unit, SUM(amt) AS s FROM bk_postings GROUP BY acct, unit')) if (Math.abs(r.s) > 1e-9) (all[r.acct] ??= {})[r.unit] = r.unit === 'G750' ? B.r3(r.s) : Math.round(r.s);
     const sumWhere = (pred, unit = 'IRR') => Object.entries(all).filter(([a]) => pred(a)).reduce((s, [, v]) => s + (v[unit] ?? 0), 0);
-    const g = (grams) => B.rnd(grams * p750 * 10);
+    const g = (grams) => B.exact([grams, p750, 10]);
     const stock = db.all("SELECT weight, fineness, stones FROM bk_items WHERE status IN ('stock','reserved')");
-    const stockG = B.r3(stock.reduce((s, i) => s + (i.weight * i.fineness) / 750, 0));
+    // Σ weight × fineness exactly, then ÷ 750 to the milligram (spec 0045)
+    const stockG = E.mulDiv([E.sum(stock.map((i) => E.mulDiv([i.weight, i.fineness], [], 0.000001)), 0.000001)], [750], 0.001);
     const recv = Object.entries(all).filter(([a]) => a.startsWith('party:'));
     const lines = {
       cash: sumWhere((a) => a.startsWith('cash:')),
@@ -1496,7 +1498,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
       coins: Object.fromEntries(Object.keys(COIN_TYPES).map((k) => [k, all[`coin:${k}`]?.COUNT ?? 0]).filter(([, v]) => v)),
       coinsValue: Object.keys(COIN_TYPES).reduce((s, k) => s + (all[`coin:${k}`]?.COUNT ?? 0) * coinPrice[k] * 10, 0),
       stockG,
-      stockValue: g(stockG) + B.rnd(stock.reduce((s, i) => s + i.stones, 0) * 10),
+      stockValue: g(stockG) + B.exact([E.sum(stock.map((i) => i.stones || 0), 0.0001), 10]),
       receivable: recv.reduce((s, [, v]) => s + Math.max(0, v.IRR ?? 0), 0),
       payable: recv.reduce((s, [, v]) => s + Math.min(0, v.IRR ?? 0), 0),
       goldReceivableG: B.r3(recv.reduce((s, [, v]) => s + Math.max(0, v.G750 ?? 0), 0)),
@@ -1859,7 +1861,7 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     }
     const COIN_MAP = { bahar: 'sekeb', emami: 'sekee', halfOld: 'nim', half: 'nim', quarterOld: 'rob', quarter: 'rob', gerami: 'gerami' };
     const price = { G750: p750 };
-    for (const k of Object.keys(COIN_TYPES)) price[`COIN:${k}`] = board[COIN_MAP[k]] ?? COIN_TYPES[k].price ?? B.rnd((COIN_TYPES[k].weight * COIN_TYPES[k].fineness * p750) / 750);
+    for (const k of Object.keys(COIN_TYPES)) price[`COIN:${k}`] = board[COIN_MAP[k]] ?? COIN_TYPES[k].price ?? B.exact([COIN_TYPES[k].weight, COIN_TYPES[k].fineness, p750], [750]);
     if (board.usd) price['FX:USD'] = board.usd;
     let sample = true;
     try {

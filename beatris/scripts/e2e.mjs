@@ -22,7 +22,8 @@ let base = process.env.E2E_BASE;
 let server, dataDir;
 if (!live) {
   dataDir = mkdtempSync(path.join(tmpdir(), 'beatris-e2e-'));
-  const port = 4100 + Math.floor(Math.random() * 800);
+  let port = 4100 + Math.floor(Math.random() * 800);
+  if (port === 4190) port++; // fetch refuses 4190
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.mjs'], { cwd: ROOT, env: { ...process.env, BEATRIS_DEMO: 'true', BEATRIS_DATA_DIR: dataDir, PORT: String(port), NODE_ENV: 'test' }, stdio: ['ignore', 'pipe', 'pipe'] });
   base = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 60; i++) {
@@ -136,7 +137,15 @@ async function loginUI(page, email = EMAIL) {
 /* ======================================================= desktop, full walk */
 {
   const { page, ctx } = await session({ width: 1440, height: 900 });
-  await step('login', () => loginUI(page));
+  await step('login', async () => {
+    await loginUI(page);
+    // spec 0044: the sign-up form reads a mobile typed with the international 00 prefix the way it reads +98
+    const ph = await page.evaluate(async () => {
+      const m = await import('/js/pages/login.mjs');
+      return ['۰۰۹۸ ۹۱۲ ۱۲۳ ۴۵۶۷', '+98 912 123 4567', '۹۱۲۱۲۳۴۵۶۷', '09121234567'].map(m.phoneOf);
+    });
+    check('login: a mobile typed as ۰۰۹۸…, +98…, without its 0 or as is is one number', ph.every((x) => x === '09121234567'), JSON.stringify(ph));
+  });
 
   await step('home', async () => {
     // spec 0038: a manager's workspace is the boss's, so sign-in lands on their own desk; the classic home is one tap away

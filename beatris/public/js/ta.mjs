@@ -3,6 +3,7 @@
 // daily bars { d: 'YYYY-MM-DD', o, h, l, c }. Every series is aligned with its input and holds NaN while an
 // indicator is still warming up. Shared by the browser, the server and the tests.
 import { MESGHAL_G, MAZANEH_FINENESS } from './calc.mjs';
+import { COIN_TYPES } from './coins.mjs';
 
 const fin = Number.isFinite;
 const nans = (n) => new Array(n).fill(NaN);
@@ -618,8 +619,9 @@ export function seasonality(bars) {
 
 /* ---------------- Iranian market relations ---------------- */
 export const TROY_OUNCE_G = 31.1034768;
-/** Pure gold in each coin (weight × 0.900). */
-export const COIN_PURE_G = { sekee: 8.133 * 0.9, sekeb: 8.133 * 0.9, nim: 4.0665 * 0.9, rob: 2.0332 * 0.9, gerami: 1.01 * 0.9 };
+/** Pure gold in each coin (weight × fineness), from the one coin table the books use (a quarter is 2.03325 g, not 2.0332). */
+const pureOf = (id) => (COIN_TYPES[id].weight * COIN_TYPES[id].fineness) / 1000;
+export const COIN_PURE_G = { sekee: pureOf('emami'), sekeb: pureOf('bahar'), nim: pureOf('half'), rob: pureOf('quarter'), gerami: pureOf('gerami') };
 /** Toman per gram of pure gold at the world price: ounce (USD) × dollar (toman) ÷ 31.1035. */
 export const worldPureGram = (ons, usd) => (ons * usd) / TROY_OUNCE_G;
 /** The mazaneh the world price implies: one mesghal (4.6083 g) of 705 gold. */
