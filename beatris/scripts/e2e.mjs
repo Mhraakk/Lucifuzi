@@ -1263,9 +1263,17 @@ async function loginUI(page, email = EMAIL) {
       const rc = await text(page, '.dk-receipt');
       check('desk: receipt with lines, payments, balance after and authenticity code', rc.includes('۱۸۲٬۱۹۰٬۰۰۰') && rc.includes('۹۸۵٬۰۰۰٬۰۰۰') && rc.includes('کارتخوان') && rc.includes('۱۰۲٬۸۱۰٬۰۰۰') && /کد اصالت/.test(rc));
       await page.keyboard.press('Escape');
-      // goods in on account (no price): 50 g of 745 and a sealed bar with its serial
+      // goods in on account (no price): 50 g of 745 and a sealed bar with its serial. A field taken right after the kind
+      // button keeps the focus: the form's own focus comes a frame later, and on a slow machine it pulled the next keys
+      // («745») into the weight («50745» g)
       await page.click('[data-mode=in]');
-      await page.click('[data-kind=melt]');
+      const kept = await page.evaluate(async () => {
+        document.querySelector('[data-kind=melt]').click();
+        document.querySelector('#form [data-f=fineness]').focus();
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        return document.activeElement?.dataset.f ?? document.activeElement?.tagName;
+      });
+      check('desk: a field taken right after the kind button keeps the focus', kept === 'fineness', kept);
       await page.fill('[data-f=weight]', '50');
       await page.fill('[data-f=fineness]', '745');
       await page.click('[data-act=add]');

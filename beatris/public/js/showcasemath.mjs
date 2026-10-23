@@ -6,6 +6,7 @@ export const GAP = 22;
 /** Per frame at 60 fps, as the design states them; step() scales them to the real frame time. */
 export const PHYS = { friction: 0.935, snap: 0.035, auto: 0.45, autoDelay: 3200, lerp: 0.1 };
 const FRAME = 1000 / 60;
+const LONGEST = 30; // frames: the longest frame the motion is solved for (half a second)
 
 /**
  * Card size for a viewport width and the room under the hero (px from the carousel's top to the bottom of the first
@@ -56,12 +57,16 @@ export const centerIndex = (scroll, stride, n) => ((Math.round(scroll / stride) 
 /**
  * One step of the carousel's motion, dt in ms. A target (the window's «next») is reached smoothly; otherwise a fling
  * glides and slows, and once slow the carousel is pulled onto the nearest card by a critically damped spring: it
- * arrives without swinging past the card, in the same time at any frame rate (the spring is solved exactly, not
- * stepped), and it keeps pulling until the carousel rests. After the idle delay it drifts on by itself (when `auto`).
- * `held` (a drag, an open window) stops everything but the target.
+ * arrives without swinging past the card and keeps pulling until the carousel rests. After the idle delay it drifts on
+ * by itself (when `auto`). `held` (a drag, an open window) stops everything but the target.
+ * Every part is solved for the frame's real length, not stepped a frame at a time: a machine that draws two frames a
+ * second moves as far in a second as one that draws sixty, in bigger steps. A longer pause (a hidden tab) counts as
+ * half a second.
  */
 export function step(s, dt, { stride, idle = 0, auto = false }) {
-  const k = Math.min(4, Math.max(0, dt) / FRAME); // a long pause (a hidden tab) is not one giant step
+  const k = Math.min(LONGEST, Math.max(0, dt) / FRAME);
+  // a fling loses `friction` of its speed each frame; over k frames it covers the sum of that series
+  const glide = (v) => (v * (1 - PHYS.friction ** k)) / (1 - PHYS.friction);
   let { scroll, velocity, target, snapping = false } = s;
   const drift = auto && idle >= PHYS.autoDelay;
   if (target != null) {
@@ -71,7 +76,7 @@ export function step(s, dt, { stride, idle = 0, auto = false }) {
     if (Math.abs(target - scroll) < 0.5) (scroll = target), (target = null);
   } else if (s.held) snapping = false;
   else if (drift && !snapping && Math.abs(velocity) < 0.3) {
-    scroll += (velocity + PHYS.auto) * k;
+    scroll += glide(velocity) + PHYS.auto * k;
     velocity *= PHYS.friction ** k;
   } else if (snapping || Math.abs(velocity) < 0.8) {
     // x(t) = (x0 + (v0 + w·x0)·t)·e^(−w·t): the design's spring stiffness, damped just enough not to overshoot
@@ -80,7 +85,7 @@ export function step(s, dt, { stride, idle = 0, auto = false }) {
     scroll = goal + (x + c * k) * e;
     velocity = (velocity - w * c * k) * e;
   } else {
-    scroll += velocity * k;
+    scroll += glide(velocity);
     velocity *= PHYS.friction ** k;
   }
   const rest = target == null && !s.held && (snapping || !drift) && Math.abs(velocity) < 0.02 && Math.abs(nearest(scroll, stride) - scroll) < 0.05;

@@ -335,6 +335,7 @@ export async function coinShowcasePage(root) {
     if (modal) return;
     const rect = from.getBoundingClientRect();
     Object.assign(st, { held: true, velocity: 0 });
+    centerOn(k); // behind the window the ring finishes on this card (held, a settle would stop where it was)
     const layer = document.createElement('div');
     layer.className = 'cs-layer';
     layer.innerHTML = `<div class="cs-veil"></div><div class="cs-box" role="dialog" aria-modal="true" aria-labelledby="csmTitle" tabindex="-1"><div class="cs-pic"><img class="cs-mcoin" alt="" draggable="false"><span class="cs-tag"></span></div><div class="cs-info"></div><button type="button" class="cs-x" aria-label="بستن">${CROSS}</button></div><button type="button" class="cs-nav cs-prev" aria-label="سکه‌ی قبلی">${CHEV('prev')}</button><button type="button" class="cs-nav cs-next" aria-label="سکه‌ی بعدی">${CHEV('next')}</button>`;

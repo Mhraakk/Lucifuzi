@@ -122,6 +122,27 @@ test('snap: slow, the ring lands on the nearest card without swinging past it, w
   assert.ok(s.settled && s.scroll === 0);
 });
 
+test('a slow machine: at 2 frames a second the ring settles, glides and follows «next» in about the time it takes at 60', () => {
+  const stride = 362;
+  const run = (s, fps, done) => {
+    let t = 0;
+    for (; t < 10000 && !done(s); t += 1000 / fps) s = step(s, 1000 / fps, { stride });
+    return { t, s };
+  };
+  for (const [s0, done, what] of [
+    [{ scroll: 150, velocity: 0, target: null, held: false }, (s) => s.settled, 'settle'],
+    [{ scroll: 0, velocity: 40, target: null, held: false }, (s) => s.settled, 'glide'],
+    [{ scroll: 0, velocity: 0, target: stride, held: true }, (s) => s.target == null, 'follow'],
+  ]) {
+    const fast = run(s0, 60, done), slow = run(s0, 2, done);
+    assert.ok(slow.t <= fast.t + 500, `${what}: ${Math.round(slow.t)} ms at 2 fps, ${Math.round(fast.t)} ms at 60`);
+    assert.equal(slow.s.scroll, fast.s.scroll, `${what}: the same card`);
+  }
+  // a longer pause (a hidden tab) counts as half a second
+  const fling = { scroll: 0, velocity: 20, target: null, held: false };
+  assert.equal(step(fling, 60000, { stride }).scroll, step(fling, 500, { stride }).scroll);
+});
+
 test('drift: after the idle delay it moves on by itself only when allowed; held, nothing moves', () => {
   const stride = 362;
   const base = { scroll: 0, velocity: 0, target: null, held: false };

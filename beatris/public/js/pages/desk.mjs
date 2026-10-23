@@ -285,7 +285,13 @@ export async function deskPage(root) {
     S.defPay = h?.pay ?? dev?.pay ?? null;
   }
   const FIRST = '[data-f=weight], [data-f=count], [data-f=serial], [data-f=fxAmount]';
-  const focusFirst = () => requestAnimationFrame(() => $(FIRST, $('#form', root))?.focus());
+  // a frame later (the form may just be drawn); a field the person has already gone to keeps the focus, so the next keys
+  // never land in the weight on a slow machine
+  const focusFirst = () =>
+    requestAnimationFrame(() => {
+      const form = $('#form', root), at = document.activeElement;
+      if (!(form?.contains(at) && at.matches('input, select, textarea'))) $(FIRST, form)?.focus();
+    });
 
   /* ---------------- the line form ---------------- */
   const sg = (k) => (S.sugg?.[k] ? html`<i class="dk-sg" title="از معاملات قبلی همین مشتری یا همین دستگاه">پیشنهاد</i>` : '');
