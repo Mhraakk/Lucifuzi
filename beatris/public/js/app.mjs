@@ -12,6 +12,7 @@ import { initOrbs } from './orb.mjs';
 import { gooTabs } from './goo.mjs';
 import { initDock } from './dock.mjs';
 import { initCaret } from './caret.mjs';
+import { initHold } from './blocks.mjs';
 import { initFresh } from './fresh.mjs';
 import { ACTIONS, reachable } from './workspace.mjs';
 
@@ -20,6 +21,7 @@ const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 initSkins();
 initOrbs();
 initCaret();
+initHold(); // a [data-hold] button deletes only when held (spec 0040)
 
 /** وضعیت اتصال و صف ارسال (spec 0013): always in view, so nobody wonders whether a document went through. */
 async function netPill() {

@@ -403,7 +403,7 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
       }
     }
     try {
-      const limit = url.pathname === '/api/designs' || url.pathname === '/api/market/bars' ? 2.5 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : /^\/api\/books\/bars\/[^/]+\/card$/.test(url.pathname) ? 1.5 * 1024 * 1024 : undefined;
+      const limit = url.pathname === '/api/designs' || url.pathname === '/api/market/bars' ? 2.5 * 1024 * 1024 : url.pathname === '/api/coin-photos' ? PHOTO_BODY : /^\/api\/books\/bars\/[^/]+\/card$/.test(url.pathname) ? 1.5 * 1024 * 1024 : /^\/api\/books\/docs\/[^/]+\/signature$/.test(url.pathname) ? 400 * 1024 : undefined;
       const formPost = req.method === 'POST' && isFormPost(req);
       if (formPost && url.pathname !== '/api/leads') throw new HttpError(415, 'این درخواست باید JSON باشد.');
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, limit) : {};

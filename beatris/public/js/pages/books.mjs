@@ -3,7 +3,8 @@
 import { html, raw, fa, api, store, toast, navigate, actions, $, $$, busy } from '../core.mjs';
 import * as B from '../books.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
-import { invoicePaper, THEMES } from '../invoice.mjs';
+import { invoicePaper, THEMES, signable } from '../invoice.mjs';
+import { signDoc } from '../signdoc.mjs';
 import { T, TU, G, jd, jdLong, jdInput, parseDay, today, addDays, timeFa, modal, confirmBox, statusChip, exportButtons, wireExport, download, balText, balClass, EX, unitName, moneyWords, K, booksPrefs, prefs } from '../bk.mjs';
 import { wireSort } from '../sorting.mjs';
 
@@ -249,6 +250,7 @@ export async function docPage(root, { id }) {
           <div class="seg" role="group" aria-label="قالب چاپ">${[['std', 'قالب استاندارد رسمی'], ['a4', 'A4 نفیس'], ['a5', 'A5'], ['r80', 'رول ۸۰ میلی‌متری']].map(([k, l]) => html`<button data-fmt="${k}" aria-pressed="${format === k}">${l}</button>`)}</div>
           <div class="seg" role="group" aria-label="طرح فاکتور">${THEMES.map(([k, l]) => html`<button data-theme="${k}" aria-pressed="${theme === k}">${l}</button>`)}</div>
           <button class="btn small" data-act="print">چاپ / PDF</button>
+          ${signable(d) ? (!d.signature ? html`<button class="btn small ghost" data-act="sign">امضای مشتری</button>` : admin ? html`<button class="btn small ghost" data-act="sign" title="امضای فعلی در دفتر رویداد می‌ماند">جایگزینی امضای مشتری</button>` : html`<span class="small">امضای مشتری ثبت شده</span>`) : ''}
           ${d.status !== 'void' && (admin || d.status === 'draft') ? (d.status === 'final' && d.type !== 'proforma' ? (NO_EDITOR.has(d.type) ? html`<span class="small" title="این نوع سند فرم ویرایش ندارد؛ ابطال کنید و دوباره ثبت کنید. هر دو در تاریخچه می‌مانند.">اصلاح: ابطال و ثبت دوباره</span>` : html`<a class="btn small ghost" href="${d.type === 'trade' ? `/books/desk?amend=${d.id}` : `/books/doc/${d.id}/edit`}" data-link title="سند تازه‌ای می‌سازد که جای این سند را می‌گیرد؛ این سند با همان شماره در تاریخچه می‌ماند">اصلاح (اصلاحیه)</a>`) : html`<a class="btn small ghost" href="/books/doc/${d.id}/edit" data-link>ویرایش</a>`) : ''}
           ${d.status === 'draft' ? html`<button class="btn small ghost" data-act="finalize">قطعی کن</button>` : ''}
           ${d.type === 'proforma' && d.status === 'final' && !d.tax?.convertedTo ? html`<button class="btn small ghost" data-act="finalize">تبدیل به فاکتور فروش</button>` : ''}
@@ -302,6 +304,12 @@ export async function docPage(root, { id }) {
     if (act === 'print') {
       api(`/api/books/docs/${d.id}/event`, { method: 'POST', body: { kind: 'print', format } }).catch(() => {});
       window.print();
+    } else if (act === 'sign') {
+      const sig = await signDoc(d.id, { replace: !!d.signature });
+      if (sig) {
+        d.signature = sig;
+        draw();
+      }
     } else if (act === 'json') download(`${d.type}-${d.fy}-${d.no}.json`, 'application/json', JSON.stringify(d, null, 2));
     else if (act === 'moadian') {
       try {

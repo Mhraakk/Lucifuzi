@@ -2,7 +2,8 @@
 // private-mint coin, a gram piece), rename, hide from the desk, drag into the desk's order, delete one never used;
 // raise or lower any stock only through a «سند اصلاح موجودی» with a reason, so the books always explain the vault.
 import { html, raw, api, fa, $, $$, toast, store } from '../core.mjs';
-import { booksPrefs, prefs, TU, G, unitName, modal, confirmBox } from '../bk.mjs';
+import { held } from '../blocks.mjs';
+import { booksPrefs, prefs, TU, G, unitName, modal } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 import * as B from '../books.mjs';
 
@@ -30,7 +31,7 @@ export async function productsPage(root) {
       ? html`<div class="pr-act">
       <button class="iconbtn" data-adj="coin:${p.id}" data-dir="1" aria-label="افزایش موجودی ${p.short}" title="افزایش">＋</button><button class="iconbtn" data-adj="coin:${p.id}" data-dir="-1" aria-label="کاهش موجودی ${p.short}" title="کاهش">－</button>
       <button class="iconbtn" data-move="${i}" data-by="-1" ${i === 0 ? raw('disabled') : ''} aria-label="بالاتر">▲</button><button class="iconbtn" data-move="${i}" data-by="1" ${i === n - 1 ? raw('disabled') : ''} aria-label="پایین‌تر">▼</button>
-      <button class="chip" data-edit="${p.id}">ویرایش</button><button class="chip" data-hide="${p.id}" data-on="${p.hidden ? 0 : 1}">${p.hidden ? 'نمایش' : 'پنهان'}</button>${p.custom && !p.used ? html`<button class="chip danger" data-del="${p.id}">حذف</button>` : ''}</div>`
+      <button class="chip" data-edit="${p.id}">ویرایش</button><button class="chip" data-hide="${p.id}" data-on="${p.hidden ? 0 : 1}">${p.hidden ? 'نمایش' : 'پنهان'}</button>${p.custom && !p.used ? html`<button class="chip danger" data-del="${p.id}" data-hold="حذف محصول" data-hold-what="این محصول هیچ سند و موجودی ندارد و کامل حذف می‌شود.">حذف</button>` : ''}</div>`
       : ''}</li>`;
 
   function draw() {
@@ -139,7 +140,7 @@ export async function productsPage(root) {
         return load();
       }
       if (t.dataset.del) {
-        if (!(await confirmBox('حذف محصول', 'این محصول هیچ سند و موجودی ندارد و کامل حذف می‌شود.', { danger: true, ok: 'حذف' }))) return;
+        if (!held(t)) return; // held to delete (spec 0040)
         await api(`/api/books/products/${t.dataset.del}`, { method: 'DELETE' });
         await booksPrefs(true);
         return load();

@@ -52,6 +52,7 @@
   --t-reveal: 560ms; /* a figure or a part that arrives once */
   --t-slow: 900ms; /* the rare long move: a chart drawing, a progress settling */
   --t-stagger: 30ms; /* one step between rows that arrive together (twelve steps at most) */
+  --t-hold: 900ms; /* a delete is held this long: a safety, not an ornament, so «حرکت کمتر» keeps it (spec 0040) */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* arriving and answering: quick start, soft landing */
   --ease-in-out: cubic-bezier(0.76, 0, 0.24, 1); /* things that travel while seen */
   --ease-exit: cubic-bezier(0.55, 0.055, 0.675, 0.19); /* leaving for good, short */
@@ -4109,6 +4110,49 @@ html { -webkit-tap-highlight-color: transparent; }
 /* a figure that changed snaps into place: a short rise out of a slight scale, no blur (desk.mjs and sell.mjs mark it) */
 .dk-sum .kv.big.snap b, .sl-tot-row.big.snap b { animation: u-snap var(--t-ui) var(--ease-out); }
 @keyframes u-snap { from { opacity: 0.4; transform: translateY(0.3em) scale(0.97); } }
+
+/* بلوک‌های تعاملی (spec 0040, blocks.mjs) */
+/* a file zone: dashed until files hover over it, then lit; the input inside stays focusable for the keyboard */
+.u-dz { position: relative; display: grid; justify-items: center; gap: 6px; margin-top: 6px; padding: 20px 16px; border: 1.5px dashed var(--hair-2); border-radius: var(--u-r-lg); background: rgba(var(--ink-rgb), 0.22); color: var(--dust); text-align: center; cursor: pointer; transition: border-color var(--t-hover) var(--ease), background-color var(--t-hover) var(--ease), transform var(--t-ui) var(--ease-out); }
+.u-dz:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.u-dz.on { border-color: var(--gold); background-color: rgba(var(--gold-rgb), 0.09); transform: scale(1.01); }
+.u-dz-i svg { width: 28px; height: 28px; }
+.u-dz-t { font-size: 14px; color: var(--bone); }
+.u-dz-h { font-size: 12.5px; }
+.u-dz-f:not(:empty) { font-size: 13px; color: var(--gold-hi); }
+.u-dz-in { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+/* hold to delete: the fill runs while the button is held, at the steady pace of a clock */
+[data-hold] { position: relative; isolation: isolate; overflow: hidden; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.u-hold-fill { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: rgba(var(--bad-rgb), 0.32); transform: scaleX(0); transform-origin: 100% 50%; pointer-events: none; }
+.holding > .u-hold-fill { transform: scaleX(1); transition: transform var(--t-hold) linear; }
+/* slide to book (touch phones): the knob travels the track; short of 90% it springs back */
+.u-slide-off { display: none !important; }
+.u-slide { position: relative; display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 4px; border-radius: 999px; background: rgba(var(--gold-rgb), 0.12); border: 1px solid rgba(var(--gold-rgb), 0.45); touch-action: none; }
+.u-slide[hidden] { display: none; }
+.u-slide-t { font-size: 14px; font-weight: 600; color: var(--gold-hi); padding-inline: 56px 12px; transition: opacity var(--t-hover) var(--ease); }
+.u-slide.near .u-slide-t { opacity: 0.35; }
+.u-slide-k { position: absolute; inset-block: 4px; inset-inline-start: 4px; width: 48px; display: grid; place-items: center; border: 0; border-radius: 999px; background: var(--molten); color: var(--void); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); cursor: grab; touch-action: none; transform: translateX(calc(var(--slide, 0px) * -1)); transition: transform var(--t-panel) var(--ease-out); }
+html[dir='ltr'] .u-slide-k { transform: translateX(var(--slide, 0px)); }
+.u-slide.drag .u-slide-k { transition: none; cursor: grabbing; }
+.u-slide-k svg { width: 22px; height: 22px; }
+.u-slide-k:disabled { opacity: 0.5; cursor: default; }
+/* the signature: paper-white in every skin, as on the printed form */
+.u-sign { display: grid; gap: 10px; }
+.u-sign canvas { width: 100%; height: 190px; border-radius: var(--u-r-lg); border: 1px dashed #c9b98f; background: #fffdf7; touch-action: none; cursor: crosshair; }
+.u-sign-line { position: relative; }
+.u-sign-line::after { content: ''; position: absolute; inset-inline: 22px; bottom: 42px; border-bottom: 1px solid rgba(29, 26, 21, 0.18); pointer-events: none; }
+.sig-img { display: block; max-width: 100%; max-height: 64px; margin: 4px auto 0; }
+/* a figure that changed rolls digit by digit (spec 0040): each column holds 0..9 drawn by CSS, the figure itself is in .sr.
+   A column is as wide as its own digit (a hidden copy in ::after), so the figure sets exactly like plain text in any font.
+   The [data-roll] rules outrank a container's own span rules (a chip's label size or colour never reaches the digits). */
+[data-roll] > .u-roll-w, [data-roll] > .u-roll-w span { font-family: inherit; font-size: inherit; font-weight: inherit; font-style: inherit; font-variant-numeric: inherit; letter-spacing: inherit; color: inherit; }
+[data-roll] > .u-roll-w { display: inline-flex; align-items: baseline; direction: ltr; unicode-bidi: isolate; }
+[data-roll] .u-roll { position: relative; display: inline-block; height: 1.25em; line-height: 1.25em; overflow-x: visible; overflow-y: clip; }
+[data-roll] .u-roll-c { line-height: 1.25em; }
+.u-roll::after { content: attr(data-d); visibility: hidden; }
+[data-roll] .u-roll-s { position: absolute; inset-inline: 0; top: 0; line-height: inherit; text-align: center; transform: translateY(calc(var(--d, 0) * -1.25em)); transition: transform var(--t-ui) var(--ease-out); }
+.u-roll-s::before { content: '۰\A۱\A۲\A۳\A۴\A۵\A۶\A۷\A۸\A۹'; display: block; white-space: pre; }
+.u-roll-c::before { content: attr(data-c); }
 
 /* «حرکت کمتر»: every layer, at once — the finished state, no travel, no loop */
 @media (prefers-reduced-motion: reduce) {

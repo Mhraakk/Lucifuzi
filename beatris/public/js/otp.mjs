@@ -1,16 +1,16 @@
 // کد شش‌رقمی (spec 0022): one real input — so pasting, the phone's «one-time-code» suggestion, Persian digits and screen
 // readers all just work — under six cells that show what was typed. The cells read left to right like any code, the
 // next empty cell glows, a new digit lands with a small spring, and a wrong code shakes the row once.
-import { html } from './core.mjs';
+import { html, raw, esc } from './core.mjs';
 
 const toLatin = (s) => String(s ?? '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g, '');
 const faDigit = (d) => '۰۱۲۳۴۵۶۷۸۹'[d] ?? '';
 
 /** The markup: a label, six cells and the input that owns the value. */
-export function codeBox({ name = 'code', length = 6, label = 'کد پیامک‌شده' } = {}) {
+export function codeBox({ name = 'code', length = 6, label = 'کد پیامک‌شده', id = '' } = {}) {
   return html`<label class="otp" data-otp data-len="${length}" style="--otp-n:${length}"><span class="otp-label">${label}</span>
     <span class="otp-cells" dir="ltr" aria-hidden="true">${Array.from({ length }, () => html`<i></i>`)}</span>
-    <input class="otp-input" name="${name}" dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="${length * 2}" spellcheck="false" aria-label="${label}، ${length} رقم" required></label>`;
+    <input class="otp-input"${id ? raw(` id="${esc(id)}"`) : ''} name="${name}" dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="${length * 2}" spellcheck="false" aria-label="${label}، ${length} رقم" required></label>`;
 }
 
 /**

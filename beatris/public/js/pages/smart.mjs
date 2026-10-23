@@ -8,6 +8,7 @@ import { FX_CODES, TRADE_KINDS } from '../trade.mjs';
 import { booksPrefs, prefs, R, TU, G, jd, today, addDays, parseDay, timeFa, modal, confirmBox, unitName } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 import { parseScale } from '../scale.mjs';
+import { codeBox, initCodeBox } from '../otp.mjs';
 
 const TABS = [
   ['close', 'بستن روز'],
@@ -59,6 +60,7 @@ async function closeTab(box) {
   let day = today();
   let v, accounts = {}, bk = {};
   let scale = null;
+  let codeIn = null; // the six cells of the signing code
   const load = async () => {
     v = await api(`/api/books/close?day=${day}`);
     accounts = Object.fromEntries((await api('/api/books/accounts')).items.map((a) => [`${a.kind}:${a.id}`, a.title]));
@@ -86,8 +88,9 @@ async function closeTab(box) {
         ? html`<section class="tray cl-sign"><h3 class="bk-h">امضا</h3><p class="small ltr-num">${v.closed.hash}</p><div class="actions"><button class="btn small" data-verify>وارسی امضا</button><button class="btn small ghost" data-print>چاپ گزارش بستن</button>${store.me.user.role === 'owner' ? html`<button class="btn small danger" data-reopen>باز کردن روز</button>` : ''}</div><div id="clVer"></div></section>`
         : html`<section class="tray cl-sign"><h3 class="bk-h">بستن و امضای روز</h3><p class="small">با کدی که به موبایل خودتان پیامک می‌شود امضا می‌کنید؛ امضا با کلید دیجیتال فروشگاه (Ed25519) ثبت و به روز قبل زنجیر می‌شود. پس از بستن، هیچ سندی در این روز ثبت یا ویرایش نمی‌شود مگر مالک آن را با دلیل باز کند.</p>
             <label class="field">توضیح (برای مواردی که باز می‌مانند)<input class="input" id="clNote" maxlength="600"></label>
-            <div class="cl-code"><button class="btn small ghost" type="button" data-sign-code>گرفتن کد امضا</button><label class="field">کد امضا<input class="input ltr" id="clCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="۶ رقم"></label><small id="clSent"></small></div>
+            <div class="cl-code"><button class="btn small ghost" type="button" data-sign-code>گرفتن کد امضا</button>${codeBox({ name: 'code', label: 'کد امضا', id: 'clCode' })}<small id="clSent"></small></div>
             <p class="err" id="clErr" role="alert"></p><button class="btn" data-close-day>بستن روز ${jd(day)}</button></section>`}</div>`);
+    codeIn = initCodeBox(box); // the signing code in the same six cells as the sign-in (spec 0040)
   }
   // a connected scale over Web Serial: reads lines like «ST,GS,+  123.456 g», keeps the last stable reading
   async function connectScale() {
@@ -155,8 +158,8 @@ async function closeTab(box) {
         try {
           const r = await api('/api/auth/sign-code', { method: 'POST' });
           $('#clSent', box).textContent = r.code ? `کد ${r.via === 'demo' ? 'حساب نمایشی' : 'آزمایشی'}: ${fa(r.code)}` : `کد به ${fa(r.phone)} پیامک شد.`;
-          if (r.code) $('#clCode', box).value = fa(r.code);
-          $('#clCode', box).focus();
+          if (r.code) codeIn?.fill(r.code);
+          codeIn?.focus();
         } catch (err) {
           $('#clErr', box).textContent = err.message;
         }

@@ -141,6 +141,13 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
   - **آزمون‌ها:**
     - `tests/motion.test.mjs` همه را نگه می‌دارد. حلقه‌ها، منحنی‌های ویژه و حرکت‌های چیدمانی هر کدام فهرستی بسته با دلیل دارند.
     - e2e: «motion (spec 0039)» و «every route at both widths in both skins».
+- بلوک‌های تعاملی (spec 0040): `public/js/blocks.mjs`، با بخش خالصش در `blockmath.mjs` (`tests/blocks.test.mjs`):
+  - `dropzone(input)`: فایلِ رهاشده همان `files` و رویداد `change` ورودی می‌شود. جاها: عکس مرجع سکه، و فایل CSV/TXT صورتحساب در `/books/bank/:id` (UTF-8، وگرنه windows-1256).
+  - `initHold()` در `app.mjs` و `held(b)`: دکمه‌ی `data-hold` فقط با نگه داشتن ۹۰۰ میلی‌ثانیه‌ای (`--t-hold`) یا نگه داشتن Enter/Space کار می‌کند. ضربه‌ی کوتاه پیام «نگه دارید» می‌دهد و کلیک دست به صفحه نمی‌رسد. هر حذفی که پیش‌تر `confirmBox` داشت و دلیل نمی‌خواست، حالا `data-hold` است.
+  - `slideConfirm(btn)`: روی `(pointer: coarse) and (max-width: 700px)` دکمه پنهان می‌شود و دستگیره جایش می‌نشیند؛ کشیدن تا ۹۰٪ همان دکمه را می‌زند. جاها: «ثبت سند» میز (و «ثبت» نوار پایینش فقط دستگیره را نشان می‌دهد) و «ثبت فروش».
+  - `signaturePad(canvas)` و `public/js/signdoc.mjs`: امضای مشتری روی سند قطعی، `PUT /api/books/docs/:id/signature` (PNG تا ۲۰۰KB، بدنه تا ۴۰۰KB)، جدول `bk_signatures`، رویداد `doc.sign` با هش PNG در زنجیره. جایگزینی فقط با مدیر. در چاپ (`invoice.mjs`، `sigImg`) در کادر مشتری می‌آید. آزمون: `tests/signature.test.mjs`.
+  - `rollTo(el, figure)`: فقط رقم‌های عوض‌شده می‌غلتند. عدد کامل در `.sr` است و واحد بیرون از آن.
+  - کد امضای بستن روز در `smart.mjs` همان `codeBox` ورود است (`#clCode`).
 - `public/js/deskproducts.mjs`: جستجو، ساخت/ویرایش/حذف و قالب‌ساز محصول در میز؛ داده از `/api/books/products` (فیلد `group`).
 - `scripts/compare-video.mjs`: ویدیوی مقایسه با نسخه پایه مارکیز (فقط منابع عمومی؛ «ذکر نشده» به‌جای «ندارد»).
 

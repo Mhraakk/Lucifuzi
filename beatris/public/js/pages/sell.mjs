@@ -2,9 +2,11 @@
 // what-ifs, the old gold taken in, a split payment, and the customer's own screen. Every figure comes from the books
 // engine through sell.mjs; the document saved is the ordinary sale invoice, through the same outbox (spec 0013).
 import { html, raw, fa, api, store, toast, $, $$, busy } from '../core.mjs';
+import { slideConfirm, rollTo } from '../blocks.mjs';
+import { signDoc } from '../signdoc.mjs';
 import * as B from '../books.mjs';
 import * as S from '../sell.mjs';
-import { TU, G, today, booksPrefs, prefs, K, unitName, jd } from '../bk.mjs';
+import { T, TU, G, today, booksPrefs, prefs, K, unitName, jd } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 import { drafts, submit } from '../outbox.mjs';
 import { posConfig, posMode, posProblem, cardWindow } from '../pos.mjs';
@@ -97,6 +99,8 @@ export async function sellPage(root) {
         <div id="done"></div>
       </section>
     </div>`);
+  // on a touch phone the sale is booked by sliding, not by a tap (spec 0040)
+  slideConfirm($('[data-act=sell]', root), { label: 'برای ثبت فروش، دستگیره را تا انتها بکشید' });
 
   /* ---------------- figures ---------------- */
   const calc = () => {
@@ -109,8 +113,13 @@ export async function sellPage(root) {
   const priceOf = (it) => S.priceOf(it, p750, { vatPct });
   const favorites = () => St.file?.favorites?.map((f) => f.group) ?? [];
 
+  let shownLive = null; // the price last shown: a new one rolls only its changed digits (spec 0040)
   function drawLive() {
-    $('#live', root).innerHTML = String(html`<span>گرم ۱۸ امروز</span><b>${TU(Math.round(p750 * 10))}</b><button class="chip" data-act="refresh" title="قیمت تازه">↻</button>`);
+    $('#live', root).innerHTML = String(html`<span>گرم ۱۸ امروز</span><b><span data-fig></span> ${unitName()}</b><button class="chip" data-act="refresh" title="قیمت تازه">↻</button>`);
+    const b = $('#live [data-fig]', root);
+    if (shownLive) b.dataset.roll = shownLive;
+    rollTo(b, T(Math.round(p750 * 10)));
+    shownLive = b.dataset.roll;
   }
 
   /* ---------------- the customer ---------------- */
@@ -370,7 +379,7 @@ export async function sellPage(root) {
     St.done = { doc, text, msg: { type: 'done', shop, p750, money: prefs.money, track: doc.track ?? '', view } };
     ch?.postMessage(St.done.msg);
     $('#done', root).innerHTML = String(html`<div class="sl-done" role="status"><b>فروش ثبت شد ✓</b><span>${doc.track ? html`فاکتور ${doc.track}` : ''}${doc.verify ? html` · کد اصالت <b class="ltr-num">${doc.verify}</b>` : ''}</span>
-      <div class="sl-act2"><button class="btn small" data-act="share">ارسال برای مشتری</button><a class="btn small ghost" href="/books/doc/${doc.id}" data-link>فاکتور کامل و چاپ</a></div></div>`);
+      <div class="sl-act2"><button class="btn small" data-act="share">ارسال برای مشتری</button>${doc.status === 'final' ? html`<button class="btn small ghost" data-act="sign">امضای مشتری</button>` : ''}<a class="btn small ghost" href="/books/doc/${doc.id}" data-link>فاکتور کامل و چاپ</a></div></div>`);
     stock = stock.filter((it) => !St.cart.lines.some((l) => l.itemId === it.id));
     reset({ keepDone: true });
   }
@@ -511,6 +520,8 @@ export async function sellPage(root) {
         changed();
         toast('قیمت روز تازه شد.', 'ok');
       }
+    } else if (act === 'sign' && St.done) {
+      if (await signDoc(St.done.doc.id)) t.outerHTML = '<span class="small">امضای مشتری ثبت شد ✓</span>';
     } else if (act === 'share' && St.done) {
       try {
         if (navigator.share) await navigator.share({ text: St.done.text });

@@ -37,6 +37,7 @@ const results = [];
 const errors = [];
 let offline = false;
 let expectedError = null; // a console error a check provokes on purpose (e.g. a refused request)
+let signedSale = null; // the sale the customer signed at the sales desk (spec 0040), printed in a later step
 const check = (name, ok, detail = '') => {
   results.push({ name, ok: !!ok, detail });
   console.log(`${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
@@ -73,11 +74,15 @@ async function session(viewport) {
   });
   return { ctx, page, label };
 }
-/** Answer the app's own confirm dialog (dialog.mjs) that `click` opens: the browser's dialogs are never used. */
-const confirmApp = async (page, sel) => {
-  await page.click(sel);
-  await page.waitForSelector('.modal [data-ok]', { timeout: 5000 });
-  await page.click('.modal [data-ok]');
+/** A [data-hold] button acts only when held (spec 0040): press, keep it down past the fill, let go. */
+const holdApp = async (page, sel) => {
+  const el = await page.waitForSelector(sel, { timeout: 5000 });
+  await el.scrollIntoViewIfNeeded();
+  const r = await el.boundingBox();
+  await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(1150);
+  await page.mouse.up();
 };
 const go = async (page, p, wait = 1200) => {
   await page.goto(base + p);
@@ -400,7 +405,7 @@ async function loginUI(page, email = EMAIL) {
     await page.waitForFunction((n) => document.querySelectorAll('.photo-item').length > n, before, { timeout: 300000 });
     const after = await page.$$eval('.photo-item', (x) => x.length);
     check('uploader: 4K set built in the browser and stored', after === before + 1, `${before} → ${after}`);
-    await confirmApp(page, '[data-del]');
+    await holdApp(page, '[data-del]');
     await page.waitForFunction((n) => document.querySelectorAll('.photo-item').length === n, before, { timeout: 15000 }).catch(() => {});
     check('uploader: uploaded photo deleted', (await page.$$eval('.photo-item', (x) => x.length)) === before);
   });
@@ -586,7 +591,10 @@ async function loginUI(page, email = EMAIL) {
     await go(page, '/market', 3000);
     check('market: real price replaces the sample on the board', !(await page.$('#notice .notice')) && /۲۴۰٬۵۰۵٬۰۰۰/.test(await text(page, '#board')));
     await go(page, '/market/data?s=sekee', 1500);
-    await confirmApp(page, '#recent [data-del]');
+    await page.click('#recent [data-del]');
+    await page.waitForTimeout(500);
+    check('hold to delete (spec 0040): a tap deletes nothing and says to hold the button', (await page.$$eval('#recent tbody tr', (x) => x.length)) === 1 && /نگه دارید/.test(await text(page, '#toasts')), await text(page, '#toasts'));
+    await holdApp(page, '#recent [data-del]');
     await page.waitForTimeout(1000);
     await go(page, '/market', 2500);
     check('market: deleting the only real price restores the labelled sample', /داده نمونه آموزشی/.test(await text(page, '#notice')));
@@ -612,7 +620,7 @@ async function loginUI(page, email = EMAIL) {
       return { v: init.result?.protocolVersion, n: list.result?.tools?.length, value: gold.result?.structuredContent?.value };
     }, tok);
     check('MCP: same-origin client initialises, lists 13 tools and prices gold', res.v === '2025-06-18' && res.n === 13 && res.value > 0, JSON.stringify(res));
-    await confirmApp(page, '[data-mcp="off"]');
+    await holdApp(page, '[data-mcp="off"]');
     await page.waitForTimeout(800);
     expectedError = /status of 401/;
     const after = await page.evaluate((t) => fetch('/mcp', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: '{"jsonrpc":"2.0","id":1,"method":"ping"}' }).then((r) => r.status), tok);
@@ -825,6 +833,7 @@ async function loginUI(page, email = EMAIL) {
       await sign.click();
       await page.waitForTimeout(900);
       check('day close: «گرفتن کد امضا» brings a six-digit code (shown for a demo account)', /^[0-9۰-۹]{6}$/.test(await page.inputValue('#clCode')) && /کد حساب نمایشی/.test(await text(page, '#clSent')), await page.inputValue('#clCode'));
+      check('day close: the code sits in the same six cells as the sign-in (spec 0040)', (await page.$$eval('.cl-code .otp-cells i.full', (x) => x.length)) === 6);
     } else check('day close: the day is open with a sign-by-code form', false, 'no [data-sign-code]');
   });
 
@@ -1026,9 +1035,17 @@ async function loginUI(page, email = EMAIL) {
     check('quick entry: CSV has the header and both booked rows', csv.length === 3 && csv[0].startsWith('row,date_jalali,time,side') && /^"1","14\d\d\/\d\d\/\d\d","\d\d:\d\d","buy"/.test(csv[1]) && csv[1].includes('"9.867"') && csv[2].includes('"sell"') && csv[2].includes('"-9.867"'), csv.join(' | '));
     await go(page, '/tools/melt', 1000);
     check('quick entry: session ledger survives a reload', (await page.$$eval('#book tbody tr', (x) => x.length)) === 2);
-    await confirmApp(page, '[data-act=clear]');
-    await page.waitForTimeout(200);
-    check('quick entry: session ledger cleared', !(await page.$('#book tbody tr')));
+    await page.focus('[data-act=clear]');
+    await page.keyboard.down('Enter');
+    await page.waitForTimeout(300);
+    await page.keyboard.up('Enter');
+    await page.waitForTimeout(300);
+    check('quick entry: Enter let go early clears nothing (spec 0040)', (await page.$$eval('#book tbody tr', (x) => x.length)) === 2);
+    await page.keyboard.down('Enter');
+    await page.waitForTimeout(1150);
+    await page.keyboard.up('Enter');
+    await page.waitForTimeout(300);
+    check('quick entry: session ledger cleared by holding Enter', !(await page.$('#book tbody tr')));
   });
 
   if (!live)
@@ -1359,7 +1376,16 @@ async function loginUI(page, email = EMAIL) {
         const K = await import('/js/bk.mjs');
         return K.jd(K.today());
       });
-      await page.fill('#stmt', `${jToday}, 500000000, 1234\n${jToday}, 200000000, 77`);
+      // the bank's export dropped on the page (spec 0040): its text lands in the box as if pasted (BOM and CRLF dropped)
+      const stmt = `${jToday}, 500000000, 1234\n${jToday}, 200000000, 77`;
+      const dt = await page.evaluateHandle((t) => {
+        const d = new DataTransfer();
+        d.items.add(new File([`\uFEFF${t.replace(/\n/g, '\r\n')}\r\n`], 'statement.csv', { type: 'text/csv' }));
+        return d;
+      }, stmt);
+      for (const ev of ['dragenter', 'dragover', 'drop']) await page.dispatchEvent('.u-dz', ev, { dataTransfer: dt });
+      await page.waitForFunction((t) => document.querySelector('#stmt')?.value === t, stmt, { timeout: 5000 }).catch(() => {});
+      check('bank: a CSV dropped on the page fills the statement box', (await page.inputValue('#stmt')) === stmt, await page.inputValue('#stmt'));
       await page.click('[data-act=match]');
       await page.waitForSelector('#mres p');
       check('bank: statement rows matched by amount and reference', (await text(page, '#mres')).includes('۲ ردیف جفت شد'), await text(page, '#mres'));
@@ -2264,8 +2290,7 @@ async function loginUI(page, email = EMAIL) {
     await page.waitForSelector('#pm', { state: 'detached' });
     check('desk products: edited name shows', (await text(page, '#dkPick')).includes('پلاک ز ۱'));
     await page.click('#dkPick .dk-pe');
-    await page.click('#pm [data-pm=del]');
-    await page.click('.modal [data-ok]');
+    await holdApp(page, '#pm [data-pm=del]');
     await page.waitForTimeout(600);
     await page.keyboard.press('Escape');
     await page.fill('[data-psearch]', 'زرنشان');
@@ -2543,6 +2568,48 @@ async function loginUI(page, email = EMAIL) {
     const shared = await page.evaluate(() => navigator.clipboard.readText()).catch(() => '');
     check('sales desk: «ارسال برای مشتری» gives the invoice as text — the pieces, the total, settled, the authenticity code', shared.includes('انگشتر ویترین آینه') && /جمع:/.test(shared) && /تسویه شد/.test(shared) && shared.includes(doc.verify), shared.replace(/\n/g, ' | ').slice(0, 260));
     check('sales desk: the sold pieces leave the showcase', (await auth(`/api/books/items/code/${ear.code}`)).status === 'sold' && !(await page.$(`.sl-item-main[data-add="${rings[0].id}"]`)));
+    // امضای مشتری (spec 0040): signed at the counter right after the sale, kept beside the invoice, printed in its box
+    await page.click('#done [data-act=sign]');
+    const pad = await page.waitForSelector('.modal [data-sign-pad]');
+    check('signature: nothing to save until the customer signs', await page.$eval('.modal [data-sign-save]', (b) => b.disabled));
+    await page.waitForTimeout(400);
+    const pr = await pad.boundingBox();
+    await page.mouse.move(pr.x + pr.width * 0.2, pr.y + pr.height * 0.6);
+    await page.mouse.down();
+    for (let i = 1; i <= 24; i++) await page.mouse.move(pr.x + pr.width * (0.2 + i * 0.025), pr.y + pr.height * (0.6 - 0.25 * Math.sin(i / 3)), { steps: 2 });
+    await page.mouse.up();
+    await page.click('.modal [data-sign-save]');
+    await page.waitForSelector('.modal', { state: 'detached', timeout: 8000 }).catch(() => {});
+    const signed = await auth(`/api/books/docs/${id}`);
+    check('signature: kept beside the sale as a PNG with its hash; the invoice itself unchanged', /^data:image\/png;base64,/.test(signed.signature?.png ?? '') && /^[0-9a-f]{64}$/.test(signed.signature?.hash ?? '') && signed.hash === doc.hash && signed.version === doc.version, JSON.stringify({ hash: signed.signature?.hash, same: signed.hash === doc.hash }));
+    check('signature: the counter says the customer signed', /امضای مشتری ثبت شد/.test(await text(page, '#done')), await text(page, '#done'));
+    if (signed.signature) signedSale = id;
+    // گرم ۱۸ امروز (spec 0040): a new price rolls only the digits that changed, and the figure is read once
+    const fig750 = () => page.$eval('#live [data-fig] .sr', (e) => e.textContent).catch(() => '');
+    const before750 = await fig750();
+    await page.evaluate(() => {
+      window.__rolled = [];
+      document.querySelector('#live').addEventListener('transitionrun', (e) => {
+        const col = e.target.closest?.('.u-roll-s');
+        if (col) window.__rolled.push([...document.querySelectorAll('#live .u-roll-s')].indexOf(col));
+      });
+    });
+    await page.route('**/api/me', async (r) => {
+      const res = await r.fetch();
+      const j = await res.json();
+      j.pricing.p750 += 3;
+      await r.fulfill({ response: res, json: j });
+    }, { times: 1 });
+    await page.click('#live [data-act=refresh]');
+    await page.waitForFunction((b) => document.querySelector('#live [data-fig] .sr')?.textContent !== b, before750, { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    const after750 = await fig750();
+    const digitsOf = (f) => [...f].filter((c) => /[0-9۰-۹]/.test(c));
+    const want = digitsOf(after750).map((c, i) => (c !== digitsOf(before750)[i] ? i : -1)).filter((i) => i >= 0);
+    const rolled = await page.evaluate(() => [...new Set(window.__rolled)].sort((a, b) => a - b));
+    check('sales desk: a new price of the day rolls only the digits that changed, and reads once', after750 !== before750 && want.length > 0 && JSON.stringify(rolled) === JSON.stringify(want) && (await text(page, '#live')).split(after750).length === 2, JSON.stringify({ before750, after750, want, rolled }));
+    await page.click('#live [data-act=refresh]'); // back to the real price before the next sale
+    await page.waitForFunction((b) => document.querySelector('#live [data-fig] .sr')?.textContent === b, before750, { timeout: 8000 }).catch(() => {});
     // a reservation is for a customer: refused without one, then the piece is set aside on a proforma
     await page.fill('#iq', 'ویترین آینه دو');
     await page.waitForTimeout(250);
@@ -2792,6 +2859,71 @@ const MORE_ROUTES = ['/intro/features', '/start', '/train/accounting', '/train/t
     await page.waitForTimeout(800);
     check('mobile studio: tap handle opens sheet', await page.$eval('#panel', (p) => p.classList.contains('open')));
   });
+  if (!live) await step('touch phone (spec 0040): a tap never books — the desk books when the handle is slid to the end; a computer keeps its button; the signature prints', async () => {
+    await freshDesk(page);
+    check('slide: a computer keeps the ordinary «ثبت سند» button', await page.$eval('.dk-save', (s) => getComputedStyle(s.querySelector('[data-act=save]')).display !== 'none' && s.querySelector('.u-slide').hidden));
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const pp = await phone.newPage();
+    pp.on('pageerror', (e) => errors.push(`[touch phone] pageerror: ${e.message}`));
+    try {
+      await loginUI(pp, 'owner@demo.beatris.ir');
+      await freshDesk(pp);
+      check('slide: a touch phone gets the handle in place of the button', await pp.$eval('.dk-save', (s) => getComputedStyle(s.querySelector('[data-act=save]')).display === 'none' && !s.querySelector('.u-slide').hidden && !!s.querySelector('.u-slide-k[aria-label]')));
+      await pp.click('[data-act=pnew]');
+      await pp.fill('#np [name=name]', 'سارا از گوشی لمسی');
+      await pp.fill('#np [name=mobile]', '09121119977');
+      await pp.click('#np button:not([type])');
+      await pp.waitForSelector('.dk-who');
+      await pp.click('[data-mode=buy]');
+      await pp.click('[data-kind=coin]');
+      await pp.click('[data-coin=emami]');
+      await pp.fill('[data-f=count]', '1');
+      await pp.fill('[data-f=price]', '985000000');
+      await pp.click('[data-act=add]');
+      await pp.waitForSelector('#bar [data-act=save]');
+      const booked = async () => !!(await pp.$('.dk-receipt'));
+      await pp.$eval('.dk-save .u-slide', (e) => e.scrollIntoView({ block: 'center' }));
+      await pp.tap('.dk-save .u-slide-k');
+      await pp.waitForTimeout(1200);
+      check('slide: a tap on the handle books nothing', !(await booked()));
+      await pp.tap('#bar [data-act=save]');
+      await pp.waitForTimeout(900);
+      check('slide: «ثبت» in the bottom bar brings the handle, it does not book', !(await booked()) && /دستگیره/.test(await text(pp, '#toasts')), await text(pp, '#toasts'));
+      const cdp = await phone.newCDPSession(pp);
+      const drag = async (share) => {
+        await pp.$eval('.dk-save .u-slide', (e) => e.scrollIntoView({ block: 'center' }));
+        await pp.waitForTimeout(300);
+        const k = await (await pp.$('.dk-save .u-slide-k')).boundingBox();
+        const t = await (await pp.$('.dk-save .u-slide')).boundingBox();
+        const y = k.y + k.height / 2;
+        const x0 = k.x + k.width / 2;
+        const x1 = x0 - (t.width - k.width) * share; // RTL: the handle starts at the right and travels left
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y }] });
+        for (let i = 1; i <= 16; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + ((x1 - x0) * i) / 16, y }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      };
+      await drag(0.6);
+      await pp.waitForTimeout(1200);
+      check('slide: let go before the end, the handle springs back and nothing is booked', !(await booked()));
+      await drag(1);
+      const ok = await pp.waitForSelector('.dk-receipt', { timeout: 15000 }).then(() => true, () => false);
+      check('slide: slid to the end, the document is booked', ok && /کد اصالت/.test(await text(pp, '.dk-receipt')));
+    } finally {
+      await phone.close();
+    }
+    // the signature on the printed paper, in both kinds of paper
+    if (!signedSale) return check('signature: a signed sale to print', false, 'the sales desk step signed none');
+    await go(page, `/books/doc/${signedSale}`, 1500);
+    const was = await page.$eval('[data-fmt][aria-pressed="true"]', (b) => b.dataset.fmt).catch(() => 'a4');
+    const shows = (sel) => page.$eval(sel, (i) => i.complete && i.naturalWidth > 0 && i.src.startsWith('data:image/png')).catch(() => false);
+    await page.click('[data-fmt=a4]');
+    check('signature: the A4 paper shows it in the customer box', await shows('.i-foot .sign .sig-img'));
+    await page.click('[data-fmt=std]');
+    check('signature: the standard form shows it in the customer box', await shows('.sf-foot .sig-img'));
+    check('signature: once signed, an owner is offered to replace it', /جایگزینی امضای مشتری/.test(await text(page, '.bk-head .actions')));
+    await page.click(`[data-fmt=${was}]`);
+  });
+
   await step('light mode (روز): ivory page, white surfaces, no overflow on phone', async () => {
     await page.evaluate(() => localStorage.setItem('beatris.theme', 'day'));
     for (const p of ['/books/desk', '/books/day', '/books/parties', '/books/reports?tab=pnl', '/books/settings', '/books/dashboard', '/']) {

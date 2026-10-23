@@ -2,7 +2,8 @@
 // order they are tried. A key is typed once, sealed on the server and never shown again (only its last four
 // characters). «آزمون اتصال» sends one tiny request. If every engine is down, تاجیار answers from the books itself.
 import { html, raw, api, fa, $, toast } from '../core.mjs';
-import { modal, confirmBox, jd, timeFa } from '../bk.mjs';
+import { held } from '../blocks.mjs';
+import { modal, jd, timeFa } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 import { morphLabel } from '../light.mjs';
 
@@ -25,7 +26,7 @@ export async function aiKeysPage(root) {
         <div class="ak-main"><b>${p.label || kindLabel(p.kind)}</b><small>مدل: <span class="ltr-num">${p.model}</span> · کلید ${p.keyHint || '—'}${p.base && p.kind === 'custom' ? html` · <span class="ltr-num">${p.base}</span>` : ''}</small>
           ${p.lastTest ? html`<small class="ak-test ${p.lastTest.ok ? 'good' : 'bad'}">${p.lastTest.ok ? `اتصال برقرار · ${fa(p.lastTest.ms)} میلی‌ثانیه` : `خطا: ${p.lastTest.error}`} · ${jd(p.lastTest.at.slice(0, 10))} ${timeFa(p.lastTest.at)}</small>` : html`<small>هنوز آزموده نشده</small>`}</div>
         <div class="ak-act"><button class="chip" data-test="${p.id}">آزمون اتصال</button><button class="iconbtn" data-move="${i}" data-by="-1" ${i === 0 ? raw('disabled') : ''} aria-label="بالاتر">▲</button><button class="iconbtn" data-move="${i}" data-by="1" ${i === list.length - 1 ? raw('disabled') : ''} aria-label="پایین‌تر">▼</button>
-          <button class="chip" data-toggle="${p.id}" data-on="${p.enabled ? 0 : 1}">${p.enabled ? 'خاموش' : 'روشن'}</button><button class="chip" data-edit="${p.id}">ویرایش</button><button class="chip danger" data-del="${p.id}">حذف</button></div></li>`,
+          <button class="chip" data-toggle="${p.id}" data-on="${p.enabled ? 0 : 1}">${p.enabled ? 'خاموش' : 'روشن'}</button><button class="chip" data-edit="${p.id}">ویرایش</button><button class="chip danger" data-del="${p.id}" data-hold="حذف سرویس" data-hold-what="کلید این سرویس از سرور پاک می‌شود.">حذف</button></div></li>`,
     )}</ol>` : html`<section class="empty tray"><p>هنوز سرویسی اضافه نشده است؛ تاجیار با موتور داخلی (بدون اینترنت) مستقیم از دفاتر جواب می‌دهد.</p></section>`}
     ${data.chain.some((c) => c.id.startsWith('env-')) ? html`<p class="small">پس از این‌ها: ${data.chain.filter((c) => c.id.startsWith('env-')).map((c) => c.label).join('، ')}.</p>` : ''}`);
   }
@@ -93,7 +94,7 @@ export async function aiKeysPage(root) {
         return load();
       }
       if (b.dataset.del) {
-        if (!(await confirmBox('حذف سرویس', 'کلید این سرویس از سرور پاک می‌شود.', { danger: true, ok: 'حذف' }))) return;
+        if (!held(b)) return; // held to delete (spec 0040)
         await api(`/api/books/ai/${b.dataset.del}`, { method: 'DELETE' });
         return load();
       }

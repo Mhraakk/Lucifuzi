@@ -2,9 +2,9 @@
 // (public/js/coinphoto.mjs): the coin is found automatically, can be nudged by hand, and is turned into
 // 4096/2048 faces plus a relief map; the server only stores the finished, validated textures.
 import { html, fa, api, toast, store, $, $$ } from '../core.mjs';
+import { held, dropzone } from '../blocks.mjs';
 import { back } from '../ui.mjs';
 import { COIN_TYPES } from '../coins.mjs';
-import { confirmBox } from '../dialog.mjs';
 
 const VIEW = 560; // preview canvas width (CSS px scales it down on phones)
 
@@ -67,7 +67,7 @@ export async function coinPhotosPage(root) {
             (it) => html`<article class="photo-item">
               <div class="pair"><img src="${it.sides.obv.c2}" alt="جلوی ${it.label}" loading="lazy"><img src="${it.sides.rev.c2}" alt="پشت ${it.label}" loading="lazy"></div>
               <div><b>${it.label}</b><div class="small">${COIN_TYPES[it.coin]?.label ?? it.coin} · وضوح عکس ${fa(it.sides.obv.px)} پیکسل · ${it.builtin ? 'همراه برنامه' : 'بارگذاری شعبه'}</div><div class="small">${it.credit?.text || ''}</div>
-              <div class="actions"><a class="btn small ghost" href="/coins?mode=real&item=${encodeURIComponent(it.id)}" data-link>مشاهده سه‌بعدی</a>${admin && !it.builtin ? html`<button class="btn small ghost" data-del="${it.id}">حذف</button>` : ''}</div></div>
+              <div class="actions"><a class="btn small ghost" href="/coins?mode=real&item=${encodeURIComponent(it.id)}" data-link>مشاهده سه‌بعدی</a>${admin && !it.builtin ? html`<button class="btn small ghost" data-del="${it.id}" data-hold="حذف عکس مرجع">حذف</button>` : ''}</div></div>
             </article>`,
           )}`
         : html`<p class="small">هنوز عکسی ثبت نشده است.</p>`,
@@ -75,7 +75,7 @@ export async function coinPhotosPage(root) {
   }
   $('#list', root).addEventListener('click', async (e) => {
     const b = e.target.closest('[data-del]');
-    if (!b || !(await confirmBox('حذف عکس مرجع', 'این عکس مرجع حذف شود؟', { danger: true, ok: 'حذف' }))) return;
+    if (!b || !held(b)) return; // held to delete (spec 0040)
     try {
       await api(`/api/coin-photos/${encodeURIComponent(b.dataset.del)}`, { method: 'DELETE' });
       toast('حذف شد.');
@@ -163,6 +163,8 @@ export async function coinPhotosPage(root) {
     schedulePreview();
   };
 
+  // a photo dragged in from the computer goes the same way as a picked one (spec 0040)
+  dropzone(form.elements.files, { text: 'عکس سکه را این‌جا رها کنید یا بزنید تا انتخاب شود', hint: 'یک عکس با هر دو رو، یا دو عکس جدا' });
   form.elements.files.addEventListener('change', async () => {
     const files = [...form.elements.files.files].slice(0, 2);
     if (!files.length) return;

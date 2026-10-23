@@ -2,8 +2,9 @@
 // found by typing, and made, changed or removed without leaving the desk. A template builder adds a whole range at once
 // («زردیس · شمش · ۹۹۵ · ۰٫۵، ۱، ۲٫۵، ۵ گرم» → four products); the operator picks brand, kind, fineness and weights.
 import { html, fa, api, toast, store, $ } from './core.mjs';
+import { held } from './blocks.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from './coins.mjs';
-import { booksPrefs, modal, confirmBox } from './bk.mjs';
+import { booksPrefs, modal } from './bk.mjs';
 
 const toEn = (s) => String(s ?? '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٫,]/g, '.');
 const faN = (n) => fa(n).replace('.', '٫');
@@ -50,7 +51,7 @@ export function productModal(id = null) {
         <div class="form cols"><label class="field">نام کوتاه روی دکمه<input class="input" name="short" value="${c.short ?? ''}" maxlength="30"></label><label class="field">برند / گروه<input class="input" name="group" value="${c.group ?? ''}" list="pm-brands" maxlength="40"></label></div>
         <datalist id="pm-brands">${BRANDS.map((b) => html`<option value="${b}"></option>`)}</datalist>
         <div class="form cols"><label class="field">وزن هر عدد (گرم)<input class="input ltr" name="weight" value="${c.weight ?? ''}" inputmode="decimal" required></label><label class="field">عیار<input class="input ltr" name="fineness" value="${c.fineness ?? 995}" inputmode="decimal" required></label><label class="field">قیمت ثابت (ریال، اختیاری)<input class="input ltr" name="price" value="${c.price ?? ''}" inputmode="numeric"></label></div>
-        <div class="actions"><button class="btn">${id ? 'ذخیره' : 'افزودن'}</button>${id ? html`<button type="button" class="btn ghost" data-pm="hide">پنهان از میز</button><button type="button" class="btn ghost danger" data-pm="del">حذف</button>` : ''}<button type="button" class="btn ghost" data-close>انصراف</button></div></form>`),
+        <div class="actions"><button class="btn">${id ? 'ذخیره' : 'افزودن'}</button>${id ? html`<button type="button" class="btn ghost" data-pm="hide">پنهان از میز</button><button type="button" class="btn ghost danger" data-pm="del" data-hold="حذف محصول" data-hold-what="اگر در سندی آمده باشد، به‌جای حذف پنهانش کنید.">حذف</button>` : ''}<button type="button" class="btn ghost" data-close>انصراف</button></div></form>`),
       (m, close_) => {
         $('#pm', m).addEventListener('submit', async (e) => {
           e.preventDefault();
@@ -68,12 +69,13 @@ export function productModal(id = null) {
           }
         });
         m.addEventListener('click', async (e) => {
-          const a = e.target.closest('[data-pm]')?.dataset.pm;
+          const pb = e.target.closest('[data-pm]');
+          const a = pb?.dataset.pm;
           if (!a) return;
           try {
             if (a === 'hide') await api(`/api/books/products/${id}`, { method: 'PUT', body: { hidden: true } });
             else {
-              if (!(await confirmBox('حذف محصول', `«${c.label}» حذف شود؟ اگر در سندی آمده باشد، به‌جای حذف پنهانش کنید.`, { danger: true, ok: 'حذف' }))) return;
+              if (!held(pb)) return; // held to delete (spec 0040)
               await api(`/api/books/products/${id}`, { method: 'DELETE' });
             }
             await refresh();

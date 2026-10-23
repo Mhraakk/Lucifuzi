@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS bk_cheques (
 );
 CREATE INDEX IF NOT EXISTS idx_bkc_due ON bk_cheques(due);
 CREATE TABLE IF NOT EXISTS bk_recon (src TEXT NOT NULL, acct TEXT NOT NULL, ref TEXT NOT NULL DEFAULT '', at TEXT NOT NULL, by TEXT, PRIMARY KEY (src, acct));
+CREATE TABLE IF NOT EXISTS bk_signatures (doc_id TEXT PRIMARY KEY, png TEXT NOT NULL, hash TEXT NOT NULL, at TEXT NOT NULL, by TEXT);
 CREATE TABLE IF NOT EXISTS bk_log (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, user_id TEXT, action TEXT NOT NULL, ref TEXT NOT NULL DEFAULT '', detail_json TEXT NOT NULL, prev TEXT NOT NULL, hash TEXT NOT NULL
 );
@@ -1289,7 +1290,9 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     const returns = db.all("SELECT id, fy, no, status FROM bk_docs WHERE type='return' AND data_json LIKE ?", `%"ref":"${r.id}"%`);
     const vch = versionChanges(r.id);
     for (const v of versions) v.changes = vch[v.version] ?? [];
-    return docOut(r, { party, versions, cheques, returns, changes: changesOf(r), restorable: restorable(r), createdByName: names[r.created_by] ?? null, updatedByName: names[r.updated_by] ?? null });
+    const sig = db.get('SELECT s.png, s.hash, s.at, u.name AS by_name FROM bk_signatures s LEFT JOIN users u ON u.id=s.by WHERE s.doc_id=?', r.id);
+    const signature = sig ? { png: sig.png, hash: sig.hash, at: sig.at, byName: sig.by_name ?? null } : null;
+    return docOut(r, { party, versions, cheques, returns, changes: changesOf(r), restorable: restorable(r), createdByName: names[r.created_by] ?? null, updatedByName: names[r.updated_by] ?? null, signature });
   });
   on('GET', '/api/books/docs/:id/versions/:v', 'auth', ({ params }) => {
     const v = db.get('SELECT * FROM bk_versions WHERE doc_id=? AND version=?', params.id, Number(params.v));
@@ -2056,6 +2059,25 @@ export function registerBooks({ on: onRoute, db, bad, notFound, HttpError, prici
     return trace.search(url.searchParams.get('q') ?? '', DS.SECTION_IDS.has(sec) && sec !== 'all' ? sec : null);
   });
   // printing, sharing and exporting a document are part of its history too
+  // امضای مشتری (spec 0040): a picture of the customer's signature kept beside a final document. The document itself, its
+  // figures, version and hash are not touched; each signing is a link in the event chain carrying the picture's hash.
+  // Anyone at the counter takes the first signature; only a manager replaces one.
+  on('PUT', '/api/books/docs/:id/signature', 'auth', ({ user, params, body }) => {
+    const r = db.get('SELECT id, status FROM bk_docs WHERE id=?', params.id);
+    if (!r) throw notFound('سند پیدا نشد.');
+    if (r.status !== 'final') throw bad('فقط سند قطعی امضای مشتری می‌گیرد.');
+    const m = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(body?.png ?? ''));
+    const bytes = m ? Buffer.from(m[1], 'base64') : null;
+    if (!bytes || bytes.length < 8 || bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw bad('امضا باید تصویر PNG باشد.');
+    if (bytes.length > 200 * 1024) throw bad('تصویر امضا بیش از ۲۰۰ کیلوبایت است.');
+    const had = db.get('SELECT hash FROM bk_signatures WHERE doc_id=?', r.id);
+    if (had && !isAdmin(user)) throw forbid('امضای ثبت‌شده را فقط مدیر عوض می‌کند.');
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    const at = now();
+    db.run('INSERT INTO bk_signatures(doc_id,png,hash,at,by) VALUES (?,?,?,?,?) ON CONFLICT(doc_id) DO UPDATE SET png=excluded.png, hash=excluded.hash, at=excluded.at, by=excluded.by', r.id, body.png, hash, at, user?.id ?? null);
+    log(user, 'doc.sign', r.id, had ? { hash, replaced: had.hash } : { hash });
+    return { ok: true, signature: { png: body.png, hash, at, byName: user?.name ?? null } };
+  });
   on('POST', '/api/books/docs/:id/event', 'auth', ({ user, params, body }) => {
     const r = db.get('SELECT id FROM bk_docs WHERE id=?', params.id);
     if (!r) throw notFound('سند پیدا نشد.');

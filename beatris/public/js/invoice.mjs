@@ -15,6 +15,9 @@ export const THEMES = [
   ['ivory', 'کم‌جوهر'],
 ];
 
+/** The customer's signature (spec 0040) in their box on the paper; only a PNG data URL the server checked is drawn. */
+const sigImg = (d) => (/^data:image\/png;base64,/.test(d.signature?.png ?? '') ? html`<img class="sig-img" src="${d.signature.png}" alt="امضای مشتری">` : '');
+
 /* ---------------- art ---------------- */
 let uid = 0;
 /** The crown emblem: faceted body, pearl tips, a jewelled band, inside a double medallion ring. */
@@ -117,6 +120,8 @@ function acctTable(d, c) {
   return html`<table class="sf-items"><caption>${B.DOC_TYPES[d.type]?.label ?? ''}${cat}</caption>${head(['ردیف', 'روش', 'جهت', 'پیگیری / حساب', `مبلغ (${unitName()})`])}<tbody>${c.payments.map((p, i) => html`<tr><td>${fa(i + 1)}</td><td>${B.payMethod(p.method)?.label ?? p.method}</td><td>${p.dir === 'in' ? 'دریافت' : 'پرداخت'}</td><td class="ltr-num">${[d.payments[i]?.ref, d.payments[i]?.account].filter(Boolean).join(' · ')}</td><td>${T(p.value)}</td></tr>`)}</tbody></table>`;
 }
 const ACCT_PAPER = new Set(['transform', 'writeoff', 'hawala', 'convert', 'income', 'expense', 'receipt', 'payment', 'transfer', 'opening', 'adjust']);
+/** A final document whose paper has a box for the customer's signature (spec 0040): not one with only the preparer's. */
+export const signable = (d) => d.status === 'final' && !(ACCT_PAPER.has(d.type) && !d.party);
 
 /* ---------------- the document ---------------- */
 export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verifyUrl, brandName = '' }) {
@@ -280,7 +285,7 @@ export function invoicePaper({ d, s, shop, format = 'a4', theme = 'royal', verif
       : ''}
     ${d.note ? html`<p class="i-note">یادداشت: ${d.note}</p>` : ''}
     <footer class="bk-p-foot i-foot">
-      <div class="sign"><div><span>مهر و امضای فروشنده</span><i class="seal">${crown({ size: 54, ring: true })}</i></div><div><span>امضای ${d.type === 'buy' ? 'فروشنده (مشتری)' : 'خریدار'}</span></div></div>
+      <div class="sign"><div><span>مهر و امضای فروشنده</span><i class="seal">${crown({ size: 54, ring: true })}</i></div><div><span>امضای ${d.type === 'buy' ? 'فروشنده (مشتری)' : 'خریدار'}</span>${sigImg(d)}</div></div>
       ${verify}
       <p class="legal">${s.footer ?? ''}${d.seller ? ` · فروشنده: ${d.seller}` : ''}</p>
       <div class="made">${guilloche(1000, 10, 4)}<span>${brandName ? `${brandName} · ` : ''}صادرشده با بئاتریس — هر نسخه با اثر انگشت دیجیتال ثبت و با کد اصالت قابل استعلام است</span></div>
@@ -331,7 +336,7 @@ function stdPaper({ d, s, shop, verifyUrl, official, flag }) {
       : html`<table class="sf-terms"><tbody><tr><td>شرایط و نحوه ${d.type === 'buy' || trade ? 'تسویه' : 'فروش'}: <span class="box">${cash ? '☒' : '☐'}</span> نقدی <span class="box">${cash ? '☐' : '☒'}</span> غیرنقدی (نسیه${c.credit ? `: ${T(Math.abs(c.credit))} ${unitName()} ${c.credit > 0 ? 'بدهی خریدار' : 'طلب مشتری'}` : ''})</td>
       <td>${c.payments.length ? c.payments.map((p, i) => `${B.payMethod(p.method)?.label} ${T(p.value)}${d.payments[i]?.ref ? ` (پیگیری ${fa(d.payments[i].ref)})` : ''}`).join(' · ') : '—'}</td></tr>
       <tr><td colspan="2">مبلغ به حروف: ${moneyWords(Math.abs(trade ? c.net : c.net || c.sales))}${d.note ? ` · توضیحات: ${d.note}` : ''}</td></tr></tbody></table>`}
-    <footer class="sf-foot"><div><span>مهر و امضای ${trade || acct ? 'مغازه' : 'فروشنده'}</span></div><div><span>${acct && !party ? 'امضای تنظیم‌کننده' : `مهر و امضای ${d.type === 'buy' ? 'فروشنده (مشتری)' : trade ? 'طرف معامله' : acct ? 'طرف حساب' : 'خریدار'}`}</span></div>
+    <footer class="sf-foot"><div><span>مهر و امضای ${trade || acct ? 'مغازه' : 'فروشنده'}</span></div><div><span>${acct && !party ? 'امضای تنظیم‌کننده' : `مهر و امضای ${d.type === 'buy' ? 'فروشنده (مشتری)' : trade ? 'طرف معامله' : acct ? 'طرف حساب' : 'خریدار'}`}</span>${acct && !party ? '' : sigImg(d)}</div>
       <div class="sf-qr">${raw(qrSvg(verifyUrl, { size: 84 }))}<small>استعلام اصالت<br><b class="ltr-num">${d.verify}</b></small></div></footer>
   </article>`;
 }

@@ -1,4 +1,5 @@
 import { html, store, api, fa, $, actions, toast, busy, render, ROLE_FA } from '../core.mjs';
+import { held } from '../blocks.mjs';
 import { back, ICON, ringEl, barEl, courseTitle, faDate, faTime } from '../ui.mjs';
 import { fmt, parseNum } from '../calc.mjs';
 import { statusStamp } from './learn.mjs';
@@ -224,13 +225,13 @@ export function settingsPage(root) {
         <label class="field" style="margin-top:10px">توکن<input class="input ltr" readonly value="${fresh}" data-copy></label>
         <p class="small" style="margin-top:12px">Claude Code:</p><pre class="ltr small" style="white-space:pre-wrap;word-break:break-all">claude mcp add --transport http beatris ${endpoint} --header "Authorization: Bearer ${fresh}"</pre>
         <p class="small">Claude Desktop (فایل claude_desktop_config.json):</p><pre class="ltr small" style="white-space:pre-wrap;word-break:break-all">${desktop}</pre>` : ''}
-      <div class="actions" style="margin-top:12px"><button class="btn" type="button" data-mcp="new">${m.configured ? 'ساخت توکن تازه (توکن قبلی باطل می‌شود)' : 'ساخت توکن و فعال‌سازی'}</button>${m.configured && !m.fromEnv ? html`<button class="btn ghost" type="button" data-mcp="off">ابطال و غیرفعال‌سازی</button>` : ''}</div>`);
+      <div class="actions" style="margin-top:12px"><button class="btn" type="button" data-mcp="new">${m.configured ? 'ساخت توکن تازه (توکن قبلی باطل می‌شود)' : 'ساخت توکن و فعال‌سازی'}</button>${m.configured && !m.fromEnv ? html`<button class="btn ghost" type="button" data-mcp="off" data-hold="قطع اتصال دستیار" data-hold-what="توکن دستیار هوش مصنوعی باطل می‌شود.">ابطال و غیرفعال‌سازی</button>` : ''}</div>`);
   }
   $('#mcp', root).addEventListener('click', async (e) => {
     const b = e.target.closest('[data-mcp]');
     if (e.target.matches('[data-copy]')) return e.target.select();
     if (!b) return;
-    if (b.dataset.mcp === 'off' && !(await confirmBox('قطع اتصال', 'اتصال دستیار هوش مصنوعی قطع شود؟', { danger: true, ok: 'قطع کن' }))) return;
+    if (b.dataset.mcp === 'off' && !held(b)) return; // held to disconnect (spec 0040)
     busy(b, true);
     try {
       if (b.dataset.mcp === 'new') {
@@ -291,7 +292,7 @@ export async function leadsPage(root) {
         ? html`<div class="rows" style="margin-top:16px">${items.map((l) => html`<div class="tray lead-row"><div><b>${l.shop}</b> <span class="small">· ${l.name} · ${l.city || '—'} · ${fa(l.branches)} شعبه · ${faDate(l.createdAt)}</span></div>
             <div class="small ltr" style="text-align:end"><a href="tel:${l.phone}">${fa(l.phone)}</a></div>
             ${l.message ? html`<p class="small" style="grid-column:1/-1">${l.message}</p>` : ''}
-            <div class="chips" style="grid-column:1/-1">${Object.entries(LEAD_STATUS).map(([k, v]) => html`<button class="chip" data-lead="${l.id}" data-status="${k}" aria-pressed="${l.status === k}">${v}</button>`)}<button class="chip" data-lead="${l.id}" data-del="1">حذف</button></div></div>`)}</div>`
+            <div class="chips" style="grid-column:1/-1">${Object.entries(LEAD_STATUS).map(([k, v]) => html`<button class="chip" data-lead="${l.id}" data-status="${k}" aria-pressed="${l.status === k}">${v}</button>`)}<button class="chip" data-lead="${l.id}" data-del="1" data-hold="حذف درخواست">حذف</button></div></div>`)}</div>`
         : html`<p class="small" style="margin-top:16px">هنوز درخواستی ثبت نشده است.</p>`}`);
   };
   root.addEventListener('click', async (e) => {
@@ -299,7 +300,7 @@ export async function leadsPage(root) {
     if (!b) return;
     try {
       if (b.dataset.del) {
-        if (!(await confirmBox('حذف درخواست', 'این درخواست حذف شود؟', { danger: true, ok: 'حذف' }))) return;
+        if (!held(b)) return; // held to delete (spec 0040)
         await api(`/api/leads/${b.dataset.lead}`, { method: 'DELETE' });
       } else await api(`/api/leads/${b.dataset.lead}`, { method: 'PATCH', body: { status: b.dataset.status } });
       await draw();

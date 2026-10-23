@@ -17,7 +17,8 @@ import { qrSvg } from '../qr.mjs';
 import { pickerHtml, productModal, templateModal, canManageProducts } from '../deskproducts.mjs';
 import { posConfig, posProblem, posMode, cardWindow, linkCharge } from '../pos.mjs';
 import { createHistory, mountDock } from '../undo.mjs';
-import { morphText } from '../motion.mjs';
+import { morphText, still } from '../motion.mjs';
+import { slideConfirm, rollTo } from '../blocks.mjs';
 import { parseLine, describe as describeParsed, resolveMazaneh, explainMazaneh, missing as missingOf } from '../oneline.mjs';
 import { drafts, submit, onOutbox, take } from '../outbox.mjs';
 
@@ -131,8 +132,11 @@ export async function deskPage(root) {
       <aside class="dk-side"><section class="dk-rpanel" id="dkReceipt" hidden aria-label="رسید سند ثبت‌شده"></section><p class="dk-sentence" id="dkSentence" aria-live="polite"></p><div class="tray dk-sum" id="sum"></div><div class="dk-save"><button class="btn block pos-pay" data-act="paycard" hidden></button><button class="btn block" data-act="save">ثبت سند <kbd>Ctrl+Enter</kbd></button></div></aside>
     </div>
     <div class="dk-bar" id="bar"></div>`);
+  // on a touch phone the document is booked by sliding, not by a tap (spec 0040)
+  const slide = slideConfirm($('.dk-save [data-act=save]', root), { label: 'برای ثبت سند، دستگیره را تا انتها بکشید' });
 
   /* ---------------- prices ---------------- */
+  const shownPrices = new Map(); // id → the figure last shown: a new one rolls only its changed digits (spec 0040)
   function drawPrices() {
     const tiles = [
       ['mesghal', 'مظنه نقدی', 'maz'],
@@ -151,8 +155,13 @@ export async function deskPage(root) {
     $('#prices', root).innerHTML = String(html`${shown.map(([id, label, use]) => {
       const v = liveOf(id);
       const x = board?.items?.find((i) => i.id === id);
-      return v ? html`<button class="dk-price" data-use="${use}" data-v="${v}" title="بگذار در فرم"><span>${label}</span><b>${R(v).replace(' ریال', '')}</b>${x?.pct ? html`<em class="${x.pct > 0 ? 'up' : 'down'}">${x.pct > 0 ? '▲' : '▼'}${fa(Math.abs(x.pct).toFixed(2))}٪</em>` : ''}</button>` : '';
+      return v ? html`<button class="dk-price" data-use="${use}" data-v="${v}" title="بگذار در فرم"><span>${label}</span><b data-pid="${id}" data-fig="${R(v).replace(' ریال', '')}"></b>${x?.pct ? html`<em class="${x.pct > 0 ? 'up' : 'down'}">${x.pct > 0 ? '▲' : '▼'}${fa(Math.abs(x.pct).toFixed(2))}٪</em>` : ''}</button>` : '';
     })}<button type="button" class="dk-pmore" data-pmore aria-expanded="${allP}">${allP ? 'قیمت‌های کمتر' : 'همه قیمت‌ها'}</button><span class="dk-src">${board?.sample ? 'داده نمونه (قیمت زنده وصل نیست)' : 'ریال · منبع: ' + (board?.source?.label ?? '')}</span>`);
+    for (const b of $$('#prices [data-pid]', root)) {
+      if (shownPrices.has(b.dataset.pid)) b.dataset.roll = shownPrices.get(b.dataset.pid);
+      rollTo(b, b.dataset.fig);
+      shownPrices.set(b.dataset.pid, b.dataset.roll);
+    }
   }
 
   /* ---------------- customer ---------------- */
@@ -1465,7 +1474,15 @@ export async function deskPage(root) {
     }
     const act = b.dataset.act;
     if (act === 'add') addLine();
-    else if (act === 'save') save(b);
+    else if (act === 'save') {
+      // on a touch phone the bar's «ثبت» brings the slide into view: a tap alone never books (spec 0040)
+      if (b.closest('#bar') && !slide.hidden) {
+        slide.scrollIntoView({ block: 'center', behavior: still() ? 'auto' : 'smooth' });
+        slide.querySelector('.u-slide-k').focus({ preventScroll: true });
+        return toast('برای ثبت سند، دستگیره را تا انتها بکشید.', 'info');
+      }
+      save(b);
+    }
     else if (act === 'paycard') payByCard(b);
     else if (act === 'pnew') {
       partyForm = partyForm === 'new' ? null : 'new';

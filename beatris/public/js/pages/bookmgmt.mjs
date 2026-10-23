@@ -1,9 +1,10 @@
 // Shop books management: customers and their statements, stock and labels, cash/bank/cheques, reports, settings.
 import { html, raw, fa, api, store, toast, navigate, actions, $, $$, busy } from '../core.mjs';
+import { held } from '../blocks.mjs';
 import * as B from '../books.mjs';
 import { TRADE_COINS as COIN_TYPES, shownCoins } from '../coins.mjs';
 import { barcodeSvg } from '../barcode.mjs';
-import { T, TU, G, jd, jdInput, parseDay, today, addDays, modal, confirmBox, exportButtons, wireExport, download, balText, balClass, unitAmt, EX, unitName, moneyWords, K, booksPrefs, prefs, unitLabel, unitVal, balChips, balUnits, R, balBoard, balSentence, sideWord, lineVerb, describeLine, timeFa } from '../bk.mjs';
+import { T, TU, G, jd, jdInput, parseDay, today, addDays, modal, exportButtons, wireExport, download, balText, balClass, unitAmt, EX, unitName, moneyWords, K, booksPrefs, prefs, unitLabel, unitVal, balChips, balUnits, R, balBoard, balSentence, sideWord, lineVerb, describeLine, timeFa } from '../bk.mjs';
 import { TRADE_KINDS as TR_KINDS } from '../trade.mjs';
 import { booksNav } from './books.mjs';
 import { writeoffDialog } from './bookops.mjs';
@@ -109,7 +110,7 @@ export async function partyPage(root, { id }) {
   if (tab !== 'all' && !units.includes(tab)) tab = 'all';
   root.innerHTML = String(html`${booksNav('parties')}
     <div class="bk-head"><div><h1>${p.label}</h1><span class="small">کد ${fa(p.code)}${p.group ? ` · گروه ${p.group}` : ''} · ${fa(r.docs.filter((d) => d.status === 'final').length)} سند قطعی${p.creditLimit ? ` · سقف اعتبار ${TU(p.creditLimit)}` : ''}</span></div>
-      <div class="actions"><a class="btn small" href="/books/desk?party=${p.id}" data-link>معامله در میز</a>${prefs.edition === 'base' ? '' : html`<a class="btn small ghost" href="/books/new/sale?party=${p.id}" data-link>فروش</a><a class="btn small ghost" href="/books/new/receipt?party=${p.id}" data-link>دریافت</a><a class="btn small ghost" href="/books/new/payment?party=${p.id}" data-link>پرداخت</a>`}<button class="btn small ghost" data-act="edit">ویرایش</button><button class="btn small ghost" data-act="confirm">نامه تأیید مانده</button><button class="btn small ghost" data-act="share">برگه ته حساب آنلاین</button>${store.isAdmin() ? html`<button class="btn small ghost" data-act="writeoff">سوخت یا بخشودگی مانده</button><button class="btn small danger" data-act="del">حذف</button>` : ''}</div></div>
+      <div class="actions"><a class="btn small" href="/books/desk?party=${p.id}" data-link>معامله در میز</a>${prefs.edition === 'base' ? '' : html`<a class="btn small ghost" href="/books/new/sale?party=${p.id}" data-link>فروش</a><a class="btn small ghost" href="/books/new/receipt?party=${p.id}" data-link>دریافت</a><a class="btn small ghost" href="/books/new/payment?party=${p.id}" data-link>پرداخت</a>`}<button class="btn small ghost" data-act="edit">ویرایش</button><button class="btn small ghost" data-act="confirm">نامه تأیید مانده</button><button class="btn small ghost" data-act="share">برگه ته حساب آنلاین</button>${store.isAdmin() ? html`<button class="btn small ghost" data-act="writeoff">سوخت یا بخشودگی مانده</button><button class="btn small danger" data-act="del" data-hold="حذف مشتری" data-hold-what="فقط مشتری بی‌مانده حذف می‌شود؛ اسناد قبلی سر جایشان می‌مانند.">حذف</button>` : ''}</div></div>
     <p class="small">${[p.mobile && `موبایل ${fa(p.mobile)}`, p.nid && `${p.kind === 'company' ? 'شناسه ملی' : 'کد ملی'} ${fa(p.nid)}`, p.eco && `شماره اقتصادی ${fa(p.eco)}`, p.postal && `کد پستی ${fa(p.postal)}`, p.birth && `تولد ${jd(p.birth)}`, p.address, p.tags && `برچسب: ${p.tags}`].filter(Boolean).join(' · ')}</p>
     <div class="printable pr-sheet"><h2 class="pr-only">ته حساب و ریز حساب ${p.label} · ${jd(today())}</h2>
     <h3 class="bk-h">ته حساب (مانده)</h3>${balBoard(p.name, r.balance, prices)}
@@ -222,8 +223,8 @@ export async function partyPage(root, { id }) {
           }
         }),
       ),
-    del: async () => {
-      if (!(await confirmBox('حذف مشتری', 'فقط مشتری بی‌مانده حذف می‌شود؛ اسناد قبلی سر جایشان می‌مانند.', { danger: true, ok: 'حذف' }))) return;
+    del: async (el) => {
+      if (!held(el)) return; // held to delete (spec 0040)
       try {
         await api(`/api/books/parties/${p.id}`, { method: 'DELETE' });
         navigate('/books/parties');
@@ -317,7 +318,7 @@ export async function stockPage(root) {
     $('#sum', root).textContent = fa(`${rows.length} قطعه · ${G(w)} گرم (معادل ${G(w750)} گرم ۷۵۰) · ارزش طلای خام به قیمت روز ${T(B.rnd(w750 * store.me.pricing.p750 * 10))} ${unitName()}`);
     const bar = $('#bulk', root);
     bar.hidden = !sel.size;
-    bar.innerHTML = String(html`<b>${fa(sel.size)} قطعه</b><button class="chip" data-bulk="labels">چاپ برچسب</button>${admin ? html`<button class="chip" data-bulk="edit">ویرایش گروهی</button><button class="chip danger" data-bulk="delete">حذف</button>` : ''}`);
+    bar.innerHTML = String(html`<b>${fa(sel.size)} قطعه</b><button class="chip" data-bulk="labels">چاپ برچسب</button>${admin ? html`<button class="chip" data-bulk="edit">ویرایش گروهی</button><button class="chip danger" data-bulk="delete" data-hold="حذف قطعه‌ها" data-hold-what="فقط قطعه‌ای که در هیچ سندی نیامده حذف می‌شود.">حذف</button>` : ''}`);
   }
   function labels() {
     const items = rows.filter((r) => sel.has(r.id));
@@ -391,7 +392,7 @@ export async function stockPage(root) {
     if (b.dataset.bulk === 'labels') labels();
     else if (b.dataset.bulk === 'edit') bulkEdit();
     else if (b.dataset.bulk === 'delete') {
-      if (!(await confirmBox(`حذف ${fa(sel.size)} قطعه`, 'فقط قطعه‌ای که در هیچ سندی نیامده حذف می‌شود.', { danger: true, ok: 'حذف' }))) return;
+      if (!held(b)) return; // held to delete (spec 0040)
       try {
         await api('/api/books/items/bulk', { method: 'POST', body: { ids: [...sel], delete: true } });
         sel.clear();

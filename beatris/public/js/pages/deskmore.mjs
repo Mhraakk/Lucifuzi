@@ -10,6 +10,7 @@ import { booksNav } from './books.mjs';
 import { hasNumber, TOLERANCES, SECTIONS, SECTION_IDS, sectionsOf, lineSection, paySection } from '../daysearch.mjs';
 import { sortBy, wireSorts } from '../sorting.mjs';
 import { meltDialog, countDialog } from './bookops.mjs';
+import { dropzone } from '../blocks.mjs';
 
 const money = (v) => R(v);
 const sg = (n) => (n < 0 ? raw(`<bdi dir="ltr">−${fa(-n)}</bdi>`) : fa(n));
@@ -440,10 +441,27 @@ export async function bankPage(root, { id }) {
     <div class="bk-head"><div><h1>تطبیق بانک: ${a.title}</h1><span class="small">${a.bank ?? ''} ${a.number ? fa(a.number) : ''}</span></div>${exportButtons('bn')}</div>
     <div class="stats bk-stats"><div><b>${money(r.book)}</b><span>مانده دفتر</span></div><div><b>${money(r.reconciledBalance)}</b><span>مانده تطبیق‌شده با صورتحساب</span></div><div class="${r.open ? 'bad' : 'good'}"><b>${fa(r.open)}</b><span>ردیف تطبیق‌نشده</span></div></div>
     <section class="tray bk-sec"><h3 class="bk-h">چسباندن صورتحساب بانک</h3><p class="small">هر سطر: تاریخ، مبلغ (ریال؛ برداشت با منفی)، شماره پیگیری — با کاما، تب یا | جدا. مثال: <span class="ltr-num">۱۴۰۵/۰۷/۰۶, 500000000, 1234</span></p>
-      <textarea class="input ltr" id="stmt" rows="4"></textarea><div class="actions"><button class="btn small" data-act="match">تطبیق خودکار</button></div><div id="mres"></div></section>
+      <input type="file" id="stmtFile" accept=".csv,.txt,text/csv,text/plain" aria-label="فایل صورتحساب بانک (CSV یا TXT)"><textarea class="input ltr" id="stmt" rows="4" aria-label="متن صورتحساب بانک"></textarea><div class="actions"><button class="btn small" data-act="match">تطبیق خودکار</button></div><div id="mres"></div></section>
     <section class="tray bk-sec printable pr-sheet"><div class="bk-head"><h3 class="bk-h">گردش حساب در دفتر ${a.title}</h3><button class="btn small" data-act="save" disabled id="rsave">ذخیره تطبیق</button></div>
       <div class="scrollx"><table class="table-plain bk-table" data-sort="bank"><thead><tr><th data-nosort>تطبیق</th><th>تاریخ</th><th>سند</th><th>طرف حساب</th><th>روش / پیگیری</th><th>واریز</th><th>برداشت</th><th>مانده</th></tr></thead><tbody>${r.rows.map((x) => html`<tr data-src="${x.id}" class="${x.reconciled ? 'ok' : ''}"><td><input type="checkbox" data-rc="${x.id}" ${x.reconciled ? 'checked' : ''} aria-label="تطبیق"></td><td data-v="${x.date}">${jd(x.date)}</td><td>${x.doc ? html`<a class="ltr-num" href="/books/trace?q=${encodeURIComponent(x.track)}" data-link>${x.track}</a>` : ''}</td><td>${x.party ?? '—'}</td><td class="small">${x.refs.join('، ')}${x.reconRef ? html` · صورتحساب ${fa(x.reconRef)}` : ''}</td><td class="num" data-v="${x.amt > 0 ? x.amt : ''}">${x.amt > 0 ? money(x.amt) : ''}</td><td class="num" data-v="${x.amt < 0 ? -x.amt : ''}">${x.amt < 0 ? money(-x.amt) : ''}</td><td class="num" data-v="${x.balance}">${money(x.balance)}</td></tr>`)}</tbody></table></div></section>`);
   wireSorts(root);
+  // the bank's own export, dropped or picked, fills the box as it is; matching stays one press away (spec 0040)
+  const sf = $('#stmtFile', root);
+  dropzone(sf, { text: 'فایل CSV یا TXT صورتحساب را این‌جا رها کنید یا بزنید', hint: 'متن فایل در کادر زیر می‌نشیند؛ تطبیق با «تطبیق خودکار».', max: 2e6 });
+  sf.addEventListener('change', async () => {
+    const f = sf.files?.[0];
+    if (!f) return;
+    const buf = await f.arrayBuffer();
+    let text;
+    try {
+      text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+    } catch {
+      text = new TextDecoder('windows-1256').decode(buf); // older Iranian bank exports
+    }
+    text = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim();
+    $('#stmt', root).value = text;
+    toast(`${fa(text ? text.split('\n').length : 0)} سطر از «${f.name}» آمد؛ «تطبیق خودکار» را بزنید.`, 'ok');
+  });
   const refresh = () => ($('#rsave', root).disabled = !pend.size);
   root.addEventListener('change', (e) => {
     const c = e.target.closest('[data-rc]');

@@ -2,10 +2,10 @@
 // Every line uses the same fixed pattern (750-equivalent to 3 decimals, then money rounded to 1,000 toman) and
 // lands in a session ledger that totals the gold and money columns and exports to CSV for the accounting app.
 import { html, fa, store, toast, $, $$ } from '../core.mjs';
+import { held } from '../blocks.mjs';
 import { back } from '../ui.mjs';
 import { fmt, parseNum, MAZANEH_TO_G750 } from '../calc.mjs';
 import { eq750, gram18, r3, ledgerValue, AYAR_FACTORS } from '../melt.mjs';
-import { confirmBox } from '../dialog.mjs';
 
 const KEY = 'beatris.melt.session';
 const SPREAD_KEY = 'beatris.melt.spread';
@@ -55,7 +55,7 @@ export function meltToolPage(root) {
     </form>
     <h2>دفتر این جلسه</h2>
     <div id="book"></div>
-    <div class="actions"><button class="btn small ghost" data-act="csv">خروجی CSV</button><button class="btn small ghost" data-act="print">چاپ</button><button class="btn small ghost" data-act="clear">پاک کردن دفتر جلسه</button></div>`);
+    <div class="actions"><button class="btn small ghost" data-act="csv">خروجی CSV</button><button class="btn small ghost" data-act="print">چاپ</button><button class="btn small ghost" data-act="clear" data-hold="پاک کردن دفتر جلسه">پاک کردن دفتر جلسه</button></div>`);
 
   const form = $('#mf', root);
   const v = (n) => parseNum(form.elements[n].value);
@@ -119,7 +119,7 @@ export function meltToolPage(root) {
       save();
       book();
     } else if (b.dataset.act === 'clear') {
-      if (!rows.length || !(await confirmBox('پاک کردن دفتر', 'دفتر این جلسه پاک شود؟', { danger: true, ok: 'پاک کن' }))) return;
+      if (!rows.length || !held(b)) return; // held to clear (spec 0040)
       rows = [];
       save();
       book();

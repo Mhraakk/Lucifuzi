@@ -19,6 +19,7 @@ const LOOPS = {
 const OWN_CURVE = {
   '#tabbar .goo-head': 'the gooey tab drop: the one spring that must overshoot',
   '.gd-tip': 'the chart tip follows the pointer at the speed of the hand',
+  '.holding > .u-hold-fill': 'a hold is a clock: its fill runs at a steady pace for the whole hold (spec 0040)',
 };
 // layout moves only where a size is the message
 const GROWS = {
@@ -165,7 +166,7 @@ test('motion: one reduced-motion rule settles every layer at once', () => {
 });
 
 test('motion: the tokens exist once, and the old names no longer overshoot', () => {
-  for (const t of ['--t-press', '--t-hover', '--t-ui', '--t-page', '--t-panel', '--t-reveal', '--t-slow', '--t-stagger', '--ease-out', '--ease-in-out', '--ease-exit']) assert.equal(CSS.split(`${t}:`).length - 1, 1, t);
+  for (const t of ['--t-press', '--t-hover', '--t-ui', '--t-page', '--t-panel', '--t-reveal', '--t-slow', '--t-stagger', '--t-hold', '--ease-out', '--ease-in-out', '--ease-exit']) assert.equal(CSS.split(`${t}:`).length - 1, 1, t);
   assert.match(CSS, /--ease: var\(--ease-out\);/);
   assert.match(CSS, /--spring: var\(--ease-out\);/);
   assert.match(CSS, /--lt-spring: var\(--ease-out\);/);

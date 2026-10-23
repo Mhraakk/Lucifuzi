@@ -2,12 +2,12 @@
 // prices by hand, a pasted history table (Jalali or Gregorian dates, Persian digits, Excel paste) and the
 // recent rows of each symbol. Everything here is recorded in the audit log.
 import { html, fa, api, store, toast, $, busy } from '../core.mjs';
+import { held } from '../blocks.mjs';
 import { back } from '../ui.mjs';
 import { fmt, parseNum } from '../calc.mjs';
 import { SYMBOLS, SYMBOL, isSymbol } from '../market.mjs';
 import { jalaliOf } from '../ta.mjs';
 import { jDate } from '../charts.mjs';
-import { confirmBox } from '../dialog.mjs';
 
 const tehranToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(new Date());
 const jToday = () => fa(jalaliOf(tehranToday()).map((x, i) => (i ? String(x).padStart(2, '0') : x)).join('/'));
@@ -82,7 +82,7 @@ export async function marketDataPage(root) {
     const rows = r.sample ? [] : r.series[symbol].slice(-20).reverse();
     const f = (v) => fmt(v, SYMBOL[symbol].decimals ?? 0);
     $('#recent', root).innerHTML = String(html`<h2 class="mk-h">آخرین روزهای ثبت‌شده: <select id="rsym" aria-label="نماد">${SYMBOLS.map((s) => html`<option value="${s.id}" ${s.id === symbol ? 'selected' : ''}>${s.short}</option>`)}</select></h2>
-      ${rows.length ? html`<div class="tablewrap" tabindex="0"><table><thead><tr><th>تاریخ</th><th>باز</th><th>سقف</th><th>کف</th><th>پایانی</th><th></th></tr></thead><tbody>${rows.map(([d, o, h, l, c]) => html`<tr><td>${jDate(d)}</td><td>${f(o)}</td><td>${f(h)}</td><td>${f(l)}</td><td>${f(c)}</td><td><button class="iconbtn" data-del="${d}" aria-label="حذف ${jDate(d)}">×</button></td></tr>`)}</tbody></table></div>` : html`<p class="small">${r.sample ? 'هنوز قیمت واقعی ثبت نشده است.' : 'در ۴۵ روز اخیر قیمتی برای این نماد نیست.'}</p>`}`);
+      ${rows.length ? html`<div class="tablewrap" tabindex="0"><table><thead><tr><th>تاریخ</th><th>باز</th><th>سقف</th><th>کف</th><th>پایانی</th><th></th></tr></thead><tbody>${rows.map(([d, o, h, l, c]) => html`<tr><td>${jDate(d)}</td><td>${f(o)}</td><td>${f(h)}</td><td>${f(l)}</td><td>${f(c)}</td><td><button class="iconbtn" data-del="${d}" aria-label="حذف ${jDate(d)}" data-hold="حذف قیمت">×</button></td></tr>`)}</tbody></table></div>` : html`<p class="small">${r.sample ? 'هنوز قیمت واقعی ثبت نشده است.' : 'در ۴۵ روز اخیر قیمتی برای این نماد نیست.'}</p>`}`);
   }
 
   root.addEventListener('click', async (e) => {
@@ -105,7 +105,7 @@ export async function marketDataPage(root) {
         busy(b, false);
       }
     } else if (b.dataset.del) {
-      if (!(await confirmBox('حذف قیمت', `قیمت ${jDate(b.dataset.del)} حذف شود؟`, { danger: true, ok: 'حذف' }))) return;
+      if (!held(b)) return; // held to delete (spec 0040)
       try {
         await api(`/api/market/bars/${symbol}/${b.dataset.del}`, { method: 'DELETE' });
         await drawRecent();

@@ -2,8 +2,9 @@
 // for this shop (both on Beatris). The colleague's side is shown "as seen from here", so agreeing books show the same
 // words and the same numbers in both columns; a gap lists the documents that exist on only one side.
 import { html, api, fa, $, toast, store, busy } from '../core.mjs';
+import { held } from '../blocks.mjs';
 import * as B from '../books.mjs';
-import { booksPrefs, jd, unitAmt, unitLabel, balUnits, modal, confirmBox } from '../bk.mjs';
+import { booksPrefs, jd, unitAmt, unitLabel, balUnits, modal } from '../bk.mjs';
 import { booksNav } from './books.mjs';
 
 const say = (u, v) => (Math.abs(v) < 1e-9 ? html`<span class="pe-zero">بی‌حساب</span>` : html`<b class="${v > 0 ? 'pe-d' : 'pe-c'}">${u.startsWith('BAR:') ? unitLabel(u) : unitAmt(u, Math.abs(v))}</b> <small>${v > 0 ? 'همکار بدهکار' : 'همکار بستانکار'}</small>`);
@@ -41,7 +42,7 @@ export async function peersPage(root) {
         ? html`<div class="pe-list">${d.items.map((l) => html`<article class="pe-card tray ${l.error ? 'off' : l.compare?.agree ? 'ok' : 'bad'}" data-id="${l.id}">
             <header><div><b>${l.peerShop || 'همکار'}</b><small>حساب «${l.party.label}» در دفتر ما · از ${jd(tday(l.createdAt))}</small></div><span class="pe-pill">${l.error ? 'در دسترس نیست' : l.compare.agree ? 'همخوان ✓' : `${fa(l.compare.units.filter((u) => u.diff).length)} مغایرت`}</span></header>
             ${l.error ? html`<p class="small">${l.error}</p>` : l.compare.units.length ? unitsTable(l.compare) : html`<p class="small">هر دو دفتر بی‌حساب‌اند.</p>`}
-            <div class="actions"><button class="btn ghost small" data-act="detail">ریز سندها</button><a class="btn ghost small" href="/books/party/${l.party.id}" data-link>حساب در دفتر ما</a><button class="btn ghost small danger" data-act="end">قطع اتصال</button></div>
+            <div class="actions"><button class="btn ghost small" data-act="detail">ریز سندها</button><a class="btn ghost small" href="/books/party/${l.party.id}" data-link>حساب در دفتر ما</a><button class="btn ghost small danger" data-act="end" data-hold="قطع اتصال با همکار" data-hold-what="مقایسه‌ی این دو حساب متوقف می‌شود؛ دفترهای هیچ‌کدام تغییر نمی‌کند.">قطع اتصال</button></div>
             <div class="pe-detail" hidden></div></article>`)}</div>`
         : html`<div class="tray pe-empty"><h2>هنوز به همکاری وصل نیستید</h2><ol><li>در فهرست مشتریان برای همکار یک حساب داشته باشید (مثلاً «زرگری الماس»).</li><li>«ساخت کد اتصال» را بزنید و کد ۸ حرفی را تلفنی به همکار بدهید.</li><li>همکار در بئاتریس خودش «کد همکار را دارم» را می‌زند و حساب شما را انتخاب می‌کند.</li></ol></div>`}
     </section>`);
@@ -99,7 +100,7 @@ export async function peersPage(root) {
     if (!card) return;
     const id = card.dataset.id;
     if (b.dataset.act === 'end') {
-      if (!(await confirmBox('قطع اتصال با همکار', 'مقایسه این دو حساب متوقف می‌شود. دفترهای هیچ‌کدام تغییری نمی‌کنند و بعداً می‌توانید دوباره وصل شوید.', { danger: true, ok: 'قطع اتصال' }))) return;
+      if (!held(b)) return; // held to disconnect (spec 0040)
       try {
         await api(`/api/peers/${id}`, { method: 'DELETE' });
         draw();
