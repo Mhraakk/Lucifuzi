@@ -13,7 +13,20 @@ const UPLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
  * becomes the input's own files and fires its change event, so the page's handler runs exactly as for a pick. A click
  * (or Enter on the input, which stays focusable) still opens the picker; files the place does not take are refused.
  */
+let strayGuard = false;
 export function dropzone(input, { text = 'فایل را این‌جا رها کنید یا بزنید تا انتخاب شود', hint = '', max = Infinity } = {}) {
+  // a file that misses the zone must not replace the app (the browser opens a dropped file in the tab): it is ignored.
+  // A drop someone else takes (a zone, a plain file input) is left alone.
+  if (!strayGuard) {
+    strayGuard = true;
+    const stray = (e) => !e.defaultPrevented && [...(e.dataTransfer?.types ?? [])].includes('Files') && !e.target.closest?.('input[type=file]');
+    document.addEventListener('dragover', (e) => {
+      if (!stray(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'none'; // the pointer says «not here»
+    });
+    document.addEventListener('drop', (e) => stray(e) && e.preventDefault());
+  }
   const zone = document.createElement('div');
   zone.className = 'u-dz';
   zone.innerHTML = `<span class="u-dz-i" aria-hidden="true">${UPLOAD}</span><span class="u-dz-t">${esc(text)}</span>${hint ? `<small class="u-dz-h">${esc(hint)}</small>` : ''}<span class="u-dz-f" aria-live="polite"></span>`;

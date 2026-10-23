@@ -115,7 +115,8 @@ export function mountDock(history, { root, restore, title = 'برگشت' }) {
   const fa = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
   function draw() {
     const steps = history.steps(5);
-    dock.classList.toggle('on', history.canUndo || history.canRedo);
+    const on = history.canUndo || history.canRedo;
+    dock.classList.toggle('on', on);
     dock.innerHTML = `<div class="ud-row">
       <button type="button" class="ud-back" data-ud="undo" ${history.canUndo ? '' : 'disabled'} aria-keyshortcuts="Control+Z" title="${esc(title)} (Ctrl+Z)">
         <span class="ud-ic" aria-hidden="true">↶</span><span class="ud-t">${esc(title)}</span>${history.canUndo ? `<span class="ud-n">${fa(history.size)}</span>` : ''}</button>
@@ -123,6 +124,8 @@ export function mountDock(history, { root, restore, title = 'برگشت' }) {
       ${history.canRedo ? `<button type="button" class="ud-fwd" data-ud="redo" aria-keyshortcuts="Control+Shift+Z" title="جلو (Ctrl+Shift+Z): ${esc(history.nextRedo)}">↷</button>` : ''}
       ${steps.length > 1 ? `<button type="button" class="ud-more" data-ud="list" aria-expanded="${open}" aria-label="گام‌های قبلی">▾</button>` : ''}
     </div>${open && steps.length > 1 ? `<ol class="ud-list">${steps.map((s, i) => `<li><button type="button" data-ud-back="${i + 1}">${i ? `${fa(i + 1)} گام: ` : ''}${esc(s)}</button></li>`).join('')}</ol>` : ''}`;
+    // how tall the dock is while shown: a sticky bar of the page (the desk's, on a phone) stands above it, not under it
+    document.documentElement.style.setProperty('--ud-h', on ? `${dock.offsetHeight}px` : '0px');
   }
   function land(step) {
     if (!step) return;
@@ -165,5 +168,6 @@ export function mountDock(history, { root, restore, title = 'برگشت' }) {
     off();
     document.removeEventListener('keydown', onKey);
     dock.remove();
+    document.documentElement.style.removeProperty('--ud-h');
   };
 }

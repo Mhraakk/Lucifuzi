@@ -3,6 +3,7 @@
 // (public/js/coinphoto.mjs): coin detection, upright crop, 4096/2048 faces, relief map.
 //
 //   node scripts/coin-photos.mjs            # needs Playwright (same as npm run e2e)
+//   node scripts/coin-photos.mjs --thumbs   # only the small round faces (-s.webp, spec 0041) from the c2 already here
 //
 // Each source is a photograph showing both faces side by side. Credits are written into the manifest
 // and shown next to the coin in the lab and on every exported image.
@@ -74,6 +75,34 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   page.on('pageerror', (e) => console.error('pageerror:', e.message));
   await page.goto(`${base}/login`);
   mkdirSync(OUT, { recursive: true });
+  if (process.argv.includes('--thumbs')) {
+    // the showcase's small round faces, cut from the 2048 px faces already in the set; nothing else is touched
+    try {
+      const man = JSON.parse(readFileSync(path.join(OUT, 'manifest.json'), 'utf8'));
+      for (const it of man.items)
+        for (const side of ['obv', 'rev']) {
+          const s = it.sides?.[side];
+          if (!s?.c2) continue;
+          const url = await page.evaluate(async (src) => {
+            const P = await import('/js/coinphoto.mjs');
+            const img = new Image();
+            img.src = src;
+            await img.decode();
+            return P.thumb(img).toDataURL('image/webp', 0.86);
+          }, s.c2);
+          const name = `${it.id}-${side}-s.webp`;
+          writeFileSync(path.join(OUT, name), Buffer.from(url.split(',')[1], 'base64'));
+          s.s = `/coins/photos/${name}`;
+          console.log(name);
+        }
+      writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify(man, null, 1) + '\n');
+    } finally {
+      await browser.close();
+      server.kill();
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+    process.exit(0);
+  }
   for (const f of readdirSync(OUT)) if (/\.(webp|jpg|png)$/.test(f)) unlinkSync(path.join(OUT, f));
   const manifest = [];
   try {
@@ -89,7 +118,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
           const out = {};
           for (const side of ['obv', 'rev']) {
             const s = P.buildSide(src, circles[it[side]]);
-            out[side] = { c4: s.c4.toDataURL('image/webp', 0.92), c2: s.c2.toDataURL('image/webp', 0.9), h: s.height.toDataURL('image/webp', 0.95), px: s.sourcePx, inverted: s.inverted };
+            out[side] = { c4: s.c4.toDataURL('image/webp', 0.92), c2: s.c2.toDataURL('image/webp', 0.9), h: s.height.toDataURL('image/webp', 0.95), s: P.thumb(s.c2).toDataURL('image/webp', 0.86), px: s.sourcePx, inverted: s.inverted };
           }
           return { out, circles };
         },
@@ -99,7 +128,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       const sides = {};
       for (const side of ['obv', 'rev']) {
         sides[side] = { px: res.out[side].px, label: it.faces[side] };
-        for (const k of ['c4', 'c2', 'h']) {
+        for (const k of ['c4', 'c2', 'h', 's']) {
           const name = `${it.id}-${side}-${k}.webp`;
           writeFileSync(path.join(OUT, name), Buffer.from(res.out[side][k].split(',')[1], 'base64'));
           sides[side][k] = `/coins/photos/${name}`;

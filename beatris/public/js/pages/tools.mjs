@@ -30,6 +30,7 @@ export function toolsPage(root) {
     <div class="tool-grid" style="margin-top:22px">
       <a class="tool-card feature mesh" href="/studio" data-link><span class="ico">${ICON.cube}</span><span class="eyebrow">استودیوی سه‌بعدی</span><b>طراحی کن، وزن کن، خروجی بگیر.</b><span>۱۵ نوع قطعه، ۹ آلیاژ، ۱۲ سنگ؛ تصویر تا ۸K، فایل STL برای چاپ و ریخته‌گری و ویدیوی ۳۶۰ درجه.</span></a>
       <a class="tool-card wide2" href="/coins" data-link><span class="ico">${ICON.cube}</span><b>آزمایشگاه سکه</b><span>سکه و پلمپ را سه‌بعدی وارسی کنید: ۸ نوع تقلب سکه، ۶ سناریوی دستکاری پلمپ، سنجه زنده احتمال تقلب و دو بازی آموزشی.</span></a>
+      <a class="tool-card" href="/coins/showcase" data-link><span class="ico">${ICON.grid}</span><b>ویترین سکه‌ها</b><span>هر دو روی سکه‌های بازار با عکس واقعی، وزن و عیار، قیمت امروز و هشدار قیمت؛ یک کارت را بزنید تا باز شود.</span></a>
       ${entries.filter(([, t]) => !t.rare).map(card)}
     </div>
     <h2>دانش نایاب کارگاه</h2>

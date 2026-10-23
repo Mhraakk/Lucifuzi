@@ -122,6 +122,7 @@ route('/studio/coach', lazy('./pages/studiocoach.mjs', 'studioCoachPage'), { tab
 route('/agents', lazy('./pages/studiocoach.mjs', 'agentsDebugPage'), { tab: 'team', tone: 'wide', staff: true });
 route('/coins', lazy('./pages/coinlab.mjs', 'coinLabPage'), { tab: 'tools', tone: 'full', title: 'آزمایشگاه سکه' });
 route('/coins/manage', lazy('./pages/coinphotos.mjs', 'coinPhotosPage'), { tab: 'tools', staff: true });
+route('/coins/showcase', lazy('./pages/coinshowcase.mjs', 'coinShowcasePage'), { tab: 'tools', tone: 'full', title: 'ویترین سکه‌ها' });
 route('/history', lazy('./pages/history.mjs', 'historyPage'), { tab: 'learn', tone: 'full' });
 route('/library', lazy('./pages/library.mjs', 'libraryPage'), { tab: 'me' });
 route('/sop/:id', lazy('./pages/library.mjs', 'sopPage'), { tab: 'me' });

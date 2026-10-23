@@ -117,7 +117,7 @@ export async function coinLabPage(root) {
   root.innerHTML = String(html`<div class="studio3d coinlab">
     <div class="viewport" id="vp">
       <div class="hud">
-        <div class="chips"><a class="iconbtn" href="/learn/c-coins" data-link title="دوره تشخیص سکه">${ICON.learn}</a><button class="iconbtn" data-act="frame" title="نمای کامل">${ICON.orbit}</button><button class="iconbtn" data-act="spin" title="چرخش خودکار" aria-pressed="false">${ICON.rotate}</button></div>
+        <div class="chips"><a class="iconbtn" href="/learn/c-coins" data-link title="دوره تشخیص سکه">${ICON.learn}</a><a class="iconbtn" href="/coins/showcase" data-link title="ویترین سکه‌ها" aria-label="ویترین سکه‌ها">${ICON.grid}</a><button class="iconbtn" data-act="frame" title="نمای کامل">${ICON.orbit}</button><button class="iconbtn" data-act="spin" title="چرخش خودکار" aria-pressed="false">${ICON.rotate}</button></div>
         <div class="lab-title" id="ltitle"></div>
       </div>
       <div class="readout" id="readout"></div>

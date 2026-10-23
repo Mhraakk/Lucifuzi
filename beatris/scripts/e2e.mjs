@@ -81,7 +81,7 @@ const holdApp = async (page, sel) => {
   const r = await el.boundingBox();
   await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
   await page.mouse.down();
-  await page.waitForTimeout(1150);
+  await page.waitForTimeout(1400); // the fill takes 900 ms; the rest is room for a busy machine
   await page.mouse.up();
 };
 const go = async (page, p, wait = 1200) => {
@@ -1042,7 +1042,7 @@ async function loginUI(page, email = EMAIL) {
     await page.waitForTimeout(300);
     check('quick entry: Enter let go early clears nothing (spec 0040)', (await page.$$eval('#book tbody tr', (x) => x.length)) === 2);
     await page.keyboard.down('Enter');
-    await page.waitForTimeout(1150);
+    await page.waitForTimeout(1400);
     await page.keyboard.up('Enter');
     await page.waitForTimeout(300);
     check('quick entry: session ledger cleared by holding Enter', !(await page.$('#book tbody tr')));
@@ -1386,6 +1386,14 @@ async function loginUI(page, email = EMAIL) {
       for (const ev of ['dragenter', 'dragover', 'drop']) await page.dispatchEvent('.u-dz', ev, { dataTransfer: dt });
       await page.waitForFunction((t) => document.querySelector('#stmt')?.value === t, stmt, { timeout: 5000 }).catch(() => {});
       check('bank: a CSV dropped on the page fills the statement box', (await page.inputValue('#stmt')) === stmt, await page.inputValue('#stmt'));
+      const stray = await page.evaluate(() => {
+        const d = new DataTransfer();
+        d.items.add(new File(['x'], 'stray.csv', { type: 'text/csv' }));
+        const ev = new DragEvent('drop', { dataTransfer: d, bubbles: true, cancelable: true });
+        document.querySelector('h1, .bk-h')?.dispatchEvent(ev);
+        return ev.defaultPrevented;
+      });
+      check('bank: a file dropped beside the box is ignored, not opened in place of the app', stray);
       await page.click('[data-act=match]');
       await page.waitForSelector('#mres p');
       check('bank: statement rows matched by amount and reference', (await text(page, '#mres')).includes('۲ ردیف جفت شد'), await text(page, '#mres'));
@@ -2237,7 +2245,7 @@ async function loginUI(page, email = EMAIL) {
     await page.click('[data-mode=os]');
     await page.click('[data-pick=cleannight]');
     // the media-change event reaches the page on its next frame, which a headless browser may delay
-    const skinIs = (x) => page.waitForFunction((v) => document.documentElement.dataset.skin === v, x, { timeout: 3000 }).then(() => true, () => false);
+    const skinIs = (x) => page.waitForFunction((v) => document.documentElement.dataset.skin === v, x, { timeout: 10000 }).then(() => true, () => false);
     await page.emulateMedia({ colorScheme: 'dark' });
     check('skins: with the device, a dark device gets the dark member of the pair', await skinIs('cleannight'));
     await page.emulateMedia({ colorScheme: 'light' });
@@ -2829,7 +2837,7 @@ async function loginUI(page, email = EMAIL) {
 /* ======================================================= phone */
 // one address for every page (spec 0039): the phone walk opens ROUTES, the walk of both widths and both skins opens
 // ROUTES and MORE_ROUTES (the patterns with an id get a real one there)
-const ROUTES = ['/', '/work', '/books/sell', '/books/sell/screen', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/find', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott'];
+const ROUTES = ['/', '/work', '/books/sell', '/books/sell/screen', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/coins/showcase', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/find', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott'];
 const MORE_ROUTES = ['/intro/features', '/start', '/train/accounting', '/train/team', '/scenario/sc-ojrat', '/cards', '/drill', '/tools/invoice', '/tools/mazaneh', '/setup', '/studio', '/studio/coach', '/agents', '/library', '/sop/sop-open', '/me', '/staff', '/staff/queue', '/staff/access'];
 {
   const { page, ctx } = await session({ width: 390, height: 844 });
@@ -2871,7 +2879,7 @@ const MORE_ROUTES = ['/intro/features', '/start', '/train/accounting', '/train/t
       check('slide: a touch phone gets the handle in place of the button', await pp.$eval('.dk-save', (s) => getComputedStyle(s.querySelector('[data-act=save]')).display === 'none' && !s.querySelector('.u-slide').hidden && !!s.querySelector('.u-slide-k[aria-label]')));
       await pp.click('[data-act=pnew]');
       await pp.fill('#np [name=name]', 'سارا از گوشی لمسی');
-      await pp.fill('#np [name=mobile]', '09121119977');
+      await pp.fill('#np [name=mobile]', '09124400400'); // a number no other step gives a customer
       await pp.click('#np button:not([type])');
       await pp.waitForSelector('.dk-who');
       await pp.click('[data-mode=buy]');
@@ -2881,6 +2889,14 @@ const MORE_ROUTES = ['/intro/features', '/start', '/train/accounting', '/train/t
       await pp.fill('[data-f=price]', '985000000');
       await pp.click('[data-act=add]');
       await pp.waitForSelector('#bar [data-act=save]');
+      await pp.evaluate(() => scrollTo(0, 0));
+      await pp.waitForTimeout(600);
+      const cover = await pp.evaluate(() => {
+        const a = document.querySelector('.ud-dock.on')?.getBoundingClientRect();
+        const b = document.querySelector('#bar')?.getBoundingClientRect();
+        return { dock: !!a, overlap: !!a && !!b && a.top < b.bottom && b.top < a.bottom && a.left < b.right && b.left < a.right };
+      });
+      check('phone desk: the «برگشت» dock does not cover the bottom bar', cover.dock && !cover.overlap, JSON.stringify(cover));
       const booked = async () => !!(await pp.$('.dk-receipt'));
       await pp.$eval('.dk-save .u-slide', (e) => e.scrollIntoView({ block: 'center' }));
       await pp.tap('.dk-save .u-slide-k');
@@ -2922,6 +2938,104 @@ const MORE_ROUTES = ['/intro/features', '/start', '/train/accounting', '/train/t
     check('signature: the standard form shows it in the customer box', await shows('.sf-foot .sig-img'));
     check('signature: once signed, an owner is offered to replace it', /جایگزینی امضای مشتری/.test(await text(page, '.bk-head .actions')));
     await page.click(`[data-fmt=${was}]`);
+  });
+
+  if (!live) await step('coin showcase (spec 0041): real photos from this origin, the ring in RTL, drag, a card into the window and back, next follows, the alert pill, drift and its pause, reduced motion still', async () => {
+    const outside = [];
+    const watch = (r) => !r.url().startsWith(base) && !/^(data|blob):/.test(r.url()) && outside.push(r.url());
+    page.on('request', watch);
+    await go(page, '/coins/showcase', 2600);
+    page.off('request', watch);
+    const ring = () =>
+      page.evaluate(() => {
+        const s = document.querySelector('#csStage').getBoundingClientRect();
+        const mid = s.left + s.width / 2;
+        return [...document.querySelectorAll('.cs-card')].map((c) => {
+          const r = c.getBoundingClientRect();
+          return { k: +c.dataset.k, x: r.left + r.width / 2 - mid, copy: c.hasAttribute('aria-hidden') };
+        });
+      });
+    const middle = async () => (await ring()).reduce((a, b) => (Math.abs(b.x) < Math.abs(a.x) ? b : a));
+    // wait for the ring (a slow software-drawn page moves it in fewer frames); give back the last reading either way
+    const until = async (read, ok, ms) => {
+      const end = Date.now() + ms;
+      let v = await read();
+      while (!ok(v) && Date.now() < end) await page.waitForTimeout(150), (v = await read());
+      return v;
+    };
+    // the carousel is the phone's second screen: bring it up at once (the page scrolls smoothly, and a click into a
+    // moving page lands wherever the page has gone), then let the header settle
+    const toStage = async () => {
+      await page.evaluate(() => document.querySelector('#csStage').scrollIntoView({ block: 'center', behavior: 'instant' }));
+      await page.waitForTimeout(700);
+    };
+    const cards = await ring();
+    const imgs = await page.$$eval('.cs-face > .cs-coin', (x) => x.map((i) => i.getAttribute('src')));
+    check('showcase: a hero, and both faces of the four coins as cards (copies fill the ring)', /از نزدیک/.test(await text(page, '#csTitle')) && cards.length >= 8 && cards.filter((c) => !c.copy).length === 8, `${cards.length} cards`);
+    check('showcase: the small round photos, and nothing from outside this origin', imgs.every((s) => /^\/coins\/photos\/[a-z0-9]+-(obv|rev)-s\.webp$/.test(s)) && outside.length === 0, JSON.stringify({ img: imgs[0], outside }));
+    const at0 = cards.find((c) => c.k === 0), at1 = cards.find((c) => c.k === 1);
+    check('showcase: the first card rests in the middle and the next one is on the left (RTL)', Math.abs(at0.x) < 6 && at1.x < -100, JSON.stringify({ c0: Math.round(at0.x), c1: Math.round(at1.x) }));
+    // drag a card's worth to the right and hold still before letting go (no throw): the ring follows the hand and
+    // settles on the next card
+    await toStage();
+    const stage = await (await page.$('#csStage')).boundingBox();
+    const y = stage.y + stage.height / 2;
+    await page.mouse.move(stage.x + 40, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 20; i++) await page.mouse.move(stage.x + 40 + i * 14, y, { steps: 1 });
+    await page.waitForTimeout(150);
+    await page.mouse.up();
+    await page.mouse.move(2, 2);
+    await page.waitForTimeout(1800);
+    const after = await middle();
+    check('showcase: a drag moves the ring and it settles exactly on another card', after.k !== 0 && Math.abs(after.x) < 2, JSON.stringify(after));
+    // the middle card opens into the window: the coin's facts and its photo credit. A tap where the card is on the screen
+    // (the browser's own hit test, as for a hand), not a locator click, which scrolls and re-tries around 3D elements
+    const at = await page.$eval(`.cs-card[data-k="${after.k}"]`, (c) => { const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await page.mouse.click(at.x, at.y);
+    await page.waitForSelector('.cs-box[role=dialog]', { timeout: 5000 });
+    await page.waitForTimeout(900);
+    const win = await text(page, '.cs-box');
+    check('showcase: the window gives weight, fineness, diameter, today’s price and the photo credit', /گرم/.test(win) && /عیار ۹۰۰/.test(win) && /قطر/.test(win) && /CC BY-SA 4\.0/.test(win) && /مشاهده‌ی سه‌بعدی/.test(win), win.replace(/\s+/g, ' ').slice(0, 220));
+    const kicker = await text(page, '.cs-kicker');
+    await page.click('.cs-next');
+    const now = await until(middle, (c) => c.k === (after.k + 1) % cards.length && Math.abs(c.x) < 2, 6000);
+    check('showcase: «next» shows the next face and the ring behind follows', (await text(page, '.cs-kicker')) !== kicker && now.k === (after.k + 1) % cards.length && Math.abs(now.x) < 2, JSON.stringify({ kicker, now }));
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.cs-layer', { state: 'detached', timeout: 5000 }).catch(() => {});
+    const focused = await page.evaluate(() => document.activeElement?.closest('.cs-card')?.dataset.k ?? document.activeElement?.id);
+    check('showcase: Esc closes the window and focus lands on the card now in the middle', !(await page.$('.cs-layer')) && +focused === now.k, `focus on ${focused}`);
+    // the alert pill: an alert for the coin in the middle, kept with the market page's own alerts
+    const before = await page.evaluate(() => JSON.parse(localStorage.getItem('beatris.market.alerts') ?? '[]').length);
+    await page.fill('#csAlert input', '۹۹۹٬۰۰۰٬۰۰۰');
+    await page.press('#csAlert input', 'Enter');
+    await page.waitForTimeout(300);
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('beatris.market.alerts') ?? '[]'));
+    check('showcase: «خبرم کن» keeps an alert for the coin in the middle', kept.length === before + 1 && ['sekee', 'sekeb', 'nim', 'rob'].includes(kept.at(-1).symbol) && kept.at(-1).price > 0, JSON.stringify(kept.at(-1)));
+    await go(page, '/market', 2200);
+    check('showcase: the market page lists that alert', (await page.$$eval('#alerts .ledger > div', (x) => x.length)) === kept.length);
+    await page.evaluate((n) => localStorage.setItem('beatris.market.alerts', JSON.stringify(JSON.parse(localStorage.getItem('beatris.market.alerts')).slice(0, n))), before);
+    // idle, it drifts on by itself; paused, it stays; under «حرکت کمتر» it never drifts
+    await go(page, '/coins/showcase', 1500);
+    await toStage();
+    await page.mouse.move(2, 2);
+    const pos = async () => (await ring()).find((c) => c.k === 0).x;
+    const p0 = await pos();
+    const p1 = await until(pos, (p) => Math.abs(p - p0) > 20, 12000);
+    await page.click('#csPause');
+    await page.mouse.move(2, 2);
+    // paused, it settles on the nearest card, then stays
+    const rest = await until(middle, (c) => Math.abs(c.x) < 1, 8000);
+    const p2 = await pos();
+    await page.waitForTimeout(3000);
+    const p3 = await pos();
+    check('showcase: idle, the ring drifts by itself; «توقف حرکت» stops it on a card', Math.abs(p1 - p0) > 20 && Math.abs(rest.x) < 1 && Math.abs(p3 - p2) < 1 && (await page.getAttribute('#csPause', 'aria-pressed')) === 'true', JSON.stringify({ p0, p1, rest, p2, p3 }));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await go(page, '/coins/showcase', 1500);
+    const q0 = await pos();
+    await page.waitForTimeout(4200);
+    check('showcase: with «حرکت کمتر» the ring stands still', Math.abs((await pos()) - q0) < 1);
+    await page.emulateMedia({ reducedMotion: null });
   });
 
   await step('light mode (روز): ivory page, white surfaces, no overflow on phone', async () => {

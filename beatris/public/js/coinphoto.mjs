@@ -447,6 +447,19 @@ export function imageType() {
 }
 export const toDataURL = (canvas, quality = 0.92) => canvas.toDataURL(imageType(), quality);
 
+/** A small round copy of a face for cards (spec 0041): the coin's disc only, transparent outside it. */
+export function thumb(face, size = 768) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.beginPath();
+  g.arc(size / 2, size / 2, size / 2 - 0.5, 0, Math.PI * 2);
+  g.clip();
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(face, 0, 0, size, size);
+  return c;
+}
+
 /**
  * Full build for one side: 4096 colour, 2048 colour, 2048 relief (+ shaded preview).
  * sourceScale = how many real photo pixels span the coin diameter (reported to the user).

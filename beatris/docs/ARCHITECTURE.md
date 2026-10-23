@@ -148,6 +148,23 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
   - `signaturePad(canvas)` و `public/js/signdoc.mjs`: امضای مشتری روی سند قطعی، `PUT /api/books/docs/:id/signature` (PNG تا ۲۰۰KB، بدنه تا ۴۰۰KB)، جدول `bk_signatures`، رویداد `doc.sign` با هش PNG در زنجیره. جایگزینی فقط با مدیر. در چاپ (`invoice.mjs`، `sigImg`) در کادر مشتری می‌آید. آزمون: `tests/signature.test.mjs`.
   - `rollTo(el, figure)`: فقط رقم‌های عوض‌شده می‌غلتند. عدد کامل در `.sr` است و واحد بیرون از آن.
   - کد امضای بستن روز در `smart.mjs` همان `codeBox` ورود است (`#clCode`).
+- ویترین سکه‌ها (spec 0041)، `/coins/showcase`:
+  - **بخش خالص** `public/js/showcasemath.mjs` (`tests/showcase.test.mjs`):
+    - `ringPos`: جای کارت روی حلقه؛ طول حلقه دقیقاً N گام است.
+    - `pose`: وضع کارت؛ در RTL با `dir = -1`.
+    - `entrance`: ورود پلکانی از وسط.
+    - `step`: لختی و جاافتادن، مستقل از نرخ فریم.
+    - `copiesFor`: تعداد تکرار کارت‌ها برای پر کردن صفحه.
+    - `cardSize`: اندازه‌ی کارت با جای زیر هیرو؛ گوشی اندازه‌ی خود را نگه می‌دارد.
+    - `flipFrom`: پرواز کارت به پنجره.
+    - `COIN_SYMBOL` و `alertFor`: نماد قیمت سکه و هشدار.
+  - **صفحه** `pages/coinshowcase.mjs`:
+    - عکس‌ها از `/api/coin-photos` می‌آیند: عکس کوچک گرد `-s.webp`، و برای عکس بارگذاری‌شده `c2` با ماسک گرد. قیمت از `/api/market` است.
+    - حرکت با rAF است و فقط وقتی چیزی حرکت می‌کند و صفحه دیده می‌شود.
+    - `.cs-ring` ضربه نمی‌گیرد (`pointer-events: none`). کارت وسط در صفحه‌ی خود حلقه (z = 0) است و حلقه‌ای که ضربه بگیرد گاهی ضربه‌ی روی آن کارت را می‌گیرد.
+    - «خبرم کن» هشدار را در `beatris.market.alerts` می‌گذارد، همان فهرست صفحه‌ی بازار.
+  - **عکس کوچک:** `node scripts/coin-photos.mjs --thumbs` فقط `-s.webp` می‌سازد و کلید `s` را به manifest می‌افزاید. خط لوله‌ی کامل هم `s` را می‌سازد.
+  - **e2e:** مرحله‌ی «coin showcase (spec 0041)» در بلوک گوشی است. کارت با `mouse.click` روی جای خودش زده می‌شود، نه با locator، چون اسکرول نرم و تلاش دوباره‌ی Playwright روی عنصر سه‌بعدی ضربه را جابه‌جا می‌کند.
 - `public/js/deskproducts.mjs`: جستجو، ساخت/ویرایش/حذف و قالب‌ساز محصول در میز؛ داده از `/api/books/products` (فیلد `group`).
 - `scripts/compare-video.mjs`: ویدیوی مقایسه با نسخه پایه مارکیز (فقط منابع عمومی؛ «ذکر نشده» به‌جای «ندارد»).
 
