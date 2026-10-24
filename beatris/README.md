@@ -1,0 +1,32 @@
+# بئاتریس ۲ — آموزش کارکنان گالری طلا
+
+Node 22 · بدون وابستگی npm · `node:http` + `node:sqlite` · SPA ماژولار · موتور WebGL2 اختصاصی.
+
+## اجرا
+```bash
+npm run dev        # http://localhost:3000 با حساب‌های نمایشی (کد ورود روی همان صفحه)
+npm test           # ۲۰ تست محاسبه، محتوا و API
+npm run check      # بررسی نحو همه ماژول‌ها + اعتبار محتوا
+npm run e2e        # تست سرتاسری مرورگر (Playwright) روی سرور موقت
+```
+
+## متغیرهای محیطی
+| متغیر | الزام | توضیح |
+|---|---|---|
+| `BEATRIS_TOKEN_SECRET` | در production الزامی (≥۱۶ کاراکتر) | امضای توکن ورود |
+| `BEATRIS_DATA_DIR` | توصیه‌شده | مسیر Volume؛ دیتابیس `beatris-v2.db` |
+| `BEATRIS_OWNER_PHONE` / `BEATRIS_OWNER_NAME` | برای راه‌اندازی اول | ساخت حساب مالک (ورود با کد پیامکی) |
+| `BEATRIS_OWNER_PIN` | تا پیامک تنظیم شود | فقط تلفن مالک با این رمز به جای کد وارد می‌شود؛ با راه افتادن پیامک بی‌اثر است |
+| `BEATRIS_SMS_PROVIDER` / `_API_KEY` / `_TEMPLATE` | اختیاری (یا از کنسول) | پنل پیامک: `smsir`، `kavenegar`، `ippanel`، `ghasedak`، `melipayamak`؛ و `_SENDER`، `_PARAM`، `_USERNAME`، `_BASE_URL` (spec 0022) |
+| `BEATRIS_DEMO` | اختیاری | `true` = شش حساب نمایشی |
+
+## ساختار
+- `server/` — HTTP، احراز هویت (موبایل + کد پیامکی یک‌بارمصرف، توکن HMAC)، API، SQLite
+- `content/` — ۸ دوره، ۳۱ درس، ۹۳ پرسش، ۸ سناریو، ۷ دستورالعمل، واژه‌نامه، منابع
+- `public/js/calc.mjs` — موتور محاسبه مشترک سرور/مرورگر
+- `public/js/gl/` — هندسه رویه‌ای با حجم دقیق مش + رندرر
+
+## Railway
+- `railway.json`: شروع با `npm start`، هلث‌چک `/api/health`.
+- Volume دائمی روی `/data` و `BEATRIS_DATA_DIR=/data`.
+- متغیرها: `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`، و برای مالک `BEATRIS_OWNER_PHONE` (و `BEATRIS_OWNER_PIN` تا پیامک تنظیم شود)؛ پنل پیامک از کنسول یا `BEATRIS_SMS_*` (`BEATRIS_DEMO=true` فقط برای دمو).

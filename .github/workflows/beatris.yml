@@ -1,0 +1,45 @@
+# Release gates for Beatris (spec 0001 #19). Render serves production from this branch; these checks show on
+# every push and pull request so a red gate is visible before anyone relies on the deploy.
+name: beatris
+on:
+  push:
+    paths: ['beatris/**', '.github/workflows/beatris.yml']
+  pull_request:
+    paths: ['beatris/**', '.github/workflows/beatris.yml']
+permissions:
+  contents: read
+concurrency:
+  group: beatris-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    working-directory: beatris
+jobs:
+  gate:
+    name: gate (check + unit + evals)
+    # pinned: ubuntu-latest became Ubuntu 26 on 2026-10-19 and the Playwright install step has failed there since
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - run: npm run gate
+  e2e:
+    name: e2e (browser)
+    needs: gate
+    runs-on: ubuntu-24.04
+    # the full walk is ~640 checks with WebGL drawn in software on two cores
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - name: Install Playwright (test tool only, not a runtime dependency)
+        run: |
+          npm i -g playwright@1.56
+          npx playwright install --with-deps chromium
+      # E2E_DEBUG: a failed step prints Playwright's whole message (what it waited for and why), not its first line
+      - run: PLAYWRIGHT_MODULE="$(npm root -g)/playwright/index.mjs" E2E_DEBUG=1 npm run e2e

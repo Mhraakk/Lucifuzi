@@ -1,0 +1,11 @@
+node_modules/
+data/
+*.db
+*.db-*
+.env
+.DS_Store
+scripts/promo-film/frames/
+scripts/promo-film/frames-prism/
+scripts/promo-film/frames-anatomy/
+scripts/promo-film/frames-dream/
+scripts/promo-film/stills-*/

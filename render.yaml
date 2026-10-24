@@ -1,0 +1,40 @@
+# Render Blueprint for Beatris (beatris/): the same service as on Railway, on Render.
+# Render → New → Blueprint → this repository and branch. The five values marked `sync: false` are asked for once,
+# when the Blueprint is created (copy them from the Railway service's variables). The SQLite databases live on the
+# persistent disk at /data, as on Railway; a new service starts with an empty disk.
+services:
+  - type: web
+    name: beatris
+    runtime: node
+    rootDir: beatris
+    # a persistent disk needs a paid instance; this is the smallest one
+    plan: 0.5c-512mb
+    region: frankfurt
+    buildCommand: npm install --omit=dev --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    disk:
+      name: beatris-data
+      mountPath: /data
+      sizeGB: 2
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: BEATRIS_DATA_DIR
+        value: /data
+      - key: BEATRIS_TOKEN_SECRET
+        generateValue: true
+      - key: BEATRIS_SUPABASE_URL
+        sync: false
+      - key: BEATRIS_SUPABASE_KEY
+        sync: false
+      - key: BEATRIS_OWNER_EMAIL
+        sync: false
+      # the main owner's account is made from this mobile (and named by the next); without it nobody can sign in
+      - key: BEATRIS_OWNER_PHONE
+        sync: false
+      - key: BEATRIS_OWNER_NAME
+        sync: false

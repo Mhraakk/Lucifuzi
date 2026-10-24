@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<!-- «کالبد یک دفتر طلا» (spec 0031): the anatomy teaser, 30 s at 1920×1080. Every frame is seek(t). The two machines are
+     the app's own figures (public/js/figures), mounted with { manual: true } so this page's clock drives them; every
+     code, count, verdict and score on screen is computed by the app's modules. Served by render.mjs (serve.mjs). -->
+<title>کالبد یک دفتر طلا</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+* { animation: none !important; transition: none !important; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+body { background: var(--vault); color: var(--foreground); font-family: 'Estedad', sans-serif; }
+body::before, body::after { display: none !important; }
+#tz { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(ellipse 70% 60% at 50% 42%, color-mix(in oklab, var(--vault) 86%, var(--accent)) 0%, var(--vault) 62%, color-mix(in oklab, var(--vault) 70%, black) 100%); }
+.tz-stage { position: absolute; left: 50%; top: 0; width: 1500px; margin-left: -750px; transform-origin: 50% 46%; }
+#chainStage { top: 64px; }
+#rigStage { top: 96px; width: 1360px; margin-left: -680px; }
+/* the figures in film: no card, no legend, hairlines that read at 1080p */
+.tz-stage .iso { --anatomy-weight: 0.44px; }
+.tz-stage .iso-svg path, .tz-stage .iso-svg circle { vector-effect: none; }
+.tz-stage .iso-plate { background: none; border: 0; padding: 0; }
+.tz-stage .iso-plate-corners, .tz-stage [data-readout], .tz-stage .iso-legend { display: none; }
+.tz-stage .iso-figure { margin: 0; }
+.tz-stage .wv-fig { display: block; }
+.tz-stage .iso-line.wv-wave { stroke-width: 1.15px; }
+.tz-stage .oc-needle { stroke-width: 0.9px; }
+/* corners, like a figure plate's */
+.tz-corner { position: absolute; top: 46px; font-weight: 600; font-size: 25px; color: var(--muted-foreground); }
+.tz-corner[data-c='fig'] { right: 64px; color: var(--foreground); }
+.tz-corner[data-c='title'] { left: 64px; color: var(--foreground); font-weight: 800; }
+/* the live readout of the machine on screen: the app's own words */
+#read { position: absolute; right: 64px; bottom: 40px; max-width: 1240px; font-size: 21px; font-weight: 500; color: var(--muted-foreground); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#read[data-bad] { color: var(--negative); }
+/* captions */
+.tz-cap { position: absolute; left: 0; right: 0; bottom: 112px; text-align: center; }
+.tz-cap b { display: inline-block; font-size: 58px; font-weight: 800; line-height: 1.3; color: var(--foreground); padding: 6px 30px 10px; border-radius: 18px; background: color-mix(in oklab, var(--vault) 80%, transparent); }
+.tz-cap small { display: block; margin-top: 8px; font-size: 28px; font-weight: 500; color: var(--muted-foreground); }
+.tz-cap.tz-hero b { font-size: 76px; background: none; color: var(--accent-foreground); }
+/* the end card */
+#end { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 18px; }
+#end .tz-word { font-size: 150px; font-weight: 900; line-height: 1.1; color: var(--accent-foreground); }
+#end .tz-line { font-size: 40px; font-weight: 600; color: var(--foreground); }
+#end .tz-cta { justify-self: center; margin-top: 18px; padding: 16px 40px 20px; border-radius: 999px; font-size: 34px; font-weight: 700; color: var(--vault); background: var(--accent); }
+.tz-small { position: absolute; left: 64px; bottom: 42px; font-size: 18px; font-weight: 500; color: var(--muted-foreground); opacity: 0.8; }
+#veil { position: absolute; inset: 0; background: black; pointer-events: none; }
+</style></head>
+<body>
+<main id="tz">
+  <div class="tz-stage" id="chainStage"><div id="chain"></div></div>
+  <div class="tz-stage" id="rigStage"><div id="rig"></div></div>
+  <div class="tz-corner" data-c="fig" id="cFig">شکل ۱</div>
+  <div class="tz-corner" data-c="title" id="cTitle">یک زنجیره، پنج بخش</div>
+  <div id="read"></div>
+  <div class="tz-cap" id="cap"><b></b><small></small></div>
+  <div id="end">
+    <div class="tz-word">بئاتریس</div>
+    <div class="tz-line">حسابداری طلافروشی، بازار و الیوت در یک اپ</div>
+    <div class="tz-cta">ورود با شماره موبایل</div>
+  </div>
+  <div class="tz-small" id="note">تصاویر از خود اپ، با داده نمونه</div>
+  <div id="veil"></div>
+</main>
+<script type="module" src="./anatomy.mjs"></script>
+</body></html>
