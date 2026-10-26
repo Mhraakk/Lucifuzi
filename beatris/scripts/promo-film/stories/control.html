@@ -1,0 +1,328 @@
+<!doctype html>
+<!-- spec 0047, film 3 «اتاق کنترل»: the owner's control room, as a dark keynote in the app's calm skin. A number explains
+     itself («؟» → where it came from), then the control screens of the demo shop arrive one by one on a curved track, each
+     with a camera that goes to the part that matters, and end as a wall of the twelve tools. Every screen and number is
+     the demo shop's own; the lines quote the app. Cut on the bar grid of «Autofahren» (117.14 BPM). window.seek(t). -->
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>بئاتریس — اتاق کنترل</title>
+<style>
+  @font-face { font-family: 'Estedad'; src: url(/fonts/estedad-arabic-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-066A, U+066D-06FF, U+0750-077F, U+200C-200E, U+2010-2011, U+FB50-FDFF, U+FE70-FEFC; }
+  @font-face { font-family: 'Estedad'; src: url(/fonts/estedad-latin-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0000-00FF, U+2000-206F, U+2190-2193, U+2212; }
+  @font-face { font-family: 'Vazirmatn'; src: url(/fonts/vazirmatn-var.woff2) format('woff2'); font-weight: 100 900; }
+  :root { --void: #0e1115; --bone: #e6e2d9; --dust: #a1a7ae; --dust2: #6d747e; --gold: #d5b36f; --gold-hi: #ecdcb4; --gold-lo: #9c804a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--void); }
+  body { font-family: 'Estedad', 'Vazirmatn', sans-serif; color: var(--bone); -webkit-font-smoothing: antialiased; }
+  #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: radial-gradient(90% 80% at 50% 42%, #1b2027 0%, #12161b 55%, #0a0c0f 100%); }
+  #floor { position: absolute; left: 260px; right: 260px; bottom: -260px; height: 420px; border-radius: 50%; background: radial-gradient(closest-side, rgba(213, 179, 111, 0.16), rgba(213, 179, 111, 0)); }
+  .abs { position: absolute; }
+  /* a screen on the track */
+  .panel { position: absolute; left: 352px; top: 262px; width: 1216px; height: 760px; border-radius: 20px; overflow: hidden; background: #13171c; visibility: hidden; transform-origin: 50% 50%;
+    box-shadow: 0 0 0 1px rgba(213, 179, 111, 0.28), 0 70px 120px -40px rgba(0, 0, 0, 0.85), 0 0 90px -30px rgba(213, 179, 111, 0.22); }
+  .panel .pic { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .panel .pic img { display: block; }
+  .mark { position: absolute; border: 6px solid var(--gold); border-radius: 22px; box-shadow: 0 0 0 12px rgba(213, 179, 111, 0.14), 0 0 60px rgba(213, 179, 111, 0.35); opacity: 0; }
+  .scan { position: absolute; width: 6px; border-radius: 3px; background: linear-gradient(180deg, rgba(236, 220, 180, 0), var(--gold-hi) 30%, var(--gold-hi) 70%, rgba(236, 220, 180, 0)); box-shadow: 0 0 30px rgba(236, 220, 180, 0.7); opacity: 0; }
+  .rowhl { position: absolute; border-radius: 16px; background: rgba(213, 179, 111, 0.16); box-shadow: inset 0 0 0 3px rgba(213, 179, 111, 0.55); opacity: 0; }
+  /* the number that explains itself */
+  #num { position: absolute; left: 0; right: 0; top: 300px; text-align: center; font: 800 300px/1 'Estedad', 'Vazirmatn'; background: linear-gradient(180deg, #f6e9c6 0%, #d5b36f 55%, #9c804a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #numLab { position: absolute; left: 0; right: 0; top: 230px; text-align: center; font: 600 40px/1 'Estedad', 'Vazirmatn'; color: var(--dust); }
+  #why { position: absolute; left: 0; top: 0; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%; border: 3px solid var(--gold); display: grid; place-items: center; font: 800 52px/1 'Estedad', 'Vazirmatn'; color: var(--gold-hi); background: rgba(213, 179, 111, 0.1); box-shadow: 0 0 40px rgba(213, 179, 111, 0.35); opacity: 0; }
+  #explain { left: 512px; top: 250px; width: 896px; height: 798px; border-radius: 22px; }
+  /* the keys */
+  #keys { position: absolute; left: 300px; top: 300px; display: flex; gap: 14px; direction: ltr; opacity: 0; z-index: 5; }
+  #keys b { display: grid; place-items: center; min-width: 96px; height: 84px; padding: 0 22px; border-radius: 16px; font: 700 34px/1 'Estedad', 'Vazirmatn'; color: var(--bone); background: linear-gradient(180deg, #2b323b, #1b2027); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 0 #0b0d10, 0 18px 30px rgba(0, 0, 0, 0.6); }
+  #keys i { font: 600 40px/84px 'Estedad', 'Vazirmatn'; color: var(--dust2); font-style: normal; }
+  /* the wall of twelve */
+  #wall { position: absolute; inset: 0; visibility: hidden; perspective: 2400px; }
+  #wall .grid { position: absolute; left: 50%; top: 50%; width: 2100px; height: 1080px; margin: -470px 0 0 -1050px; transform-style: preserve-3d; transform-origin: 50% 50%; }
+  #wall .t { position: absolute; width: 480px; }
+  #wall .t img { display: block; width: 480px; height: 300px; border-radius: 14px; box-shadow: 0 0 0 1px rgba(213, 179, 111, 0.25), 0 30px 60px -20px rgba(0, 0, 0, 0.8); }
+  #wall .t span { display: block; margin-top: 18px; text-align: center; font: 700 30px/1 'Estedad', 'Vazirmatn'; color: var(--bone); }
+  /* the cursor */
+  #cur { position: absolute; left: 0; top: 0; width: 34px; height: 46px; opacity: 0; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)); z-index: 20; transform-origin: 0 0; }
+  #ring { position: absolute; left: -36px; top: -36px; width: 72px; height: 72px; border-radius: 50%; border: 4px solid var(--gold); opacity: 0; z-index: 19; }
+  /* the type */
+  .cap { position: absolute; left: 0; right: 0; top: 62px; text-align: center; font: 800 64px/1.3 'Estedad', 'Vazirmatn'; color: var(--bone); visibility: hidden; }
+  .cap em, #tag em { font-style: normal; color: var(--gold); }
+  .w { display: inline-block; will-change: transform, filter, opacity; }
+  #tag { position: absolute; left: 0; right: 0; text-align: center; font: 800 96px/1.3 'Estedad', 'Vazirmatn'; transform-origin: 50% 0; }
+  #brand { position: absolute; right: 72px; top: 1010px; display: flex; align-items: center; gap: 10px; font: 700 24px/1 'Estedad', 'Vazirmatn'; color: var(--dust); }
+  #count { position: absolute; left: 72px; top: 1014px; direction: ltr; font: 600 22px/1 'Estedad', 'Vazirmatn'; color: var(--dust2); }
+  /* the end card */
+  #end { position: absolute; inset: 0; visibility: hidden; }
+  #end img { position: absolute; left: 460px; top: 60px; width: 1000px; filter: drop-shadow(0 0 60px rgba(213, 179, 111, 0.25)); }
+  #end .name { position: absolute; left: 0; right: 0; top: 460px; text-align: center; font: 800 150px/1 'Estedad', 'Vazirmatn'; color: var(--bone); }
+  #end .room { position: absolute; left: 0; right: 0; top: 640px; text-align: center; font: 600 44px/1 'Estedad', 'Vazirmatn'; color: var(--gold); }
+  #end .url { position: absolute; left: 0; right: 0; top: 880px; text-align: center; direction: ltr; font: 600 34px/1 'Estedad', 'Vazirmatn'; color: var(--bone); }
+  #end .demo { position: absolute; right: 72px; bottom: 40px; font: 500 18px/1.4 'Estedad', 'Vazirmatn'; color: var(--dust2); }
+  #end .cr { position: absolute; left: 72px; bottom: 40px; direction: ltr; text-align: left; font: 400 14px/1.6 'Estedad', 'Vazirmatn'; color: var(--dust2); }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="floor"></div>
+  <div id="numLab">نبض طلا</div>
+  <div id="num">۰٪</div>
+  <div id="why">؟</div>
+  <div id="panels"></div>
+  <div id="wall"><div class="grid"></div></div>
+  <div id="keys"><b>Ctrl</b><i>+</i><b>K</b></div>
+  <div id="caps"></div>
+  <div id="tag"><span class="w">کنترل،</span><br /><em><span class="w">بی‌آنکه</span> <span class="w">غرق</span> <span class="w">شوید.</span></em></div>
+  <div id="brand"></div>
+  <div id="count"></div>
+  <div id="end">
+    <img src="/media/hero/sculpture.webp" alt="" />
+    <div class="name">بئاتریس</div>
+    <div class="room">اتاق کنترل</div>
+    <div class="url">beatris-6u77.onrender.com</div>
+    <div class="demo">همه‌ی صفحه‌ها و اعداد از فروشگاه نمونه‌ی خود اپ است.</div>
+    <div class="cr">Music: «Autofahren», Mauro Urbina (Mixkit Stock Music Free License) · Sound effects: Pixabay Content License · Type: Estedad, Vazirmatn (SIL OFL)</div>
+  </div>
+  <svg id="cur" viewBox="0 0 34 46"><path d="M3 2 L3 36 L12 28 L18 42 L24 39.5 L18 26 L30 26 Z" fill="#e6e2d9" stroke="#0e1115" stroke-width="2.6" stroke-linejoin="round" /></svg>
+  <div id="ring"></div>
+</div>
+<script type="module">
+import { bar, prog, ease, lerp, clamp01, fa, css, $, $$, camera, words, readTime } from './kit.mjs';
+import { crownSvg } from '/js/crown.mjs';
+
+const b = bar;
+const END = b(15);
+window.DUR = END + 3.43;
+const PAN = { x: 352, y: 262, w: 1216, h: 760 };
+const S = 'shots-calm/';
+
+/* ---------------- the screens: each its own panel on the track, with a camera and gold marks ---------------- */
+const PANELS = [
+  // the explain popover of the pulse, cut from its screen
+  { id: 'explain', src: `${S}control-explain.jpg`, t0: b(0) + 1.35, t1: b(2) + 0.1, box: { x: 512, y: 250, w: 896, h: 798 }, still: true,
+    cam: [{ t: b(0) + 1.35, x: 1440, y: 900, s: 0.7 }, { t: b(2) + 0.1, x: 1440, y: 930, s: 0.78 }], marks: [{ x: 836, y: 730, w: 1212, h: 84, t: b(1) + 0.4 }] },
+  { id: 'ov', src: `${S}control-overview.jpg`, t0: b(2), t1: b(4),
+    cam: [{ t: b(2) - 0.35, x: 1440, y: 900, s: 0.42 }, { t: b(2) + 0.45, x: 1440, y: 900, s: 0.42 }, { t: b(3) - 0.1, x: 1565, y: 1180, s: 0.62 }, { t: b(3) + 0.35, x: 1565, y: 1180, s: 0.62 }, { t: b(4) + 0.3, x: 940, y: 1260, s: 0.6 }],
+    marks: [{ x: 1150, y: 930, w: 940, h: 64, t: b(2) + 1.3 }] },
+  { id: 'ex', src: `${S}control-exceptions.jpg`, t0: b(4), t1: b(6),
+    cam: [{ t: b(4) - 0.35, x: 1440, y: 900, s: 0.42 }, { t: b(4) + 0.4, x: 1440, y: 900, s: 0.42 }, { t: b(5) - 0.1, x: 1300, y: 1215, s: 0.6 }, { t: b(6) + 0.3, x: 1330, y: 1240, s: 0.64 }],
+    marks: [{ x: 1964, y: 1110, w: 140, h: 620, t: b(4) + 1.6 }] },
+  { id: 'tw', src: `${S}control-twin.jpg`, t0: b(6), t1: b(8),
+    cam: [{ t: b(6) - 0.35, x: 1440, y: 900, s: 0.42 }, { t: b(6) + 0.4, x: 1440, y: 900, s: 0.42 }, { t: b(7) - 0.1, x: 1088, y: 1140, s: 0.56 }, { t: b(8) + 0.3, x: 1088, y: 1140, s: 0.58 }],
+    marks: [{ x: 1726, y: 1080, w: 2120 - 1726, h: 160, t: b(6) + 1.5 }] },
+  { id: 'fc', src: `${S}control-forecast.jpg`, t0: b(8), t1: b(10),
+    cam: [{ t: b(8) - 0.35, x: 1440, y: 900, s: 0.42 }, { t: b(8) + 0.35, x: 1440, y: 900, s: 0.42 }, { t: b(9) - 0.2, x: 1088, y: 1150, s: 0.56 }, { t: b(10) + 0.3, x: 1088, y: 1150, s: 0.58 }],
+    marks: [], scan: { x0: 1980, x1: 196, y: 1000, h: 520, t0: b(8) + 1.2, t1: b(9) + 1.6 } },
+  { id: 'pl', src: `${S}control-palette.jpg`, t0: b(10), t1: b(12),
+    cam: [{ t: b(10) - 0.35, x: 1440, y: 900, s: 0.42 }, { t: b(10) + 0.5, x: 1440, y: 900, s: 0.42 }, { t: b(11) - 0.1, x: 1440, y: 770, s: 0.74 }, { t: b(12) + 0.3, x: 1440, y: 790, s: 0.76 }],
+    marks: [], rows: { x: 816, w: 1248, h: 128, ys: [346, 480, 614, 748, 882, 1016], t0: b(11) - 0.05, dt: 0.16 } },
+];
+for (const P of PANELS) {
+  P.el = document.createElement('div');
+  P.el.className = 'panel';
+  if (P.id === 'explain') P.el.id = 'explain';
+  P.el.innerHTML = `<div class="pic"><img src="${P.src}" alt="" />${P.marks.map((m) => `<div class="mark" style="left:${m.x}px;top:${m.y}px;width:${m.w}px;height:${m.h}px"></div>`).join('')}${P.scan ? `<div class="scan" style="top:${P.scan.y}px;height:${P.scan.h}px"></div>` : ''}${P.rows ? P.rows.ys.map((y) => `<div class="rowhl" style="left:${P.rows.x}px;top:${y}px;width:${P.rows.w}px;height:${P.rows.h}px"></div>`).join('') : ''}</div>`;
+  $('#panels').append(P.el);
+}
+
+/* the wall of the twelve tools, named as the tabs name them */
+const TOOLS = [['overview', 'نمای کلی'], ['exceptions', 'استثناها'], ['simulate', 'شبیه‌ساز و فروش امن'], ['twin', 'دوقلو و ماشین زمان'], ['lots', 'سری‌ها'], ['story', 'تایم‌لاین'],
+  ['trial', 'تراز دوتایی'], ['forecast', 'پیش‌بینی ۱۰ روزه'], ['approvals', 'تأییدها'], ['periods', 'قفل دوره'], ['close', 'بستن خودکار'], ['karat', 'تبدیل عیار']];
+const grid = $('#wall .grid');
+TOOLS.forEach(([f, name], k) => {
+  const col = k % 4, row = Math.floor(k / 4);
+  grid.insertAdjacentHTML('beforeend', `<div class="t" data-k="${k}" style="right:${col * 540}px;top:${row * 380}px"><img src="${S}control-${f}.jpg" alt="" /><span>${name}</span></div>`);
+});
+
+/* the lines, two bars each, at the top */
+const CAPS = [
+  { a: 0, t0: 0.72, html: 'هر عدد می‌گوید<br><em>از کجا آمده</em>.' },
+  { a: 2, html: 'فقط آنچه مهم است؛<br><em>در یک نگاه</em>.' },
+  { a: 4, html: 'استثناها، با احتمال؛<br><em>داوری با شماست</em>.' },
+  { a: 6, html: 'ماشین زمان؛<br><em>فروشگاه، در پایان هر روز</em>.' },
+  { a: 8, html: 'ده روز آینده؛<br><em>با چک‌های سررسید</em>.' },
+  { a: 10, html: 'یک جست‌وجو؛<br><em>همه‌ی ردپای یک نام</em>.' },
+  { a: 12, html: 'دوازده ابزار،<br><em>در یک اتاق</em>.' },
+];
+const wrap = (s) => s.split(' ').map((w) => (w ? `<span class="w">${w}</span>` : '')).join(' ');
+for (const c of CAPS) {
+  c.el = document.createElement('div');
+  c.el.className = 'cap';
+  c.el.innerHTML = c.html.split('<br>').map((line) => line.split(/(<em>.*?<\/em>)/).map((p) => (p.startsWith('<em>') ? `<em>${wrap(p.slice(4, -5))}</em>` : wrap(p))).join('')).join('<br>');
+  $('#caps').append(c.el);
+  c.t0 = c.t0 ?? b(c.a) + 0.06;
+  c.t1 = b(c.a + 2) - 0.02;
+}
+$('#brand').innerHTML = `${crownSvg({ size: 30, ring: false, id: 'fb', cls: 'crown' })}<span>بئاتریس · کنترل</span>`;
+
+/* ---------------- the track: in from the right, out to the left (the way Persian reads) ---------------- */
+function track(P, t) {
+  if (P.still) {
+    const ki = prog(t, P.t0, P.t0 + 0.5, ease.expoOut), ko = prog(t, P.t1 - 0.35, P.t1 + 0.05, ease.in);
+    return { vis: t >= P.t0 && t <= P.t1 + 0.05, op: ki * (1 - ko), tf: `perspective(2200px) translateY(${((1 - ki) * -120).toFixed(1)}px) rotateX(${((1 - ki) * 28).toFixed(2)}deg) scale(${(lerp(0.3, 1, ki) * lerp(1, 0.9, ko)).toFixed(4)}) translateX(${(ko * -900).toFixed(1)}px)`, blur: (1 - ki) * 10 + ko * 12 };
+  }
+  const i = prog(t, P.t0 - 0.38, P.t0 + 0.32, ease.out5), o = prog(t, P.t1 - 0.3, P.t1 + 0.34, ease.in);
+  const settle = prog(t, P.t0, P.t1, ease.out);
+  const x = (1 - i) * 1500 - o * 1500, ry = (1 - i) * -38 + lerp(-7, 0, settle) * i + o * 38;
+  return { vis: t >= P.t0 - 0.38 && t <= P.t1 + 0.34, op: Math.min(i * 1.4, 1) * (1 - o), tf: `perspective(2200px) translateX(${x.toFixed(1)}px) rotateY(${ry.toFixed(2)}deg) scale(${lerp(0.86, 1, i).toFixed(4)})`, blur: (1 - i) * 10 + o * 10 };
+}
+
+/* ---------------- the cursor: frame keys in the opening, screen keys later ---------------- */
+const CURS = [
+  { frame: true, keys: [{ t: 0.85, x: 1500, y: 900 }, { t: 1.2, x: 0, y: 0 }, { t: 1.45, x: 0, y: 0 }], clicks: [1.25], aim: 'why' },
+  { panel: 'ex', keys: [{ t: b(5) + 0.1, x: 900, y: 1500 }, { t: b(5) + 0.85, x: 600, y: 1210 }, { t: b(6) - 0.4, x: 600, y: 1210 }], clicks: [] },
+];
+const camNow = {};
+let whyAt = { x: 0, y: 0 };
+function drawCursor(t) {
+  const el = $('#cur'), ring = $('#ring');
+  let shown = false;
+  for (const c of CURS) {
+    const k0 = c.keys[0].t, k1 = c.keys[c.keys.length - 1].t;
+    if (t < k0 - 0.2 || t > k1 + 0.35) continue;
+    const keys = c.aim ? c.keys.map((k, i) => (i === 0 ? k : { ...k, x: whyAt.x + 14, y: whyAt.y + 10 })) : c.keys;
+    let a = keys[0], z = keys[keys.length - 1];
+    for (let i = 0; i < keys.length - 1; i++) if (t >= keys[i].t && t <= keys[i + 1].t) (a = keys[i]), (z = keys[i + 1]);
+    const k = t <= k0 ? 0 : t >= k1 ? 1 : ease.inOut(clamp01((t - a.t) / Math.max(1e-6, z.t - a.t)));
+    let X = lerp(a.x, z.x, k), Y = lerp(a.y, z.y, k);
+    if (c.panel) {
+      const cam = camNow[c.panel];
+      if (!cam) continue;
+      X = PAN.x + PAN.w / 2 + (X - cam.x) * cam.s;
+      Y = PAN.y + PAN.h / 2 + (Y - cam.y) * cam.s;
+    }
+    const press = c.clicks.reduce((m, ct) => Math.max(m, t >= ct - 0.08 && t <= ct + 0.16 ? 1 - Math.abs(t - ct) / 0.16 : 0), 0);
+    const vis = Math.min(prog(t, k0 - 0.2, k0 + 0.05), 1 - prog(t, k1 + 0.1, k1 + 0.35));
+    css(el, { transform: `translate(${X.toFixed(1)}px, ${Y.toFixed(1)}px) scale(${(1 - press * 0.16).toFixed(3)})`, opacity: vis.toFixed(3) });
+    const ct = c.clicks.filter((x) => t >= x && t <= x + 0.7).pop();
+    const r = ct === undefined ? 0 : prog(t, ct, ct + 0.7, ease.out);
+    css(ring, { transform: `translate(${X.toFixed(1)}px, ${Y.toFixed(1)}px) scale(${(0.3 + r * 1.6).toFixed(3)})`, opacity: ct === undefined ? 0 : (1 - r).toFixed(3) });
+    shown = true;
+  }
+  if (!shown) {
+    css(el, { opacity: 0 });
+    css(ring, { opacity: 0 });
+  }
+}
+
+/* ---------------- the frame ---------------- */
+function frame(t) {
+  // the opening: the pulse counts to its figure, a «؟» appears, a click, and the number tells where it came from
+  const nOut = prog(t, 1.3, 1.75, ease.in);
+  const nIn = prog(t, 0.05, 0.6, ease.out5);
+  const nv = nIn * (1 - nOut);
+  css($('#num'), { opacity: nv.toFixed(3), transform: `translateY(${(nOut * -160 + (1 - nIn) * 40).toFixed(1)}px) scale(${lerp(1, 0.55, nOut).toFixed(4)})`, filter: `blur(${((1 - nIn) * 14 + nOut * 8).toFixed(2)}px)` });
+  $('#num').textContent = `${fa(Math.round(63 * prog(t, 0.1, 0.95, ease.out5)))}٪`;
+  css($('#numLab'), { opacity: (prog(t, 0.2, 0.6) * (1 - nOut)).toFixed(3) });
+  const nr = $('#num').getBoundingClientRect();
+  const span = $('#num').firstChild ? (() => {
+    const r = document.createRange();
+    r.selectNodeContents($('#num'));
+    return r.getBoundingClientRect();
+  })() : nr;
+  whyAt = { x: span.left - 90, y: span.top + span.height * 0.52 };
+  const wk = prog(t, 0.85, 1.1, ease.expoOut) * (1 - nOut);
+  css($('#why'), { opacity: wk.toFixed(3), transform: `translate(${whyAt.x.toFixed(1)}px, ${whyAt.y.toFixed(1)}px) scale(${lerp(0.4, 1, wk).toFixed(4)})` });
+
+  for (const P of PANELS) {
+    const tr = track(P, t);
+    P.el.style.visibility = tr.vis && tr.op > 0.001 ? 'visible' : 'hidden';
+    if (P.el.style.visibility === 'hidden') continue;
+    const box = P.box ?? PAN;
+    css(P.el, { opacity: tr.op.toFixed(3), transform: tr.tf, filter: `blur(${tr.blur.toFixed(2)}px)` });
+    const c = camera(P.el.querySelector('.pic'), t, P.cam, { w: box.w, h: box.h });
+    camNow[P.id] = c;
+    P.el.querySelectorAll('.mark').forEach((m, i) => {
+      const mt = P.marks[i].t, k = prog(t, mt, mt + 0.4, ease.out5);
+      css(m, { opacity: (k * (1 - prog(t, P.t1 - 0.4, P.t1 - 0.1))).toFixed(3), transform: `scale(${lerp(1.06, 1, k).toFixed(4)})` });
+    });
+    if (P.scan) {
+      const k = prog(t, P.scan.t0, P.scan.t1, ease.inOut);
+      css(P.el.querySelector('.scan'), { left: `${lerp(P.scan.x0, P.scan.x1, k).toFixed(1)}px`, opacity: (Math.min(prog(t, P.scan.t0 - 0.1, P.scan.t0 + 0.2), 1 - prog(t, P.scan.t1, P.scan.t1 + 0.3))).toFixed(3) });
+    }
+    if (P.rows) P.el.querySelectorAll('.rowhl').forEach((r, i) => {
+      const s0 = P.rows.t0 + i * P.rows.dt;
+      css(r, { opacity: (prog(t, s0, s0 + 0.12) * (1 - prog(t, s0 + P.rows.dt, s0 + P.rows.dt + 0.25))).toFixed(3) });
+    });
+  }
+  // Ctrl + K, pressed as the search opens
+  const kv = Math.min(prog(t, b(10) - 0.1, b(10) + 0.25, ease.out5), 1 - prog(t, b(11) - 0.4, b(11) - 0.1));
+  const press = (at) => (t >= at - 0.05 && t <= at + 0.18 ? 1 : 0);
+  css($('#keys'), { opacity: kv.toFixed(3), transform: `translateY(${((1 - kv) * 30).toFixed(1)}px)` });
+  $$('#keys b').forEach((k, i) => css(k, { transform: `translateY(${(press(b(10) + 0.35 + i * 0.14) * 8).toFixed(1)}px)` }));
+
+  // the wall: the twelve tools on one plane, the camera pulling back
+  {
+    const w = $('#wall'), wi = prog(t, b(12) - 0.3, b(12) + 0.5, ease.out5), wo = prog(t, b(14) - 0.3, b(14) + 0.3, ease.in);
+    w.style.visibility = wi > 0 && wo < 1 ? 'visible' : 'hidden';
+    if (w.style.visibility === 'visible') {
+      const pull = prog(t, b(12) - 0.3, b(14) - 0.2, ease.inOut);
+      css(grid, { transform: `translateZ(${lerp(900, -500, pull).toFixed(1)}px) rotateX(${lerp(20, 12, pull).toFixed(2)}deg) rotateY(${lerp(-14, 6, pull).toFixed(2)}deg)`, opacity: (wi * (1 - wo)).toFixed(3), filter: `blur(${(wo * 10).toFixed(2)}px)` });
+      grid.querySelectorAll('.t').forEach((el) => {
+        const k = +el.dataset.k, k0 = prog(t, b(12) - 0.2 + k * 0.07, b(12) + 0.3 + k * 0.07, ease.out5);
+        css(el, { opacity: k0.toFixed(3), transform: `translateY(${((1 - k0) * 80).toFixed(1)}px)` });
+      });
+    }
+  }
+  drawCursor(t);
+
+  for (const c of CAPS) words(c.el, t, { t0: c.t0, t1: c.t1, stagger: 0.06, din: 0.55, dout: 0.3, blur: 14, rise: 18 });
+  const chrome = Math.min(prog(t, b(2), b(2) + 0.5), 1 - prog(t, b(14) - 0.2, b(14) + 0.2));
+  css($('#brand'), { opacity: chrome.toFixed(3) });
+  css($('#count'), { opacity: chrome.toFixed(3) });
+  const cur = Math.floor(t / (2 * b(1)));
+  $('#count').textContent = cur >= 1 && cur <= 6 ? `${fa(String(cur).padStart(2, '0'), { sep: false })} / ${fa('06', { sep: false })}` : '';
+
+  // the closing line, then the house name under the crown
+  const tag = $('#tag');
+  words(tag, t, { t0: b(14) + 0.1, t1: window.DUR + 1, stagger: 0.08, din: 0.6, dout: 0.3, blur: 16, rise: 20 });
+  const up = prog(t, END - 0.1, END + 0.6, ease.inOut), push = lerp(1, 1.06, prog(t, b(14) + 0.2, END - 0.1, ease.linear));
+  css(tag, { top: `${lerp(380, 726, up).toFixed(1)}px`, transform: `scale(${lerp(push, 0.46, up).toFixed(4)})` });
+  const e = $('#end'), ev = t >= END - 0.1;
+  e.style.visibility = ev ? 'visible' : 'hidden';
+  if (ev) {
+    const k = prog(t, END, END + 0.7, ease.out5);
+    css(e, { transform: `scale(${lerp(1, 1.025, prog(t, END, window.DUR, ease.linear)).toFixed(4)})` });
+    css(e.querySelector('img'), { opacity: k.toFixed(3), transform: `translateY(${((1 - k) * 30).toFixed(1)}px) scale(${lerp(0.96, 1, k).toFixed(4)})` });
+    css(e.querySelector('.name'), { opacity: prog(t, END + 0.25, END + 0.75).toFixed(3), filter: `blur(${((1 - prog(t, END + 0.25, END + 0.75, ease.out)) * 12).toFixed(2)}px)` });
+    css(e.querySelector('.room'), { opacity: prog(t, END + 0.5, END + 0.9).toFixed(3) });
+    css(e.querySelector('.url'), { opacity: prog(t, END + 0.9, END + 1.3).toFixed(3) });
+    for (const q of ['.demo', '.cr']) css(e.querySelector(q), { opacity: prog(t, END + 1.1, END + 1.5).toFixed(3) });
+  }
+}
+
+/* ---------------- the sound cues and the music edit (the track's third section, then its ending) ---------------- */
+window.EV = [
+  { t: 0.1, s: 'typing', v: 0.1 },
+  { t: 0.86, s: 'pop', v: 0.24 },
+  { t: 1.25, s: 'click', v: 0.42 },
+  { t: 1.36, s: 'whoosh-short', v: 0.24 },
+  { t: b(1) + 0.4, s: 'ping', v: 0.14 },
+  ...[2, 4, 6, 8, 10].map((a, i) => ({ t: b(a) - 0.36, s: i % 2 ? 'whoosh-short' : 'whoosh', v: 0.26 })),
+  { t: b(2) + 1.3, s: 'ping', v: 0.12 },
+  { t: b(4) + 1.6, s: 'ping', v: 0.12 },
+  { t: b(10) + 0.35, s: 'key-press', v: 0.32 },
+  { t: b(10) + 0.49, s: 'key-press', v: 0.32 },
+  { t: b(12) - 0.3, s: 'whoosh', v: 0.3 },
+  { t: b(14) + 0.05, s: 'whoosh-short', v: 0.22 },
+  { t: END + 0.02, s: 'impact-bass-2', v: 0.2 },
+];
+window.MUSIC = { from: 151.71, bars: 15, end: [278.97, 282.4] };
+
+window.seek = (t) => frame(t);
+await Promise.all([...[400, 500, 600, 700, 800].map((w) => document.fonts.load(`${w} 40px Estedad`, 'بئاتریس ۱۲۳ abc')), document.fonts.load('700 40px Vazirmatn', '۱٬۲۳۴٫۵')]);
+await document.fonts.ready;
+await Promise.all([...document.images].map((i) => i.decode().catch(() => {})));
+for (const c of CAPS) {
+  if (c.el.scrollWidth > 1700) c.el.style.fontSize = `${Math.floor((64 * 1700) / c.el.scrollWidth)}px`;
+  const text = c.el.textContent;
+  if (c.t1 - c.t0 - 0.3 < readTime(text)) console.error(`line too short to read: «${text}» ${(c.t1 - c.t0 - 0.3).toFixed(2)} s < ${readTime(text).toFixed(2)} s`);
+}
+{
+  const text = $('#tag').textContent;
+  if (window.DUR - b(14) - 0.4 < readTime(text)) console.error(`line too short to read: «${text}»`);
+}
+frame(0);
+window.READY = true;
+</script>
+</body>
+</html>

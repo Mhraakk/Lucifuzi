@@ -3224,13 +3224,15 @@ await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a sup
     ['3× phone', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }, 3],
   ]) {
     const { ctx, page } = await open(opts);
-    await page.goto(base + '/login');
+    // the 3D stage of the home page's hero ring (the entrance has drawn a liquid sculpture since spec 0046, not a stage)
+    await loginUI(page);
+    await go(page, '/', 1500);
     const c = await stage(page);
-    check(`quality ${label}: the login coin's canvas is ${k}× its CSS size`, c.tier === 'high' && c.w === Math.round(c.cw * k) && c.h === Math.round(c.ch * k), JSON.stringify(c));
+    check(`quality ${label}: the home ring's canvas is ${k}× its CSS size`, c.tier === 'high' && c.w === Math.round(c.cw * k) && c.h === Math.round(c.ch * k), JSON.stringify(c));
     check(`quality ${label}: MSAA samples are the GPU's own (2–4 here)`, c.samples >= 2 && c.samples <= 4, String(c.samples));
-    // reduced motion keeps the coin still; the still frame is drawn again at twice the density each way
+    // reduced motion keeps the ring still; the still frame is drawn again at twice the density each way
     const still = await page.waitForFunction(() => document.querySelector('canvas[data-quality]')?.dataset.scale === '2', null, { timeout: 120000 }).then(() => true, () => false);
-    check(`quality ${label}: the still coin is redrawn with 2×2 supersampling`, still);
+    check(`quality ${label}: the still ring is redrawn with 2×2 supersampling`, still);
     await ctx.close();
   }
   const { ctx, page } = await open({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
@@ -3288,6 +3290,12 @@ await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a sup
     return { ok: r.ok, type: r.headers.get('content-type'), w: v.videoWidth, h: v.videoHeight, d: Math.round(v.duration) };
   });
   check('teaser: the film is a 30 s full-HD video/mp4', tz.ok && /video\/mp4/.test(tz.type ?? '') && tz.w === 1920 && tz.h === 1080 && tz.d === 30, JSON.stringify(tz));
+  // the three stories (spec 0047): each link answers as a video
+  const stories = await k8.page.evaluate(async () => Promise.all([...document.querySelectorAll('#hpStories a')].map(async (a) => {
+    const r = await fetch(a.getAttribute('href'), { method: 'HEAD' });
+    return r.ok && /video\/mp4/.test(r.headers.get('content-type') ?? '');
+  })));
+  check('teaser: the three stories are linked and each is a video/mp4', stories.length === 3 && stories.every(Boolean), JSON.stringify(stories));
   await k8.ctx.close();
 });
 

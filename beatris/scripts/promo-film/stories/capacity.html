@@ -1,0 +1,330 @@
+<!doctype html>
+<!-- spec 0047, film 2 «ظرفیت»: what Beatris holds and how it is checked, as numbers that are true. Swiss grid: paper, black
+     type in one face (Estedad), one gold signal colour, giant numerals beside small notes, every move on the bar grid of
+     «Autofahren» (117.14 BPM). Each fact carries its source in the footer. window.seek(t) draws the frame at t. -->
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>بئاتریس — ظرفیت</title>
+<style>
+  @font-face { font-family: 'Estedad'; src: url(/fonts/estedad-arabic-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-066A, U+066D-06FF, U+0750-077F, U+200C-200E, U+2010-2011, U+FB50-FDFF, U+FE70-FEFC; }
+  @font-face { font-family: 'Estedad'; src: url(/fonts/estedad-latin-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0000-00FF, U+2000-206F, U+2190-2193, U+2212; }
+  @font-face { font-family: 'Vazirmatn'; src: url(/fonts/vazirmatn-var.woff2) format('woff2'); font-weight: 100 900; }
+  :root { --paper: #f2f0eb; --ink: #121212; --ink2: rgba(18, 18, 18, 0.62); --ink3: rgba(18, 18, 18, 0.38); --g1: #e3e0d9; --g2: #d2cec5; --gold: #c4901a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); }
+  body { font-family: 'Estedad', 'Vazirmatn', sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--paper); }
+  .abs { position: absolute; }
+  /* the grid: 12 columns, 96 px margins, 24 px gutters */
+  #grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--g1); transform-origin: top; }
+  #grid b { position: absolute; left: 0; right: 0; height: 1px; background: var(--g1); transform-origin: right; }
+  .rule { position: absolute; left: 96px; right: 96px; height: 2px; background: var(--ink); transform-origin: right; }
+  .hdr { position: absolute; top: 40px; font: 600 20px/1 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  .hdr.num { left: 96px; direction: ltr; font-weight: 500; color: var(--ink2); }
+  .src { position: absolute; bottom: 40px; left: 96px; direction: ltr; font: 400 15px/1 'Estedad', 'Vazirmatn'; letter-spacing: 0.04em; color: var(--ink3); }
+  /* the programme: the giant numeral, its label and a note, flush right on the grid */
+  .num-big { position: absolute; right: 96px; top: 150px; font: 800 560px/0.8 'Estedad', 'Vazirmatn'; letter-spacing: 0; color: var(--ink); white-space: nowrap; transform-origin: right bottom; }
+  .lab { position: absolute; right: 96px; top: 640px; font: 700 64px/1.25 'Estedad', 'Vazirmatn'; color: var(--ink); white-space: nowrap; }
+  .note { position: absolute; right: 96px; top: 744px; width: 780px; font: 400 30px/1.7 'Estedad', 'Vazirmatn'; color: var(--ink2); }
+  .gbar { position: absolute; right: 96px; top: 618px; width: 290px; height: 10px; background: var(--gold); transform-origin: right; }
+  .clip { clip-path: inset(0 0 0 0); }
+  /* artifacts live on the left page */
+  .sq { position: absolute; width: 40px; height: 40px; background: var(--ink); }
+  .sq.gold { background: var(--gold); }
+  .glab { position: absolute; width: 80px; font: 500 17px/1.35 'Estedad', 'Vazirmatn'; color: var(--ink2); text-align: center; }
+  .tile { position: absolute; width: 360px; height: 74px; border-top: 2px solid var(--ink); font: 600 26px/1 'Estedad', 'Vazirmatn'; display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+  .tile i { font-style: normal; color: var(--gold); font-weight: 800; }
+  .ln { position: absolute; width: 2px; background: var(--ink); }
+  .eq { position: absolute; font: 600 34px/1.4 'Estedad', 'Vazirmatn'; color: var(--ink); white-space: nowrap; }
+  .eq em { font-style: normal; color: var(--gold); }
+  .tick { position: absolute; width: 2px; background: var(--ink); bottom: 0; }
+  .ylab { position: absolute; font: 600 22px/1 'Estedad', 'Vazirmatn'; color: var(--ink2); transform: translateX(50%); }
+  .dial i { position: absolute; left: 50%; top: 0; width: 6px; height: 36px; margin-left: -3px; background: var(--g2); transform-origin: 3px 230px; }
+  .dial i.on { background: var(--ink); }
+  .role { position: absolute; width: 180px; height: 230px; border-top: 10px solid var(--ink); font: 700 30px/1.3 'Estedad', 'Vazirmatn'; padding-top: 18px; }
+  .role small { display: block; font: 400 20px/1.5 'Estedad', 'Vazirmatn'; color: var(--ink2); margin-top: 8px; }
+  .db { position: absolute; width: 150px; height: 190px; }
+  .db b { position: absolute; inset: 0 0 auto 0; height: 34px; border-radius: 50%; background: var(--ink); }
+  .db u { position: absolute; left: 0; right: 0; top: 17px; bottom: 17px; background: var(--ink); }
+  .db s { position: absolute; inset: auto 0 0 0; height: 34px; border-radius: 50%; background: var(--ink); }
+  .db em { position: absolute; top: 210px; left: 0; right: 0; text-align: center; font: 600 20px/1.3 'Estedad', 'Vazirmatn'; font-style: normal; color: var(--ink2); }
+  .db i { position: absolute; left: 14px; right: 14px; bottom: 30px; height: 0; background: var(--gold); }
+  .cell { position: absolute; width: 22px; height: 22px; background: var(--g1); }
+  .stack { position: absolute; right: 96px; top: 140px; display: flex; flex-direction: column; gap: 2px; }
+  .stack div { display: flex; align-items: baseline; gap: 26px; height: 92px; border-top: 2px solid var(--ink); }
+  .stack b { width: 330px; font: 800 74px/1.15 'Estedad', 'Vazirmatn'; text-align: right; }
+  .stack span { font: 500 30px/1 'Estedad', 'Vazirmatn'; color: var(--ink2); }
+  .final { position: absolute; left: 96px; top: 760px; font: 800 120px/1.1 'Estedad', 'Vazirmatn'; color: var(--ink); white-space: nowrap; }
+  .final em { font-style: normal; color: var(--gold); }
+  /* the end card */
+  #end .name { position: absolute; right: 96px; top: 260px; font: 800 300px/1 'Estedad', 'Vazirmatn'; }
+  #end .tag { position: absolute; right: 100px; top: 610px; font: 500 52px/1.3 'Estedad', 'Vazirmatn'; color: var(--ink2); }
+  #end .url { position: absolute; right: 100px; top: 720px; direction: ltr; font: 600 40px/1 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  #end .cr { position: absolute; left: 96px; bottom: 40px; direction: ltr; text-align: left; font: 400 14px/1.6 'Estedad', 'Vazirmatn'; color: var(--ink3); }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="grid" class="abs" style="inset:0"></div>
+  <div class="rule" id="topRule" style="top:84px"></div>
+  <div class="rule" id="botRule" style="top:996px"></div>
+  <div class="hdr" id="hdr" style="right:96px">بئاتریس — ظرفیت، به عدد</div>
+  <div class="hdr num" id="hnum"></div>
+  <div class="src" id="src"></div>
+  <div id="scenes"></div>
+  <div id="end" class="abs" style="inset:0">
+    <div class="name">بئاتریس</div>
+    <div class="tag">حساب طلا، دقیق و آرام.</div>
+    <div class="url">beatris-6u77.onrender.com</div>
+    <div class="cr">Music: «Autofahren», Mauro Urbina (Mixkit Stock Music Free License) · Sound effects: Pixabay Content License · Type: Estedad, Vazirmatn (SIL OFL)</div>
+  </div>
+</div>
+<script type="module">
+import { BAR, bar, prog, ease, lerp, fa, css, rng, $ } from './kit.mjs';
+import { EVENTS, EVENT_GROUPS } from '/js/shopevents.mjs';
+
+const END = bar(15);                 // 30.73 s: the story; then the track's own ending
+window.DUR = END + 3.43;
+const root = $('#root');
+const W = 1920, M = 96, COL = 122, GUT = 24;
+const colX = (k) => W - M - (k + 1) * COL - k * GUT;   // the left edge of column k, counted from the right
+
+/* the grid lines: columns and a baseline every 144 px */
+const grid = $('#grid');
+for (let k = 0; k <= 12; k++) grid.insertAdjacentHTML('beforeend', `<i style="left:${k === 12 ? M : colX(k) + COL}px"></i>`);
+for (let y = 144; y < 1000; y += 144) grid.insertAdjacentHTML('beforeend', `<b style="top:${y}px"></b>`);
+
+/* the seven facts: numeral, label, note, source, and the bars they hold */
+const S = [
+  { a: 0, n: 90, lab: 'رویداد مغازه', note: 'همه در یک زنجیره، از آبشده تا رویدادهای دور.', src: 'public/js/shopevents.mjs · spec 0026' },
+  { a: 2, n: 14, lab: 'ماشین‌حساب', note: '۹٬۲۰۰ رقمِ صفحه دوباره خوانده شد؛ بی‌خطا.', src: 'scripts/calc-rounds.mjs · spec 0044' },
+  { a: 4, n: 200000, lab: 'ورودی برای هر فرمول', note: 'هر رقم پول و وزن، کسرِ دقیق؛ یک بار گرد شده.', src: 'tests/exact.test.mjs · spec 0045', n2: 'صفر', lab2: 'اختلاف' },
+  { a: 6, n: 201, lab: 'سال تقویم، روز به روز', note: 'با تقویم خود مرورگر سنجیده شد.', src: 'tests/repeated.test.mjs · spec 0044' },
+  { a: 8, n: 100, lab: 'دور کار کامل مغازه', note: 'هر خروجی با مدلی جدا سنجیده شد؛ بی‌خطا.', src: 'scripts/hundred.mjs · spec 0029' },
+  { a: 10, n: 4, lab: 'میز کار، برای هر نقش', note: 'رئیس، اپراتور، فروشنده و کارمند.', src: 'spec 0038 · public/js/workspace.mjs', n2: 1, lab2: 'دیتابیس برای هر فروشگاه', note2: 'داده‌ی هر فروشگاه از دیگری جداست.' },
+  { a: 12, n: 486, lab: 'آزمون، پیش از هر انتشار', note: 'هر تغییر از همه‌ی آن‌ها می‌گذرد.', src: 'npm run gate · 486 / 486' },
+];
+const sc = $('#scenes');
+S.forEach((s, i) => {
+  sc.insertAdjacentHTML('beforeend', `<div class="abs sc" id="s${i}" style="inset:0">
+    <div class="num-big clip" data-n>${fa(s.n)}</div>${s.n2 !== undefined ? `<div class="num-big clip" data-n2>${typeof s.n2 === 'string' ? s.n2 : fa(s.n2)}</div>` : ''}<div class="gbar" data-g></div>
+    <div class="lab clip" data-l>${s.lab}</div><div class="note" data-o>${s.note}</div>
+    <div class="art abs" data-art style="inset:0"></div></div>`);
+});
+
+/* artifact 1: ninety squares, then the ten groups */
+const art = (i) => $(`#s${i} [data-art]`);
+{
+  const a = art(0);
+  const order = EVENTS.map((e, k) => ({ g: EVENT_GROUPS.findIndex(([id]) => id === e.g), k }));
+  order.forEach((o, k) => a.insertAdjacentHTML('beforeend', `<div class="sq" data-k="${k}" data-g="${o.g}"></div>`));
+  // the group names, shortened to fit a column (the full names are in /books/events)
+  const SHORT = { melt: 'آبشده', coin: 'سکه', bar: 'شمش', fx: 'ارز', money: 'پول و چک', party: 'طرف حساب', vault: 'گاوصندوق', pnl: 'درآمد و هزینه', fix: 'اصلاح و کنترل', rare: 'رویداد دور' };
+  EVENT_GROUPS.forEach(([id], g) => a.insertAdjacentHTML('beforeend', `<div class="glab" data-gl="${g}">${SHORT[id]}</div>`));
+}
+/* artifact 2: the fourteen calculators */
+const CALC = ['فاکتور', 'مظنه', 'بازخرید', 'سکه', 'چگالی', 'عیار', 'آلیاژ', 'ریخته‌گری', 'آبکاری', 'سنگ', 'انگشتر', 'احتمال تقلب', 'آبشده', 'تغییر سایز'];
+CALC.forEach((c, k) => art(1).insertAdjacentHTML('beforeend', `<div class="tile" data-k="${k}"><span>${c}</span><i>✓</i></div>`));
+/* artifact 3: two hundred lines that become one, and the example */
+{
+  const r = rng(7);
+  for (let k = 0; k < 200; k++) art(2).insertAdjacentHTML('beforeend', `<div class="ln" data-k="${k}" data-h="${(120 + r() * 360).toFixed(1)}"></div>`);
+  art(2).insertAdjacentHTML('beforeend', `<div class="eq" data-eq style="left:${M}px;top:820px">${fa('1.047', { sep: false })} گرم × ${fa(875)} ÷ ${fa(750)} = ${fa('1.2215', { sep: false })} ← <em>${fa('1.222', { sep: false })}</em></div>`);
+}
+/* artifact 4: the calendar ribbon, ۱۳۰۰ to ۱۵۰۰ */
+for (let y = 0; y <= 200; y++) art(3).insertAdjacentHTML('beforeend', `<div class="tick" data-y="${y}"></div>${y % 50 === 0 ? `<div class="ylab" data-yl="${y}">${fa(1300 + y, { sep: false })}</div>` : ''}`);
+art(3).insertAdjacentHTML('beforeend', '<div class="abs" data-cur style="width:4px;background:var(--gold)"></div>');
+/* artifact 5: a dial of a hundred rounds */
+{
+  const d = document.createElement('div');
+  d.className = 'dial abs';
+  css(d, { left: '360px', top: '220px', width: '460px', height: '460px' });
+  for (let k = 0; k < 100; k++) d.insertAdjacentHTML('beforeend', `<i style="transform:rotate(${-k * 3.6}deg)"></i>`);
+  d.insertAdjacentHTML('beforeend', `<div class="abs" data-dn style="inset:0;display:grid;place-items:center;font:800 96px/1 Estedad, Vazirmatn"></div>`);
+  art(4).append(d);
+}
+/* artifact 6: four desks, then each shop with its own database */
+[['رئیس', 'نبض، کنترل، تأییدها'], ['اپراتور', 'میز معامله، روزنگار'], ['فروشنده', 'میز فروش زنده'], ['کارمند', 'کارهای روز']].forEach(([n, d], k) =>
+  art(5).insertAdjacentHTML('beforeend', `<div class="role" data-k="${k}">${n}<small>${d}</small></div>`));
+['فروشگاه ۱', 'فروشگاه ۲', 'فروشگاه ۳'].forEach((n, k) => art(5).insertAdjacentHTML('beforeend', `<div class="db" data-db="${k}"><u></u><b></b><s></s><i></i><em>${n}</em></div>`));
+/* artifact 7: a cell for every test */
+for (let k = 0; k < 486; k++) art(6).insertAdjacentHTML('beforeend', `<div class="cell" data-k="${k}"></div>`);
+/* the closing column of every number */
+sc.insertAdjacentHTML('beforeend', `<div class="abs" id="sum" style="inset:0"><div class="stack">${S.map((s) => `<div><b>${s.n2 === undefined ? fa(s.n) : typeof s.n2 === 'string' ? s.n2 : fa(s.n2)}</b><span>${s.lab2 ?? s.lab}</span></div>`).join('')}</div><div class="final">همه، <em>در یک اپ.</em></div></div>`);
+
+/* ---------------- the clock ---------------- */
+const wipe = (t, t0, t1, d = 0.28) => {
+  const i = prog(t, t0, t0 + d, ease.expoOut), o = prog(t, t1 - d, t1, ease.expoInOut);
+  return { i, o, vis: t >= t0 && t < t1 };
+};
+function scene(i, t) {
+  const s = S[i], el = $(`#s${i}`), t0 = bar(s.a), t1 = bar(s.a + 2), mid = bar(s.a + 1);
+  const w = wipe(t, t0, t1);
+  el.style.visibility = w.vis ? 'visible' : 'hidden';
+  if (!w.vis) return;
+  // the numeral and the label open from the right on the downbeat and close to the left at the end (a printing press)
+  const two = s.n2 !== undefined, sw = two ? prog(t, mid - 0.15, mid + 0.25, ease.expoInOut) : 0;
+  const num = el.querySelector('[data-n]'), num2 = el.querySelector('[data-n2]'), lab = el.querySelector('[data-l]');
+  lab.textContent = two && sw > 0.5 ? s.lab2 : s.lab;
+  const openR = (1 - w.i) * 100, closeL = w.o * 100;
+  // the first numeral closes to the left on the half-way bar, the second opens from the right (a printing press)
+  // nothing stands still: the numeral grows by a few per cent over its two bars, the artifacts drift up
+  const drift = prog(t, t0, t1, ease.linear), grow = `scale(${(1 + drift * 0.04).toFixed(4)})`;
+  css(num, { 'clip-path': `inset(0 ${openR.toFixed(2)}% 0 ${Math.max(closeL, sw * 100).toFixed(2)}%)`, transform: grow });
+  if (num2) css(num2, { 'clip-path': `inset(0 ${((1 - prog(t, mid + 0.05, mid + 0.4, ease.expoOut)) * 100).toFixed(2)}% 0 ${closeL.toFixed(2)}%)`, transform: grow });
+  css(el.querySelector('[data-art]'), { transform: `translateY(${(-drift * 18).toFixed(1)}px)` });
+  const lw = two ? Math.sin(sw * Math.PI) * 100 : 0;
+  css(lab, { 'clip-path': `inset(0 ${(1 - prog(t, t0 + 0.12, t0 + 0.42, ease.expoOut)) * 100}% 0 ${Math.max(closeL, lw).toFixed(2)}%)` });
+  css(el.querySelector('[data-g]'), { transform: `scaleX(${(prog(t, t0 + 0.05, t0 + 0.55, ease.expoOut) * (1 - w.o)).toFixed(4)})` });
+  const o = el.querySelector('[data-o]');
+  if (s.note2) o.textContent = sw > 0.5 ? s.note2 : s.note; // the note changes with the label
+  css(o, { opacity: (prog(t, t0 + 0.35, t0 + 0.75) * (1 - w.o) * (s.note2 ? 1 - Math.sin(sw * Math.PI) : 1)).toFixed(3), transform: `translateY(${((1 - prog(t, t0 + 0.35, t0 + 0.75)) * 24).toFixed(1)}px)` });
+  ART[i](el.querySelector('[data-art]'), t, t0, mid, t1, w);
+}
+const ART = [
+  // ninety squares fall into a 9 × 10 block, then march into their ten groups
+  (a, t, t0, mid, t1, w) => {
+    const g = prog(t, mid, mid + 0.7, ease.inOut);
+    const byG = {};
+    a.querySelectorAll('.sq').forEach((q) => {
+      const k = +q.dataset.k, G = +q.dataset.g;
+      const n = (byG[G] = (byG[G] ?? -1) + 1);
+      const x0 = M + (k % 9) * 52, y0 = 180 + Math.floor(k / 9) * 52;
+      const x1 = M + (9 - G) * 88 + 20, y1 = 700 - n * 46;
+      const k0 = prog(t, t0 + 0.2 + k * 0.012, t0 + 0.45 + k * 0.012, ease.expoOut);
+      css(q, { left: `${lerp(x0, x1, g).toFixed(1)}px`, top: `${lerp(y0 - 40 * (1 - k0), y1, g).toFixed(1)}px`, opacity: (k0 * (1 - w.o)).toFixed(3) });
+      q.classList.toggle('gold', G === 8 && g > 0.5);
+    });
+    a.querySelectorAll('.glab').forEach((l) => {
+      const G = +l.dataset.gl;
+      css(l, { left: `${M + (9 - G) * 88}px`, top: '752px', opacity: (prog(t, mid + 0.5, mid + 0.9) * (1 - w.o)).toFixed(3) });
+    });
+  },
+  // fourteen tiles, each checked on its eighth note
+  (a, t, t0, mid, t1, w) => {
+    a.querySelectorAll('.tile').forEach((el) => {
+      const k = +el.dataset.k, col = k % 2, row = Math.floor(k / 2);
+      const k0 = prog(t, t0 + 0.15 + row * 0.06, t0 + 0.5 + row * 0.06, ease.expoOut);
+      css(el, { left: `${M + col * 400}px`, top: `${180 + row * 92}px`, opacity: (k0 * (1 - w.o)).toFixed(3), transform: `translateX(${((1 - k0) * -30).toFixed(1)}px)` });
+      const c = t0 + 0.8 + k * (BAR * 1.1 / 14);
+      css(el.querySelector('i'), { opacity: prog(t, c, c + 0.12).toFixed(3) });
+    });
+  },
+  // two hundred lines of different heights fall into one gold line: one exact answer
+  (a, t, t0, mid, t1, w) => {
+    const g = prog(t, mid - 0.4, mid + 0.35, ease.inOut);
+    a.querySelectorAll('.ln').forEach((l) => {
+      const k = +l.dataset.k, h = +l.dataset.h;
+      const x = lerp(M + k * 4.2, M + 420, g), hh = lerp(h, 520, g);
+      const k0 = prog(t, t0 + 0.1 + k * 0.004, t0 + 0.4 + k * 0.004, ease.expoOut);
+      css(l, { left: `${x.toFixed(1)}px`, top: `${(740 - hh * k0).toFixed(1)}px`, height: `${(hh * k0).toFixed(1)}px`, opacity: ((k === 100 ? 1 : 1 - g) * (1 - w.o)).toFixed(3), background: k === 100 && g > 0.5 ? 'var(--gold)' : 'var(--ink)', width: k === 100 ? `${lerp(2, 10, g).toFixed(1)}px` : '2px' });
+    });
+    css(a.querySelector('[data-eq]'), { opacity: (prog(t, mid + 0.3, mid + 0.7) * (1 - w.o)).toFixed(3) });
+  },
+  // the calendar ribbon, a tick a year, swept by a gold cursor
+  (a, t, t0, mid, t1, w) => {
+    const L = M, R = M + 900;
+    a.querySelectorAll('.tick').forEach((tk) => {
+      const y = +tk.dataset.y, k0 = prog(t, t0 + 0.1 + y * 0.004, t0 + 0.35 + y * 0.004, ease.expoOut);
+      const h = (y % 50 === 0 ? 150 : y % 10 === 0 ? 90 : 50) * k0;
+      css(tk, { left: `${(L + (R - L) * (y / 200)).toFixed(1)}px`, top: `${(560 - h).toFixed(1)}px`, height: `${h.toFixed(1)}px`, opacity: (1 - w.o).toFixed(3) });
+    });
+    a.querySelectorAll('.ylab').forEach((l) => css(l, { left: `${(L + (R - L) * (+l.dataset.yl / 200)).toFixed(1)}px`, top: '590px', opacity: (prog(t, t0 + 0.6, t0 + 0.9) * (1 - w.o)).toFixed(3) }));
+    const c = prog(t, t0 + 0.6, t1 - 0.4, ease.inOut);
+    css(a.querySelector('[data-cur]'), { left: `${(L + (R - L) * c).toFixed(1)}px`, top: '380px', height: '200px', opacity: (prog(t, t0 + 0.5, t0 + 0.7) * (1 - w.o)).toFixed(3) });
+  },
+  // a hundred rounds fill the dial
+  (a, t, t0, mid, t1, w) => {
+    const ticks = a.querySelectorAll('.dial i');
+    const k = Math.round(prog(t, t0 + 0.3, t1 - 0.6, ease.inOut) * 100);
+    ticks.forEach((el, i) => el.classList.toggle('on', i < k));
+    a.querySelector('[data-dn]').textContent = `${fa(k)}`;
+    css(a.querySelector('.dial'), { opacity: (prog(t, t0, t0 + 0.3) * (1 - w.o)).toFixed(3) });
+  },
+  // four desks, then three shops, each with its own database
+  (a, t, t0, mid, t1, w) => {
+    const sw = prog(t, mid, mid + 0.5, ease.inOut);
+    a.querySelectorAll('.role').forEach((el) => {
+      const k = +el.dataset.k, k0 = prog(t, t0 + 0.15 + k * 0.08, t0 + 0.5 + k * 0.08, ease.expoOut);
+      css(el, { left: `${M + (3 - k) * 210}px`, top: `${300 - sw * 40}px`, opacity: (k0 * (1 - sw) * (1 - w.o)).toFixed(3) });
+    });
+    a.querySelectorAll('.db').forEach((el) => {
+      const k = +el.dataset.db, k0 = prog(t, mid + 0.2 + k * 0.1, mid + 0.55 + k * 0.1, ease.expoOut);
+      css(el, { left: `${M + 60 + (2 - k) * 260}px`, top: `${300 + (1 - k0) * 40}px`, opacity: (k0 * (1 - w.o)).toFixed(3) });
+      // each shop's own data, filling its own database
+      css(el.querySelector('i'), { height: `${(prog(t, mid + 0.5 + k * 0.12, t1 - 0.25, ease.inOut) * 120).toFixed(1)}px` });
+    });
+  },
+  // a cell for every test, filled in order
+  (a, t, t0, mid, t1, w) => {
+    const n = Math.round(prog(t, t0 + 0.2, mid + 0.2, ease.inOut) * 486);
+    a.querySelectorAll('.cell').forEach((c) => {
+      const k = +c.dataset.k;
+      css(c, { left: `${M + (k % 24) * 30}px`, top: `${200 + Math.floor(k / 24) * 30}px`, background: k < n ? (k === 485 ? 'var(--gold)' : 'var(--ink)') : 'var(--g1)', opacity: (prog(t, t0, t0 + 0.3) * (1 - prog(t, mid + 0.5, mid + 0.8))).toFixed(3) });
+    });
+  },
+];
+
+function frame(t) {
+  // the grid and the two rules draw on in the first beat
+  grid.querySelectorAll('i').forEach((l, k) => css(l, { transform: `scaleY(${prog(t, 0.05 + k * 0.025, 0.55 + k * 0.025, ease.expoOut).toFixed(4)})`, opacity: t > END ? (1 - prog(t, END, END + 0.4)).toFixed(3) : 1 }));
+  grid.querySelectorAll('b').forEach((l, k) => css(l, { transform: `scaleX(${prog(t, 0.1 + k * 0.04, 0.6 + k * 0.04, ease.expoOut).toFixed(4)})` }));
+  for (const id of ['#topRule', '#botRule']) css($(id), { transform: `scaleX(${prog(t, 0, 0.6, ease.expoOut).toFixed(4)})` });
+  const cur = S.findIndex((s) => t >= bar(s.a) && t < bar(s.a + 2));
+  $('#hnum').textContent = cur >= 0 ? `${fa(String(cur + 1).padStart(2, '0'), { sep: false })} / ${fa(String(S.length).padStart(2, '0'), { sep: false })}` : '';
+  $('#src').textContent = cur >= 0 ? S[cur].src : '';
+  css($('#src'), { opacity: cur >= 0 ? prog(t, bar(S[cur].a) + 0.4, bar(S[cur].a) + 0.8).toFixed(3) : 0 });
+  S.forEach((_, i) => scene(i, t));
+  // the closing column: every number stacked, then «همه، در یک اپ.»
+  const sum = $('#sum'), s0 = bar(14), vis = t >= s0 && t < END;
+  sum.style.visibility = vis ? 'visible' : 'hidden';
+  if (vis) {
+    css(sum, { transform: `translateY(${(-prog(t, s0, END, ease.linear) * 16).toFixed(1)}px)` });
+    sum.querySelectorAll('.stack > div').forEach((d, k) => {
+      const k0 = prog(t, s0 + k * 0.07, s0 + 0.3 + k * 0.07, ease.expoOut);
+      css(d, { 'clip-path': `inset(0 ${((1 - k0) * 100).toFixed(1)}% 0 0)`, opacity: (1 - prog(t, END - 0.3, END)).toFixed(3) });
+    });
+    css(sum.querySelector('.final'), { 'clip-path': `inset(0 ${((1 - prog(t, s0 + 0.6, s0 + 1.0, ease.expoOut)) * 100).toFixed(1)}% 0 0)`, opacity: (1 - prog(t, END - 0.3, END)).toFixed(3) });
+  }
+  // the end card: the name set huge on the grid, the tagline, the address and the credits
+  const e = $('#end'), ev = t >= END;
+  e.style.visibility = ev ? 'visible' : 'hidden';
+  if (ev) {
+    css(e, { transform: `scale(${lerp(1, 1.025, prog(t, END, window.DUR, ease.linear)).toFixed(4)})`, 'transform-origin': '100% 50%' });
+    css(e.querySelector('.name'), { 'clip-path': `inset(0 ${((1 - prog(t, END + 0.05, END + 0.45, ease.expoOut)) * 100).toFixed(1)}% 0 0)` });
+    css(e.querySelector('.tag'), { opacity: prog(t, END + 0.5, END + 0.9).toFixed(3) });
+    css(e.querySelector('.url'), { opacity: prog(t, END + 0.8, END + 1.2).toFixed(3) });
+    css(e.querySelector('.cr'), { opacity: prog(t, END + 1.0, END + 1.4).toFixed(3) });
+  }
+  for (const id of ['#hdr', '#hnum']) css($(id), { opacity: (prog(t, 0.3, 0.7) * (1 - prog(t, END - 0.2, END))).toFixed(3) });
+}
+
+/* the sound cues (mix.mjs lays each on its frame) and the music edit: the track's second section, then its ending */
+window.EV = [
+  { t: 0.04, s: 'whoosh-short', v: 0.2 },
+  ...S.map((s) => ({ t: bar(s.a), s: 'key-press', v: 0.34 })),
+  ...S.filter((s) => s.n2 !== undefined).map((s) => ({ t: bar(s.a + 1) + 0.05, s: 'key-press', v: 0.3 })),
+  { t: bar(2) + 0.8, s: 'typing', v: 0.12 },
+  { t: bar(5) - 0.4, s: 'whoosh-short', v: 0.18 },
+  { t: bar(5) + 0.3, s: 'ping', v: 0.14 },
+  { t: bar(14), s: 'whoosh', v: 0.26 },
+  { t: bar(14) + 0.6, s: 'pop', v: 0.24 },
+  { t: END + 0.05, s: 'sparkle', v: 0.24 },
+];
+window.MUSIC = { from: 32.882, bars: 15, end: [278.97, 282.4] };
+
+window.seek = (t) => frame(t);
+await Promise.all([...[400, 500, 600, 700, 800].map((w) => document.fonts.load(`${w} 40px Estedad`, 'بئاتریس ۱۲۳ abc')), document.fonts.load('700 40px Vazirmatn', '۱٬۲۳۴٫۵')]);
+await document.fonts.ready;
+// a numeral never runs past the right page (880 px): the long ones are set smaller, on the same baseline
+for (const n of document.querySelectorAll('.num-big')) {
+  n.style.fontSize = '';
+  const w = n.scrollWidth;
+  if (w > 880) n.style.fontSize = `${Math.floor((560 * 880) / w)}px`;
+}
+frame(0);
+window.READY = true;
+</script>
+</body>
+</html>
