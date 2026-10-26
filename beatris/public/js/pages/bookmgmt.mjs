@@ -682,7 +682,7 @@ function posSettings(root) {
         <label class="field">IP کارتخوان<input class="input ltr" name="host" value="${c.host}" placeholder="192.168.1.50"></label>
         <label class="field">پورت کارتخوان<input class="input ltr" name="port" value="${c.port}" inputmode="numeric"></label>
         <label class="field">پورت پل روی این رایانه<input class="input ltr" name="bridge" value="${c.bridge}" inputmode="numeric"></label></div>
-      <div class="actions"><button class="btn">ذخیره برای این رایانه</button><button class="btn ghost" type="button" data-pos="test">آزمون اتصال</button><a class="btn ghost" href="/downloads/Beatris-Setup-x64.exe" download>نصب‌کننده ویندوز (همراه پل)</a><a class="btn ghost" href="/downloads/beatris-pos-bridge.ps1" download>فقط پل کارتخوان</a></div>
+      <div class="actions"><button class="btn">ذخیره برای این رایانه</button><button class="btn ghost" type="button" data-pos="test">آزمون اتصال</button><a class="btn ghost" href="/downloads/Beatris-Setup-Win11-x64.exe" download>نصب‌کننده ویندوز ۱۱ (همراه پل)</a><a class="btn ghost" href="/downloads/Beatris-Setup-Win10-x64.exe" download>ویندوز ۱۰ (همراه پل)</a><a class="btn ghost" href="/downloads/beatris-pos-bridge.ps1" download>فقط پل کارتخوان</a></div>
       <p class="small" id="posOut" aria-live="polite"></p>
       <details class="small"><summary>راه‌اندازی یک‌باره</summary><ol>
         <li><b>سامان (SEP):</b> از پشتیبانی سامان بخواهید «PC-POS / اتصال به رایانه» را روی پایانه فعال کند؛ کارتخوان را با کابل شبکه به مودم فروشگاه وصل کنید و IP آن را از منوی شبکه دستگاه بخوانید (بهتر است IP ثابت شود). پورت پیش‌فرض ۱۱۹۷ است.</li>

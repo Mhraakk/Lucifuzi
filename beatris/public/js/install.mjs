@@ -9,6 +9,22 @@ export const standalone = () => matchMedia('(display-mode: standalone)').matches
 const ua = () => navigator.userAgent;
 const isIOS = () => /iphone|ipad|ipod/i.test(ua()) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isWindows = () => /Windows NT/i.test(ua());
+/** The desktop installers, 64-bit: one for Windows 11 and one for Windows 10. */
+export const WIN_SETUP = { win11: '/downloads/Beatris-Setup-Win11-x64.exe', win10: '/downloads/Beatris-Setup-Win10-x64.exe' };
+/**
+ * Which of them fits this PC, when the browser says: Chromium browsers report Windows 11 as platformVersion 13 or
+ * higher and Windows 10 as 1 to 10 (user-agent client hints). null when it cannot tell, and then both are offered.
+ */
+export async function windowsSetupFor() {
+  try {
+    const d = navigator.userAgentData;
+    if (d?.platform !== 'Windows' || !d.getHighEntropyValues) return null;
+    const major = Number(String((await d.getHighEntropyValues(['platformVersion'])).platformVersion ?? '').split('.')[0]);
+    return major >= 13 ? 'win11' : major >= 1 ? 'win10' : null;
+  } catch {
+    return null;
+  }
+}
 
 let wired = false;
 export function initInstall() {
@@ -46,6 +62,6 @@ function guide() {
   modal(String(html`<div class="ins" dir="rtl"><h3 class="bk-h">نصب بئاتریس روی همین دستگاه</h3>
     <p class="small">نسخه وب‌اپ: پنجره و آیکن جدا، باز شدن مستقیم روی فروشگاه، به‌روزرسانی خودکار؛ همان حساب و همان داده‌ها روی گوشی و کامپیوتر.</p>
     <ol>${steps.map((s) => html`<li>${s}</li>`)}</ol>
-    ${isWindows() ? html`<p class="small">یا نصب‌کننده ویندوز ۱۱: <a href="/downloads/Beatris-Setup-x64.exe" download>Beatris-Setup-x64.exe</a></p>` : ''}
+    ${isWindows() ? html`<p class="small">یا نصب‌کننده ۶۴ بیتی: <a href="${WIN_SETUP.win11}" download>ویندوز ۱۱</a> · <a href="${WIN_SETUP.win10}" download>ویندوز ۱۰</a></p>` : ''}
     <div class="actions"><button class="btn ghost" data-close>باشه</button></div></div>`));
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds the Windows 11 x64 installer: public/downloads/Beatris-Setup-x64.exe
+# Builds the Windows 11 and Windows 10 x64 installers: public/downloads/Beatris-Setup-Win11-x64.exe and
+# Beatris-Setup-Win10-x64.exe (Beatris-Setup-x64.exe stays as a copy of the Windows 11 one, for links already out there)
 #   [FFMPEG=/path/to/ffmpeg] bash desktop/windows/build.sh [https://your-server]
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -15,7 +16,10 @@ else
   echo "ffmpeg not found: keeping the existing beatris.ico" >&2
 fi
 mkdir -p ../../public/downloads
-makensis -V2 -DURL="$URL" -DVERSION="$VER" -DOUTFILE="$(pwd)/../../public/downloads/Beatris-Setup-x64.exe" installer.nsi
+for T in Win11 Win10; do
+  makensis -V2 -WX -DURL="$URL" -DVERSION="$VER" -DTARGET="${T,,}" -DOUTFILE="$(pwd)/../../public/downloads/Beatris-Setup-$T-x64.exe" installer.nsi
+done
+cp ../../public/downloads/Beatris-Setup-Win11-x64.exe ../../public/downloads/Beatris-Setup-x64.exe
 rm -rf "$tmp"
 cp pos-bridge.ps1 ../../public/downloads/beatris-pos-bridge.ps1
 ls -la ../../public/downloads/

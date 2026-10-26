@@ -1,7 +1,7 @@
-; Beatris (بئاتریس) — Windows 11 x64 desktop installer.
-; The app opens in its own window (Microsoft Edge app mode, built into Windows 11) against the live server, with its
-; own profile, so logins and settings stay separate from the user's browser. Per-user install: no administrator
-; rights needed. Build: desktop/windows/build.sh (makensis 3, amd64-unicode stubs).
+; Beatris (بئاتریس) — Windows 11 and Windows 10 x64 desktop installers (TARGET=win11 or win10).
+; The app opens in its own window (Microsoft Edge app mode; Edge comes with Windows 11 and with an up-to-date Windows 10)
+; against the live server, with its own profile, so logins and settings stay separate from the user's browser.
+; Per-user install: no administrator rights needed. Build: desktop/windows/build.sh (makensis 3, amd64-unicode stubs).
 Unicode true
 Target amd64-unicode
 SetCompressor /SOLID lzma
@@ -14,24 +14,35 @@ RequestExecutionLevel user
 !ifndef VERSION
   !define VERSION "2.0.0"
 !endif
+!ifndef TARGET
+  !define TARGET "win11"
+!endif
+!if "${TARGET}" == "win10"
+  !define OS_FA "ویندوز ۱۰"
+!else if "${TARGET}" == "win11"
+  !define OS_FA "ویندوز ۱۱"
+!else
+  !error "TARGET must be win11 or win10"
+!endif
 !define NAME "Beatris"
 !define NAME_FA "بئاتریس"
 !define REGKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Beatris"
 
-Name "${NAME_FA} — ${NAME}"
+Name "${NAME_FA} — ${NAME} (${OS_FA} ۶۴ بیت)"
 OutFile "${OUTFILE}"
 InstallDir "$LOCALAPPDATA\Programs\Beatris"
 InstallDirRegKey HKCU "Software\Beatris" "InstallDir"
 BrandingText "${NAME} ${VERSION}"
 VIProductVersion "${VERSION}.0"
 VIAddVersionKey "ProductName" "${NAME}"
-VIAddVersionKey "FileDescription" "Beatris — gold, coin and bullion accounting (desktop)"
+VIAddVersionKey "FileDescription" "Beatris — gold, coin and bullion accounting (desktop, ${TARGET} x64)"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "LegalCopyright" "Beatris"
 
 !include "MUI2.nsh"
 !include "x64.nsh"
+!include "WinVer.nsh"
 !define MUI_ICON "beatris.ico"
 !define MUI_UNICON "beatris.ico"
 !define MUI_ABORTWARNING
@@ -66,9 +77,20 @@ FunctionEnd
 
 Function .onInit
   ${IfNot} ${RunningX64}
-    MessageBox MB_ICONSTOP "این نسخه برای ویندوز ۶۴ بیتی است."
+    MessageBox MB_ICONSTOP "این نسخه برای ویندوز ۶۴ بیتی است." /SD IDOK
     Abort
   ${EndIf}
+  ; the browsers the app window needs no longer run on Windows 7 and 8
+  ${IfNot} ${AtLeastWin10}
+    MessageBox MB_ICONSTOP "بئاتریس به ویندوز ۱۰ یا ۱۱ (۶۴ بیت) نیاز دارد." /SD IDOK
+    Abort
+  ${EndIf}
+!if "${TARGET}" == "win11"
+  ${IfNot} ${AtLeastWin11}
+    MessageBox MB_YESNO|MB_ICONINFORMATION "این نصب‌کننده برای ویندوز ۱۱ است و این رایانه ویندوز ۱۰ دارد.$\r$\nنسخه ویژه ویندوز ۱۰ (Beatris-Setup-Win10-x64.exe) را از همان صفحه دریافت کنید؛ با همین نصب‌کننده هم کار می‌کند.$\r$\n$\r$\nادامه می‌دهید؟" /SD IDYES IDYES +2
+    Abort
+  ${EndIf}
+!endif
 FunctionEnd
 
 Section "Beatris" SecMain
@@ -82,8 +104,16 @@ Section "Beatris" SecMain
   FileOpen $0 "$INSTDIR\beatris.ini" w
   FileWrite $0 "browser=$Browser$\r$\nurl=${URL}$\r$\n"
   FileClose $0
-  StrCmp $Browser "" 0 +2
-    MessageBox MB_ICONEXCLAMATION "مرورگر Edge یا Chrome پیدا نشد؛ بئاتریس در مرورگر پیش‌فرض باز می‌شود."
+  ${If} $Browser == ""
+!if "${TARGET}" == "win10"
+    ; an older Windows 10 may still have only the old Edge, which has no app window: offer the new one
+    MessageBox MB_YESNO|MB_ICONQUESTION "برای پنجره مستقل بئاتریس، مرورگر Microsoft Edge جدید یا Chrome لازم است و روی این ویندوز ۱۰ پیدا نشد؛ فعلاً بئاتریس در مرورگر پیش‌فرض باز می‌شود.$\r$\n$\r$\nصفحه دریافت رایگان Edge باز شود؟ (پس از نصب Edge همین نصب‌کننده را دوباره اجرا کنید.)" /SD IDNO IDNO noedge
+    ExecShell "open" "https://www.microsoft.com/edge/download"
+    noedge:
+!else
+    MessageBox MB_ICONEXCLAMATION "مرورگر Edge یا Chrome پیدا نشد؛ بئاتریس در مرورگر پیش‌فرض باز می‌شود." /SD IDOK
+!endif
+  ${EndIf}
   CreateDirectory "$LOCALAPPDATA\Beatris\profile"
   ; shortcuts start the browser directly in app mode (no console window, own taskbar icon)
   StrCmp $Browser "" 0 +4

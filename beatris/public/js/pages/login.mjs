@@ -3,7 +3,7 @@
 // account may open its own shop. Demo accounts and development servers show the code on the screen instead of sending it.
 import { html, raw, api, auth, store, navigate, $, busy, fa, actions } from '../core.mjs';
 import { brandMark } from '../ui.mjs';
-import { install, canInstall } from '../install.mjs';
+import { install, canInstall, WIN_SETUP, windowsSetupFor } from '../install.mjs';
 import { ROLE_FA } from '../core.mjs';
 import { codeBox, initCodeBox } from '../otp.mjs';
 import { mountSculpture } from '../liquid.mjs';
@@ -58,7 +58,7 @@ export async function loginPage(root) {
           <li><a class="sh-link" href="/intro" data-link>معرفی</a></li>
           <li><a class="sh-link" href="/intro/features" data-link>امکانات</a></li>
           <li><a class="sh-link" href="/intro/packages" data-link>بسته‌ها</a></li>
-          <li><a class="sh-link" href="/downloads/Beatris-Setup-x64.exe" download>نسخه ویندوز</a></li>
+          <li><a class="sh-link" id="winSetup" href="${WIN_SETUP.win11}" download>نسخه ویندوز</a></li>
           ${canInstall() ? html`<li><button type="button" class="sh-link" data-act="install">نصب وب‌اپ</button></li>` : ''}
           <li class="sh-keep"><button type="button" class="sh-theme" data-act="tone" aria-label="${toneLabel()}">${SUN}${MOON}</button></li>
           <li class="sh-keep"><a class="sh-navcta" href="/intro/demo" data-link>درخواست نمایش</a></li>
@@ -88,6 +88,13 @@ export async function loginPage(root) {
   const S = { email: '', timer: 0, code: null, left: false, ticket: null };
   // the sculpture lays itself out at once; its engine starts when the page is idle, so the email field never waits
   const hero = mountSculpture($('.sh-root', root), { src: SCULPTURE });
+  // the Windows link fetches the installer for this PC when the browser tells which Windows it is (11 by default)
+  windowsSetupFor().then((k) => {
+    const a = $('#winSetup', root);
+    if (!k || !a) return;
+    a.href = WIN_SETUP[k];
+    a.textContent = k === 'win10' ? 'نسخه ویندوز ۱۰' : 'نسخه ویندوز ۱۱';
+  });
   const stop = () => clearInterval(S.timer);
   const show = (markup) => {
     stop();

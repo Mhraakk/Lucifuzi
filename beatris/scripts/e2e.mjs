@@ -2895,8 +2895,23 @@ async function loginUI(page, email = EMAIL) {
     check('web app: shortcuts and wide + narrow screenshots', m.shortcuts?.length >= 3 && m.screenshots?.some((x) => x.form_factor === 'wide') && m.screenshots?.some((x) => x.form_factor === 'narrow'));
     await p.click('[data-act=install]');
     check('web app: install guide opens', await p.waitForSelector('.ins', { timeout: 5000 }).then(() => true, () => false));
-    check('web app: Windows installer is downloadable', (await fetch(`${base}/downloads/Beatris-Setup-x64.exe`, { method: 'HEAD' })).headers.get('content-type')?.includes('portable-executable'));
+    const exe = async (f) => (await fetch(`${base}/downloads/${f}`, { method: 'HEAD' })).headers.get('content-type')?.includes('portable-executable');
+    check('web app: the Windows 11 and Windows 10 installers (and the old name) are downloadable', (await exe('Beatris-Setup-Win11-x64.exe')) && (await exe('Beatris-Setup-Win10-x64.exe')) && (await exe('Beatris-Setup-x64.exe')));
     await ctx.close();
+    // the login page's Windows link: the installer for the Windows the browser reports (client hints), 11 by default
+    const winLink = async (ver) => {
+      const c = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+      if (ver) await c.addInitScript((v) => Object.defineProperty(Navigator.prototype, 'userAgentData', { configurable: true, get: () => ({ platform: 'Windows', getHighEntropyValues: async () => ({ platformVersion: v }) }) }), ver);
+      const q = await c.newPage();
+      await q.goto(base + '/login');
+      await q.waitForSelector('#winSetup', { state: 'attached', timeout: 10000 }).catch(() => {});
+      if (ver) await q.waitForFunction(() => /[۱][۰۱]/.test(document.querySelector('#winSetup')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {});
+      const a = await q.$eval('#winSetup', (el) => [el.getAttribute('href'), el.textContent.trim()]).catch(() => []);
+      await c.close();
+      return a;
+    };
+    const [w0, w11, w10] = [await winLink(null), await winLink('15.0.0'), await winLink('10.0.0')];
+    check('web app: the login page links the installer for the PC (Windows 11 by default and for 11, Windows 10 for 10)', w0[0]?.endsWith('Win11-x64.exe') && w11[0]?.endsWith('Win11-x64.exe') && /۱۱/.test(w11[1]) && w10[0]?.endsWith('Win10-x64.exe') && /۱۰/.test(w10[1]), JSON.stringify([w0, w11, w10]));
   });
   await step('elliott studio: multi-degree count, fib, scenarios, panes, cards (books and market)', async () => {
     await go(page, '/books/elliott', 2500);
