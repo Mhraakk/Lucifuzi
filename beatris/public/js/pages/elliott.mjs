@@ -7,6 +7,7 @@ import { SYMBOLS, SYMBOL, isSymbol } from '../market.mjs';
 import { waveMap, resample } from '../elliott.mjs';
 import { createElliottView } from '../elliott-view.mjs';
 import { booksNav } from './books.mjs';
+import { liveBoard } from '../stream.mjs';
 
 const PREF = 'beatris.elliott';
 const TF = [['D', '1D', 'روزانه'], ['W', '1W', 'هفتگی'], ['M', '1M', 'ماهانه']];
@@ -119,6 +120,25 @@ export async function elliottPage(root) {
   const dec = () => SYMBOL[S.symbol]?.decimals ?? 0;
   const f = (v) => (fin(v) ? fa(fmt(v, dec())) : '—');
 
+  // the count follows the live price (spec 0049): the board is checked every minute and on every live update, and when
+  // this symbol's last price moves the waves are counted again on it
+  let board = null, seen = null;
+  function sub() {
+    const tfl = TF.find((t) => t[0] === S.tf), src = board?.source;
+    const last = S.daily.at(-1);
+    const live = board && !board.sample && !S.sample && last?.d === board.today && src?.ok && src.at && src.mode !== 'off';
+    const when = live ? ` · قیمت زنده ${src.label}، ساعت ${fa(new Date(src.at).toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }))}` : '';
+    $('#ewSub', root).textContent = `تایم فریم: ${tfl[1]} (${tfl[2]}) · ${SYMBOL[S.symbol].unit}${S.sample ? ' · داده نمونه آموزشی' : ''}${when}`;
+  }
+  async function follow(b) {
+    board = b ?? (await api('/api/market').catch(() => board));
+    const it = board?.items?.find((x) => x.id === S.symbol);
+    const mark = it && !it.empty ? `${it.d}:${it.c}` : '';
+    const moved = seen !== null && mark !== seen;
+    seen = mark;
+    if (moved) await loadData();
+    else sub();
+  }
   async function loadData() {
     $('#ewNote', root).innerHTML = '';
     const r = await api(`/api/market/series?symbols=${S.symbol}&from=${daysAgo(S.tf === 'M' ? 4000 : S.tf === 'W' ? 2200 : 1100)}`);
@@ -131,7 +151,7 @@ export async function elliottPage(root) {
     const [name, code] = TITLE[S.symbol] ?? [SYMBOL[S.symbol].short, S.symbol.toUpperCase()];
     $('#ewSym', root).textContent = `${name} (${code})`;
     const tfl = TF.find((t) => t[0] === S.tf);
-    $('#ewSub', root).textContent = `تایم فریم: ${tfl[1]} (${tfl[2]}) · ${SYMBOL[S.symbol].unit}${S.sample ? ' · داده نمونه آموزشی' : ''}`;
+    sub();
     if (S.sample) $('#ewNote', root).innerHTML = String(html`<p class="ew-warn">این سری <b>داده نمونه آموزشی</b> است، نه قیمت واقعی. مدیر فروشگاه می‌تواند در «مدیریت داده بازار» منبع زنده را وصل کند.</p>`);
     const m = (S.map = waveMap(bars, { degree: Number(S.deg), format: f }));
     if (!m.enough) {
@@ -164,8 +184,9 @@ export async function elliottPage(root) {
   root.addEventListener('change', (e) => {
     if (e.target.id !== 'ewS') return;
     S.symbol = e.target.value;
+    seen = null;
     save();
-    loadData();
+    loadData().then(() => follow(board));
   });
   root.addEventListener('click', (e) => {
     const tf = e.target.closest('[data-tf]'), dg = e.target.closest('[data-deg]');
@@ -187,6 +208,11 @@ export async function elliottPage(root) {
     }
   });
   await loadData();
+  follow().catch(() => {});
+  const timer = setInterval(() => {
+    if (document.visibilityState === 'visible') follow().catch(() => {});
+  }, 60000);
+  const stopLive = liveBoard((b) => void (b?.items && follow(b).catch(() => {})));
   // the wave rig (spec 0030): built after the chart has drawn, so the studio never waits for it
   let rig = null, gone = false;
   setTimeout(() => import('../figures/wave.mjs').then((m) => {
@@ -196,6 +222,8 @@ export async function elliottPage(root) {
   }).catch(() => {}), 0);
   return () => {
     gone = true;
+    clearInterval(timer);
+    stopLive();
     rig?.stop();
     chart.destroy();
   };

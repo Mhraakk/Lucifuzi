@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
-import { createMarket, parseForgod, defaultFeedMode, FEED_LABEL, FORGOD_SINGLES } from '../server/market.mjs';
+import { createMarket, parseForgod, defaultFeedMode, forgodPlan, FEED_LABEL, FORGOD_SINGLES } from '../server/market.mjs';
 import { SYMBOLS, sampleMarket } from '../public/js/market.mjs';
 import { MAZANEH_TO_G750 } from '../public/js/calc.mjs';
 import { smsLogin } from './helpers/login.mjs';
@@ -163,7 +163,8 @@ test('forgod sync: one request with the key, history once, the board, the curren
   assert.equal(b.fx.rates.length, 6);
   assert.equal(b.fx.btcUsd, 80000);
   assert.equal(m.health().mode, 'forgod');
-  assert.deepEqual({ ...m.health(), at: null }, { mode: 'forgod', ok: true, quotes: 11, at: null, fx: 6 });
+  // two days stored: tgju's yesterday (and the late gerami quote) and today
+  assert.deepEqual({ ...m.health(), at: null }, { mode: 'forgod', ok: true, quotes: 11, at: null, fx: 6, quota: { used: 1, daily: 50 }, days: 2 });
   // the next update: one request again, no history
   svc.calls.length = 0;
   assert.equal((await m.sync()).ok, true);
@@ -204,7 +205,8 @@ test('forgod sync: without a key nothing is asked; the key is in no status, sett
   const seen = JSON.stringify([st2, m2.status(), m2.board(), m2.stored(), m2.forgodView(), m2.health()]);
   assert.ok(!seen.includes(KEY), seen.slice(0, 300));
   assert.ok(seen.includes('••••'));
-  assert.deepEqual(m2.forgodView(), { key: true, host: 'forgod.example.com' });
+  const view = m2.forgodView();
+  assert.deepEqual([view.key, view.host, view.daily, view.used], [true, 'forgod.example.com', 50, 4]);
 });
 
 /* ---------------- through the API ---------------- */
@@ -229,7 +231,7 @@ test('forgod API: a manager switches to it, the board carries bitcoin and the cu
   const { server, call, login } = await serve({ key: KEY, base: BASE });
   const boss = await login('09120000002');
   const g = await call('GET', '/api/market/feed', null, boss);
-  assert.deepEqual(g.body.forgod, { key: true, host: 'forgod.example.com' });
+  assert.deepEqual([g.body.forgod.key, g.body.forgod.host, g.body.forgod.daily, g.body.forgod.reserve, g.body.forgod.dayEvery, g.body.forgod.nightEvery], [true, 'forgod.example.com', 50, 6, 20, 165]);
   assert.ok(g.body.modes.some((x) => x.id === 'forgod'));
   const put = await call('PUT', '/api/market/feed', { mode: 'forgod', syncPrice: true, interval: 10 }, boss);
   assert.equal(put.status, 200);
@@ -252,8 +254,125 @@ test('forgod API: a manager switches to it, the board carries bitcoin and the cu
 test('forgod API: without a key on the server, the mode is refused with the variable to set', async () => {
   const { call, login } = await serve({ key: '', base: BASE });
   const boss = await login('09120000002');
-  assert.deepEqual((await call('GET', '/api/market/feed', null, boss)).body.forgod, { key: false, host: 'forgod.example.com' });
+  const fv = (await call('GET', '/api/market/feed', null, boss)).body.forgod;
+  assert.deepEqual([fv.key, fv.host], [false, 'forgod.example.com']);
   const put = await call('PUT', '/api/market/feed', { mode: 'forgod' }, boss);
   assert.equal(put.status, 400);
   assert.match(put.body.error, /BEATRIS_FORGOD_KEY/);
+});
+
+/* ---------------- 50 requests a day (spec 0049) ---------------- */
+test('forgod allowance: 50 a day is 6 kept back, every 20 minutes in market hours and every 165 at night', () => {
+  assert.deepEqual(forgodPlan(50), { daily: 50, reserve: 6, auto: 44, dayEvery: 20, nightEvery: 165 });
+  // whatever the number, the automatic part never exceeds what is left after the reserve
+  for (const n of [1, 2, 5, 10, 30, 50, 100, 1000]) {
+    const p = forgodPlan(n);
+    assert.ok(p.reserve + p.auto <= n || n === 1, JSON.stringify(p));
+    assert.ok(Math.floor(780 / p.dayEvery) + Math.floor(660 / p.nightEvery) <= Math.max(p.auto, 2), JSON.stringify(p));
+  }
+});
+
+test('forgod allowance: 48 hours of automatic updates stay within 44 in every 24 hours, by day every 20 minutes', async () => {
+  let now = Date.parse('2026-10-26T00:00:00Z'); // 03:30 in Tehran
+  const sent = [];
+  const svc = stubService();
+  const fetchImpl = async (url, opt) => {
+    if (String(url).startsWith(BASE)) sent.push(now);
+    return svc.fetchImpl(url, opt);
+  };
+  // every answer is «now»: the stub's last_updated moves with the clock, so each update is fresh
+  const m = createMarket({ db: openDb(':memory:'), fetchImpl, clock: () => new Date(now), envMode: 'forgod', forgod: { key: KEY, base: BASE, daily: 50 }, pause: async () => {} });
+  for (let k = 0; k < 48 * 60; k++, now += 60000) {
+    const run = m.poll();
+    if (run) await run;
+  }
+  const most = Math.max(...sent.map((t) => sent.filter((u) => u >= t && u < t + 86400000).length));
+  assert.ok(most <= 44, `${most} in one 24 hours`);
+  assert.ok(sent.length >= 80, `${sent.length} in 48 hours`); // the allowance is used, not left idle
+  // the gaps: 20 minutes in market hours, 165 at night (by the Tehran clock)
+  const tehran = (t) => ((new Date(t).getUTCHours() * 60 + new Date(t).getUTCMinutes() + 210) % 1440);
+  const gaps = sent.slice(1).map((t, i) => [tehran(t), (t - sent[i]) / 60000]);
+  assert.ok(gaps.filter(([at]) => at > 9 * 60 + 30 && at < 22 * 60).every(([, g]) => g === 20), JSON.stringify(gaps.slice(0, 12)));
+  assert.ok(gaps.filter(([at]) => at > 60 && at < 8 * 60).every(([, g]) => g === 165), JSON.stringify(gaps.filter(([at]) => at < 9 * 60)));
+});
+
+test('forgod allowance: a manager still has the reserve, the 51st request is never sent, a restart keeps the count', async () => {
+  let now = Date.parse('2026-10-26T06:30:00Z'); // 10:00 in Tehran
+  const svc = stubService();
+  const db = openDb(':memory:');
+  const make = () => createMarket({ db, fetchImpl: svc.fetchImpl, clock: () => new Date(now), envMode: 'forgod', forgod: { key: KEY, base: BASE, daily: 50 }, pause: async () => {} });
+  let m = make();
+  for (let k = 0; k < 44; k++, now += 60000) assert.equal((await m.sync({ auto: true })).ok, true);
+  // the automatic part is used up: an automatic update sends nothing and leaves no failed run behind
+  now += 30 * 60000;
+  assert.equal(m.poll(), null);
+  const auto = await m.sync({ auto: true });
+  assert.equal(auto.ok, false);
+  assert.match(auto.error, /سهمیه به‌روزرسانی خودکار forgod پر است/);
+  assert.equal(svc.forgod().length, 44);
+  // a restart (the same database) keeps the count
+  m = make();
+  assert.equal(m.forgodView().used, 44);
+  // the manager's six
+  for (let k = 0; k < 6; k++, now += 60000) assert.equal((await m.sync()).ok, true);
+  const over = await m.sync();
+  assert.equal(over.ok, false);
+  assert.match(over.error, /سهمیه روزانه forgod پر است \(۵۰ از ۵۰/);
+  assert.equal(svc.forgod().length, 50);
+  assert.equal(m.forgodView().left, 0);
+  // the window rolls, it does not reset at midnight: a day and a minute after the first request only the two that are
+  // 24 hours old or more have left it, so the automatic part is still full while the manager has room
+  now = Date.parse('2026-10-27T06:31:00Z');
+  assert.equal((await m.sync({ auto: true })).ok, false);
+  assert.equal((await m.sync()).ok, true);
+  assert.equal(svc.forgod().length, 51);
+  // nine minutes on, eleven of the automatic requests have left the window and the automatic updates resume
+  now = Date.parse('2026-10-27T06:40:00Z');
+  assert.equal(m.forgodView().used, 40);
+  assert.equal((await m.sync({ auto: true })).ok, true);
+  assert.equal(svc.forgod().length, 52);
+});
+
+test('forgod allowance: the single addresses only when there is room for all three; a 429 stops it for an hour', async () => {
+  let now = Date.parse('2026-10-26T06:30:00Z');
+  // a small allowance: 6 a day, 2 kept back
+  const down = stubService({ all: () => json({ error: 'busy' }, 503) });
+  const m = createMarket({ db: openDb(':memory:'), fetchImpl: down.fetchImpl, clock: () => new Date(now), envMode: 'forgod', forgod: { key: KEY, base: BASE, daily: 6 }, pause: async () => {} });
+  assert.deepEqual(forgodPlan(6), { daily: 6, reserve: 2, auto: 4, dayEvery: 260, nightEvery: 660 });
+  const first = await m.sync(); // /api/all fails: 3 single addresses fit (4 of 6)
+  assert.equal(first.ok, true, first.error);
+  assert.equal(down.forgod().length, 4);
+  now += 60000;
+  const second = await m.sync(); // /api/all fails again (5 of 6): one left, not enough for three
+  assert.equal(second.ok, false);
+  assert.match(second.error, /سهمیه برای سه نشانی تکی کافی نیست/);
+  assert.equal(down.forgod().length, 5);
+  // forgod says «too many»: nothing more is sent for an hour, and the status says until when
+  const busy = stubService({ all: () => json({ error: 'quota' }, 429) });
+  const m2 = createMarket({ db: openDb(':memory:'), fetchImpl: busy.fetchImpl, clock: () => new Date(now), envMode: 'forgod', forgod: { key: KEY, base: BASE, daily: 50 }, pause: async () => {} });
+  assert.match((await m2.sync()).error, /429/);
+  now += 59 * 60000;
+  const held = await m2.sync();
+  assert.match(held.error, /نپذیرفت؛ تا ساعت/);
+  assert.equal(busy.forgod().length, 1);
+  assert.ok(m2.forgodView().blockedUntil);
+  now += 2 * 60000;
+  await m2.sync();
+  assert.equal(busy.forgod().length, 2);
+});
+
+test('forgod allowance: the time between updates follows the Tehran clock and never undercuts the manager', () => {
+  let now = Date.parse('2026-10-26T06:30:00Z'); // 10:00 in Tehran
+  const db = openDb(':memory:');
+  const m = createMarket({ db, fetchImpl: async () => json({}), clock: () => new Date(now), envMode: 'forgod', forgod: { key: KEY, base: BASE, daily: 50 }, pause: async () => {} });
+  assert.equal(m.everyMs(), 20 * 60000);
+  now = Date.parse('2026-10-25T22:30:00Z'); // 02:00 in Tehran
+  assert.equal(m.everyMs(), 165 * 60000);
+  m.save('market', { interval: 60 }, 'test'); // a manager who wants fewer updates gets them
+  assert.equal(m.everyMs(), 165 * 60000);
+  now = Date.parse('2026-10-26T06:30:00Z');
+  assert.equal(m.everyMs(), 60 * 60000);
+  // other feeds keep the manager's number
+  m.save('market', { mode: 'owner', interval: 10 }, 'test');
+  assert.equal(m.everyMs(), 10 * 60000);
 });

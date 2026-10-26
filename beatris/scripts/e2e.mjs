@@ -2343,29 +2343,70 @@ async function loginUI(page, email = EMAIL) {
   if (!live) await step('forgod (spec 0049): the currency table on the market page, the source on the data page, a live euro rate at the desk', async () => {
     // the e2e server has no forgod key and its feed is off: the board is handed the currency table a forgod update leaves
     const RATES = [['USD', 'دلار', 272500, 1], ['EUR', 'یورو', 304840, 1], ['JPY', 'ین ژاپن', 173351, 100], ['USDT', 'تتر', 271438, 1]];
-    const onBoard = (u) => u.pathname === '/api/market', onStream = (u) => u.pathname === '/api/market/stream';
+    const onBoard = (u) => u.pathname === '/api/market', onStream = (u) => u.pathname === '/api/market/stream', onSeries = (u) => u.pathname === '/api/market/series';
+    // after «bump», the market has moved: a forgod update with a new mazaneh, today, in the board and in the series
+    const X = 123456000;
+    let bump = false, lastBoard = null, streamPlan = 'refuse';
+    const moved = (b) => ({ ...b, sample: false, source: { mode: 'forgod', label: 'forgod.qzz.io: ارز، دلار، طلا، سکه و بیت‌کوین', at: new Date().toISOString(), ok: true, error: null }, items: b.items.map((it) => (it.id === 'mesghal' ? { ...it, d: b.today, c: X, h: Math.max(it.h, X), l: Math.min(it.l, X) } : it)) });
     await page.route(onBoard, async (route) => {
       const res = await route.fetch();
       const b = await res.json();
-      await route.fulfill({ response: res, json: { ...b, fx: { at: new Date().toISOString(), src: 'forgod', btcUsd: 79814.44, rates: RATES.map(([code, name, p, per]) => ({ code, name, p, per, t: '17:05', d: b.today })) } } });
+      lastBoard = { ...b, fx: { at: new Date().toISOString(), src: 'forgod', btcUsd: 79814.44, rates: RATES.map(([code, name, p, per]) => ({ code, name, p, per, t: '17:05', d: b.today })) } };
+      await route.fulfill({ response: res, json: bump ? moved(lastBoard) : lastBoard });
     });
-    // the live stream would hand the desk the server's own board (no table) at once: the desk stays on its minute poll
-    await page.route(onStream, (route) => route.fulfill({ status: 403, json: {} }));
+    await page.route(onSeries, async (route) => {
+      const res = await route.fetch();
+      const j = await res.json();
+      if (bump && j.series?.mesghal?.length) {
+        const m = j.series.mesghal, [d, o, h, l] = m.at(-1);
+        m[m.length - 1] = [d, o, Math.max(h, X), Math.min(l, X), X];
+        j.sample = false;
+      }
+      await route.fulfill({ response: res, json: j });
+    });
+    // the live stream: once, a little after the page has drawn, the moved board; otherwise refused, as for a shop whose
+    // live prices are off (the desk then stays on its minute poll and keeps the currency table above)
+    await page.route(onStream, async (route) => {
+      if (streamPlan === 'event' && lastBoard) {
+        streamPlan = 'refuse';
+        await new Promise((r) => setTimeout(r, 1500));
+        bump = true;
+        return route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: `event: board\ndata: ${JSON.stringify(moved(lastBoard))}\n\n` });
+      }
+      return route.fulfill({ status: 403, json: {} });
+    });
     const digits = (v) => String(v).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g, '');
+    expectedError = /status of 403/; // the stream refused above
     try {
       await go(page, '/market', 2500);
       const fx = await text(page, '#fx');
       check('forgod: the market page lists the currencies, the yen per 100 and bitcoin in dollars', /نرخ ارزها/.test(fx) && fx.includes('۳۰۴٬۸۴۰') && /ین ژاپن\s*هر ۱۰۰/.test(fx) && fx.includes('۷۹٬۸۱۴٫۴۴'), fx.replace(/\s+/g, ' ').slice(0, 160));
       check('forgod: bitcoin on the board', /بیت‌کوین/.test(await text(page, '#board')));
+      // the analysis follows the live price: a new mazaneh from the stream and the price hunt is worked out on it
+      streamPlan = 'event';
+      await go(page, '/market?s=mesghal', 1200);
+      const huntBefore = await text(page, '#hunt');
+      await page.waitForFunction(() => /قیمت زنده امروز/.test(document.querySelector('#hunt')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => {});
+      const hunt = await text(page, '#hunt');
+      check('forgod: a live price from the stream reworks the price hunt on it, and the hunt says so', !/قیمت زنده امروز/.test(huntBefore) && /قیمت زنده امروز \(forgod/.test(hunt) && hunt.includes('۱۲۳٬۴۵۶٬۰۰۰') && /هر دو از همان به‌روزرسانی زنده|انس/.test(hunt), hunt.replace(/\s+/g, ' ').slice(0, 220));
+      check('forgod: the board shows the same new mazaneh', (await text(page, '#board')).includes('۱۲۳٬۴۵۶٬۰۰۰'));
+      // the Elliott studio counts the waves again on the new price
+      bump = false;
+      streamPlan = 'event';
+      await go(page, '/market/elliott?s=mesghal', 1200);
+      const subBefore = await text(page, '#ewSub');
+      await page.waitForFunction(() => /قیمت زنده/.test(document.querySelector('#ewSub')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => {});
+      const ew = `${await text(page, '#ewSub')} ${await text(page, '#ewStats')}`;
+      check('forgod: the Elliott studio counts again on the live price and names it', !/قیمت زنده/.test(subBefore) && /قیمت زنده forgod/.test(ew) && ew.includes('۱۲۳٬۴۵۶٬۰۰۰'), ew.replace(/\s+/g, ' ').slice(0, 220));
+      bump = false;
       await go(page, '/market/data', 1500);
       await page.click('[data-mode="forgod"]');
       check('forgod: the data page says the server has no key yet, and which variable holds it', !(await page.$eval('#fgbox', (e) => e.hidden)) && /BEATRIS_FORGOD_KEY/.test(await text(page, '#fgbox')));
       expectedError = /status of 400/;
       await page.click('#ff button[type=submit]');
       await page.waitForTimeout(800);
-      expectedError = null;
+      expectedError = /status of 403/;
       check('forgod: without the key the source is not switched on', /BEATRIS_FORGOD_KEY/.test(await page.$eval('#toasts', (t) => t.innerText).catch(() => '')));
-      expectedError = /status of 403/; // the stream refused above, as for a shop whose live prices are off
       await go(page, '/books/desk', 1800);
       await page.click('[data-mode=sell]');
       await page.click('[data-kind=fx]');
@@ -2385,6 +2426,7 @@ async function loginUI(page, email = EMAIL) {
       expectedError = null;
       await page.unroute(onBoard);
       await page.unroute(onStream);
+      await page.unroute(onSeries);
     }
   });
 

@@ -81,6 +81,45 @@ The owner listed four prices for three addresses. The gold row is `18ayar` in th
 `/api/health?deep=1` adds `market`: the mode, whether the last update worked, how many prices it stored, when, and how
 many currency rates are held. It shows no price, no error text and no key.
 
+### Amendment: 50 requests a day, and analysis on the live price
+The owner added two things:
+- «روزی ۵۰ درخواست میشه فرستاد پس محدودیتش رو اتومات … تنظیم کن»: forgod allows 50 requests a day.
+- «مسیر تحلیل رو هم در اپ به این قیمت در نظر بگیر و تحت تاثیر قرار بده»: the analysis must run on these prices.
+
+**The allowance.** `BEATRIS_FORGOD_DAILY`, default 50.
+- A rolling 24-hour log of every request sent to forgod is kept in the database (`forgodQuota`). It counts `/api/all`
+  and each single address. A rolling window keeps every calendar day, in any time zone, within the number.
+- The plan, `forgodPlan(daily)`:
+  - 12% is kept back for a manager's «به‌روزرسانی همین حالا» (6 of 50);
+  - a tenth of the rest goes to the night;
+  - the rest is spread over market hours, 09:00–22:00 Tehran.
+
+  For 50 that is every 20 minutes by day and every 165 minutes at night: 43 automatic requests a day, within 44.
+- Automatic updates stop at daily − reserve; a manager's stop at daily. Over the line nothing is sent, and the status
+  says from what time the next request is possible.
+- The three single addresses are tried only when there is room for all three.
+- A 429, 401 or 403 from forgod stops every request for an hour.
+- The manager's interval still counts when it is longer than the plan's.
+- The market data page shows the allowance used, the plan, the next automatic update and any stop.
+- The deep health adds the allowance used and the number of stored days.
+
+**The analysis follows the live price.**
+- The market page and the Elliott studio listen to the live stream and still check the board every minute.
+- When a price they read moves (the symbol in view, the ounce, the dollar, the mazaneh, the four charts), they work
+  it all out again on it, keeping the chart where the user left it:
+  - the chart;
+  - «شکار قیمت» with its levels;
+  - the fair value from ounce × dollar;
+  - the bubbles;
+  - the hidden dollar;
+  - the waves;
+  - the four charts;
+  - the Iranian-market analytics.
+- The price hunt says what it rests on: «بر پایه قیمت زنده امروز (forgod…، ساعت ۱۷:۰۵)». The fair-value note says
+  that the ounce and the dollar come from the same live update. The Elliott studio names the live price and its time.
+- The MCP tools, the backtest, the pulse and the control pages read the stored prices on every request, so they
+  follow the feed already.
+
 ## Acceptance
 - **Parsing**, against rows shaped exactly like the service's (made-up numbers, no key):
   - every mapping in the table;
@@ -113,6 +152,19 @@ many currency rates are held. It shows no price, no error text and no key.
 - **Browser (e2e):** the board has 12 tiles; the market data page offers forgod and says whether its key is set.
 - **Live:** with the key set on Render, `/api/health?deep=1` reads mode `forgod`, `ok: true`, prices stored, and
   currency rates held.
+- **The allowance:**
+  - `forgodPlan(50)` is 6 kept back, 44 automatic, every 20 and every 165 minutes;
+  - 48 hours of automatic updates on a fake clock: at most 44 in any 24 hours, every 20 minutes in market hours and
+    every 165 at night;
+  - the manager's reserve after the automatic part is used up;
+  - the 51st request is never sent;
+  - the count survives a restart;
+  - the window rolls rather than resets;
+  - the single addresses only with room for three;
+  - a 429 stops it for an hour;
+  - the interval follows the Tehran clock and never undercuts the manager.
+- **Browser:** a live board from the stream with a new mazaneh makes the price hunt show it, «قیمت زنده امروز
+  (forgod…)», and the Elliott studio count again on it.
 - `npm run gate` and the e2e pass.
 
 ## Constraints

@@ -9,6 +9,7 @@ import * as T from '../ta.mjs';
 import { SYMBOLS, SYMBOL, isSymbol, roundQuote } from '../market.mjs';
 import { createChart, sparkline, barChart, heatmap, jDate, PALETTE } from '../charts.mjs';
 import { OVERLAYS, PANES, niceBox } from '../indicators.mjs';
+import { liveBoard } from '../stream.mjs';
 
 const PREFS = 'beatris.market.prefs';
 const ALERTS = 'beatris.market.alerts';
@@ -146,9 +147,30 @@ export async function marketPage(root) {
 
   /* ---------------- data ---------------- */
   async function loadBoard() {
-    S.board = await api('/api/market');
+    await onBoard(await api('/api/market'));
+  }
+  /** What the analysis on screen reads from the board: the update's time and the last price of each symbol it uses. */
+  const readMark = (b) => (b ? [b.source?.at ?? '', ...[...new Set([S.symbol, 'ons', 'usd', 'mesghal', ...S.grid])].map((id) => {
+    const it = b.items?.find((x) => x.id === id);
+    return it && !it.empty ? `${it.d}:${it.c}` : '';
+  })].join('|') : '');
+  /**
+   * A new board, from the minute check or the live stream (spec 0049): the tiles and the alerts at once, and when a
+   * price the analysis reads has moved, the analysis itself (chart, price hunt, fair value, waves, four charts and the
+   * Iranian-market analytics) is worked out again on it, keeping the chart where the user left it.
+   */
+  async function onBoard(b) {
+    const before = readMark(S.board);
+    S.board = b;
     drawBoard();
     checkAlerts();
+    if (!before || before === readMark(b)) return;
+    await loadMain({ keepView: true });
+    loadGrid().catch(() => {});
+    if (S.all) {
+      S.all = null;
+      drawLab().catch(() => {});
+    }
   }
   function drawBoard() {
     const b = S.board;
@@ -183,7 +205,7 @@ export async function marketPage(root) {
     const r = await api(`/api/market/series?symbols=${ids.join(',')}${from ? `&from=${from}` : ''}`);
     return Object.fromEntries(Object.entries(r.series).map(([k, v]) => [k, toBars(v)]));
   }
-  async function loadMain() {
+  async function loadMain({ keepView = false } = {}) {
     const n = rangeBars();
     // ~320 extra trading days warm up the slow indicators (SMA 200, Ichimoku); a year of ounce and dollar
     // prices feeds the fair-value check
@@ -193,7 +215,7 @@ export async function marketPage(root) {
     S.bars = data[S.symbol] ?? [];
     S.ctx = data;
     drawWave();
-    drawMain();
+    drawMain({ keepView });
     drawHunt();
   }
 
@@ -238,7 +260,8 @@ export async function marketPage(root) {
       return { missing: `برای این سنجش قیمت انس جهانی و دلار آزاد هم‌روز لازم است؛ ${!ons?.length || age(ons) > 3 ? 'انس' : 'دلار'} ${!ons?.length || !usd?.length ? 'ثبت نشده' : 'قدیمی است'}. هیچ عدد تخمینی جای آن گذاشته نمی‌شود.` };
     const last = (bars) => bars.at(-1)?.c;
     const o = last(ons), u = last(usd);
-    const basis = `انس ${fa(fmt(o, 2))} دلار (${jDate(ons.at(-1).d)}) × دلار ${fa(fmt(u))} تومان (${jDate(usd.at(-1).d)})`;
+    const sameLive = S.board && !S.board.sample && S.board.source?.ok && ons.at(-1).d === S.board.today && usd.at(-1).d === S.board.today;
+    const basis = `انس ${fa(fmt(o, 2))} دلار (${jDate(ons.at(-1).d)}) × دلار ${fa(fmt(u))} تومان (${jDate(usd.at(-1).d)})${sameLive ? ' · هر دو از همان به‌روزرسانی زنده' : ''}`;
     if (['mesghal', 'mesghal_fwd', 'geram18', 'geram24'].includes(S.symbol)) {
       const maz = T.impliedMesghal(o, u);
       const fair = S.symbol === 'geram18' ? maz / MAZANEH_TO_G750 : S.symbol === 'geram24' ? maz / MAZANEH_TO_G1000 : maz;
@@ -267,6 +290,12 @@ export async function marketPage(root) {
     if (r.trend === 'down') return 'روند نزولی است؛ برای خرید عجله نکنید، موجودی سنگین را نزدیک قیمت فروش صبورانه سبک کنید و منتظر نشانه برگشت (عبور از میانگین ۲۰ یا سبز شدن سوپرترند) بمانید.';
     return 'بازار در محدوده نوسان می‌کند؛ نزدیک کف محدوده بخرید و نزدیک سقف آن بفروشید و فاصله خرید و فروش را دست‌کم یک ATR بگیرید.';
   }
+  /** What an analysis rests on: today's live price from the feed (with its source and time), or a day's close. */
+  function basisOf(d) {
+    const b = S.board, src = b?.source;
+    if (b && !b.sample && d === b.today && src?.ok && src.at && src.mode !== 'off') return `بر پایه قیمت زنده امروز (${src.label}، ساعت ${fa(new Date(src.at).toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }))})`;
+    return `بر پایه پایانی ${jDate(d)}`;
+  }
   function drawHunt() {
     const el = $('#hunt', root), sym = SYMBOL[S.symbol], f = levelOf(S.symbol);
     const r = T.marketRead(S.bars);
@@ -286,7 +315,7 @@ export async function marketPage(root) {
       ...['S1', 'S2'].map((k) => [k === 'S1' ? 'حمایت پیوت ۱' : 'حمایت پیوت ۲', r.pivots[k], 'sup']),
     ].filter(([, p]) => fin(p)).sort((a, b) => b[1] - a[1]);
     el.innerHTML = String(html`<h2 class="mk-h">شکار قیمت: ${sym.short}</h2>
-      <p class="small">بر پایه پایانی ${jDate(r.d)} · سطح‌ها برای جلسه بعد</p>
+      <p class="small">${basisOf(r.d)} · سطح‌ها برای جلسه بعد</p>
       <div class="hunt-pair"><div class="buy"><span>خرید صبورانه</span><b class="num">${f(r.bid)}</b><span class="small">${fa(dist(r.bid))}</span></div><div class="sell"><span>فروش صبورانه</span><b class="num">${f(r.ask)}</b><span class="small">${fa(dist(r.ask))}</span></div></div>
       <p class="small">محدوده مورد انتظار یک روز (± ATR): ${f(r.range.lo)} تا ${f(r.range.hi)} · ATR = ${fa(fmt(r.atrPct, 2))}٪ قیمت</p>
       <div class="ladder">${levels.map(([l, p, k]) => html`<div class="${k}"><span>${l}</span><span class="num">${f(p)}</span><span class="small">${k === 'now' ? '' : fa(dist(p))}</span></div>`)}</div>
@@ -603,9 +632,12 @@ export async function marketPage(root) {
   const timer = setInterval(() => {
     if (document.visibilityState === 'visible') loadBoard().catch(() => {});
   }, 60000);
+  // …and at once when the feed brings a new price (live stream; the minute check stays as the fallback)
+  const stopLive = liveBoard((b) => void (b?.items && onBoard(b).catch(() => {})));
   return () => {
     io.disconnect();
     clearInterval(timer);
+    stopLive();
     charts.forEach((c) => c?.destroy());
     statics.forEach((c) => c?.destroy());
   };

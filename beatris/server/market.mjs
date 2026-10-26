@@ -4,7 +4,7 @@
 import { SYMBOLS, isSymbol, badBar, roundQuote, sampleMarket, DAY_RE } from '../public/js/market.mjs';
 import { isoDay, TROY_OUNCE_G } from '../public/js/ta.mjs';
 import { parseNum, MAZANEH_TO_G750 } from '../public/js/calc.mjs';
-import { tehranDay, tehranMinutes } from './tz.mjs';
+import { tehranDay, tehranMinutes, tehranClock } from './tz.mjs';
 
 export const FEED_MODES = ['off', 'owner', 'forgod', 'tgju', 'json'];
 export const FEED_LABEL = { off: 'ورود دستی مدیر', owner: 'کانال آب‌شده (@abshdh)، چنده و goldprice.org', forgod: 'forgod.qzz.io: ارز، دلار، طلا، سکه و بیت‌کوین', tgju: 'tgju.org (نقطه دسترسی عمومی و غیررسمی)', json: 'فید اختصاصی (JSON)', sample: 'داده نمونه آموزشی' };
@@ -168,6 +168,22 @@ export function parseGoldprice(json, tehranDayOf) {
 export const FORGOD_URL = 'https://api.forgod.qzz.io';
 /** The single addresses tried when /api/all fails: the dollar, the 18k gram and bitcoin. */
 export const FORGOD_SINGLES = [['forgod_usd', 'usd'], ['forgod_18ayar', '18ayar'], ['forgod_btc', 'usd_btc']];
+/** forgod's market hours on the Tehran clock, in minutes: most of the day's allowance is spent between them. */
+export const FORGOD_DAY = [9 * 60, 22 * 60];
+/**
+ * How forgod's daily allowance is spent (spec 0049): a reserve kept back for a manager's «به‌روزرسانی همین حالا», a
+ * tenth of the rest at night and the rest spread over market hours. For 50: 6 kept back, every 20 minutes from 09:00 to
+ * 22:00 (39) and every 165 minutes at night (4), 43 automatic requests a day. A rolling 24-hour count enforces it.
+ */
+export function forgodPlan(daily = 50) {
+  const n = Math.max(1, Math.floor(Number(daily) || 50));
+  const reserve = Math.min(n - 1, Math.max(2, Math.round(n * 0.12)));
+  const auto = Math.max(1, n - reserve);
+  const night = Math.max(1, Math.floor(auto * 0.1)), day = Math.max(1, auto - night);
+  const dayLen = FORGOD_DAY[1] - FORGOD_DAY[0];
+  return { daily: n, reserve, auto, dayEvery: Math.ceil(dayLen / day), nightEvery: Math.ceil((1440 - dayLen) / night) };
+}
+const faNum = (v) => String(v).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const FX_CODE = { aed_note: 'AED', usd_usdt: 'USDT' }; // forgod's codes that are not the ISO code in lower case
 const FX_PER = { JPY: 100 }; // quoted per 100 units (173,377 toman for 100 yen)
 const MAX_GAP = 0.25; // the 18k gram against ounce × dollar, and bitcoin against its dollar price × dollar
@@ -272,7 +288,7 @@ export function checkFeedUrl(u) {
 
 async function fetchJson(fetchImpl, url, { headers = {}, timeout = 25000, max = 12 * 1024 * 1024 } = {}) {
   const res = await fetchImpl(url, { headers: { accept: 'application/json', 'user-agent': 'Beatris/2 (gold-shop training app)', ...headers }, redirect: 'error', signal: AbortSignal.timeout(timeout) });
-  if (!res.ok) throw new Error(`پاسخ ${res.status} از منبع`);
+  if (!res.ok) throw Object.assign(new Error(`پاسخ ${res.status} از منبع`), { status: res.status });
   if (Number(res.headers.get('content-length') || 0) > max) throw new Error('پاسخ منبع بیش از حد بزرگ است');
   const reader = res.body.getReader(), parts = [];
   let size = 0;
@@ -294,8 +310,9 @@ async function fetchJson(fetchImpl, url, { headers = {}, timeout = 25000, max = 
 }
 
 /* ---------------- store, feed and board ---------------- */
-export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => new Date(), envMode = process.env.BEATRIS_MARKET_FEED, defaultMode = defaultFeedMode(process.env), forgod = { key: process.env.BEATRIS_FORGOD_KEY ?? '', base: process.env.BEATRIS_FORGOD_URL || FORGOD_URL }, onPrice = () => {}, pause = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
+export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => new Date(), envMode = process.env.BEATRIS_MARKET_FEED, defaultMode = defaultFeedMode(process.env), forgod = { key: process.env.BEATRIS_FORGOD_KEY ?? '', base: process.env.BEATRIS_FORGOD_URL || FORGOD_URL, daily: process.env.BEATRIS_FORGOD_DAILY }, onPrice = () => {}, pause = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
   const fgKey = String(forgod?.key ?? '').trim(), fgBase = String(forgod?.base || FORGOD_URL).replace(/\/+$/, '');
+  const plan = forgodPlan(forgod?.daily ?? 50);
   /** The key never leaves the server: any text kept or shown has it masked, as typed and as sent in the address. */
   const hide = (t) => (fgKey ? String(t).split(fgKey).join('••••').split(encodeURIComponent(fgKey)).join('••••') : String(t));
   const iso = () => clock().toISOString();
@@ -369,6 +386,31 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
     return { sample: !real, today: today(), source: { mode: real ? cfg.mode : 'sample', label: FEED_LABEL[real ? cfg.mode : 'sample'], at: status?.at ?? null, ok: status?.ok ?? null, error: status?.error ?? null }, items, fx: fxTable() };
   }
 
+  /* forgod's allowance (spec 0049): every request is counted in a rolling 24-hour log kept in the database */
+  const DAY_MS = 86400000;
+  function quota() {
+    const q = setting('forgodQuota') ?? {}, now = clock().getTime();
+    const at = (Array.isArray(q.at) ? q.at : []).filter((t) => now - Date.parse(t) < DAY_MS).sort();
+    return { at, blockedUntil: q.blockedUntil && Date.parse(q.blockedUntil) > now ? q.blockedUntil : null };
+  }
+  /** When the log will have room for one more request under `limit`. */
+  const freeAt = (at, limit) => new Date(Date.parse(at[at.length - limit]) + DAY_MS);
+  const quotaError = (msg) => Object.assign(new Error(msg), { quota: true });
+  /** One request to forgod, if the allowance has room: automatic updates leave the reserve to a manager's own. */
+  async function ask(path, { auto = false } = {}) {
+    const q = quota(), limit = auto ? plan.auto : plan.daily;
+    if (q.blockedUntil) throw quotaError(`forgod درخواست‌ها را نپذیرفت؛ تا ساعت ${faNum(tehranClock(new Date(q.blockedUntil)))} درخواستی فرستاده نمی‌شود.`);
+    if (q.at.length >= limit) throw quotaError(`سهمیه ${auto ? 'به‌روزرسانی خودکار' : 'روزانه'} forgod پر است (${faNum(q.at.length)} از ${faNum(plan.daily)} درخواست در ۲۴ ساعت)؛ درخواست بعدی از ساعت ${faNum(tehranClock(freeAt(q.at, limit)))}.`);
+    q.at.push(clock().toISOString());
+    save('forgodQuota', q, 'system');
+    try {
+      return await fetchJson(fetchImpl, `${fgBase}/api/${path}?api_key=${encodeURIComponent(fgKey)}`, { timeout: 20000, max: 2 * 1024 * 1024 });
+    } catch (e) {
+      // refused (no allowance left, or the key): nothing more is sent for an hour
+      if ([401, 403, 429].includes(e?.status)) save('forgodQuota', { ...quota(), blockedUntil: new Date(clock().getTime() + 3600000).toISOString() }, 'system');
+      throw e;
+    }
+  }
   /** The daily history, once, from tgju's tables (always marked done when `always`, so a missing source is not asked every poll). */
   async function history(st, always) {
     st.missing = [];
@@ -385,7 +427,7 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
   }
 
   let running = null;
-  function sync({ backfill = false } = {}) {
+  function sync({ backfill = false, auto = false } = {}) {
     if (running) return running;
     running = (async () => {
       const cfg = config();
@@ -427,22 +469,24 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
           const bad = checkFeedUrl(fgBase);
           if (bad) throw new Error(bad);
           if (backfill || !cfg.backfilled) await history(st, true);
-          const ask = (path) => fetchJson(fetchImpl, `${fgBase}/api/${path}?api_key=${encodeURIComponent(fgKey)}`, { timeout: 20000, max: 2 * 1024 * 1024 });
           st.sources = {};
           let got = null;
           try {
-            const all = await ask('all');
+            const all = await ask('all', { auto });
             if (!all?.sections || typeof all.sections !== 'object') throw new Error('پاسخ /api/all بخش قیمت‌ها را ندارد');
             got = parseForgod(all, { now: clock() });
             st.sources.forgod = Object.keys(got.live).length || got.stale || got.error ? 'ok' : 'بدون قیمت';
           } catch (e) {
+            if (e?.quota || [401, 403, 429].includes(e?.status)) throw e; // no allowance: the single addresses would not be answered either
             st.sources.forgod = hide(e?.message ?? e).slice(0, 80);
           }
           if (!got || (!Object.keys(got.live).length && !got.stale && !got.error)) {
+            // the three single addresses only when the allowance has room for all three
+            if ((auto ? plan.auto : plan.daily) - quota().at.length < FORGOD_SINGLES.length) throw new Error(`${st.sources.forgod ?? 'پاسخ /api/all خالی بود'}؛ سهمیه برای سه نشانی تکی کافی نیست.`);
             const rows = [];
             for (const [name, path] of FORGOD_SINGLES) {
               try {
-                rows.push(await ask(path));
+                rows.push(await ask(path, { auto }));
                 st.sources[name] = 'ok';
               } catch (e) {
                 st.sources[name] = hide(e?.message ?? e).slice(0, 80);
@@ -489,14 +533,28 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
 
   /** Background polling (the server calls start(); tests drive sync() directly). */
   let timer = null, last = 0;
-  const everyMs = () => Math.min(60, Math.max(5, Number(config().interval) || 10)) * 60000;
+  /** Time between automatic updates: the manager's own number, and for forgod never less than its allowance gives this hour. */
+  function everyMs() {
+    const cfg = config();
+    let min = Math.min(60, Math.max(5, Number(cfg.interval) || 10));
+    if (cfg.mode === 'forgod') {
+      const t = tehranMinutes(clock());
+      min = Math.max(min, t >= FORGOD_DAY[0] && t < FORGOD_DAY[1] ? plan.dayEvery : plan.nightEvery);
+    }
+    return min * 60000;
+  }
   /** One poll if the configured period has passed (the persistent market worker calls this every minute). */
   function poll() {
     const cfg = config();
     if (cfg.mode === 'off') return null;
-    if (Date.now() - last < everyMs()) return null;
-    last = Date.now();
-    return sync();
+    const now = clock().getTime();
+    if (now - last < everyMs()) return null;
+    if (cfg.mode === 'forgod') {
+      const q = quota(); // nothing could be sent: no empty run either, the last status stays
+      if (q.blockedUntil || q.at.length >= plan.auto) return null;
+    }
+    last = now;
+    return sync({ auto: true });
   }
   function start() {
     if (timer) return;
@@ -508,8 +566,12 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
   const stop = () => (clearInterval(timer), (timer = null));
 
   /** What a manager may know about the forgod source: whether its key is set and the host, never the key. */
-  const forgodView = () => ({ key: !!fgKey, host: (() => { try { return new URL(fgBase).host; } catch { return ''; } })() });
-  /** For the public deep health: the mode and how the last update went, without prices, error texts or keys. */
-  const health = () => ({ mode: config().mode, ok: status?.ok ?? null, quotes: status?.quotes ?? 0, at: status?.at ?? null, fx: fxTable()?.rates.length ?? 0 });
+  function forgodView() {
+    const q = quota();
+    const host = (() => { try { return new URL(fgBase).host; } catch { return ''; } })();
+    return { key: !!fgKey, host, ...plan, day: FORGOD_DAY, used: q.at.length, left: Math.max(0, plan.daily - q.at.length), blockedUntil: q.blockedUntil, next: last ? new Date(last + everyMs()).toISOString() : null };
+  }
+  /** For the public deep health: the mode, how the last update went, the allowance used and the days of history; no prices, error texts or keys. */
+  const health = () => ({ mode: config().mode, ok: status?.ok ?? null, quotes: status?.quotes ?? 0, at: status?.at ?? null, fx: fxTable()?.rates.length ?? 0, quota: { used: quota().at.length, daily: plan.daily }, days: db.get('SELECT COUNT(DISTINCT day) AS n FROM market_bars')?.n ?? 0 });
   return { config, rev: () => revision, stored: () => setting('market') ?? {}, save, status: () => status, upsert, applyQuote, series, board, fxTable, sync, poll, everyMs, start, stop, hasReal, today, forgodView, health };
 }

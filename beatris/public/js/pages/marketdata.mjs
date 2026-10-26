@@ -49,6 +49,15 @@ export async function marketDataPage(root) {
     </div>
     <section class="tray" id="recent"></section>`);
 
+  /** forgod (spec 0049): whether the server has its key, and how its daily allowance is being spent. */
+  function fgView(g) {
+    if (!g?.key) return html`<p>کلید forgod روی سرور تنظیم نشده است؛ مالک سرور متغیر <span class="ltr">BEATRIS_FORGOD_KEY</span> را می‌گذارد (کلید هیچ‌وقت در صفحه یا پایگاه داده نمی‌آید).</p>`;
+    const hm = (iso) => fa(new Date(iso).toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }));
+    return html`<p>کلید forgod روی سرور تنظیم شده است ✓ · ${g.host}</p>
+      <p>سهمیه: <b>${fa(g.used)} از ${fa(g.daily)}</b> درخواست در ۲۴ ساعت گذشته · خودکار هر ${fa(g.dayEvery)} دقیقه در ساعت بازار (${fa(g.day[0] / 60)} تا ${fa(g.day[1] / 60)} تهران) و هر ${fa(g.nightEvery)} دقیقه در شب · ${fa(g.reserve)} درخواست برای «به‌روزرسانی همین حالا» کنار گذاشته می‌شود${g.next ? ` · به‌روزرسانی خودکار بعدی حدود ساعت ${hm(g.next)}` : ''}.</p>
+      ${g.blockedUntil ? html`<p class="err">forgod درخواست‌ها را نپذیرفت؛ تا ساعت ${hm(g.blockedUntil)} درخواستی فرستاده نمی‌شود.</p>` : ''}
+      <p>فاصله زیر را فقط بلندتر می‌شود کرد: عدد بزرگ‌تر میان آن و برنامه سهمیه به کار می‌رود.</p>`;
+  }
   function drawFeed() {
     const c = feed.config, st = feed.status;
     $('#feed', root).innerHTML = String(html`<h2 class="mk-h">منبع قیمت</h2>
@@ -58,7 +67,7 @@ export async function marketDataPage(root) {
           <label class="field">نشانی فید (https)<input class="input ltr" name="url" value="${c.url}" placeholder="https://prices.example.com/latest"></label>
           <label class="field">توکن (اختیاری، به‌صورت Bearer)<input class="input ltr" name="token" value="${c.token}" autocomplete="off"></label>
         </div>
-        <p ${c.mode === 'forgod' ? '' : 'hidden'} id="fgbox" class="small" style="margin-top:12px">${feed.forgod?.key ? html`کلید forgod روی سرور تنظیم شده است ✓ · ${feed.forgod.host}` : html`کلید forgod روی سرور تنظیم نشده است؛ مالک سرور متغیر <span class="ltr">BEATRIS_FORGOD_KEY</span> را می‌گذارد (کلید هیچ‌وقت در صفحه یا پایگاه داده نمی‌آید).`}</p>
+        <div ${c.mode === 'forgod' ? '' : 'hidden'} id="fgbox" class="small" style="margin-top:12px">${fgView(feed.forgod)}</div>
         <label class="check" style="margin-top:12px"><input type="checkbox" name="syncPrice" ${c.syncPrice ? 'checked' : ''}> قیمت پایه فروشگاه (گرم ۷۵۰) خودکار از طلای ۱۸ بازار به‌روز شود</label>
         <label class="field" style="max-width:260px;margin-top:10px">فاصله به‌روزرسانی (دقیقه، ۵ تا ۶۰)<input class="input ltr" name="interval" inputmode="numeric" value="${fa(c.interval)}"></label>
         <div class="actions"><button class="btn" type="submit">ذخیره منبع</button>${c.mode !== 'off' ? html`<button class="btn ghost" type="button" data-act="sync">به‌روزرسانی همین حالا</button><button class="btn ghost" type="button" data-act="backfill">بارگیری دوباره سابقه</button>` : ''}</div>
