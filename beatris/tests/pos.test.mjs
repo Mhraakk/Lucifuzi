@@ -63,7 +63,8 @@ before(async () => {
   const port = 20000 + Math.floor(Math.random() * 20000);
   B = `http://127.0.0.1:${port}`;
   bridge = spawn(PWSH, ['-NoProfile', '-File', path.resolve('desktop/windows/pos-bridge.ps1'), '-Listen', String(port), '-Origin', ORIGIN, '-DataDir', dataDir], { stdio: 'ignore' });
-  for (let i = 0; i < 100; i++) {
+  // PowerShell's first start can take well over 10 s on a busy machine (the gate runs every test file at once)
+  for (let i = 0; i < 300; i++) {
     try {
       if ((await get('/status')).body?.ok) return;
     } catch {}

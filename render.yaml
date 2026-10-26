@@ -38,3 +38,6 @@ services:
         sync: false
       - key: BEATRIS_OWNER_NAME
         sync: false
+      # optional AI traces (spec 0048), set on the service when wanted — never in this file:
+      #   LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY (+ LANGFUSE_BASE_URL), TRACELOOP_API_KEY, AGENTOPS_API_KEY,
+      #   BEATRIS_OTEL_ENDPOINT (+ BEATRIS_OTEL_HEADERS); BEATRIS_OTEL_CONTENT=1 adds the masked prompts and answers

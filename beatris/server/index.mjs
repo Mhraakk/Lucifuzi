@@ -20,6 +20,7 @@ import { createMetrics } from './metrics.mjs';
 import { backupAll, listBackups } from './backup.mjs';
 import { createFlags } from './flags.mjs';
 import { can } from './rbac.mjs';
+import { getTracer } from './otel.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8', '.exe': 'application/vnd.microsoft.portable-executable', '.ps1': 'text/plain; charset=utf-8', '.wasm': 'application/wasm', '.txt': 'text/plain; charset=utf-8' };
@@ -137,6 +138,9 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
     // ورود با ایمیل (spec 0034): Supabase configured, or not (sign-in by SMS and the owner's PIN still work)
     const em = otp.emailView();
     out.email = em.ready ? 'supabase' : em.error ? 'invalid' : 'off';
+    // AI traces (spec 0048): on or off, where to by name only, and what was sent — never a key
+    const tr = getTracer().stats();
+    out.otel = tr.on ? { destinations: tr.destinations, content: tr.content, sent: tr.sent, failed: tr.failed, dropped: tr.dropped, queued: tr.queued } : 'off';
     return out;
   }
   const mainDb = db;
@@ -506,7 +510,8 @@ if (isMain) {
   if (process.env.NODE_ENV !== 'test') server.startWorkers(); // price feed (when switched on) and daily backups, on the job queue
   // redeploys send SIGTERM: stop accepting, drop idle keep-alive sockets, give requests in flight 5 s
   const stop = () => {
-    const done = () => {
+    const done = async () => {
+      await Promise.race([getTracer().shutdown(), new Promise((r) => setTimeout(r, 3000).unref())]); // the last AI traces (spec 0048), 3 s at most
       try {
         db.close();
       } catch {
