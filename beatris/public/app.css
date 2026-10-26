@@ -712,7 +712,7 @@ a.tile:active, .tool-card:active, a.row:active, .chip:active, .iconbtn:active, .
 .mk-fx div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
 .mk-fx span { color: var(--dust); font-size: 13.5px; }
 .mk-fx b { color: var(--bone); font-weight: 600; }
-.mk-fx em { font-style: normal; font-size: 11.5px; color: var(--dust-2); }
+.mk-fx em { font-style: normal; font-size: 11.5px; color: var(--dust-2); white-space: nowrap; }
 .mk-main { padding: 14px; }
 .mk-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
 .mk-sel select, .mk-cell select, .mk-alert select, .mk-h select { min-height: 36px; border-radius: 10px; border: 1px solid var(--vault-4); background: rgba(var(--ink-rgb), 0.6); color: var(--bone); padding: 0 10px; font: inherit; font-size: 13.5px; max-width: 100%; }

@@ -2,7 +2,7 @@
 // or pulled by a feed the owner switches on. Until the first real price exists the API serves the labelled
 // sample market, so every chart and lesson works from the first minute.
 import { SYMBOLS, isSymbol, badBar, roundQuote, sampleMarket, DAY_RE } from '../public/js/market.mjs';
-import { isoDay, TROY_OUNCE_G } from '../public/js/ta.mjs';
+import { isoDay, jalaliOf, JALALI_MONTHS, TROY_OUNCE_G } from '../public/js/ta.mjs';
 import { parseNum, MAZANEH_TO_G750 } from '../public/js/calc.mjs';
 import { tehranDay, tehranMinutes, tehranClock } from './tz.mjs';
 
@@ -188,12 +188,30 @@ const FX_CODE = { aed_note: 'AED', usd_usdt: 'USDT' }; // forgod's codes that ar
 const FX_PER = { JPY: 100 }; // quoted per 100 units (173,377 toman for 100 yen)
 const MAX_GAP = 0.25; // the 18k gram against ounce × dollar, and bitcoin against its dollar price × dollar
 const CLOCK_RE = /^(\d{1,2}):(\d{2})(?::\d{2})?$/;
+const LABEL_RE = new RegExp(`^([0-9۰-۹]{1,2}) (${JALALI_MONTHS.join('|')}|امرداد)(?: ([0-9۰-۹]{4}))?$`);
+/**
+ * forgod's label for a quote not made today («4 آبان», «۲۶ خرداد ۱۴۰۵») as an ISO day: without a year, the latest such
+ * day on or before `today`. null when the label is not a date.
+ */
+export function forgodLabelDay(label, today) {
+  const m = LABEL_RE.exec(String(label ?? '').trim().replace(/\s+/g, ' '));
+  if (!m) return null;
+  const num = (s) => Number(String(s).replace(/[۰-۹]/g, (c) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(c)));
+  const jm = m[2] === 'امرداد' ? 5 : JALALI_MONTHS.indexOf(m[2]) + 1, jy = jalaliOf(today)[0];
+  for (const y of m[3] ? [num(m[3])] : [jy, jy - 1]) {
+    const d = isoDay(`${y}/${jm}/${num(m[1])}`);
+    if (d && d <= today) return d;
+  }
+  return null;
+}
 /**
  * forgod's answer: /api/all ({ sections: { currencies, gold, bubbles, crypto }, last_updated, stale }) or single rows
  * ({ code, price, time, section, last_updated, stale }), prices in toman with thousands commas, the ounce and
  * `usd_price` in dollars. A row whose `time` is a date rather than a clock time is an old quote and is skipped; a
  * clock time more than 10 minutes after `last_updated` belongs to the day before. Returns the symbols' quotes, the
  * currency table (only from /api/all) and, when the gold does not agree with the ounce × the dollar, an error.
+ * After midnight forgod dates every currency it has not quoted yet that day: such a rate dated today or yesterday
+ * still enters the currency table (its latest rate), never a bar.
  */
 export function parseForgod(answers, { now = new Date() } = {}) {
   const list = Array.isArray(answers) ? answers : [answers];
@@ -203,17 +221,21 @@ export function parseForgod(answers, { now = new Date() } = {}) {
   const at = new Date(Math.min(now.getTime(), stamps.length ? Math.max(...stamps) : now.getTime()));
   const stale = (full ? [full] : rows).some((r) => r.stale === true);
   const clock = tehranMinutes(at), today = tehranDay(at), yesterday = tehranDay(new Date(at.getTime() - 86400000));
-  const byCode = new Map(), skipped = [];
+  const byCode = new Map(), dated = new Map(), order = [], skipped = [];
   for (const r of rows) {
     const code = String(r.code ?? '').toLowerCase();
     const p = clean(r.price), m = CLOCK_RE.exec(String(r.time ?? '').trim());
     if (!code || !(p > 0 && p < 1e13)) continue;
+    const q = { code, p, section: String(r.section ?? ''), name: String(r.name ?? '').replace(/[<>]/g, '').trim().slice(0, 40), usd: Number(r.usd_price) };
+    order.push(code);
     if (!m) {
       skipped.push(code); // «26 خرداد»: not today's quote
+      const d = forgodLabelDay(r.time, today);
+      if (d === today || d === yesterday) dated.set(code, { ...q, d, t: null }); // the currency table's latest rate, never a bar
       continue;
     }
     const mins = Number(m[1]) * 60 + Number(m[2]);
-    byCode.set(code, { code, p, d: mins > clock + 10 ? yesterday : today, t: `${m[1].padStart(2, '0')}:${m[2]}`, section: String(r.section ?? ''), name: String(r.name ?? '').replace(/[<>]/g, '').trim().slice(0, 40), usd: Number(r.usd_price) });
+    byCode.set(code, { ...q, d: mins > clock + 10 ? yesterday : today, t: `${m[1].padStart(2, '0')}:${m[2]}` });
   }
   const live = {};
   for (const sym of SYMBOLS) {
@@ -238,14 +260,34 @@ export function parseForgod(answers, { now = new Date() } = {}) {
   }
   if (full) {
     const rates = [];
-    for (const q of byCode.values()) {
-      if (q.section !== 'currencies' && q.code !== 'usd_usdt') continue;
+    for (const c of order) {
+      const q = byCode.get(c) ?? dated.get(c);
+      if (!q || (q.section !== 'currencies' && q.code !== 'usd_usdt')) continue;
       const code = FX_CODE[q.code] ?? q.code.toUpperCase();
-      if (/^[A-Z]{3,5}$/.test(code) && !rates.some((x) => x.code === code)) rates.push({ code, name: q.name, p: q.p, per: FX_PER[code] ?? 1, t: q.t, d: q.d });
+      if (/^[A-Z]{3,5}$/.test(code) && !rates.some((x) => x.code === code)) rates.push({ code, name: q.name, p: q.p, per: FX_PER[code] ?? 1, t: q.t, d: q.d, at: out.at });
     }
     out.fx = { at: out.at, rates, btcUsd: btcUsd > 0 ? btcUsd : null };
   }
   return out;
+}
+/**
+ * The currency table after an update (spec 0049, amendment 2): the fresh rates, and every earlier forgod rate this
+ * update did not bring while its own last quote is under a day old, each where it stood. So an answer that leaves a few
+ * currencies out never empties the table.
+ */
+export function mergeFx(fresh, prev, now = new Date()) {
+  const was = prev?.src === 'forgod' && Array.isArray(prev.rates) ? prev.rates : [];
+  const out = [...fresh.rates];
+  was.forEach((r, i) => {
+    if (out.some((x) => x.code === r.code) || !(now.getTime() - Date.parse(r.at ?? prev.at) < 86400000)) return;
+    let k = i, at = -1; // after its nearest old neighbour still in the table, else first
+    while (--k >= 0 && at < 0) {
+      const code = was[k].code;
+      at = out.findIndex((x) => x.code === code);
+    }
+    out.splice(at + 1, 0, r);
+  });
+  return { ...fresh, rates: out };
 }
 async function fetchText(fetchImpl, url, { timeout = 20000, max = 4 * 1024 * 1024, headers = {}, until = null } = {}) {
   const ctl = new AbortController();
@@ -498,9 +540,10 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
           if (got.error) throw new Error(got.error);
           if (got.skipped.length) st.skipped = got.skipped.slice(0, 40);
           if (got.dropped.length) st.dropped = got.dropped;
-          if (got.fx?.rates.length) {
-            save('marketFx', { ...got.fx, src: 'forgod' }, 'system');
-            st.fx = got.fx.rates.length;
+          const fx = got.fx && mergeFx(got.fx, setting('marketFx'), clock());
+          if (fx?.rates.length) {
+            save('marketFx', { ...fx, src: 'forgod' }, 'system');
+            st.fx = fx.rates.length;
           }
           live = got.live;
         } else if (cfg.mode === 'json') {

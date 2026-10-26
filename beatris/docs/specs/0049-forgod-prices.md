@@ -120,6 +120,30 @@ The owner added two things:
 - The MCP tools, the backtest, the pulse and the control pages read the stored prices on every request, so they
   follow the feed already.
 
+### Amendment 2: the currency table at night
+**Found on the live server** at 00:43 Tehran on 5 Aban: `/api/health?deep=1` read `fx: 1, quotes: 10`. In the afternoon
+it read 25 and 11.
+- **What happens after midnight:**
+  - forgod gives every currency it has not quoted yet that day a date in place of a clock time («4 آبان», the format
+    of the old TON row);
+  - those rows were skipped, which is right for the bars: there is no new dollar bar at night;
+  - but each update **replaced** the stored table with what was left, which is tether alone.
+- **The effect:**
+  - «نرخ ارزها» showed one row until the first morning quote;
+  - the desk could not start a euro or dirham line from the live rate.
+- **The fix:**
+  - A currency row dated today or yesterday (`forgodLabelDay`: «4 آبان» or «۴ آبان ۱۴۰۵»; without a year, the latest
+    such day on or before today) still gives the table its latest rate.
+    - It carries that day and no time.
+    - It never makes a bar.
+    - An older date («26 خرداد») stays out.
+  - An update **merges** into the table (`mergeFx`):
+    - fresh rates replace old ones;
+    - a rate the update did not bring stays, where it stood, while its own last quote (`at`, now kept on each rate) is
+      under a day old.
+  - On the market page, a rate older than the update shows its own day and time. When every rate shares one earlier
+    day, the heading says it once.
+
 ## Acceptance
 - **Parsing**, against rows shaped exactly like the service's (made-up numbers, no key):
   - every mapping in the table;
@@ -165,6 +189,16 @@ The owner added two things:
   - the interval follows the Tehran clock and never undercuts the manager.
 - **Browser:** a live board from the stream with a new mazaneh makes the price hunt show it, «قیمت زنده امروز
   (forgod…)», and the Elliott studio count again on it.
+- **The night** (amendment 2):
+  - the date labels read right, including Persian digits, a year, a day not yet reached this year, and a day the month
+    lacks;
+  - a night answer with the currencies dated yesterday gives the table every rate, each with its day and no time, and
+    no dollar bar;
+  - a date older than yesterday stays out;
+  - an update that leaves currencies out keeps their last rates, in the source's order, then drops them a day after
+    their last quote;
+  - a table saved before the amendment still merges;
+  - health reads the full count.
 - `npm run gate` and the e2e pass.
 
 ## Constraints
@@ -180,3 +214,31 @@ The owner added two things:
 - The 5 test requests: four by hand, plus one through the app's own feed code. Results are below.
 - `tests/forgod.test.mjs`, `npm run gate`, and the e2e step «forgod (spec 0049)».
 - After deploy: the deep health on https://beatris-6u77.onrender.com.
+
+## Results
+- **The 5 test requests** (2026-10-26):
+  - four by hand (`/api/all`, `/api/usd`, `/api/18ayar`, `/api/usd_btc`): all 200, in 0.9–1.3 s;
+  - one through the app's own feed code: 11 prices and 25 currency rates from one request, and the key in nothing it
+    showed.
+- **Tests:**
+  - `tests/forgod.test.mjs`: 17 tests, among them the three night tests of amendment 2.
+    - The merge test found a bug in the first version of `mergeFx`: a step counter moved inside a search callback.
+      It was fixed before the commit.
+  - `npm run gate`: 503 / 503.
+  - e2e:
+    - the steps «forgod», «market desk» and «market language»: 49 / 49, 0 browser errors;
+    - the step «forgod (spec 0049)» with the live stream earlier: 59 / 59.
+- **The sales desk's rolling digits on CI** (failed on `f7d8686`): the check now waits for the columns it expects.
+  - Under four busy loops the old check passed 0 / 2 and the new one 2 / 2.
+  - CI on `adc4b61` (run 40345476598), which carries `bfb3866` and `3cbc1ee`, is green.
+- **Live on Render:**
+  - `3cbc1ee`: mode `forgod`, `ok`, 11 quotes, 25 rates, 1 / 50 requests, 13,744 days of history.
+  - `adc4b61` at 00:43 Tehran: 10 quotes and **1 rate**, 12 / 50 requests. This is the night finding of amendment 2.
+- **The night table** on the market page (screens from a demo server with the table routed in):
+  - every rate from yesterday gives «۲۵ ارز · تومان · آخرین نرخ ۴ آبان · به‌روزرسانی ساعت ۰۳:۰۱»;
+  - with a mix, the older rates carry their own time;
+  - no sideways scroll at 360 px.
+- **Use:** under the plan, 43 automatic requests a day and 6 kept back for a manager.
+  - The request log lives in the database. On Render without a disk, a deploy empties it, and the count starts again
+    from the next start.
+- **The key** was given in a chat message. Rotating it, then setting the new one on Render, is advised.

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
-import { createMarket, parseForgod, defaultFeedMode, forgodPlan, FEED_LABEL, FORGOD_SINGLES } from '../server/market.mjs';
+import { createMarket, parseForgod, forgodLabelDay, mergeFx, defaultFeedMode, forgodPlan, FEED_LABEL, FORGOD_SINGLES } from '../server/market.mjs';
 import { SYMBOLS, sampleMarket } from '../public/js/market.mjs';
 import { MAZANEH_TO_G750 } from '../public/js/calc.mjs';
 import { smsLogin } from './helpers/login.mjs';
@@ -207,6 +207,70 @@ test('forgod sync: without a key nothing is asked; the key is in no status, sett
   assert.ok(seen.includes('••••'));
   const view = m2.forgodView();
   assert.deepEqual([view.key, view.host, view.daily, view.used], [true, 'forgod.example.com', 50, 4]);
+});
+
+/* ---------------- the night (amendment 2) ---------------- */
+// after midnight forgod writes a date for every currency it has not quoted yet that day; 00:43 on 5 Aban in Tehran
+const NIGHT = new Date('2026-10-26T21:13:00Z');
+const nightAll = (label = '4 آبان') => {
+  const a = ALL({ last_updated: '2026-10-26T21:12:40Z' });
+  for (const x of a.sections.currencies) x.time = label;
+  return a;
+};
+
+test('forgod at night: a dated currency still gives the table its latest rate, never a bar', () => {
+  assert.equal(forgodLabelDay('4 آبان', '2026-10-27'), '2026-10-26');
+  assert.equal(forgodLabelDay('۴ آبان ۱۴۰۵', '2026-10-27'), '2026-10-26');
+  assert.equal(forgodLabelDay('26 خرداد', '2026-10-27'), '2026-06-16');
+  assert.equal(forgodLabelDay('10 آبان', '2026-10-27'), '2025-11-01'); // no year and not yet this year: the year before
+  assert.equal(forgodLabelDay('16:48:45', '2026-10-27'), null);
+  assert.equal(forgodLabelDay('31 آبان', '2026-11-30'), null); // Aban has 30 days
+  const r = parseForgod(nightAll(), { now: NIGHT });
+  assert.equal(r.error, null);
+  assert.equal(r.live.usd, undefined); // no new dollar bar from a dated dollar
+  assert.equal(r.live.geram18.d, '2026-10-26'); // 16:48 is after 00:43: yesterday's last gold quote
+  assert.deepEqual(r.fx.rates.map((x) => [x.code, x.p, x.d, x.t]), [['USD', 250000, '2026-10-26', null], ['EUR', 290000, '2026-10-26', null], ['AED', 68000, '2026-10-26', null], ['TRY', 5000, '2026-10-26', null], ['JPY', 160000, '2026-10-26', null], ['USDT', 249500, '2026-10-26', '11:25']]);
+  // only today's and yesterday's dates: an older one, or the old TON row, stays out
+  assert.deepEqual(parseForgod(nightAll('2 آبان'), { now: NIGHT }).fx.rates.map((x) => x.code), ['USDT']);
+});
+
+test('forgod at night: an update that leaves currencies out keeps their last rates for a day, where they stood', async () => {
+  let now = NOW, answer = ALL();
+  const svc = stubService({ all: () => json(answer) });
+  const { m } = market(svc, { clock: () => now });
+  assert.equal((await m.sync()).fx, 6);
+  // the night: the currencies carry a label the app cannot read, tether a clock
+  now = NIGHT;
+  answer = nightAll('—');
+  const st = await m.sync();
+  assert.equal(st.ok, true, st.error);
+  assert.equal(st.fx, 6);
+  const fx = m.board().fx;
+  assert.deepEqual(fx.rates.map((x) => x.code), ['USD', 'EUR', 'AED', 'TRY', 'JPY', 'USDT']);
+  const eur = fx.rates.find((x) => x.code === 'EUR');
+  assert.deepEqual([eur.p, eur.d, eur.t, eur.at], [290000, '2026-10-26', '16:48', new Date(STAMP).toISOString()]);
+  assert.equal(fx.rates.find((x) => x.code === 'USDT').at, '2026-10-26T21:12:40.000Z');
+  assert.equal(m.board().items.find((x) => x.id === 'usd').d, '2026-10-26'); // no bar for 5 Aban from the night
+  assert.equal(m.health().fx, 6);
+  // more than a day after their last quote, the rates no update brought are gone
+  now = new Date('2026-10-27T17:00:00Z');
+  answer = ALL({ last_updated: '2026-10-27T16:59:00Z' });
+  answer.sections.currencies = answer.sections.currencies.filter((x) => x.code === 'usd').map((x) => ({ ...x, time: '20:28:00' }));
+  assert.equal((await m.sync()).fx, 2);
+  assert.deepEqual(m.board().fx.rates.map((x) => x.code), ['USD', 'USDT']);
+});
+
+test('forgod at night: the merge keeps the source order and drops a stale table', () => {
+  const at = '2026-10-26T13:18:24.000Z';
+  const prev = { src: 'forgod', at, rates: ['USD', 'EUR', 'AED', 'USDT'].map((code) => ({ code, p: 1, at })) };
+  const fresh = (codes, a = '2026-10-26T21:12:40.000Z') => ({ at: a, rates: codes.map((code) => ({ code, p: 2, at: a })) });
+  assert.deepEqual(mergeFx(fresh(['USDT']), prev, NIGHT).rates.map((x) => [x.code, x.p]), [['USD', 1], ['EUR', 1], ['AED', 1], ['USDT', 2]]);
+  assert.deepEqual(mergeFx(fresh(['USD', 'AED']), prev, NIGHT).rates.map((x) => x.code), ['USD', 'EUR', 'AED', 'USDT']);
+  assert.deepEqual(mergeFx(fresh(['USDT']), prev, new Date('2026-10-27T13:19:00Z')).rates.map((x) => x.code), ['USDT']);
+  assert.deepEqual(mergeFx(fresh(['USDT']), { ...prev, src: 'manual' }, NIGHT).rates.map((x) => x.code), ['USDT']);
+  // a table saved before the amendment has no time per rate: the table's own time counts
+  const old = { src: 'forgod', at, rates: [{ code: 'EUR', p: 1 }] };
+  assert.deepEqual(mergeFx(fresh(['USDT']), old, NIGHT).rates.map((x) => x.code), ['EUR', 'USDT']);
 });
 
 /* ---------------- through the API ---------------- */

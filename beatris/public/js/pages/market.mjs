@@ -188,16 +188,24 @@ export async function marketPage(root) {
     for (const cv of $$('[data-spark]', root)) sparkline(cv, b.items.find((x) => x.id === cv.dataset.spark).spark);
     drawFx(b.fx, b.today);
   }
-  /** The live currency table (spec 0049): toman per unit, the yen per 100; its time, and its day when not today. */
+  /**
+   * The live currency table (spec 0049): toman per unit, the yen per 100, and the time of the update. A rate the update
+   * did not bring (amendment 2: at night forgod dates the currencies it has not quoted yet) shows its own day and time.
+   */
   function drawFx(fx, today) {
     const box = $('#fx', root);
     box.hidden = !fx?.rates?.length;
     if (box.hidden) return;
-    const at = new Date(fx.at);
-    const when = fa(at.toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }));
-    const day = fx.rates[0]?.d;
-    box.innerHTML = String(html`<h2 class="mk-h">نرخ ارزها <span class="small">${fa(fx.rates.length)} ارز · تومان · ساعت ${when}${day && day !== today ? ` · ${jDate(day, 'day')}` : ''}</span></h2>
-      <div class="mk-fx">${fx.rates.map((r) => html`<div><span>${r.name || r.code}${r.per !== 1 ? html` <em>هر ${fa(r.per)}</em>` : ''}</span><b class="num">${fmt(r.p)}</b></div>`)}</div>
+    const clockOf = (iso) => fa(new Date(iso).toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }));
+    const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 864e5).toISOString().slice(0, 10);
+    // one day for every rate, not today: said once in the heading
+    const common = fx.rates.every((r) => r.d === fx.rates[0].d) && fx.rates[0].d !== today ? fx.rates[0].d : null;
+    const age = (r) => {
+      if (r.d && r.d !== today && r.d !== common) return `${r.d === yesterday ? 'دیروز' : jDate(r.d, 'day')}${r.t ? ` ${fa(r.t)}` : ''}`;
+      return r.at && Date.parse(fx.at) - Date.parse(r.at) > 30 * 60000 ? clockOf(r.at) : '';
+    };
+    box.innerHTML = String(html`<h2 class="mk-h">نرخ ارزها <span class="small">${fa(fx.rates.length)} ارز · تومان · ${common ? `آخرین نرخ ${jDate(common, 'day')} · به‌روزرسانی ` : ''}ساعت ${clockOf(fx.at)}</span></h2>
+      <div class="mk-fx">${fx.rates.map((r) => html`<div><span>${r.name || r.code}${r.per !== 1 ? html` <em>هر ${fa(r.per)}</em>` : ''}${age(r) ? html` <em>${age(r)}</em>` : ''}</span><b class="num">${fmt(r.p)}</b></div>`)}</div>
       ${fx.btcUsd ? html`<p class="small" style="margin-top:10px">بیت‌کوین به دلار: <b class="num">${fmt(fx.btcUsd, 2)}</b></p>` : ''}`);
   }
   const rangeBars = () => RANGES.find((r) => r[0] === S.range)[2];
