@@ -131,6 +131,7 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
     const cfg = handle.market.config();
     const at = handle.market.status()?.at;
     out.feed = cfg.mode === 'off' ? 'off' : at && Date.now() - Date.parse(at) < 3 * handle.market.everyMs() + 120000 ? 'ok' : 'stale';
+    out.market = handle.market.health(); // mode, last update ok, prices stored, currency rates held (spec 0049)
     const q = bus.stats();
     out.queue = { queued: q.queued, dead: q.dead };
     const b = backupDir ? listBackups(backupDir)[0] : null;

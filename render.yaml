@@ -41,3 +41,5 @@ services:
       # optional AI traces (spec 0048), set on the service when wanted — never in this file:
       #   LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY (+ LANGFUSE_BASE_URL), TRACELOOP_API_KEY, AGENTOPS_API_KEY,
       #   BEATRIS_OTEL_ENDPOINT (+ BEATRIS_OTEL_HEADERS); BEATRIS_OTEL_CONTENT=1 adds the masked prompts and answers
+      # optional live prices from forgod (spec 0049), set on the service — never in this file: BEATRIS_FORGOD_KEY
+      #   (with it the feed starts as `forgod`; BEATRIS_MARKET_FEED still decides), BEATRIS_FORGOD_URL to change the host

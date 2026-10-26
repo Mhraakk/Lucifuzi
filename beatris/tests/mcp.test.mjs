@@ -4,6 +4,7 @@ import { openDb } from '../server/db.mjs';
 import { createServer } from '../server/index.mjs';
 import { seedUsers } from '../server/api.mjs';
 import * as MELT from '../public/js/melt.mjs';
+import { SYMBOLS } from '../public/js/market.mjs';
 import { smsLogin } from './helpers/login.mjs';
 
 let server, base, token;
@@ -91,7 +92,8 @@ test('MCP: ابزارها همان موتور برنامه را اجرا می‌
   // sample market: everything is computed and marked as sample
   const board = await tool('market_board', {});
   assert.equal(board.structuredContent.sample, true);
-  assert.equal(board.structuredContent.prices.length, 11);
+  assert.equal(board.structuredContent.prices.length, SYMBOLS.length);
+  assert.deepEqual(board.structuredContent.currencies, []); // the currency table comes only with a live forgod feed (spec 0049)
   const a = (await tool('market_analysis', { symbol: 'mesghal' })).structuredContent;
   assert.ok(a.patientBid <= a.close && a.patientAsk >= a.close && ['up', 'down', 'side'].includes(a.trend));
   const c = (await tool('coin_value', { coin: 'sekee', price: 240505000, ounce: 4200, usd: 235000 })).structuredContent;

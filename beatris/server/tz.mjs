@@ -11,3 +11,8 @@ export const tehranDayOf = (iso) => DAYF.format(new Date(iso));
 export const tehranHour = (iso) => Number(HOURF.format(new Date(iso))) % 24;
 /** HH:MM in Tehran now. */
 export const tehranTime = () => TIMEF.format(new Date());
+/** Minutes past midnight on the Tehran clock at a Date. */
+export const tehranMinutes = (d) => {
+  const [h, m] = TIMEF.format(d).split(':').map(Number);
+  return (h % 24) * 60 + m;
+};

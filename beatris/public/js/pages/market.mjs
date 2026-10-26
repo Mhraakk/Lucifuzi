@@ -107,6 +107,7 @@ export async function marketPage(root) {
     </div>
     <div id="notice"></div>
     <div class="mk-board" id="board" aria-label="تابلوی قیمت‌ها"><div class="loading"><span></span></div></div>
+    <section class="tray" id="fx" hidden></section>
     <section class="tray mk-main">
       <div class="mk-bar">
         <label class="mk-sel"><span class="sr">نماد</span><select id="sym">${SYMBOLS.map((s) => html`<option value="${s.id}" ${s.id === S.symbol ? 'selected' : ''}>${s.label}</option>`)}</select></label>
@@ -163,6 +164,19 @@ export async function marketPage(root) {
       return html`<button class="mk-tile ${it.id === S.symbol ? 'on' : ''}" data-sym="${it.id}" aria-pressed="${it.id === S.symbol}"><span class="t">${s.short}</span><b class="num">${priceOf(it.id)(it.c)}</b><span class="chg ${it.pct >= 0 ? 'up' : 'down'}">${fa(pct(it.pct, 2))}</span><canvas data-spark="${it.id}" width="120" height="34" aria-hidden="true"></canvas><span class="small">${jDate(it.d, 'day')}</span></button>`;
     })}`);
     for (const cv of $$('[data-spark]', root)) sparkline(cv, b.items.find((x) => x.id === cv.dataset.spark).spark);
+    drawFx(b.fx, b.today);
+  }
+  /** The live currency table (spec 0049): toman per unit, the yen per 100; its time, and its day when not today. */
+  function drawFx(fx, today) {
+    const box = $('#fx', root);
+    box.hidden = !fx?.rates?.length;
+    if (box.hidden) return;
+    const at = new Date(fx.at);
+    const when = fa(at.toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }));
+    const day = fx.rates[0]?.d;
+    box.innerHTML = String(html`<h2 class="mk-h">نرخ ارزها <span class="small">${fa(fx.rates.length)} ارز · تومان · ساعت ${when}${day && day !== today ? ` · ${jDate(day, 'day')}` : ''}</span></h2>
+      <div class="mk-fx">${fx.rates.map((r) => html`<div><span>${r.name || r.code}${r.per !== 1 ? html` <em>هر ${fa(r.per)}</em>` : ''}</span><b class="num">${fmt(r.p)}</b></div>`)}</div>
+      ${fx.btcUsd ? html`<p class="small" style="margin-top:10px">بیت‌کوین به دلار: <b class="num">${fmt(fx.btcUsd, 2)}</b></p>` : ''}`);
   }
   const rangeBars = () => RANGES.find((r) => r[0] === S.range)[2];
   async function series(ids, from) {
@@ -345,6 +359,16 @@ export async function marketPage(root) {
   }
 
   /* ---------------- analytics ---------------- */
+  /**
+   * The last year of every symbol with at least `min` days in it, leaving out the ones with a much shorter history
+   * (bitcoin's starts with its first live price): the common days of all would otherwise shrink to theirs.
+   */
+  function yearOf(all, min) {
+    const since = daysAgo(365);
+    const win = SYMBOLS.map((s) => [s.id, (all[s.id] ?? []).filter((b) => b.d >= since)]).filter(([, v]) => v.length >= min);
+    const longest = Math.max(0, ...win.map(([, v]) => v.length));
+    return Object.fromEntries(win.filter(([, v]) => v.length >= longest * 0.6));
+  }
   async function loadAll() {
     if (!S.all) S.all = await series(SYMBOLS.map((s) => s.id));
     return S.all;
@@ -403,15 +427,13 @@ export async function marketPage(root) {
     const pick = html`<label class="mk-sel"><span class="sr">نماد</span><select id="labsym">${SYMBOLS.map((s) => html`<option value="${s.id}" ${s.id === S.symbol ? 'selected' : ''}>${s.label}</option>`)}</select></label>`;
     const bars = all[S.symbol] ?? [];
     if (L === 'perf') {
-      const since = daysAgo(365);
-      const al = T.align(Object.fromEntries(SYMBOLS.filter((s) => all[s.id]?.length).map((s) => [s.id, all[s.id].filter((b) => b.d >= since)])));
+      const al = T.align(yearOf(all, 1));
       const lines = Object.keys(al.values).map((id, k) => ({ kind: 'line', label: SYMBOL[id].short, color: PALETTE[k % PALETTE.length], values: al.values[id].map((v) => (v / al.values[id][0]) * 100), format: (v) => fa(fmt(v, 1)) }));
       const rank = lines.map((l) => [l.label, l.values.at(-1)]).sort((a, b) => b[1] - a[1]);
       body.innerHTML = String(html`<p class="small">یک سال اخیر، همه از ۱۰۰ شروع می‌شوند (روزهای مشترک).</p><div id="lc"></div><div class="ledger">${rank.map(([l, v]) => html`<div><span>${l}</span><span class="num">${fa(pct(v - 100, 1))}</span></div>`)}</div>`);
       labChart($('#lc', body), lineSpec(al.dates, lines, { format: (v) => fa(fmt(v, 1)), height: 320 }));
     } else if (L === 'corr') {
-      const since = daysAgo(365);
-      const m = T.corrMatrix(Object.fromEntries(SYMBOLS.filter((s) => all[s.id]?.length > 30).map((s) => [s.id, all[s.id].filter((b) => b.d >= since)])));
+      const m = T.corrMatrix(yearOf(all, 31));
       body.innerHTML = String(html`<p class="small">همبستگی بازده روزانه در یک سال (${fa(m.n)} روز مشترک). سبز: هم‌جهت، قرمز: خلاف جهت.</p><div id="hm"></div>`);
       statics.push(heatmap($('#hm', body), { rows: m.keys.map((k) => SYMBOL[k].short), cols: m.keys.map((k) => SYMBOL[k].short), values: m.m, format: (v) => fmt(v, 2), title: 'نقشه همبستگی' }));
     } else if (L === 'risk') {

@@ -2,13 +2,15 @@
 // or pulled by a feed the owner switches on. Until the first real price exists the API serves the labelled
 // sample market, so every chart and lesson works from the first minute.
 import { SYMBOLS, isSymbol, badBar, roundQuote, sampleMarket, DAY_RE } from '../public/js/market.mjs';
-import { isoDay } from '../public/js/ta.mjs';
+import { isoDay, TROY_OUNCE_G } from '../public/js/ta.mjs';
 import { parseNum, MAZANEH_TO_G750 } from '../public/js/calc.mjs';
-import { tehranDay } from './tz.mjs';
+import { tehranDay, tehranMinutes } from './tz.mjs';
 
-export const FEED_MODES = ['off', 'owner', 'tgju', 'json'];
-export const FEED_LABEL = { off: 'ورود دستی مدیر', owner: 'کانال آب‌شده (@abshdh)، چنده و goldprice.org',  tgju: 'tgju.org (نقطه دسترسی عمومی و غیررسمی)', json: 'فید اختصاصی (JSON)', sample: 'داده نمونه آموزشی' };
+export const FEED_MODES = ['off', 'owner', 'forgod', 'tgju', 'json'];
+export const FEED_LABEL = { off: 'ورود دستی مدیر', owner: 'کانال آب‌شده (@abshdh)، چنده و goldprice.org', forgod: 'forgod.qzz.io: ارز، دلار، طلا، سکه و بیت‌کوین', tgju: 'tgju.org (نقطه دسترسی عمومی و غیررسمی)', json: 'فید اختصاصی (JSON)', sample: 'داده نمونه آموزشی' };
 export const DEFAULT_FEED = { mode: 'off', url: '', token: '', syncPrice: true, interval: 10 }; // the shop's base price follows the live 18k quote unless the manager turns it off
+/** The feed a server starts with when neither the environment nor a manager chose one: forgod once its key is set. */
+export const defaultFeedMode = (env = process.env) => (env.NODE_ENV === 'test' ? 'off' : env.BEATRIS_FORGOD_KEY ? 'forgod' : 'owner');
 const TGJU_LIVE = 'https://call4.tgju.org/ajax.json';
 const TGJU_HISTORY = (key) => `https://api.tgju.org/v1/market/indicator/summary-table-data/${encodeURIComponent(key)}`;
 const MAX_JUMP = 0.3; // a live quote more than 30 % away from the last close is treated as a data error
@@ -162,6 +164,73 @@ export function parseGoldprice(json, tehranDayOf) {
   const x = json?.items?.[0]?.xauPrice;
   return x > 500 && x < 50000 ? { ons: { d: tehranDayOf(new Date()), p: roundQuote('ons', x), h: NaN, l: NaN } } : {};
 }
+/* ---------------- forgod (spec 0049) ---------------- */
+export const FORGOD_URL = 'https://api.forgod.qzz.io';
+/** The single addresses tried when /api/all fails: the dollar, the 18k gram and bitcoin. */
+export const FORGOD_SINGLES = [['forgod_usd', 'usd'], ['forgod_18ayar', '18ayar'], ['forgod_btc', 'usd_btc']];
+const FX_CODE = { aed_note: 'AED', usd_usdt: 'USDT' }; // forgod's codes that are not the ISO code in lower case
+const FX_PER = { JPY: 100 }; // quoted per 100 units (173,377 toman for 100 yen)
+const MAX_GAP = 0.25; // the 18k gram against ounce × dollar, and bitcoin against its dollar price × dollar
+const CLOCK_RE = /^(\d{1,2}):(\d{2})(?::\d{2})?$/;
+/**
+ * forgod's answer: /api/all ({ sections: { currencies, gold, bubbles, crypto }, last_updated, stale }) or single rows
+ * ({ code, price, time, section, last_updated, stale }), prices in toman with thousands commas, the ounce and
+ * `usd_price` in dollars. A row whose `time` is a date rather than a clock time is an old quote and is skipped; a
+ * clock time more than 10 minutes after `last_updated` belongs to the day before. Returns the symbols' quotes, the
+ * currency table (only from /api/all) and, when the gold does not agree with the ounce × the dollar, an error.
+ */
+export function parseForgod(answers, { now = new Date() } = {}) {
+  const list = Array.isArray(answers) ? answers : [answers];
+  const full = list.length === 1 && list[0]?.sections && typeof list[0].sections === 'object' ? list[0] : null;
+  const rows = full ? Object.values(full.sections).flatMap((x) => (Array.isArray(x) ? x : [])) : list.filter((r) => r && typeof r === 'object' && r.code);
+  const stamps = (full ? [full] : rows).map((r) => Date.parse(r.last_updated)).filter(Number.isFinite);
+  const at = new Date(Math.min(now.getTime(), stamps.length ? Math.max(...stamps) : now.getTime()));
+  const stale = (full ? [full] : rows).some((r) => r.stale === true);
+  const clock = tehranMinutes(at), today = tehranDay(at), yesterday = tehranDay(new Date(at.getTime() - 86400000));
+  const byCode = new Map(), skipped = [];
+  for (const r of rows) {
+    const code = String(r.code ?? '').toLowerCase();
+    const p = clean(r.price), m = CLOCK_RE.exec(String(r.time ?? '').trim());
+    if (!code || !(p > 0 && p < 1e13)) continue;
+    if (!m) {
+      skipped.push(code); // «26 خرداد»: not today's quote
+      continue;
+    }
+    const mins = Number(m[1]) * 60 + Number(m[2]);
+    byCode.set(code, { code, p, d: mins > clock + 10 ? yesterday : today, t: `${m[1].padStart(2, '0')}:${m[2]}`, section: String(r.section ?? ''), name: String(r.name ?? '').replace(/[<>]/g, '').trim().slice(0, 40), usd: Number(r.usd_price) });
+  }
+  const live = {};
+  for (const sym of SYMBOLS) {
+    const q = sym.feed.forgod && byCode.get(sym.feed.forgod);
+    if (q) live[sym.id] = { d: q.d, p: roundQuote(sym.id, q.p), h: NaN, l: NaN };
+  }
+  // the gram and the mazaneh are one price (mazaneh = gram-18 × 4.3318); either fills in for the other
+  if (live.geram18 && !live.mesghal) live.mesghal = { ...live.geram18, p: roundQuote('mesghal', live.geram18.p * MAZANEH_TO_G750) };
+  if (live.mesghal && !live.geram18) live.geram18 = { ...live.mesghal, p: roundQuote('geram18', live.mesghal.p / MAZANEH_TO_G750) };
+  if (live.geram18) live.geram24 = { ...live.geram18, p: roundQuote('geram24', (live.geram18.p * 1000) / 750) };
+  const out = { at: at.toISOString(), stale, live, fx: null, skipped, dropped: [], error: null };
+  const g18 = live.geram18?.p, ons = live.ons?.p, usd = live.usd?.p;
+  if (g18 && ons && usd && Math.abs(g18 / ((ons / TROY_OUNCE_G) * 0.75 * usd) - 1) > MAX_GAP) {
+    out.live = {};
+    out.error = 'قیمت طلای ۱۸ با انس × دلار همین منبع بیش از ۲۵٪ فاصله دارد (احتمال خطای واحد ریال و تومان)؛ چیزی ثبت نشد.';
+    return out;
+  }
+  const btcUsd = byCode.get('usd_btc')?.usd;
+  if (live.btc && usd && btcUsd > 0 && Math.abs(live.btc.p / (btcUsd * usd) - 1) > MAX_GAP) {
+    delete live.btc;
+    out.dropped.push('btc');
+  }
+  if (full) {
+    const rates = [];
+    for (const q of byCode.values()) {
+      if (q.section !== 'currencies' && q.code !== 'usd_usdt') continue;
+      const code = FX_CODE[q.code] ?? q.code.toUpperCase();
+      if (/^[A-Z]{3,5}$/.test(code) && !rates.some((x) => x.code === code)) rates.push({ code, name: q.name, p: q.p, per: FX_PER[code] ?? 1, t: q.t, d: q.d });
+    }
+    out.fx = { at: out.at, rates, btcUsd: btcUsd > 0 ? btcUsd : null };
+  }
+  return out;
+}
 async function fetchText(fetchImpl, url, { timeout = 20000, max = 4 * 1024 * 1024, headers = {}, until = null } = {}) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeout);
@@ -225,7 +294,10 @@ async function fetchJson(fetchImpl, url, { headers = {}, timeout = 25000, max = 
 }
 
 /* ---------------- store, feed and board ---------------- */
-export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => new Date(), envMode = process.env.BEATRIS_MARKET_FEED, defaultMode = process.env.NODE_ENV === 'test' ? 'off' : 'owner', onPrice = () => {}, pause = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
+export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => new Date(), envMode = process.env.BEATRIS_MARKET_FEED, defaultMode = defaultFeedMode(process.env), forgod = { key: process.env.BEATRIS_FORGOD_KEY ?? '', base: process.env.BEATRIS_FORGOD_URL || FORGOD_URL }, onPrice = () => {}, pause = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
+  const fgKey = String(forgod?.key ?? '').trim(), fgBase = String(forgod?.base || FORGOD_URL).replace(/\/+$/, '');
+  /** The key never leaves the server: any text kept or shown has it masked, as typed and as sent in the address. */
+  const hide = (t) => (fgKey ? String(t).split(fgKey).join('••••').split(encodeURIComponent(fgKey)).join('••••') : String(t));
   const iso = () => clock().toISOString();
   const today = () => tehranDay(clock());
   let sample = null, sampleDay = null;
@@ -281,6 +353,11 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
     }
     return { sample: !real, series: out };
   }
+  /** The latest currency table (spec 0049) while it is less than a day old; rates are toman per `per` units. */
+  function fxTable() {
+    const fx = setting('marketFx');
+    return fx?.rates?.length && clock() - Date.parse(fx.at) < 86400000 ? fx : null;
+  }
   function board() {
     const real = hasReal(), cfg = config();
     const items = SYMBOLS.map((s) => {
@@ -289,7 +366,22 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
       const last = rows.at(-1), prev = rows.at(-2);
       return { id: s.id, d: last.d, o: last.o, h: last.h, l: last.l, c: last.c, src: last.src ?? 'sample', prev: prev?.c ?? null, pct: prev ? (last.c / prev.c - 1) * 100 : null, spark: rows.slice(-60).map((r) => r.c) };
     });
-    return { sample: !real, today: today(), source: { mode: real ? cfg.mode : 'sample', label: FEED_LABEL[real ? cfg.mode : 'sample'], at: status?.at ?? null, ok: status?.ok ?? null, error: status?.error ?? null }, items };
+    return { sample: !real, today: today(), source: { mode: real ? cfg.mode : 'sample', label: FEED_LABEL[real ? cfg.mode : 'sample'], at: status?.at ?? null, ok: status?.ok ?? null, error: status?.error ?? null }, items, fx: fxTable() };
+  }
+
+  /** The daily history, once, from tgju's tables (always marked done when `always`, so a missing source is not asked every poll). */
+  async function history(st, always) {
+    st.missing = [];
+    const keyed = SYMBOLS.filter((x) => x.feed.tgju);
+    for (const s of keyed) {
+      try {
+        st.rows += upsert(s.id, parseTgjuHistory(await fetchJson(fetchImpl, TGJU_HISTORY(s.feed.tgju)), s), 'tgju');
+      } catch {
+        st.missing.push(s.id);
+      }
+      await pause(400); // one table at a time; be gentle with the source
+    }
+    if (always || st.missing.length < keyed.length) save('market', { ...(setting('market') ?? {}), backfilled: iso() }, 'system');
   }
 
   let running = null;
@@ -301,33 +393,11 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
       try {
         let live = {};
         if (cfg.mode === 'tgju') {
-          if (backfill || !cfg.backfilled) {
-            st.missing = [];
-            for (const s of SYMBOLS.filter((x) => x.feed.tgju)) {
-              try {
-                st.rows += upsert(s.id, parseTgjuHistory(await fetchJson(fetchImpl, TGJU_HISTORY(s.feed.tgju)), s), 'tgju');
-              } catch {
-                st.missing.push(s.id);
-              }
-              await pause(400); // one table at a time; be gentle with the source
-            }
-            if (st.missing.length < SYMBOLS.filter((x) => x.feed.tgju).length) save('market', { ...(setting('market') ?? {}), backfilled: iso() }, 'system');
-          }
+          if (backfill || !cfg.backfilled) await history(st, false);
           live = parseTgjuLive(await fetchJson(fetchImpl, TGJU_LIVE));
         } else if (cfg.mode === 'owner') {
           // history comes once from tgju's daily tables; live prices from the owner's sources
-          if (backfill || !cfg.backfilled) {
-            st.missing = [];
-            for (const s of SYMBOLS.filter((x) => x.feed.tgju)) {
-              try {
-                st.rows += upsert(s.id, parseTgjuHistory(await fetchJson(fetchImpl, TGJU_HISTORY(s.feed.tgju)), s), 'tgju');
-              } catch {
-                st.missing.push(s.id);
-              }
-              await pause(400);
-            }
-            save('market', { ...(setting('market') ?? {}), backfilled: iso() }, 'system');
-          }
+          if (backfill || !cfg.backfilled) await history(st, true);
           st.sources = {};
           const dayOf = (d) => tehranDay(d);
           const tryIt = async (name, fn) => {
@@ -351,6 +421,44 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
             live.geram18 = { d: live.mesghal.d, p: roundQuote('geram18', g18), h: NaN, l: NaN };
             live.geram24 = { d: live.mesghal.d, p: roundQuote('geram24', (g18 * 1000) / 750), h: NaN, l: NaN };
           }
+        } else if (cfg.mode === 'forgod') {
+          // one request carries everything; the three single addresses only when it fails (spec 0049)
+          if (!fgKey) throw new Error('کلید forgod روی سرور تنظیم نشده است (متغیر BEATRIS_FORGOD_KEY).');
+          const bad = checkFeedUrl(fgBase);
+          if (bad) throw new Error(bad);
+          if (backfill || !cfg.backfilled) await history(st, true);
+          const ask = (path) => fetchJson(fetchImpl, `${fgBase}/api/${path}?api_key=${encodeURIComponent(fgKey)}`, { timeout: 20000, max: 2 * 1024 * 1024 });
+          st.sources = {};
+          let got = null;
+          try {
+            const all = await ask('all');
+            if (!all?.sections || typeof all.sections !== 'object') throw new Error('پاسخ /api/all بخش قیمت‌ها را ندارد');
+            got = parseForgod(all, { now: clock() });
+            st.sources.forgod = Object.keys(got.live).length || got.stale || got.error ? 'ok' : 'بدون قیمت';
+          } catch (e) {
+            st.sources.forgod = hide(e?.message ?? e).slice(0, 80);
+          }
+          if (!got || (!Object.keys(got.live).length && !got.stale && !got.error)) {
+            const rows = [];
+            for (const [name, path] of FORGOD_SINGLES) {
+              try {
+                rows.push(await ask(path));
+                st.sources[name] = 'ok';
+              } catch (e) {
+                st.sources[name] = hide(e?.message ?? e).slice(0, 80);
+              }
+            }
+            got = parseForgod(rows, { now: clock() });
+          }
+          if (got.stale) throw new Error('منبع forgod قیمت‌ها را کهنه (stale) اعلام کرده است؛ چیزی ثبت نشد.');
+          if (got.error) throw new Error(got.error);
+          if (got.skipped.length) st.skipped = got.skipped.slice(0, 40);
+          if (got.dropped.length) st.dropped = got.dropped;
+          if (got.fx?.rates.length) {
+            save('marketFx', { ...got.fx, src: 'forgod' }, 'system');
+            st.fx = got.fx.rates.length;
+          }
+          live = got.live;
         } else if (cfg.mode === 'json') {
           const err = checkFeedUrl(cfg.url);
           if (err) throw new Error(err);
@@ -369,7 +477,7 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
         if (!st.ok) st.error = st.rejected.length ? 'قیمت‌های رسیده با آخرین قیمت‌ها بیش از ۳۰٪ فاصله داشتند و ثبت نشدند.' : 'منبع هیچ قیمت معتبری نداد.';
         if (st.ok && cfg.syncPrice && live.geram18 && !st.rejected.includes('geram18')) onPrice(live.geram18.p, FEED_LABEL[cfg.mode]);
       } catch (e) {
-        st.error = String(e?.message ?? e).slice(0, 200);
+        st.error = hide(e?.message ?? e).slice(0, 200);
       } finally {
         status = st;
         save('marketStatus', st, 'system');
@@ -399,5 +507,9 @@ export function createMarket({ db, fetchImpl = globalThis.fetch, clock = () => n
   }
   const stop = () => (clearInterval(timer), (timer = null));
 
-  return { config, rev: () => revision, stored: () => setting('market') ?? {}, save, status: () => status, upsert, applyQuote, series, board, sync, poll, everyMs, start, stop, hasReal, today };
+  /** What a manager may know about the forgod source: whether its key is set and the host, never the key. */
+  const forgodView = () => ({ key: !!fgKey, host: (() => { try { return new URL(fgBase).host; } catch { return ''; } })() });
+  /** For the public deep health: the mode and how the last update went, without prices, error texts or keys. */
+  const health = () => ({ mode: config().mode, ok: status?.ok ?? null, quotes: status?.quotes ?? 0, at: status?.at ?? null, fx: fxTable()?.rates.length ?? 0 });
+  return { config, rev: () => revision, stored: () => setting('market') ?? {}, save, status: () => status, upsert, applyQuote, series, board, fxTable, sync, poll, everyMs, start, stop, hasReal, today, forgodView, health };
 }

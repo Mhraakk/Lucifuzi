@@ -648,7 +648,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
   });
   const feedView = () => {
     const cfg = market.config();
-    return { config: { mode: cfg.mode, url: cfg.url, token: cfg.token ? '••••' : '', syncPrice: !!cfg.syncPrice, interval: cfg.interval, backfilled: cfg.backfilled ?? null }, status: market.status(), hasReal: market.hasReal(), modes: FEED_MODES.map((id) => ({ id, label: FEED_LABEL[id] })) };
+    return { config: { mode: cfg.mode, url: cfg.url, token: cfg.token ? '••••' : '', syncPrice: !!cfg.syncPrice, interval: cfg.interval, backfilled: cfg.backfilled ?? null }, status: market.status(), hasReal: market.hasReal(), modes: FEED_MODES.map((id) => ({ id, label: FEED_LABEL[id] })), forgod: market.forgodView() };
   };
   let lastManualSync = 0;
   on('GET', '/api/market', 'auth', () => market.board());
@@ -710,6 +710,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
       const e = checkFeedUrl(url);
       if (e) throw bad(e);
     }
+    if (mode === 'forgod' && !market.forgodView().key) throw bad('کلید forgod روی سرور تنظیم نشده است؛ مالک سرور باید متغیر BEATRIS_FORGOD_KEY را بگذارد.');
     const token = body.token === undefined || body.token === '••••' ? cur.token : String(body.token).trim().slice(0, 500);
     const interval = Math.min(60, Math.max(5, Math.round(Number(body.interval) || cur.interval)));
     market.save('market', { ...market.stored(), mode, url, token, syncPrice: !!body.syncPrice, interval }, user.id);

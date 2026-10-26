@@ -527,7 +527,7 @@ async function loginUI(page, email = EMAIL) {
 
   await step('market desk: board, chart, indicators, hunt, Elliott, analytics, alerts, data entry', async () => {
     await go(page, '/market', 3500);
-    check('market: 11 price tiles with sparklines', (await page.$$eval('.mk-tile canvas', (x) => x.length)) === 11);
+    check('market: 12 price tiles with sparklines, bitcoin last', (await page.$$eval('.mk-tile canvas', (x) => x.length)) === 12 && (await page.$eval('.mk-tile:last-child', (t) => t.dataset.sym)) === 'btc');
     check('market: sample data clearly labelled', /داده نمونه آموزشی/.test(await text(page, '#notice')) && /داده نمونه/.test(await text(page, '#src')));
     const board = await text(page, '#board');
     check('market: board numbers are clean', noBadNumbers(board) && /[۰-۹]/.test(board));
@@ -2340,6 +2340,54 @@ async function loginUI(page, email = EMAIL) {
     check('desk products: deleted product is gone', !(await text(page, '#dkPick')).includes('پلاک ز ۱'));
   });
 
+  if (!live) await step('forgod (spec 0049): the currency table on the market page, the source on the data page, a live euro rate at the desk', async () => {
+    // the e2e server has no forgod key and its feed is off: the board is handed the currency table a forgod update leaves
+    const RATES = [['USD', 'دلار', 272500, 1], ['EUR', 'یورو', 304840, 1], ['JPY', 'ین ژاپن', 173351, 100], ['USDT', 'تتر', 271438, 1]];
+    const onBoard = (u) => u.pathname === '/api/market', onStream = (u) => u.pathname === '/api/market/stream';
+    await page.route(onBoard, async (route) => {
+      const res = await route.fetch();
+      const b = await res.json();
+      await route.fulfill({ response: res, json: { ...b, fx: { at: new Date().toISOString(), src: 'forgod', btcUsd: 79814.44, rates: RATES.map(([code, name, p, per]) => ({ code, name, p, per, t: '17:05', d: b.today })) } } });
+    });
+    // the live stream would hand the desk the server's own board (no table) at once: the desk stays on its minute poll
+    await page.route(onStream, (route) => route.fulfill({ status: 403, json: {} }));
+    const digits = (v) => String(v).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g, '');
+    try {
+      await go(page, '/market', 2500);
+      const fx = await text(page, '#fx');
+      check('forgod: the market page lists the currencies, the yen per 100 and bitcoin in dollars', /نرخ ارزها/.test(fx) && fx.includes('۳۰۴٬۸۴۰') && /ین ژاپن\s*هر ۱۰۰/.test(fx) && fx.includes('۷۹٬۸۱۴٫۴۴'), fx.replace(/\s+/g, ' ').slice(0, 160));
+      check('forgod: bitcoin on the board', /بیت‌کوین/.test(await text(page, '#board')));
+      await go(page, '/market/data', 1500);
+      await page.click('[data-mode="forgod"]');
+      check('forgod: the data page says the server has no key yet, and which variable holds it', !(await page.$eval('#fgbox', (e) => e.hidden)) && /BEATRIS_FORGOD_KEY/.test(await text(page, '#fgbox')));
+      expectedError = /status of 400/;
+      await page.click('#ff button[type=submit]');
+      await page.waitForTimeout(800);
+      expectedError = null;
+      check('forgod: without the key the source is not switched on', /BEATRIS_FORGOD_KEY/.test(await page.$eval('#toasts', (t) => t.innerText).catch(() => '')));
+      expectedError = /status of 403/; // the stream refused above, as for a shop whose live prices are off
+      await go(page, '/books/desk', 1800);
+      await page.click('[data-mode=sell]');
+      await page.click('[data-kind=fx]');
+      await page.selectOption('[data-f=code]', 'EUR');
+      await page.waitForTimeout(200);
+      const eur = digits(await page.$eval('[data-f=rate]', (i) => i.value));
+      check('forgod: a euro line starts at the live euro rate, in rial', eur === '3048400', eur);
+      await page.selectOption('[data-f=code]', 'JPY');
+      await page.waitForTimeout(200);
+      const jpy = digits(await page.$eval('[data-f=rate]', (i) => i.value));
+      check('forgod: the yen per one yen (173,351 toman for 100)', jpy === '17335', jpy);
+      await page.selectOption('[data-f=code]', 'USD');
+      await page.waitForTimeout(200);
+      const usd = digits(await page.$eval('[data-f=rate]', (i) => i.value));
+      check('forgod: the dollar still comes from the board', usd.length >= 6 && usd.endsWith('0'), usd);
+    } finally {
+      expectedError = null;
+      await page.unroute(onBoard);
+      await page.unroute(onStream);
+    }
+  });
+
   if (!live) await step('pos: card reader charge before booking (mock bridge), decline, one tap, phone through the counter, invoice, reconciliation', async () => {
     const auth = (path) => page.evaluate(async (p) => (await fetch(p, { headers: { Authorization: `Bearer ${localStorage.getItem('beatris.token')}` } })).json(), path);
     // a stand-in for desktop/windows/pos-bridge.ps1 (the real bridge is tested against a simulated terminal in tests/pos.test.mjs)
@@ -2644,10 +2692,13 @@ async function loginUI(page, email = EMAIL) {
     }, { times: 1 });
     await page.click('#live [data-act=refresh]');
     await page.waitForFunction((b) => document.querySelector('#live [data-fig] .sr')?.textContent !== b, before750, { timeout: 8000 }).catch(() => {});
-    await page.waitForTimeout(500);
     const after750 = await fig750();
     const digitsOf = (f) => [...f].filter((c) => /[0-9۰-۹]/.test(c));
     const want = digitsOf(after750).map((c, i) => (c !== digitsOf(before750)[i] ? i : -1)).filter((i) => i >= 0);
+    // a transition is reported on the frame after the figure changes; on a slow runner a frame can take longer than half a
+    // second (f7d8686's CI: the figure changed, nothing had rolled yet), so the check waits for the columns it expects
+    await page.waitForFunction((w) => w.every((i) => (window.__rolled ?? []).includes(i)), want, { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(300); // any column that should not roll has had its frame to show up too
     const rolled = await page.evaluate(() => [...new Set(window.__rolled)].sort((a, b) => a - b));
     check('sales desk: a new price of the day rolls only the digits that changed, and reads once', after750 !== before750 && want.length > 0 && JSON.stringify(rolled) === JSON.stringify(want) && (await text(page, '#live')).split(after750).length === 2, JSON.stringify({ before750, after750, want, rolled }));
     await page.click('#live [data-act=refresh]'); // back to the real price before the next sale

@@ -58,6 +58,7 @@ export async function marketDataPage(root) {
           <label class="field">نشانی فید (https)<input class="input ltr" name="url" value="${c.url}" placeholder="https://prices.example.com/latest"></label>
           <label class="field">توکن (اختیاری، به‌صورت Bearer)<input class="input ltr" name="token" value="${c.token}" autocomplete="off"></label>
         </div>
+        <p ${c.mode === 'forgod' ? '' : 'hidden'} id="fgbox" class="small" style="margin-top:12px">${feed.forgod?.key ? html`کلید forgod روی سرور تنظیم شده است ✓ · ${feed.forgod.host}` : html`کلید forgod روی سرور تنظیم نشده است؛ مالک سرور متغیر <span class="ltr">BEATRIS_FORGOD_KEY</span> را می‌گذارد (کلید هیچ‌وقت در صفحه یا پایگاه داده نمی‌آید).`}</p>
         <label class="check" style="margin-top:12px"><input type="checkbox" name="syncPrice" ${c.syncPrice ? 'checked' : ''}> قیمت پایه فروشگاه (گرم ۷۵۰) خودکار از طلای ۱۸ بازار به‌روز شود</label>
         <label class="field" style="max-width:260px;margin-top:10px">فاصله به‌روزرسانی (دقیقه، ۵ تا ۶۰)<input class="input ltr" name="interval" inputmode="numeric" value="${fa(c.interval)}"></label>
         <div class="actions"><button class="btn" type="submit">ذخیره منبع</button>${c.mode !== 'off' ? html`<button class="btn ghost" type="button" data-act="sync">به‌روزرسانی همین حالا</button><button class="btn ghost" type="button" data-act="backfill">بارگیری دوباره سابقه</button>` : ''}</div>
@@ -65,12 +66,15 @@ export async function marketDataPage(root) {
       <div class="ledger" style="margin-top:12px">
         <div><span>وضعیت داده</span><span>${feed.hasReal ? 'قیمت واقعی ثبت شده است' : 'هنوز قیمتی نیست؛ صفحه بازار داده نمونه آموزشی نشان می‌دهد'}</span></div>
         ${st ? html`<div><span>آخرین اجرای خودکار</span><span>${fa(new Date(st.at).toLocaleString('fa-IR'))} · ${st.ok ? `موفق (${fa(st.quotes)} قیمت${st.rows ? `، ${fa(st.rows)} سطر` : ''})` : `ناموفق: ${st.error ?? ''}`}</span></div>` : ''}
-        ${st?.sources ? html`${Object.entries(st.sources).map(([k, v]) => html`<div><span>منبع ${{ abshdh: 'کانال آب‌شده (@abshdh)', chande: 'چنده (دلار و سکه)', goldprice: 'goldprice.org (انس)' }[k] ?? k}</span><span>${v === 'ok' ? '✓ دریافت شد' : `✗ ${v}`}</span></div>`)}${st.onsFrom === 'chande' ? html`<div><span>انس جهانی</span><span>از چنده (goldprice.org در دسترس نبود)</span></div>` : ''}` : ''}
+        ${st?.sources ? html`${Object.entries(st.sources).map(([k, v]) => html`<div><span>منبع ${{ abshdh: 'کانال آب‌شده (@abshdh)', chande: 'چنده (دلار و سکه)', goldprice: 'goldprice.org (انس)', forgod: 'forgod (همه قیمت‌ها)', forgod_usd: 'forgod (دلار)', forgod_18ayar: 'forgod (طلای ۱۸)', forgod_btc: 'forgod (بیت‌کوین)' }[k] ?? k}</span><span>${v === 'ok' ? '✓ دریافت شد' : `✗ ${v}`}</span></div>`)}${st.onsFrom === 'chande' ? html`<div><span>انس جهانی</span><span>از چنده (goldprice.org در دسترس نبود)</span></div>` : ''}` : ''}
+        ${st?.fx ? html`<div><span>نرخ ارزها</span><span>${fa(st.fx)} ارز به‌روز شد</span></div>` : ''}
+        ${st?.dropped?.length ? html`<div><span>کنار گذاشته</span><span>${st.dropped.map((id) => SYMBOL[id]?.short ?? id).join('، ')} (با قیمت دلاری خودش نمی‌خواند)</span></div>` : ''}
         ${st?.rejected?.length ? html`<div><span>ردشده به‌دلیل پرش غیرعادی</span><span>${st.rejected.map((id) => SYMBOL[id]?.short ?? id).join('، ')}</span></div>` : ''}
         ${c.backfilled ? html`<div><span>سابقه بارگیری‌شده</span><span>${fa(new Date(c.backfilled).toLocaleDateString('fa-IR'))}</span></div>` : ''}
       </div>
       <details style="margin-top:12px"><summary class="small">درباره منابع و قالب فید اختصاصی</summary>
         <p class="small"><b>منابع فروشگاه</b> (پیش‌فرض): مظنه نقدی و حواله از کانال @abshdh (همان منبع اپ goldsuite-price)، دلار آزاد و سکه‌ها از چنده (میانگین خرید و فروش)، انس جهانی از goldprice.org و در نبود آن از چنده؛ گرم ۱۸ = مظنه ÷ ۴٫۳۳۱۸ و گرم ۲۴ = گرم ۱۸ × ۱۰۰۰ ÷ ۷۵۰. سابقه روزانه یک بار از جدول‌های tgju بارگیری می‌شود.</p>
+        <p class="small"><b>forgod</b>: با یک درخواست به <span class="ltr">/api/all</span> همه قیمت‌ها می‌آید: ارزها، دلار، طلای ۱۸، مظنه، سکه‌ها، انس و بیت‌کوین؛ اگر آن پاسخ ندهد، دلار، طلای ۱۸ و بیت‌کوین از نشانی‌های تکی خودشان. قیمت‌ها به تومان‌اند و ین برای هر ۱۰۰ ین. اگر منبع قیمت‌ها را کهنه اعلام کند، یا طلای ۱۸ با انس × دلار همان منبع بیش از ۲۵٪ فاصله داشته باشد، چیزی ثبت نمی‌شود. سابقه روزانه یک بار از جدول‌های tgju می‌آید.</p>
         <p class="small"><b>tgju.org</b>: نقطه دسترسی عمومی سایت است، نه API رسمی. برای استفاده تجاری و پایدار، API رسمی یک ارائه‌دهنده قیمت را بخرید و از راه «فید اختصاصی» وصل کنید. منبع هر قیمت روی صفحه بازار نوشته می‌شود.</p>
         <p class="small"><b>فید اختصاصی</b> (مثلاً از نرم‌افزار حسابداری یا سرویس قیمت خودتان) باید JSON زیر را برگرداند؛ قیمت‌ها به تومان و انس به دلار:</p>
         <pre class="ltr small">{ "day": "2026-09-28", "prices": { "mesghal": 103543000, "geram18": 23902000, "sekee": { "p": 240505000, "h": 241000000, "l": 239480000 }, "usd": 235000, "ons": 4213.22 } }</pre>
@@ -92,6 +96,7 @@ export async function marketDataPage(root) {
       feed.config.mode = b.dataset.mode;
       for (const x of root.querySelectorAll('[data-mode]')) x.setAttribute('aria-pressed', String(x === b));
       $('#jsonbox', root).hidden = b.dataset.mode !== 'json';
+      $('#fgbox', root).hidden = b.dataset.mode !== 'forgod';
     } else if (b.dataset.act === 'sync' || b.dataset.act === 'backfill') {
       busy(b, true);
       try {

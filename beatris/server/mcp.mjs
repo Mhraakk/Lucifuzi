@@ -166,12 +166,12 @@ function toolset({ market, pricing, courses }) {
     {
       name: 'market_board',
       title: 'تابلوی قیمت‌ها',
-      description: 'Latest price and daily change of mazaneh, 18k and 24k gram, the five coins, the free-market dollar and the world ounce. sample = true means synthetic training data.',
+      description: 'Latest price and daily change of mazaneh, 18k and 24k gram, the five coins, the free-market dollar, the world ounce and bitcoin, and the live currency table (toman for `per` units) when the shop has one. sample = true means synthetic training data.',
       inputSchema: { type: 'object', properties: {} },
       annotations: { readOnlyHint: true },
       run: () => {
         const b = market.board();
-        return { sample: b.sample, source: b.source.label, today: b.today, prices: b.items.filter((x) => !x.empty).map((x) => ({ symbol: x.id, name: SYMBOL[x.id].label, unit: SYMBOL[x.id].unit, day: x.d, close: x.c, high: x.h, low: x.l, changePct: x.pct == null ? null : r2(x.pct) })) };
+        return { sample: b.sample, source: b.source.label, today: b.today, prices: b.items.filter((x) => !x.empty).map((x) => ({ symbol: x.id, name: SYMBOL[x.id].label, unit: SYMBOL[x.id].unit, day: x.d, close: x.c, high: x.h, low: x.l, changePct: x.pct == null ? null : r2(x.pct) })), currencies: (b.fx?.rates ?? []).map((r) => ({ code: r.code, name: r.name, toman: r.p, per: r.per, time: r.t })) };
       },
     },
     {

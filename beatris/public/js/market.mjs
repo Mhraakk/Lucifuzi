@@ -7,17 +7,19 @@ import { impliedMesghal, coinIntrinsic, COIN_PURE_G } from './ta.mjs';
 
 /** Prices are stored in toman (Iranian sources quote rials: ÷ 10), the world ounce in US dollars. */
 export const SYMBOLS = [
-  { id: 'mesghal', label: 'مظنه (مثقال آب‌شده ۷۰۵)', short: 'مظنه', unit: 'تومان', group: 'gold', feed: { tgju: 'mesghal', rial: true } },
+  { id: 'mesghal', label: 'مظنه (مثقال آب‌شده ۷۰۵)', short: 'مظنه', unit: 'تومان', group: 'gold', feed: { tgju: 'mesghal', rial: true, forgod: 'abshodeh' } },
   { id: 'mesghal_fwd', label: 'آب‌شده حواله (فردایی)', short: 'حواله', unit: 'تومان', group: 'gold', feed: { rial: true } },
-  { id: 'geram18', label: 'طلای ۱۸ عیار (هر گرم)', short: 'گرم ۱۸', unit: 'تومان', group: 'gold', feed: { tgju: 'geram18', rial: true } },
+  { id: 'geram18', label: 'طلای ۱۸ عیار (هر گرم)', short: 'گرم ۱۸', unit: 'تومان', group: 'gold', feed: { tgju: 'geram18', rial: true, forgod: '18ayar' } },
   { id: 'geram24', label: 'طلای ۲۴ عیار (هر گرم)', short: 'گرم ۲۴', unit: 'تومان', group: 'gold', feed: { tgju: 'geram24', rial: true } },
-  { id: 'sekee', label: 'سکه تمام امامی', short: 'امامی', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.sekee, feed: { tgju: 'sekee', rial: true } },
-  { id: 'sekeb', label: 'سکه تمام بهار آزادی', short: 'بهار', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.sekeb, feed: { tgju: 'sekeb', rial: true } },
-  { id: 'nim', label: 'نیم سکه', short: 'نیم', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.nim, feed: { tgju: 'nim', rial: true } },
-  { id: 'rob', label: 'ربع سکه', short: 'ربع', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.rob, feed: { tgju: 'rob', rial: true } },
-  { id: 'gerami', label: 'سکه گرمی', short: 'گرمی', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.gerami, feed: { tgju: 'gerami', rial: true } },
-  { id: 'usd', label: 'دلار آزاد', short: 'دلار', unit: 'تومان', group: 'fx', feed: { tgju: 'price_dollar_rl', rial: true } },
-  { id: 'ons', label: 'انس جهانی طلا', short: 'انس', unit: 'دلار', group: 'world', decimals: 2, feed: { tgju: 'ons', rial: false } },
+  { id: 'sekee', label: 'سکه تمام امامی', short: 'امامی', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.sekee, feed: { tgju: 'sekee', rial: true, forgod: 'sekkeh' } },
+  { id: 'sekeb', label: 'سکه تمام بهار آزادی', short: 'بهار', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.sekeb, feed: { tgju: 'sekeb', rial: true, forgod: 'bahar' } },
+  { id: 'nim', label: 'نیم سکه', short: 'نیم', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.nim, feed: { tgju: 'nim', rial: true, forgod: 'nim' } },
+  { id: 'rob', label: 'ربع سکه', short: 'ربع', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.rob, feed: { tgju: 'rob', rial: true, forgod: 'rob' } },
+  { id: 'gerami', label: 'سکه گرمی', short: 'گرمی', unit: 'تومان', group: 'coin', pure: COIN_PURE_G.gerami, feed: { tgju: 'gerami', rial: true, forgod: 'gerami' } },
+  { id: 'usd', label: 'دلار آزاد', short: 'دلار', unit: 'تومان', group: 'fx', feed: { tgju: 'price_dollar_rl', rial: true, forgod: 'usd' } },
+  { id: 'ons', label: 'انس جهانی طلا', short: 'انس', unit: 'دلار', group: 'world', decimals: 2, feed: { tgju: 'ons', rial: false, forgod: 'usd_xau' } },
+  // last on purpose: the sample market draws each symbol's candles in this order, so the others stay as they were
+  { id: 'btc', label: 'بیت‌کوین', short: 'بیت‌کوین', unit: 'تومان', group: 'crypto', feed: { forgod: 'usd_btc' } },
 ];
 export const SYMBOL = Object.fromEntries(SYMBOLS.map((s) => [s.id, s]));
 export const isSymbol = (id) => typeof id === 'string' && Object.hasOwn(SYMBOL, id);
@@ -39,7 +41,7 @@ export function badBar(b) {
 }
 
 /* ---------------- sample market ---------------- */
-const ANCHOR = { usd: 235000, ons: 4200 }; // levels the sample ends at (toman per dollar, dollars per ounce)
+const ANCHOR = { usd: 235000, ons: 4200, btc: 80000 }; // levels the sample ends at (toman per dollar, dollars per ounce and per bitcoin)
 // coin bubbles: a level, how strongly the coin follows the shared market mood, and its own noise
 const BUBBLE = { sekee: [0.05, 1, 0.002], sekeb: [0.028, 1, 0.002], nim: [0.09, 1.5, 0.004], rob: [0.16, 2, 0.006], gerami: [0.28, 2.5, 0.01] };
 
@@ -80,7 +82,18 @@ export function sampleMarket(endDay, n = 780) {
   const prem = ou(0.004, 0.0025, 0.12);
   const mood = ou(0, 0.005, 0.04);
   const own = Object.fromEntries(Object.entries(BUBBLE).map(([k, [, , s]]) => [k, ou(0, s, 0.1)]));
-  const close = { mesghal: [], mesghal_fwd: [], geram18: [], geram24: [], usd, ons, sekee: [], sekeb: [], nim: [], rob: [], gerami: [] };
+  // bitcoin in dollars walks on a seed of its own, so adding it changed no other sample price
+  const rb = rng(2140);
+  let lb = 0;
+  const lbs = [];
+  for (let i = 0; i < n; i++) {
+    let g = 0;
+    for (let k = 0; k < 6; k++) g += rb();
+    lb += Math.log(1.5) / 260 + 0.03 * ((g - 3) / Math.SQRT1_2);
+    lbs.push(lb);
+  }
+  const btc = lbs.map((v, i) => ANCHOR.btc * Math.exp(v - lb) * usd[i]);
+  const close = { mesghal: [], mesghal_fwd: [], geram18: [], geram24: [], usd, ons, sekee: [], sekeb: [], nim: [], rob: [], gerami: [], btc };
   for (let i = 0; i < n; i++) {
     const maz = impliedMesghal(ons[i], usd[i]) * (1 + prem());
     close.mesghal.push(maz);
@@ -92,7 +105,7 @@ export function sampleMarket(endDay, n = 780) {
   }
   const out = {};
   for (const s of SYMBOLS) {
-    const c = close[s.id], vol = s.id === 'ons' ? 0.004 : 0.005;
+    const c = close[s.id], vol = s.id === 'ons' ? 0.004 : s.id === 'btc' ? 0.02 : 0.005;
     out[s.id] = days.map((d, i) => {
       const cl = roundQuote(s.id, c[i]);
       const op = roundQuote(s.id, i ? c[i - 1] * (1 + 0.0015 * gauss()) : c[i]);

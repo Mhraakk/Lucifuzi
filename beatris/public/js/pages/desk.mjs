@@ -72,6 +72,12 @@ export async function deskPage(root) {
     const x = board?.items?.find((i) => i.id === id);
     return x && !x.empty ? x.c * 10 : null;
   };
+  /** A currency's live rate per unit in rial: the dollar from the board, the others from the live currency table (spec 0049). */
+  const fxLive = (code) => {
+    if (code === 'USD') return liveOf('usd');
+    const r = board?.fx?.rates?.find((x) => x.code === code);
+    return r ? Math.round((r.p * 10) / (r.per || 1)) : null;
+  };
   const spread = () => {
     const g = S.party?.group && s.groups?.[S.party.group];
     return { buy: g?.spreadBuy || s.spreadBuy || 0, sell: g?.spreadSell || s.spreadSell || 0, cBuy: s.coinSpreadBuy ?? 0, cSell: s.coinSpreadSell ?? 0 };
@@ -96,7 +102,7 @@ export async function deskPage(root) {
       melt: { weight: '', fineness: S.f.melt?.fineness ?? 740, basis: 'mazaneh', mazaneh: mazFor(d), g750: '', amount: '', conditional: false },
       coin: { coin: S.f.coin?.coin ?? 'emami', count: 1, basis: 'count', price: coinFor(S.f.coin?.coin ?? 'emami', d), weight: '', gramPrice: '', amount: '' },
       bar: { serial: '', brand: S.f.bar?.brand ?? 'زربد', gallery: '', weight: '', fineness: 750, sealDate: '', basis: 'mazaneh', mazaneh: mazFor(d), amount: '', fee: '' },
-      fx: { code: S.f.fx?.code ?? 'USD', fxAmount: '', rate: S.f.fx?.code === 'USD' || !S.f.fx ? liveOf('usd') ?? '' : '' },
+      fx: { code: S.f.fx?.code ?? 'USD', fxAmount: '', rate: fxLive(S.f.fx?.code ?? 'USD') ?? '' },
     };
   };
   resetForm();
@@ -785,7 +791,7 @@ export async function deskPage(root) {
     const b = S.party.balance ?? {};
     const units = balUnits(b).filter((u) => u !== 'IRR' && !u.startsWith('BAR:'));
     if (!units.length) return toast('این مشتری مانده جنسی ندارد.', 'error');
-    const priceOf = (u) => (u === 'G750' ? mazFor(b[u] > 0 ? 'out' : 'in') : u.startsWith('COIN:') ? coinFor(u.slice(5), b[u] > 0 ? 'out' : 'in') : u === 'FX:USD' ? liveOf('usd') ?? '' : '');
+    const priceOf = (u) => (u === 'G750' ? mazFor(b[u] > 0 ? 'out' : 'in') : u.startsWith('COIN:') ? coinFor(u.slice(5), b[u] > 0 ? 'out' : 'in') : u.startsWith('FX:') ? fxLive(u.slice(3)) ?? '' : '');
     modal(
       String(html`<h3 class="bk-h">تبدیل مانده جنسی به ریال — ${S.party.label}</h3><p class="small">مانده جنسی با نرخ روز به مانده ریالی تبدیل می‌شود (مثل فروش یا خرید همان مقدار روی حساب).</p>
         <form class="form" id="cv"><label class="field">مانده<select class="input" name="unit">${units.map((u) => html`<option value="${u}" data-amt="${b[u]}">${b[u] > 0 ? 'بدهکار' : 'بستانکار'} ${unitAmt(u, Math.abs(b[u]))}</option>`)}</select></label>
@@ -959,7 +965,7 @@ export async function deskPage(root) {
     if (m.fineness) f.fineness = m.fineness;
     if (m.basis) f.basis = m.basis;
     if (m.coin) Object.assign(f, { coin: m.coin, price: coinFor(m.coin, dir()) });
-    if (m.code) Object.assign(f, { code: m.code, rate: m.code === 'USD' ? liveOf('usd') ?? '' : '' });
+    if (m.code) Object.assign(f, { code: m.code, rate: fxLive(m.code) ?? '' });
     if (m.pay) S.defPay = m.pay;
     S.sugg = {};
     drawForm();
@@ -977,7 +983,7 @@ export async function deskPage(root) {
       if (l.priced === false) return l;
       if ((l.kind === 'melt' || l.kind === 'bar') && (l.basis ?? 'mazaneh') === 'mazaneh') l.mazaneh = mazFor(l.dir) || l.mazaneh;
       if (l.kind === 'coin' && (l.basis ?? 'count') === 'count') l.price = coinFor(l.coin, l.dir) || l.price;
-      if (l.kind === 'fx' && l.code === 'USD') l.rate = liveOf('usd') ?? l.rate;
+      if (l.kind === 'fx') l.rate = fxLive(l.code) ?? l.rate;
       return l;
     });
     S.payments = (src.payments ?? []).map((p) => ({ method: p.method, dir: p.dir ?? 'in', account: p.account ?? undefined, amount: '' }));
@@ -1053,7 +1059,7 @@ export async function deskPage(root) {
         if (p.fx.code) f.code = p.fx.code;
         if (p.fx.amount != null) f.fxAmount = String(p.fx.amount);
         if (p.fx.rate != null) f.rate = moneyOf(p.fx.rate, p.fx.unit);
-        else if (f.code === 'USD') f.rate = liveOf('usd') ?? '';
+        else if (f.code === 'USD' || fxLive(f.code) != null) f.rate = fxLive(f.code) ?? '';
       }
       if (p.price && priced()) {
         const v = p.price.value == null ? '' : moneyOf(p.price.value, p.price.unit);
@@ -1170,7 +1176,7 @@ export async function deskPage(root) {
       f[k] = el.type === 'checkbox' ? el.checked : el.value;
       formTouched = true;
       if (S.sugg?.[k]) (S.sugg[k] = false), el.closest('.dk-sugg')?.classList.remove('dk-sugg'), el.closest('label')?.querySelector('.dk-sg')?.remove();
-      if (k === 'code') (f.rate = el.value === 'USD' ? liveOf('usd') ?? '' : ''), drawForm();
+      if (k === 'code') (f.rate = fxLive(el.value) ?? ''), drawForm();
       else liveLine(), markNext();
       if (S.kind === 'bar' && k === 'serial' && dir() === 'out') cardFill(el.value);
       step(`${FIELD_FA[k] ?? k}: ${el.type === 'checkbox' ? (el.checked ? 'بله' : 'خیر') : fa(el.value || '—')}`, { key: `f:${S.kind}.${k}`, focus: `[data-f="${k}"]` });
