@@ -2,6 +2,8 @@
 // fresh server showing each Beatris point. Marquise facts come only from its public pages (no trial was run); anything
 // not stated there is marked «ذکر نشده», never «ندارد».
 //   FFMPEG=/path/to/ffmpeg node scripts/compare-video.mjs   → public/media/compare/beatris-vs-marquise.mp4 (+ .jpg)
+// spec 0052: the film has its music laid afterwards, its cuts on the beats of Mozart's K. 465 finale. When the
+// film is made again its cuts move, so compare-music.json is measured again (README in scripts/promo-film).
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

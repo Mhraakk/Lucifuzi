@@ -3434,6 +3434,17 @@ await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a sup
     return { ok: r.ok && rw.ok, type: r.headers.get('content-type'), webm: rw.headers.get('content-type'), w: v.videoWidth, h: v.videoHeight, d: Math.round(v.duration) };
   });
   check('live film: a 35 s full-HD video, as mp4 and webm', lv.ok && /video\/mp4/.test(lv.type ?? '') && /video\/webm/.test(lv.webm ?? '') && lv.w === 1920 && lv.h === 1080 && lv.d === 35, JSON.stringify(lv));
+  // the comparison film (spec 0052): linked from the help page's head, and no longer silent: its header (moov first,
+  // +faststart) names a sound track. Read from the bytes, as a test browser without H.264 cannot play it.
+  const cmp = await k8.page.evaluate(async () => {
+    const link = !!document.querySelector('a[href="/media/compare/beatris-vs-marquise.mp4"]');
+    const r = await fetch('/media/compare/beatris-vs-marquise.mp4', { headers: { Range: 'bytes=0-262143' } });
+    const s = new TextDecoder('latin1').decode(await r.arrayBuffer());
+    const handlers = [];
+    for (let i = s.indexOf('hdlr'); i >= 0; i = s.indexOf('hdlr', i + 1)) handlers.push(s.slice(i + 12, i + 16));
+    return { link, status: r.status, type: r.headers.get('content-type'), handlers };
+  });
+  check('comparison film: linked from the help page, an mp4 with a picture and a sound track', cmp.link && (cmp.status === 206 || cmp.status === 200) && /video\/mp4/.test(cmp.type ?? '') && cmp.handlers.includes('vide') && cmp.handlers.includes('soun'), JSON.stringify(cmp));
   await k8.ctx.close();
 });
 

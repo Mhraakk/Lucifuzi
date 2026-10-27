@@ -5,15 +5,18 @@
 # pitch kept, with 0.3 s of context either side) to exactly one film bar; the spans are joined with short equal-power
 # crossfades placed just before each attack, so every attack stays whole. The final chord rings out unstretched.
 # The track is written raw (48 kHz stereo); mix.mjs lays it as an unbroken stretch and masters the film.
+# spec 0052: a plan with `at` names a film time for every attack instead (a film whose cuts are fixed): each span
+# between two attacks is stretched onto the span between their film times, and the last attack rings out to `to`.
 #   python3 -I scripts/promo-film/stories/warp-music.py <recording> <plan.json> <out.wav>
 # plan: { "bar": s, "dur": s, "lead": s, "xfade": s, "phrases": [attack s, …], "ending": { "phrases": [attack s, …, final chord], "to": s } }
+#   or: { "dur": s, "lead": s, "xfade": s, "phrases": [attack s, …], "at": [film s, …], "to": s }
 import json, subprocess, sys, tempfile, os
 import numpy as np
 
 SR = 48000
 rec, plan_path, out = sys.argv[1], sys.argv[2], sys.argv[3]
 plan = json.load(open(plan_path))
-BAR, DUR, LEAD, XF, PAD = plan['bar'], plan['dur'], plan.get('lead', 0.012), plan.get('xfade', 0.006), 0.3
+BAR, DUR, LEAD, XF, PAD = plan.get('bar'), plan['dur'], plan.get('lead', 0.012), plan.get('xfade', 0.006), 0.3
 
 tmp = tempfile.mkdtemp(prefix='warp-')
 src = os.path.join(tmp, 'src.wav')
@@ -60,26 +63,39 @@ def lay(seg, at, first=False):
 
 
 report = []
-cuts = [t - LEAD for t in plan['phrases']]
-for k in range(len(cuts) - 1):
-    seg, r = stretched(cuts[k], cuts[k + 1], BAR)
-    lay(seg, int(round(k * BAR * SR)), first=(k == 0))
-    report.append(f'bar {k}: {plan["phrases"][k]:.3f}–{plan["phrases"][k + 1]:.3f} s ×{1 / r:.4f}')
-# the ending: the coda's spans, a bar each, then the final chord rings out as played
-e = plan['ending']
-k = len(cuts) - 1
-for a, c in zip(e['phrases'], e['phrases'][1:]):
-    seg, r = stretched(a - LEAD, c - LEAD, BAR)
-    lay(seg, int(round(k * BAR * SR)))
-    report.append(f'bar {k}: ending {a:.3f}–{c:.3f} s ×{1 / r:.4f}')
-    k += 1
-tail = plain(e['phrases'][-1] - LEAD, e['to'])
-lay(tail, int(round(k * BAR * SR)))
-report.append(f'bar {k}: final chord {e["phrases"][-1]:.3f} s, rings to {e["to"]:.2f} s (as played)')
+if 'at' in plan:
+    # every attack onto its own film time (the first may be the recording's very start, laid at 0)
+    a_rec = [max(0.0, t - LEAD) for t in plan['phrases']]
+    a_film = [max(0.0, t - LEAD) for t in plan['at']]
+    for k in range(len(a_rec) - 1):
+        seg, r = stretched(a_rec[k], a_rec[k + 1], a_film[k + 1] - a_film[k])
+        lay(seg, int(round(a_film[k] * SR)), first=(k == 0))
+        report.append(f'{plan["at"][k]:7.2f} s ← {plan["phrases"][k]:8.3f} s ×{1 / r:.4f}')
+    lay(plain(a_rec[-1], plan['to']), int(round(a_film[-1] * SR)))
+    report.append(f'{plan["at"][-1]:7.2f} s ← {plan["phrases"][-1]:8.3f} s: the final chord, rings to {plan["to"]:.2f} s (as played)')
+    done = f'every attack on its film time, the final chord at {plan["at"][-1]:.2f} s'
+else:
+    cuts = [t - LEAD for t in plan['phrases']]
+    for k in range(len(cuts) - 1):
+        seg, r = stretched(cuts[k], cuts[k + 1], BAR)
+        lay(seg, int(round(k * BAR * SR)), first=(k == 0))
+        report.append(f'bar {k}: {plan["phrases"][k]:.3f}–{plan["phrases"][k + 1]:.3f} s ×{1 / r:.4f}')
+    # the ending: the coda's spans, a bar each, then the final chord rings out as played
+    e = plan['ending']
+    k = len(cuts) - 1
+    for a, c in zip(e['phrases'], e['phrases'][1:]):
+        seg, r = stretched(a - LEAD, c - LEAD, BAR)
+        lay(seg, int(round(k * BAR * SR)))
+        report.append(f'bar {k}: ending {a:.3f}–{c:.3f} s ×{1 / r:.4f}')
+        k += 1
+    tail = plain(e['phrases'][-1] - LEAD, e['to'])
+    lay(tail, int(round(k * BAR * SR)))
+    report.append(f'bar {k}: final chord {e["phrases"][-1]:.3f} s, rings to {e["to"]:.2f} s (as played)')
+    done = f'every phrase attack on its bar ({BAR:.4f} s), the final chord on bar {k}'
 
 track = track[:n]
 track[:int(0.005 * SR)] *= np.linspace(0, 1, int(0.005 * SR))[:, None]
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'f32le', '-ar', str(SR), '-ac', '2', '-i', '-', '-c:a', 'pcm_f32le', out],
                input=track.astype(np.float32).tobytes(), check=True)
 print('\n'.join(report))
-print(f'{out}: {DUR:.2f} s; every phrase attack on its bar ({BAR:.4f} s), the final chord on bar {k}')
+print(f'{out}: {DUR:.2f} s; {done}')
