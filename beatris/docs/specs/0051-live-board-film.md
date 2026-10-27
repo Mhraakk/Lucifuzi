@@ -201,3 +201,74 @@ the groove and a usable ending, then ranked.
   - the full e2e: 724 / 724, 0 browser errors.
 - **Review:** the builder made it, with the sheets and measures above. No independent critic reviewed the film, and
   nobody listened to it before delivery.
+
+## Amendment: Mozart, on the beat
+**Asked:** «ویدیو ها موسیقی ندارند و این خوب نیست؛ یک موسیقی کلاسیک از موزارت که با ریتم بخونه روش بزار».
+
+Both films that had been sent did carry their music track (AAC, −15.9 LUFS). The music is now Mozart all the same.
+
+### What
+- **The music:** W. A. Mozart, Symphony No. 40 in G minor, K. 550, IV. Allegro assai, in Musopen's recording, CC0
+  (archive.org `MusopenKickstarterRecordings`).
+  - It is not stored in the repository.
+  - It is credited on the end card, in the help centre and in the README.
+- **The choice:** four CC0 Musopen recordings of Mozart were measured for their half-note tempo, the clarity of their
+  pulse and their loudness per second:
+  - the overture to «Le nozze di Figaro»: 150;
+  - Symphony 40, I: 104;
+  - Symphony 40, IV: 131.7;
+  - the overture to «Die Zauberflöte», its Allegro: 153.
+
+  Only IV comes within 6% of the film's grid at two music bars per film bar, and its pulse is steady from start to end
+  (65.97 and 65.38 bars a minute).
+- **The beat.**
+  - The film's grid moves from 123.826 to 128 BPM, so one film bar is 1.875 s.
+  - The finale opens with two-bar phrases in turn, the piano rocket then the forte answer, each starting with a tutti
+    attack on its upbeat.
+  - `scripts/promo-film/stories/warp-music.py` reads `live-music.json`, which lists the measured attack of each of
+    the 17 phrases. It stretches each phrase with rubberband (×0.99–1.06, pitch kept) so that its attack falls on a
+    film bar line.
+  - The coda's own last bars follow: two more bars, with the final chord on bar 18 (33.75 s) and the end card's
+    glint, ringing out to the end.
+- **The sound.**
+  - The orchestra's piano and forte are 20 dB apart, so each cue gets its own level, solved against the music alone
+    by the same rules. A sound therefore follows the score.
+  - The tonal sounds are tuned into G minor with `p` (semitones) in each cue; `mix.mjs` shifts them with rubberband:
+
+    | Sound | Was | Now |
+    |---|---|---|
+    | chime | A | G |
+    | sparkle | C | B♭ |
+    | pop | E | D |
+    | click | G♯ | G |
+
+- **Kept as they were:** the frames, the captions and every number. Everything is retimed by the grid alone.
+
+### Results
+- **Files:**
+  - `beatris-live-market.mp4`: 13.1 MB, 1920×1080, 60 fps, 35.00 s, H.264 High;
+  - `.webm`: 13.0 MB;
+  - the poster.
+- **Loudness:**
+  - −16.3 LUFS, true peak −1.7 dBTP, on both files;
+  - the music-only mix: −16.2 LUFS.
+- **On the beat**, measured in the decoded mix:
+  - all 12 forte phrase attacks fall within 17 ms (one frame) of their film bar lines;
+  - the piano attacks, which are soft and ill-defined, fall within 50 ms;
+  - the effect hits fall within 15 ms of their picture events.
+- **Picture:**
+  - no black frame;
+  - no hold of 0.5 s or more;
+  - `frozen-time.sh` finds isolated samples only, then the end card;
+  - every line passes its reading time at the new tempo.
+- **Skills:** the `npx skills` CLI from vercel-labs/skills was learnt and used to find and read skills without
+  installing them.
+  - `iart-ai/motion-design-skills@beat-sync-editing` gave the checklist used here:
+    - anchor the grid on the music's first beat;
+    - cut on phrases;
+    - land the biggest moment on the hit;
+    - check the beats against the frames.
+  - Installing it, and `find-skills`, into the agent's skills folder was refused by the session's permission check,
+    so they are not installed.
+- **Review:** the builder made it, with the same sheets and measures as before. No independent critic reviewed it, and
+  nobody listened to it.

@@ -18,7 +18,7 @@ const OM = process.env.OM ?? '/home/user/calesthio/openmontage';
 const MUSIC = process.env.MUSIC ?? path.join(OM, 'projects/beatris-one-gram/assets/music/autofahren-mixkit-770.mp3');
 const SFX = process.env.SFX ?? path.join(OM, '.agents/skills/hyperframes-media/assets/sfx');
 for (const [k, p] of [['MUSIC', MUSIC], ['SFX', SFX]]) if (!existsSync(p)) throw new Error(`${k}: not found (${p})`);
-const meta = JSON.parse(readFileSync(pic.replace(/\.mp4$/, '.json'), 'utf8')); // { DUR, EV: [{t, s, v}], MUSIC: {from, bars, end: [a, b]} | {from, bpm, dur, fade} }
+const meta = JSON.parse(readFileSync(pic.replace(/\.mp4$/, '.json'), 'utf8')); // { DUR, EV: [{t, s, v, p?}], MUSIC: {from, bars, end: [a, b]} | {from, bpm, dur, fade} }
 if (musicOnly) meta.EV = [];
 const LUFS = -16, CEIL = -1;
 
@@ -78,7 +78,9 @@ try {
     if (!existsSync(f)) throw new Error(`effect ${e.s}: not found`);
     const lead = onset(f);
     ins.push('-ss', lead.toFixed(3), '-i', f);
-    parts.push(`[${i + 1}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${e.v ?? 0.3},adelay=${Math.max(0, Math.round(e.t * 1000))}|${Math.max(0, Math.round(e.t * 1000))}[e${i}]`);
+    // p: a shift in semitones that tunes a tonal sound into the music's key (its timing is kept)
+    const tune = e.p ? `,rubberband=pitch=${(2 ** (e.p / 12)).toFixed(6)}:transients=crisp` : '';
+    parts.push(`[${i + 1}:a]aresample=48000,aformat=channel_layouts=stereo${tune},volume=${e.v ?? 0.3},adelay=${Math.max(0, Math.round(e.t * 1000))}|${Math.max(0, Math.round(e.t * 1000))}[e${i}]`);
   });
   const raw = path.join(tmp, 'raw.wav');
   if (meta.EV.length) ff(['-i', music, ...ins, '-filter_complex', `${parts.join(';')};[0:a]${meta.EV.map((_, i) => `[e${i}]`).join('')}amix=inputs=${meta.EV.length + 1}:normalize=0:duration=first[x]`, '-map', '[x]', '-t', meta.DUR.toFixed(3), raw]);

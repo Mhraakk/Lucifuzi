@@ -3,7 +3,8 @@
      board rolls to forgod's real prices of 4 Aban 1405, 16:48 Tehran; the board becomes the app's own market page; one
      request brings the whole market, checked before it is kept; the currency wall hands the euro to the trade desk; the
      day's 50 requests go round a 24-hour dial; the analysis works again on the same prices; then a sentence in the
-     market's words is typed, read and booked. Cut on the bar grid of «Rising Forest» (Diego Nava, 123.83 BPM). Every
+     market's words is typed, read and booked. Cut on Mozart: the finale of Symphony No. 40 (K. 550), whose two-bar
+     phrases, the piano rocket and the forte answer in turn, warp-music.py lays one per film bar at 128 BPM. Every
      number comes from live-data.json: forgod's answer read by the app's own code, and what the app showed and booked.
      window.seek(t) draws the frame at t; nothing runs on its own clock. -->
 <html lang="fa" dir="rtl">
@@ -251,8 +252,8 @@ import { prog, ease, lerp, clamp01, fa, css, rng, $, $$, words, readTime } from 
 import { crownSvg } from '/js/crown.mjs';
 
 const D = await fetch('./live-data.json').then((r) => r.json());
-/* ---------------- the grid: «Rising Forest», 123.826 BPM; the film starts on the downbeat of the track's build bar ---------------- */
-const BPM = 123.826, BAR = 240 / BPM, BEAT = BAR / 4;
+/* ---------------- the grid: 128 BPM, one film bar per two-bar phrase of K. 550's finale (its attack on the bar line) ---------------- */
+const BPM = 128, BAR = 240 / BPM, BEAT = BAR / 4;
 const b = (n) => n * BAR;
 window.DUR = 35;
 const E = { ...ease, back: (x) => { const c1 = 1.15, c3 = c1 + 1; return 1 + c3 * (x - 1) ** 3 + c1 * (x - 1) ** 2; } };
@@ -532,7 +533,7 @@ $('#rcText').innerHTML = `<h2>ثبت شد</h2><div class="lab">کد رهگیری
 $('#crownBox').innerHTML = crownSvg({ size: 300, ring: true, id: 'ec' });
 $('#endTag').innerHTML = `قیمت زنده؛ <em>معامله به زبان بازار</em>`;
 $('#endCta').innerHTML = `<span>وب‌اپ روی گوشی و کامپیوتر</span><span>ویندوز ۱۰ و ۱۱ (۶۴ بیت)</span>`;
-$('#endFine').innerHTML = `<div>قیمت‌ها: forgod.qzz.io، ${dayFa}، ساعت ${hhmm} · صفحه‌ها از فروشگاه نمونه‌ی خود اپ</div><div class="en">Music: “Rising Forest”, Diego Nava (Mixkit Stock Music Free License) · Sound effects: Pixabay Content License · Type: Estedad, Markazi, Vazirmatn (SIL OFL)</div>`;
+$('#endFine').innerHTML = `<div>قیمت‌ها: forgod.qzz.io، ${dayFa}، ساعت ${hhmm} · صفحه‌ها از فروشگاه نمونه‌ی خود اپ</div><div class="en">Music: W. A. Mozart, Symphony No. 40 in G minor, K. 550, IV. Allegro assai — Musopen recording (CC0) · Sound effects: Pixabay Content License · Type: Estedad, Markazi, Vazirmatn (SIL OFL)</div>`;
 const crownPaths = $$('#crownBox path, #crownBox circle');
 crownPaths.forEach((p) => {
   const L = p.getTotalLength?.() ?? 400;
@@ -914,7 +915,7 @@ function frame(t) {
       // the glint: one soft band across the crown and the name on the track's own last hit
       const g = $('#glint'), gc = g.getContext('2d');
       gc.clearRect(0, 0, 1920, 1080);
-      const gk = prog(t, b(17) - 0.05, b(17) + 0.9, E.inOut);
+      const gk = prog(t, b(18) - 0.05, b(18) + 0.9, E.inOut);
       if (gk > 0 && gk < 1) {
         const x = lerp(400, 1600, gk);
         const grd = gc.createLinearGradient(x - 220, 0, x + 220, 0);
@@ -947,40 +948,43 @@ function deskCam(t) {
 }
 
 /* ---------------- the sound cues (mix.mjs lays each on its frame) and the music edit ----------------
-   Each sound's level was solved against the music alone, in the sound's own band (+3.5 dB, the whooshes +2.5, the chime
-   +4), with the 2–8 kHz lift under 4 dB and its peak at most 6 dB over the music's (8 for the chime and the last
-   sparkle). A sound keeps one level through the film, lower only where the music is quiet enough that it would stand
-   more than 6 dB over its band. */
-const LV = { 'click-soft': 2.56, 'whoosh-short': 0.519, pop: 0.549, whoosh: 0.443, sparkle: 0.504, typing: 2.918, chime: 4 };
-const cue = (t, s, v = LV[s]) => ({ t, s, v });
+   Each cue's level was solved against the music alone, in the sound's own band: +3.5 dB, the whooshes +2.5, the chime
+   +4, the sparkles +3, with the 2–8 kHz lift under 4 dB and its peak at most 6 dB over the music's (8 for the chime and
+   the last sparkle), and never more than 6 dB over its band. Mozart's piano and forte are 20 dB apart, so every cue has
+   its own level: a sound follows the score instead of keeping one loudness through it. */
+// the tonal sounds are tuned into G minor (semitones): the chime's A to G, the sparkle's C to B♭, the pop's E to D,
+// the click's G♯ (+25 cents) to G; the typing's E♭ is already in the key
+const PITCH = { chime: -2, sparkle: -2, pop: -2, 'click-soft': -1.25 };
+const cue = (t, s, v) => ({ t, s, v, ...(PITCH[s] ? { p: PITCH[s] } : {}) });
 window.EV = [
-  cue(2 * BEAT, 'click-soft', 2.199),
-  cue(3 * BEAT, 'click-soft'),
-  cue(b(1) - 0.06, 'whoosh-short'),
-  cue(b(1) + 2 * BEAT, 'click-soft'),
-  cue(b(2) - 0.12, 'whoosh-short', 0.383),
-  cue(b(2) + 0.28, 'pop', 0.533),
-  cue(b(3) - 0.25, 'whoosh'),
-  cue(b(3.5) + 0.62, 'sparkle'),
-  ...SECS.map((_, i) => cue(b(4) + i * BEAT * 0.5 - 0.1, 'pop')),
-  cue(b(4.5) - 0.05, 'whoosh-short'),
-  cue(b(5.5), 'pop'), // the stamp lands
-  cue(b(6) - 0.12, 'whoosh-short', 0.419),
-  cue(b(7), 'pop'),
-  cue(b(7.25), 'whoosh'),
-  cue(b(7.75) + 0.05, 'pop'),
-  cue(b(9) - 0.1, 'whoosh-short'),
-  cue(b(10.5) - 0.1, 'whoosh-short'),
-  ...CARDS.map((_, i) => cue(b(10.75) + i * BEAT * 2, 'pop')),
-  cue(b(12) - 0.12, 'whoosh-short'),
-  cue(b(12) + 0.25, 'typing'),
-  cue(b(12.75) + 0.2, 'typing'),
-  cue(b(14.25), 'click-soft'), // Enter
-  cue(b(14.5) + 0.15, 'chime'),
-  cue(b(16) - 0.08, 'whoosh-short'),
-  cue(b(17), 'sparkle'),
+  cue(2 * BEAT, 'click-soft', 0.25),
+  cue(3 * BEAT, 'click-soft', 0.103),
+  cue(b(1) - 0.06, 'whoosh-short', 0.403),
+  cue(b(1) + 2 * BEAT, 'click-soft', 1.147),
+  cue(b(2) - 0.12, 'whoosh-short', 0.053),
+  cue(b(2) + 0.28, 'pop', 0.092),
+  cue(b(3) - 0.25, 'whoosh', 0.439),
+  cue(b(3.5) + 0.62, 'sparkle', 0.011),
+  ...SECS.map((_, i) => cue(b(4) + i * BEAT * 0.5 - 0.1, 'pop', [0.127, 0.217, 0.208, 0.071][i])),
+  cue(b(4.5) - 0.05, 'whoosh-short', 0.098),
+  cue(b(5.5), 'pop', 0.788), // the stamp lands
+  cue(b(6) - 0.12, 'whoosh-short', 0.078),
+  cue(b(7), 'pop', 0.778),
+  cue(b(7.25), 'whoosh', 0.315),
+  cue(b(7.75) + 0.05, 'pop', 0.562),
+  cue(b(9) - 0.1, 'whoosh-short', 0.266),
+  cue(b(10.5) - 0.1, 'whoosh-short', 0.023),
+  ...CARDS.map((_, i) => cue(b(10.75) + i * BEAT * 2, 'pop', [0.119, 0.752, 0.517][i])),
+  cue(b(12) - 0.12, 'whoosh-short', 0.237),
+  cue(b(12) + 0.25, 'typing', 2.358),
+  cue(b(12.75) + 0.2, 'typing', 0.684),
+  cue(b(14.25), 'click-soft', 0.283), // Enter
+  cue(b(14.5) + 0.15, 'chime', 0.307),
+  cue(b(16) - 0.08, 'whoosh-short', 0.42),
+  cue(b(18), 'sparkle', 0.08), // the final chord
 ];
-window.MUSIC = { file: 'rising-forest', from: 44.981, bpm: BPM, dur: window.DUR, fade: 1.4 };
+// the music is warp-music.py's track (live-music.json): laid whole from its start, the final chord fading at the end
+window.MUSIC = { file: 'mozart-k550-iv (warp-music.py, live-music.json)', from: 0, bpm: BPM, dur: window.DUR, fade: 0.9 };
 
 window.seek = (t) => frame(t);
 await Promise.all([...[500, 600, 700, 800].map((w) => document.fonts.load(`${w} 40px Estedad`, 'بئاتریس ۱۲۳ abc')), document.fonts.load('700 40px Markazi', 'بئاتریس'), document.fonts.load('800 40px Vazirmatn', '۱٬۲۳۴٫۵')]);

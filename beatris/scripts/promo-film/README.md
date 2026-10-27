@@ -14,13 +14,18 @@
   - قیمت‌ها پاسخ واقعی forgod در ۴ آبان ۱۴۰۵، ساعت ۱۶:۴۸ است. این پاسخ بیرون از مخزن نگه داشته می‌شود و کلیدی در آن نیست.
   - `stories/live-data.mjs` آن را با کد خود اپ حساب می‌کند و در `live-data.json` می‌نویسد.
   - صفحه‌ها از یک سرور نمایشی تازه گرفته می‌شوند (`stories/live-shots.mjs`). شبکه‌ی این سرور `stories/forgod-replay.mjs` است: پاسخ ذخیره‌شده را برمی‌گرداند، کلیدش ساختگی است و هیچ درخواستی به forgod نمی‌رود.
-- **موسیقی:** «Rising Forest» از Diego Nava (Mixkit، ۱۲۳٫۸ ضرب)، یک تکه‌ی پیوسته از ثانیه‌ی ۴۴٫۹۸۱.
-  - اوج آهنگ روی میزان ۱ فیلم می‌افتد و ایست و ضربه‌ی آخرش روی کارت پایانی.
-  - نسخه‌ی دوم با «Autofahren» زیر همان تصویر است (×۱٫۰۵۸۳۰۷ از ثانیه‌ی ۳۱٫۸۸۱) و در مخزن نیست.
-  - سطح هر افکت در باند خودش در برابر موسیقی تنها حل شده است.
+- **موسیقی** (آبان ۱۴۰۵، به خواست مالک): موتسارت، سمفونی شماره‌ی ۴۰ در سل مینور (K. 550)، موومان چهارم (Allegro assai).
+  - ضبط آن از Musopen است و پروانه‌ی CC0 دارد (`MusopenKickstarterRecordings` در archive.org). خود ضبط در مخزن نیست.
+  - این موومان از میان چهار ضبط CC0 موتسارت با سنجش انتخاب شد. ضربش (۱۳۱٫۷ نیم‌نت در دقیقه) به شبکه‌ی فیلم نزدیک‌تر بود و پایه‌اش از همه یکنواخت‌تر.
+  - هر جمله‌ی دومیزانی آن، موشک پیانو و پاسخ فورته به نوبت، یک میزان فیلم است.
+  - `stories/warp-music.py` هر جمله را با کش زمانی rubberband (۰٫۹۹ تا ۱٫۰۶) دقیقاً به یک میزان فیلم (۱۲۸ ضرب) می‌رساند، طبق نقشه‌ی `live-music.json`.
+  - کودای خود موومان روی کارت پایانی می‌آید و آکورد پایانی روی میزان ۱۸، با برق تاج.
+  - سطح هر افکت جدا جدا حل شده است، چون پیانو و فورته‌ی ارکستر ۲۰ dB فاصله دارند. صداهای زیروبم‌دار به سل مینور کوک شده‌اند (`p` در هر نشانه).
+  - نسخه‌ی پیشین فیلم «Rising Forest» (Mixkit) را داشت.
 - **`mix.mjs`:**
   - برای `MUSIC` بی `end` یک تکه‌ی پیوسته می‌برد؛
   - `MUSIC_FROM` و `MUSIC_TEMPO` آهنگ دیگری را زیر همان تصویر می‌گذارند؛
+  - `p` در هر نشانه صدای آن را چند نیم‌پرده جابه‌جا می‌کند (rubberband) تا با کلید موسیقی بخواند؛
   - `--music-only` نسخه‌ی بی‌افکت را می‌سازد؛
   - شروع هر افکت اکنون جایی است که ضربه‌اش آغاز می‌شود (۲۰ dB زیر اوج خودش)، نه پایان سکوت. پیش از این، pop کتابخانه ۹۰ میلی‌ثانیه دیر می‌نشست.
 - ساخت:
@@ -28,17 +33,18 @@
   FORGOD_ANSWER=…/all.json node scripts/promo-film/stories/live-shots.mjs   # صفحه‌ها و live-app.json
   FORGOD_ANSWER=…/all.json node scripts/promo-film/stories/live-data.mjs    # live-data.json
   node scripts/promo-film/stories/render.mjs live                            # و --sheet یا --stills=…
-  MUSIC=…/rising-forest.mp3 SFX=…/sfx node scripts/promo-film/stories/mix.mjs scripts/promo-film/stories/out/live-picture.mp4 out.mp4
-  MUSIC=…/autofahren.mp3 MUSIC_FROM=31.8806 MUSIC_TEMPO=1.058307 node scripts/promo-film/stories/mix.mjs …   # نسخه‌ی دوم
+  python3 -I scripts/promo-film/stories/warp-music.py …/K550-IV-Allegro-assai.mp3 scripts/promo-film/stories/live-music.json mozart.wav
+  MUSIC=mozart.wav SFX=…/sfx node scripts/promo-film/stories/mix.mjs scripts/promo-film/stories/out/live-picture.mp4 out.mp4
   ffmpeg -i out.mp4 -map 0 -c:v libx264 -preset slow -crf 20 -profile:v high -pix_fmt yuv420p -c:a copy -movflags +faststart public/media/promo/beatris-live-market.mp4
   ffmpeg -i out.mp4 -c:v libvpx-vp9 -crf 32 -b:v 0 -row-mt 1 -deadline good -cpu-used 3 -c:a libopus -b:a 128k public/media/promo/beatris-live-market.webm
   ```
 - **سنجه‌ها:**
-  - ۱۳٫۲ مگابایت، 1080p60، ۳۵٫۰۰ ثانیه؛
-  - −۱۵٫۹ LUFS با اوج واقعی −۴٫۲ dBTP؛
+  - ۱۳٫۱ مگابایت، 1080p60، ۳۵٫۰۰ ثانیه؛
+  - −۱۶٫۳ LUFS با اوج واقعی −۱٫۷ dBTP؛
   - هیچ فریم سیاه یا ایستایی ۰٫۵ ثانیه‌ای ندارد؛
   - کنتراست خط‌ها ۴٫۶:۱ یا بیشتر است؛
-  - هر ضربه‌ی صدا تا ۴ میلی‌ثانیه با رویداد تصویرش هم‌زمان است.
+  - حمله‌ی هر جمله‌ی فورته‌ی موسیقی تا ۱۷ میلی‌ثانیه (یک فریم) با خط میزانش هم‌زمان است؛
+  - هر ضربه‌ی افکت تا ۱۵ میلی‌ثانیه با رویداد تصویرش هم‌زمان است.
 
   جزئیات در spec 0051 است.
 - بازبینی را خود سازنده با برگه‌های فریم و سنجه‌ها انجام داده است. منتقد مستقل فیلم را نسنجیده و کسی آن را گوش نداده است.

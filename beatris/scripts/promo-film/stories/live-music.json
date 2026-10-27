@@ -1,0 +1,36 @@
+{
+ "music": "W. A. Mozart, Symphony No. 40 in G minor, K. 550, IV. Allegro assai — Musopen Kickstarter recording (CC0)",
+ "source": "https://archive.org/download/MusopenKickstarterRecordings/Musopen%20DVD.zip/Musopen%20DVD%2FMozart%20-%20Symphony%20No%2040%20in%20G%20Minor%20%2FSymphony%20No.%2040%20in%20G%20Minor%2C%20K.%20550%20-%20IV.%20Allegro%20assai.mp3",
+ "note": "phrases: the attack (onset) of every two-bar phrase of the movement's opening, the piano rocket and the forte answer in turn; each starts one film bar. ending: the coda's attacks one film bar apart; the last is the final chord, which lands on bar 18 with the end card's glint.",
+ "bar": 1.875,
+ "dur": 35,
+ "lead": 0.012,
+ "xfade": 0.006,
+ "phrases": [
+  0.3533,
+  2.1393,
+  3.9773,
+  5.7593,
+  7.6333,
+  9.4013,
+  11.2413,
+  13.0593,
+  14.8693,
+  16.6453,
+  18.5373,
+  20.3233,
+  22.1573,
+  23.9273,
+  25.8193,
+  27.6393,
+  29.4853
+ ],
+ "ending": {
+  "phrases": [
+   278.4753,
+   280.4073,
+   282.3113
+  ],
+  "to": 284.6
+ }
+}
