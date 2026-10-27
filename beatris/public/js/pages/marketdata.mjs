@@ -74,12 +74,12 @@ export async function marketDataPage(root) {
       </form>
       <div class="ledger" style="margin-top:12px">
         <div><span>وضعیت داده</span><span>${feed.hasReal ? 'قیمت واقعی ثبت شده است' : 'هنوز قیمتی نیست؛ صفحه بازار داده نمونه آموزشی نشان می‌دهد'}</span></div>
-        ${st ? html`<div><span>آخرین اجرای خودکار</span><span>${fa(new Date(st.at).toLocaleString('fa-IR'))} · ${st.ok ? `موفق (${fa(st.quotes)} قیمت${st.rows ? `، ${fa(st.rows)} سطر` : ''})` : `ناموفق: ${st.error ?? ''}`}</span></div>` : ''}
+        ${st ? html`<div><span>آخرین اجرای خودکار</span><span>${fa(new Date(st.at).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' }))} · ${st.ok ? `موفق (${fa(st.quotes)} قیمت${st.rows ? `، ${fa(st.rows)} سطر` : ''})` : `ناموفق: ${st.error ?? ''}`}</span></div>` : ''}
         ${st?.sources ? html`${Object.entries(st.sources).map(([k, v]) => html`<div><span>منبع ${{ abshdh: 'کانال آب‌شده (@abshdh)', chande: 'چنده (دلار و سکه)', goldprice: 'goldprice.org (انس)', forgod: 'forgod (همه قیمت‌ها)', forgod_usd: 'forgod (دلار)', forgod_18ayar: 'forgod (طلای ۱۸)', forgod_btc: 'forgod (بیت‌کوین)' }[k] ?? k}</span><span>${v === 'ok' ? '✓ دریافت شد' : `✗ ${v}`}</span></div>`)}${st.onsFrom === 'chande' ? html`<div><span>انس جهانی</span><span>از چنده (goldprice.org در دسترس نبود)</span></div>` : ''}` : ''}
         ${st?.fx ? html`<div><span>نرخ ارزها</span><span>${fa(st.fx)} ارز به‌روز شد</span></div>` : ''}
         ${st?.dropped?.length ? html`<div><span>کنار گذاشته</span><span>${st.dropped.map((id) => SYMBOL[id]?.short ?? id).join('، ')} (با قیمت دلاری خودش نمی‌خواند)</span></div>` : ''}
         ${st?.rejected?.length ? html`<div><span>ردشده به‌دلیل پرش غیرعادی</span><span>${st.rejected.map((id) => SYMBOL[id]?.short ?? id).join('، ')}</span></div>` : ''}
-        ${c.backfilled ? html`<div><span>سابقه بارگیری‌شده</span><span>${fa(new Date(c.backfilled).toLocaleDateString('fa-IR'))}</span></div>` : ''}
+        ${c.backfilled ? html`<div><span>سابقه بارگیری‌شده</span><span>${fa(new Date(c.backfilled).toLocaleDateString('fa-IR', { timeZone: 'Asia/Tehran' }))}</span></div>` : ''}
       </div>
       <details style="margin-top:12px"><summary class="small">درباره منابع و قالب فید اختصاصی</summary>
         <p class="small"><b>منابع فروشگاه</b> (پیش‌فرض): مظنه نقدی و حواله از کانال @abshdh (همان منبع اپ goldsuite-price)، دلار آزاد و سکه‌ها از چنده (میانگین خرید و فروش)، انس جهانی از goldprice.org و در نبود آن از چنده؛ گرم ۱۸ = مظنه ÷ ۴٫۳۳۱۸ و گرم ۲۴ = گرم ۱۸ × ۱۰۰۰ ÷ ۷۵۰. سابقه روزانه یک بار از جدول‌های tgju بارگیری می‌شود.</p>

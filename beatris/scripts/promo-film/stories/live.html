@@ -1,0 +1,1000 @@
+<!doctype html>
+<!-- spec 0051 «تابلوی زنده»: the live price and market, then the market's own words at the desk, in 35 s. A sarrafi LED
+     board rolls to forgod's real prices of 4 Aban 1405, 16:48 Tehran; the board becomes the app's own market page; one
+     request brings the whole market, checked before it is kept; the currency wall hands the euro to the trade desk; the
+     day's 50 requests go round a 24-hour dial; the analysis works again on the same prices; then a sentence in the
+     market's words is typed, read and booked. Cut on the bar grid of «Rising Forest» (Diego Nava, 123.83 BPM). Every
+     number comes from live-data.json: forgod's answer read by the app's own code, and what the app showed and booked.
+     window.seek(t) draws the frame at t; nothing runs on its own clock. -->
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>بئاتریس — تابلوی زنده</title>
+<style>
+  @font-face { font-family: 'Estedad'; src: url(/fonts/estedad-arabic-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-066A, U+066D-06FF, U+0750-077F, U+200C-200E, U+2010-2011, U+FB50-FDFF, U+FE70-FEFC; }
+  @font-face { font-family: 'Estedad'; src: url(/fonts/estedad-latin-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0000-00FF, U+2000-206F, U+2190-2193, U+2212; }
+  @font-face { font-family: 'Vazirmatn'; src: url(/fonts/vazirmatn-var.woff2) format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Markazi'; src: url(/fonts/markazi-arabic-700.woff2) format('woff2'); font-weight: 700; unicode-range: U+0600-06FF, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC; }
+  @font-face { font-family: 'Markazi'; src: url(/fonts/markazi-latin-700.woff2) format('woff2'); font-weight: 700; unicode-range: U+0000-00FF, U+2000-206F; }
+  :root {
+    --paper: #f4efe6; --ink: #17140f; --ink2: #4a443b; --dust: #8a8274; --hair: #e2d9c8;
+    --gold: #a97c25; --gold-hi: #e2b85a; --gold-soft: #f3e6c8; --green: #1e8a5a;
+    --led: #ffb547; --led-hot: #ffd27a; --led-dim: #8f7b55; --panel: #101215;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #000; }
+  body { font-family: 'Estedad', 'Vazirmatn', sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--paper); }
+  .bg { position: absolute; inset: 0; }
+  #paper { background: radial-gradient(120% 95% at 60% 35%, #fbf8f2 0%, #f4efe6 55%, #e8e0d2 100%); }
+  #grain { position: absolute; inset: 0; opacity: 0.32; mix-blend-mode: multiply; pointer-events: none; }
+  #ledbg { background: radial-gradient(110% 90% at 50% 40%, #1b1d22 0%, #0b0c0e 70%); }
+  .layer { position: absolute; inset: 0; visibility: hidden; }
+  .w { display: inline-block; will-change: transform, filter, opacity; }
+  .num { font-variant-numeric: proportional-nums; }
+  .ltr { direction: ltr; unicode-bidi: isolate; }
+
+  /* ------------ the LED board ------------ */
+  #ledCam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  #panel { position: absolute; left: 100px; top: 64px; width: 1720px; height: 846px; border-radius: 26px;
+    background: linear-gradient(180deg, #14171b 0%, #0e1013 100%); border: 1px solid #262a31;
+    box-shadow: 0 60px 120px -40px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.05); overflow: hidden; }
+  #panel .hd { position: absolute; left: 0; right: 0; top: 0; height: 100px; display: flex; align-items: center; justify-content: space-between; padding: 0 56px; border-bottom: 1px solid #23262c; }
+  #panel .hd b { font: 800 40px/1 'Estedad', 'Vazirmatn'; color: #efe2c4; }
+  #panel .hd span { font: 600 26px/1 'Estedad', 'Vazirmatn'; color: var(--led-dim); display: flex; align-items: center; gap: 14px; }
+  #panel .hd i { width: 14px; height: 14px; border-radius: 50%; background: #ff4f4f; box-shadow: 0 0 14px #ff4f4f; display: inline-block; }
+  #panel .unit { position: absolute; left: 86px; top: 112px; font: 600 22px/1 'Estedad', 'Vazirmatn'; color: var(--led-dim); }
+  .row { position: absolute; left: 0; right: 0; height: 184px; border-bottom: 1px solid #1d2026; }
+  .row:last-child { border-bottom: 0; }
+  .row .lab { position: absolute; right: 56px; top: 50%; transform: translateY(-50%); text-align: right; }
+  .row .lab b { display: block; font: 800 56px/1.1 'Estedad', 'Vazirmatn'; color: #f1e4c8; }
+  .row .lab small { display: block; margin-top: 8px; font: 500 25px/1.2 'Estedad', 'Vazirmatn'; color: var(--led-dim); }
+  .led { position: absolute; left: 70px; top: 50%; width: 1180px; height: 144px; margin-top: -72px; filter: drop-shadow(0 0 10px rgba(255, 181, 71, 0.55)); }
+  .led .back { position: absolute; inset: 0; background-image: radial-gradient(circle at 3.5px 3.5px, #24272d 0 2.2px, transparent 2.7px); background-size: 7px 7px; }
+  .led .face { position: absolute; inset: 0; display: flex; justify-content: flex-end; align-items: center; direction: ltr;
+    -webkit-mask-image: radial-gradient(circle at 3.5px 3.5px, #000 0 2.5px, transparent 3px); -webkit-mask-size: 7px 7px; }
+  .cell { position: relative; display: inline-block; height: var(--h); width: var(--w); overflow: hidden; }
+  .cell .strip { position: absolute; left: 0; right: 0; top: 0; display: flex; flex-direction: column; }
+  .cell .strip span { display: block; height: var(--h); line-height: var(--h); text-align: center; font: 800 var(--fs)/var(--h) 'Estedad', 'Vazirmatn'; }
+  .sep { display: inline-block; width: var(--sw); height: var(--h); line-height: var(--h); text-align: center; font: 800 var(--fs)/var(--h) 'Vazirmatn', 'Estedad'; }
+  .sym { display: inline-block; height: var(--h); line-height: var(--h); padding: 0 0.04em; font: 800 var(--fs)/var(--h) 'Estedad', 'Vazirmatn'; }
+  .led .face { color: var(--led); }
+  .led.hot .face { color: var(--led-hot); }
+
+  /* ------------ the app's screens, as cards ------------ */
+  .shot { position: absolute; border-radius: 22px; overflow: hidden; background: #fff; transform-origin: 0 0;
+    box-shadow: 0 2px 6px rgba(40, 30, 10, 0.06), 0 60px 110px -40px rgba(40, 30, 10, 0.5), 0 0 0 1px rgba(60, 45, 20, 0.1); }
+  .shot img { display: block; width: 100%; height: 100%; }
+  .ring { position: absolute; border: 5px solid var(--gold-hi); border-radius: 16px; box-shadow: 0 0 0 9px rgba(226, 184, 90, 0.22), 0 10px 30px -6px rgba(169, 124, 37, 0.5); opacity: 0; }
+  .note { position: absolute; padding: 14px 22px; border-radius: 16px; background: var(--ink); color: #fbf3df; font: 700 30px/1.25 'Estedad', 'Vazirmatn'; white-space: nowrap; opacity: 0;
+    box-shadow: 0 24px 50px -20px rgba(20, 15, 5, 0.6); }
+  .note em { font-style: normal; color: var(--gold-hi); }
+
+  /* ------------ one request ------------ */
+  .node { position: absolute; display: flex; align-items: center; gap: 18px; padding: 24px 40px; border-radius: 999px; background: #fff; border: 2px solid var(--hair);
+    font: 800 50px/1 'Estedad', 'Vazirmatn'; box-shadow: 0 20px 40px -24px rgba(40, 30, 10, 0.5); white-space: nowrap; }
+  .node small { font: 600 22px/1 'Estedad', 'Vazirmatn'; color: var(--dust); }
+  #rail { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+  .sec { position: absolute; width: 330px; height: 220px; border-radius: 26px; background: #fff; border: 2px dashed #d9cdb4; box-shadow: 0 30px 60px -34px rgba(40, 30, 10, 0.55); text-align: center; padding-top: 26px; }
+  .sec b { display: block; font: 800 96px/1 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  .sec span { display: block; margin-top: 16px; font: 700 30px/1 'Estedad', 'Vazirmatn'; color: var(--ink2); }
+  #rows { position: absolute; font: 800 40px/1 'Estedad', 'Vazirmatn'; color: var(--gold); white-space: nowrap; }
+  /* the check */
+  #chk { position: absolute; left: 0; right: 0; top: 0; height: 1080px; }
+  #chk .kick { position: absolute; left: 0; right: 0; top: 120px; text-align: center; font: 800 30px/1 'Estedad', 'Vazirmatn'; color: var(--gold); }
+  #eq { position: absolute; left: 0; right: 0; top: 196px; display: flex; justify-content: center; align-items: flex-start; gap: 22px; direction: ltr; }
+  #eq .op { text-align: center; }
+  #eq .op b { display: block; font: 800 74px/1 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  #eq .op small { display: block; margin-top: 14px; font: 600 24px/1 'Estedad', 'Vazirmatn'; color: var(--dust); direction: rtl; }
+  #eq .x { font: 700 64px/1 'Estedad', 'Vazirmatn'; color: var(--gold); padding-top: 4px; }
+  #eqr { position: absolute; left: 0; right: 0; top: 360px; text-align: center; font: 800 96px/1 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  #eqr small { font: 700 34px/1 'Estedad', 'Vazirmatn'; color: var(--dust); margin-right: 18px; }
+  #gauge { position: absolute; left: 360px; width: 1200px; top: 560px; height: 220px; }
+  #gauge .band { position: absolute; left: 0; right: 0; top: 70px; height: 34px; border-radius: 17px; background: linear-gradient(90deg, #f3d6c8, var(--gold-soft) 20%, #e8f1e0 50%, var(--gold-soft) 80%, #f3d6c8); border: 2px solid var(--hair); }
+  #gauge .mid { position: absolute; left: 600px; top: 58px; width: 2px; height: 58px; background: var(--ink2); opacity: 0.35; }
+  #gauge .edge { position: absolute; top: 122px; font: 700 26px/1 'Estedad', 'Vazirmatn'; color: var(--dust); }
+  #gauge .needle { position: absolute; left: 0; top: 38px; width: 6px; height: 98px; margin-left: -3px; border-radius: 3px; background: var(--ink); box-shadow: 0 6px 14px -4px rgba(20, 15, 5, 0.5); }
+  #gauge .val { position: absolute; top: -6px; transform: translateX(-50%); font: 800 34px/1 'Estedad', 'Vazirmatn'; color: var(--green); white-space: nowrap; }
+  #gauge .mkt { position: absolute; left: 0; right: 0; top: 168px; text-align: center; font: 700 32px/1 'Estedad', 'Vazirmatn'; color: var(--ink2); }
+  #stamp { position: absolute; left: 1350px; top: 452px; padding: 18px 34px; border: 6px solid var(--green); border-radius: 18px; color: var(--green); font: 800 58px/1 'Estedad', 'Vazirmatn'; transform-origin: 50% 50%; background: rgba(244, 239, 230, 0.85); opacity: 0; white-space: nowrap; }
+
+  /* ------------ the currency wall ------------ */
+  #wallIn { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  .tile { position: absolute; width: 312px; height: 122px; border-radius: 18px; background: linear-gradient(180deg, #16191d, #0f1114); border: 1px solid #262a31; color: #f1e4c8; transform-origin: 50% 0;
+    box-shadow: 0 20px 40px -26px rgba(0, 0, 0, 0.7); }
+  .tile .n { position: absolute; right: 22px; top: 18px; font: 700 28px/1 'Estedad', 'Vazirmatn'; }
+  .tile .c { position: absolute; left: 22px; top: 20px; font: 600 20px/1 'Estedad', 'Vazirmatn'; color: var(--led-dim); letter-spacing: 0.04em; }
+  .tile .p { position: absolute; left: 20px; right: 20px; bottom: 16px; height: 50px; display: flex; justify-content: flex-start; align-items: center; direction: ltr; color: var(--led); }
+  .tile .per { position: absolute; right: 22px; bottom: 22px; font: 600 20px/1 'Estedad', 'Vazirmatn'; color: var(--led-dim); }
+  #fly { position: absolute; left: 0; top: 0; visibility: hidden; z-index: 30; }
+
+  /* ------------ the dial ------------ */
+  #dialSvg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+  #dialC { position: absolute; text-align: center; }
+  #dialC b { display: block; font: 800 150px/1 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  #dialC span { display: block; margin-top: 6px; font: 700 32px/1 'Estedad', 'Vazirmatn'; color: var(--ink2); }
+  .fact { position: absolute; right: 1050px; width: 760px; display: flex; align-items: center; gap: 22px; justify-content: flex-start; font: 800 46px/1.2 'Estedad', 'Vazirmatn'; color: var(--ink); white-space: nowrap; }
+  .fact i { flex: none; width: 22px; height: 22px; border-radius: 50%; }
+  .coins { display: inline-flex; gap: 8px; margin-right: 6px; }
+  .coins em { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff2c7, #d9a845 55%, #8f6517); box-shadow: 0 4px 8px -2px rgba(80, 55, 10, 0.5); display: inline-block; }
+
+  /* ------------ the analysis ------------ */
+  #tagA { position: absolute; left: 0; right: 0; top: 112px; display: flex; justify-content: center; }
+  #tagA span { display: inline-flex; align-items: center; gap: 16px; padding: 16px 30px; border-radius: 999px; background: var(--gold-soft); border: 2px solid #e6cf9b; font: 700 32px/1 'Estedad', 'Vazirmatn'; color: #6d4f15; }
+  #anchor { position: absolute; right: 150px; top: 270px; width: 600px; text-align: right; }
+  #anchor small { display: block; font: 700 34px/1 'Estedad', 'Vazirmatn'; color: var(--ink2); }
+  #anchor b { display: block; margin-top: 18px; font: 800 104px/1 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  #anchor span { display: block; margin-top: 14px; font: 600 28px/1 'Estedad', 'Vazirmatn'; color: var(--dust); }
+  #mz { position: absolute; right: 150px; top: 560px; display: inline-flex; gap: 16px; align-items: baseline; padding: 18px 26px; border-radius: 20px; background: #fff; border: 2px solid var(--hair); box-shadow: 0 24px 48px -30px rgba(40, 30, 10, 0.55); white-space: nowrap; }
+  #mz small { font: 700 30px/1 'Estedad', 'Vazirmatn'; color: var(--ink2); }
+  #mz b { font: 800 50px/1 'Estedad', 'Vazirmatn'; }
+  .acard { position: absolute; left: 150px; width: 820px; height: 168px; border-radius: 26px; background: #fff; border: 2px solid var(--hair); box-shadow: 0 30px 60px -36px rgba(40, 30, 10, 0.6); }
+  .acard small { position: absolute; right: 34px; top: 30px; font: 700 30px/1 'Estedad', 'Vazirmatn'; color: var(--ink2); }
+  .acard b { position: absolute; right: 34px; bottom: 26px; font: 800 64px/1 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  .acard em { position: absolute; left: 30px; bottom: 34px; padding: 10px 18px; border-radius: 999px; font: 700 27px/1 'Estedad', 'Vazirmatn'; font-style: normal; background: #eef5ea; color: var(--green); white-space: nowrap; }
+  .acard em.g { background: var(--gold-soft); color: #6d4f15; }
+  #links { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+
+  /* ------------ the market's words ------------ */
+  #bar { position: absolute; left: 160px; top: 250px; width: 1600px; height: 124px; border-radius: 28px; background: #fff; border: 2px solid #e6cf9b; box-shadow: 0 0 0 10px rgba(226, 184, 90, 0.12), 0 40px 80px -40px rgba(40, 30, 10, 0.6); }
+  #bar .k { position: absolute; right: 36px; top: 34px; font: 700 52px/1 'Estedad', 'Vazirmatn'; color: var(--gold); }
+  #bar .txt { position: absolute; right: 112px; left: 40px; top: 0; height: 124px; display: flex; align-items: center; gap: 0; font: 700 44px/1 'Estedad', 'Vazirmatn'; color: var(--ink); white-space: nowrap; overflow: hidden; }
+  #bar .txt .tw { display: inline-block; }
+  #bar .caret { display: inline-block; width: 4px; height: 56px; background: var(--gold); margin-right: 6px; border-radius: 2px; }
+  #chips { position: absolute; left: 160px; right: 160px; top: 410px; display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 14px 14px; }
+  .chip { position: relative; display: inline-flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 22px 16px; border-radius: 18px; background: #fff; border: 2px solid var(--hair); box-shadow: 0 16px 30px -22px rgba(40, 30, 10, 0.5); }
+  .chip small { font: 600 21px/1 'Estedad', 'Vazirmatn'; color: var(--dust); }
+  .chip b { font: 800 36px/1 'Estedad', 'Vazirmatn'; color: var(--ink); white-space: nowrap; }
+  .chip.mode { border-color: #bfd8c9; } .chip.mode b { color: var(--green); }
+  .chip.offset, .chip.price { border-color: #e6cf9b; background: #fffaf0; }
+  .chip.commit { border-color: #bfd8c9; background: #f3faf5; }
+  #price { position: absolute; left: 160px; right: 160px; top: 600px; text-align: center; font: 800 46px/1.35 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  #price small { display: block; font: 600 26px/1 'Estedad', 'Vazirmatn'; color: var(--dust); margin-top: 12px; }
+  #lineCard { position: absolute; left: 360px; right: 360px; top: 740px; height: 132px; border-radius: 26px; background: var(--ink); color: #fbf3df; display: flex; align-items: center; justify-content: space-between; padding: 0 44px;
+    box-shadow: 0 40px 70px -36px rgba(20, 15, 5, 0.7); }
+  #lineCard span { font: 700 34px/1.2 'Estedad', 'Vazirmatn'; }
+  #lineCard b { font: 800 56px/1 'Estedad', 'Vazirmatn'; color: var(--gold-hi); white-space: nowrap; }
+  #enter { position: absolute; left: 196px; top: 286px; padding: 12px 20px; border-radius: 14px; background: var(--gold-soft); border: 2px solid #d7b46a; border-bottom-width: 6px; font: 800 30px/1 'Estedad', 'Vazirmatn'; color: #6d4f15; opacity: 0; }
+
+  /* ------------ the receipt ------------ */
+  #rcShot { position: absolute; border-radius: 18px; overflow: hidden; background: #fff; transform-origin: 50% 0;
+    box-shadow: 0 2px 6px rgba(40, 30, 10, 0.06), 0 60px 110px -40px rgba(40, 30, 10, 0.55), 0 0 0 1px rgba(60, 45, 20, 0.1); }
+  #rcShot img { display: block; width: 100%; height: 100%; }
+  #rcText { position: absolute; left: 150px; top: 250px; width: 860px; text-align: right; }
+  #rcText h2 { margin: 0; font: 700 132px/1.05 'Markazi', 'Estedad'; color: var(--green); }
+  #rcText .lab { margin-top: 40px; font: 700 30px/1 'Estedad', 'Vazirmatn'; color: var(--dust); }
+  #rcText .trk { margin-top: 14px; font: 800 76px/1 'Estedad', 'Vazirmatn'; color: var(--ink); direction: ltr; text-align: right; }
+  #rcText .amt { margin-top: 34px; font: 800 52px/1.2 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  #rcText .amt small { font: 700 30px/1 'Estedad', 'Vazirmatn'; color: var(--dust); margin-right: 12px; }
+
+  /* ------------ the end card ------------ */
+  #crownBox { position: absolute; left: 810px; top: 110px; width: 300px; height: 300px; }
+  #crownBox svg { width: 300px; height: 300px; overflow: visible; }
+  #endName { position: absolute; left: 0; right: 0; top: 410px; text-align: center; font: 700 170px/1 'Markazi', 'Estedad'; color: var(--ink); }
+  #endTag { position: absolute; left: 0; right: 0; top: 625px; text-align: center; font: 800 54px/1.25 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  #endTag em { font-style: normal; color: #8a6414; }
+  #endCta { position: absolute; left: 0; right: 0; top: 742px; display: flex; justify-content: center; gap: 18px; }
+  #endCta span { padding: 14px 26px; border-radius: 999px; background: #fff; border: 2px solid #e6cf9b; font: 700 32px/1 'Estedad', 'Vazirmatn'; color: #6d4f15; }
+  #endUrl { position: absolute; left: 0; right: 0; top: 840px; text-align: center; direction: ltr; font: 700 38px/1 'Estedad', 'Vazirmatn'; color: var(--ink); }
+  #endFine { position: absolute; left: 80px; right: 80px; bottom: 34px; display: flex; justify-content: space-between; gap: 40px; font: 500 17px/1.5 'Estedad', 'Vazirmatn'; color: #6b6457; }
+  #endFine .en { direction: ltr; text-align: left; }
+  #glint { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; mix-blend-mode: soft-light; }
+
+  /* ------------ the persistent bits ------------ */
+  #src { position: absolute; left: 72px; top: 30px; display: flex; align-items: center; gap: 12px; font: 600 24px/1 'Estedad', 'Vazirmatn'; white-space: nowrap; z-index: 40; }
+  #src i { width: 10px; height: 10px; border-radius: 50%; background: #ff4f4f; display: inline-block; }
+  #cap { position: absolute; left: 0; right: 0; top: 942px; display: flex; justify-content: center; z-index: 50; }
+  #cap .pill { position: relative; padding: 16px 44px 20px; border-radius: 999px; background: rgba(251, 248, 242, 0.96); border: 2px solid #e6cf9b;
+    box-shadow: 0 20px 40px -24px rgba(20, 15, 5, 0.55); font: 700 54px/1.15 'Markazi', 'Estedad'; color: var(--ink); white-space: nowrap; visibility: hidden; }
+  #cap .pill em { font-style: normal; color: #8a6414; } /* the gold of the lines, dark enough to read at 4.5:1 on the pill */
+  #caps { position: relative; height: 92px; }
+  #caps .pill { position: absolute; left: 50%; transform: translateX(-50%); top: 0; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position: absolute">
+  <defs>
+    <filter id="vb1" x="-5%" y="-60%" width="110%" height="220%"><feGaussianBlur stdDeviation="0 2" /></filter>
+    <filter id="vb2" x="-5%" y="-60%" width="110%" height="220%"><feGaussianBlur stdDeviation="0 4" /></filter>
+    <filter id="vb3" x="-5%" y="-60%" width="110%" height="220%"><feGaussianBlur stdDeviation="0 7" /></filter>
+    <filter id="vb4" x="-5%" y="-60%" width="110%" height="220%"><feGaussianBlur stdDeviation="0 11" /></filter>
+    <filter id="vb5" x="-5%" y="-60%" width="110%" height="220%"><feGaussianBlur stdDeviation="0 16" /></filter>
+    <filter id="vb6" x="-5%" y="-60%" width="110%" height="220%"><feGaussianBlur stdDeviation="0 22" /></filter>
+    <filter id="hb" x="-20%" y="-5%" width="140%" height="110%"><feGaussianBlur id="hbS" stdDeviation="0 0" /></filter>
+  </defs>
+</svg>
+<div id="root">
+  <div id="paper" class="bg"></div>
+  <svg id="grain" viewBox="0 0 1920 1080" preserveAspectRatio="none"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="51" /><feColorMatrix values="0 0 0 0 0.45  0 0 0 0 0.38  0 0 0 0 0.28  0 0 0 0.16 0" /></filter><rect width="1920" height="1080" filter="url(#gr)" /></svg>
+  <div id="ledbg" class="bg"></div>
+
+  <!-- S1–S2: the board -->
+  <div id="led" class="layer"><div id="ledCam"><div id="panel"></div></div></div>
+  <!-- S3: the app's own market page -->
+  <div id="app1" class="layer"><div class="shot" id="mk"><img src="shots-live/market-top.png" alt="" /></div></div>
+  <!-- S4–S5: one request, then the check -->
+  <div id="req" class="layer">
+    <svg id="rail" viewBox="0 0 1920 1080"></svg>
+    <div class="node" id="nFg"><span class="ltr">forgod.qzz.io</span></div>
+    <div class="node" id="nApp"></div>
+    <div id="rows"></div>
+    <div id="secs"></div>
+    <div id="chk">
+      <div class="kick">پیش از ثبت، سنجیده</div>
+      <div id="eq"></div>
+      <div id="eqr"></div>
+      <div id="gauge"><div class="band"></div><div class="mid"></div><div class="needle"></div><div class="val"></div><div class="edge" style="left: -10px">−۲۵٪</div><div class="edge" style="right: -10px">+۲۵٪</div><div class="mkt"></div></div>
+      <div id="stamp">✓ سنجیده شد</div>
+    </div>
+  </div>
+  <!-- S6: the currency wall -->
+  <div id="wall" class="layer"><div id="wallIn"></div></div>
+  <!-- S7: the desk -->
+  <div id="desk" class="layer"><div class="shot" id="dk"><img src="shots-live/desk-euro.png" alt="" /></div><div class="note" id="eurNote"></div></div>
+  <div id="fly"></div>
+  <!-- S8: the day's requests -->
+  <div id="dial" class="layer"><svg id="dialSvg" viewBox="0 0 1920 1080"></svg><div id="dialC"><b class="num">۵۰</b><span>درخواست در روز</span></div><div id="facts"></div></div>
+  <!-- S9: the analysis -->
+  <div id="ana" class="layer"><svg id="links" viewBox="0 0 1920 1080"></svg><div id="tagA"><span></span></div><div id="anchor"></div><div id="cards"></div><div id="mz"></div></div>
+  <!-- S10–S11: the market's words -->
+  <div id="cmd" class="layer"><div id="bar"><div class="k">⌘</div><div class="txt"></div></div><div id="enter">Enter</div><div id="chips"></div><div id="price"></div><div id="lineCard"></div></div>
+  <!-- S12: booked -->
+  <div id="rc" class="layer"><div id="rcShot"><img src="shots-live/desk-receipt-card.png" alt="" /><div class="ring" id="rTrack"></div></div><div id="rcText"></div></div>
+  <!-- S13: the end card -->
+  <div id="end" class="layer"><div id="crownBox"></div><div id="endName">بئاتریس</div><div id="endTag"></div><div id="endCta"></div><div id="endUrl">beatris-6u77.onrender.com</div><div id="endFine"></div><canvas id="glint" width="1920" height="1080"></canvas></div>
+
+  <div id="src"><i></i><span></span></div>
+  <div id="cap"><div id="caps"></div></div>
+</div>
+<script type="module">
+import { prog, ease, lerp, clamp01, fa, css, rng, $, $$, words, readTime } from './kit.mjs';
+import { crownSvg } from '/js/crown.mjs';
+
+const D = await fetch('./live-data.json').then((r) => r.json());
+/* ---------------- the grid: «Rising Forest», 123.826 BPM; the film starts on the downbeat of the track's build bar ---------------- */
+const BPM = 123.826, BAR = 240 / BPM, BEAT = BAR / 4;
+const b = (n) => n * BAR;
+window.DUR = 35;
+const E = { ...ease, back: (x) => { const c1 = 1.15, c3 = c1 + 1; return 1 + c3 * (x - 1) ** 3 + c1 * (x - 1) ** 2; } };
+const P = (s) => String(s).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+const money = (n) => fa(Math.round(n));
+const pct = (x, d = 1) => `${x >= 0 ? '+' : '−'}${fa(Math.abs(x * 100), { dec: d })}٪`;
+const hhmm = P(D.source.tehran);
+const [jy, jm, jd] = D.source.jalali;
+const MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+const dayFa = `${P(jd)} ${MONTHS[jm - 1]} ${P(jy)}`;
+const show = (el, a) => {
+  el.style.visibility = a > 0.001 ? 'visible' : 'hidden';
+  el.style.opacity = Math.min(1, Math.max(0, a)).toFixed(3);
+};
+const win = (t, t0, t1, din = 0.3, dout = 0.3, ei = ease.out, eo = ease.in) => (t < t0 || t > t1 ? 0 : Math.min(prog(t, t0, t0 + din, ei), 1 - prog(t, t1 - dout, t1, eo)));
+/** a camera over a 1920 × 1080 world: keys [{t, x, y, s}] eased between, applied as translate + scale */
+function cam(el, t, keys, e = E.expoInOut) {
+  let a = keys[0], z = keys[keys.length - 1];
+  for (let i = 0; i < keys.length - 1; i++) if (t >= keys[i].t && t <= keys[i + 1].t) (a = keys[i]), (z = keys[i + 1]);
+  const k = t <= keys[0].t ? 0 : t >= keys[keys.length - 1].t ? 1 : (a.e ?? e)(clamp01((t - a.t) / Math.max(1e-6, z.t - a.t)));
+  const x = lerp(a.x, z.x, k), y = lerp(a.y, z.y, k), s = lerp(a.s, z.s, k);
+  css(el, { transform: `translate(${(960 - x * s).toFixed(2)}px, ${(540 - y * s).toFixed(2)}px) scale(${s.toFixed(5)})` });
+  return { x, y, s };
+}
+
+/* ---------------- rolling digits (an odometer: the digit strip turns, eases past its mark, settles) ---------------- */
+const DIG = '۰۱۲۳۴۵۶۷۸۹';
+function digitsInto(host, text, { h, w, fs, sw, seed }) {
+  const r = rng(seed);
+  host.style.setProperty('--h', `${h}px`);
+  host.style.setProperty('--w', `${w}px`);
+  host.style.setProperty('--fs', `${fs}px`);
+  host.style.setProperty('--sw', `${sw}px`);
+  const cells = [];
+  for (const ch of text) {
+    const d = DIG.indexOf(ch);
+    if (d < 0) {
+      const s = document.createElement('span');
+      s.className = ch === '٬' || ch === '٫' ? 'sep' : 'sym';
+      s.textContent = ch;
+      host.append(s);
+      continue;
+    }
+    const c = document.createElement('span');
+    c.className = 'cell';
+    c.innerHTML = `<span class="strip">${[...DIG, DIG[0]].map((x) => `<span>${x}</span>`).join('')}</span>`;
+    host.append(c);
+    cells.push({ strip: c.firstChild, d, from: Math.floor(r() * 10), turns: 1 + Math.floor(r() * 2), h });
+  }
+  return cells;
+}
+/** every cell of a number between t0 and its own landing; landings spread right (last digit) to left, or as given */
+function roll(cells, t, { t0, t1, spread = 0.35, order = 'rtl', blur = true }) {
+  const n = cells.length;
+  cells.forEach((c, i) => {
+    const rank = order === 'rtl' ? n - 1 - i : i;
+    const land = t1 - spread * (rank / Math.max(1, n - 1));
+    const at = (x) => {
+      const k = prog(x, t0, land, E.back);
+      const total = c.turns * 10 + ((c.d - c.from + 10) % 10);
+      return c.from + total * k;
+    };
+    const pos = at(t);
+    const idx = ((pos % 10) + 10) % 10;
+    c.strip.style.transform = `translateY(${(-idx * c.h).toFixed(2)}px)`;
+    if (blur) {
+      const v = Math.abs(at(t) - at(t - 1 / 120)) * 120; // digits per second
+      const lvl = v < 4 ? 0 : v < 9 ? 1 : v < 15 ? 2 : v < 22 ? 3 : v < 30 ? 4 : v < 40 ? 5 : 6;
+      c.strip.style.filter = lvl ? `url(#vb${lvl})` : 'none';
+    }
+  });
+}
+
+/* ---------------- S1–S2: the board ---------------- */
+const B = D.board;
+$('#panel').innerHTML = `<div class="hd"><b>تابلوی زنده‌ی بازار</b><span><i></i><span class="ltr">forgod.qzz.io</span> · ساعت ${hhmm}</span></div><div class="unit">تومان</div>`;
+const ROWS = [
+  { lab: 'دلار', sub: 'دلار آزاد', v: fa(B.usd), seed: 11 },
+  { lab: 'طلای ۱۸ عیار', sub: 'هر گرم', v: fa(B.geram18), seed: 12, hot: true },
+  { lab: 'بیت‌کوین', sub: `${fa(B.btcUsd, { dec: 2 })} دلار`, v: fa(B.btc), seed: 13 },
+  { lab: 'ارزها', sub: '۲۴ ارز و تتر', v: fa(D.fx.length), seed: 14 },
+];
+ROWS.forEach((R, i) => {
+  const row = document.createElement('div');
+  row.className = 'row';
+  css(row, { top: `${100 + i * 186}px` });
+  row.innerHTML = `<div class="lab"><b>${R.lab}</b><small>${R.sub}</small></div><div class="led ${R.hot ? 'hot' : ''}"><div class="back"></div><div class="face"></div></div>`;
+  $('#panel').append(row);
+  const long = R.v.length > 11;
+  R.face = row.querySelector('.face');
+  R.cells = digitsInto(R.face, R.v, long ? { h: 128, w: 74, fs: 150, sw: 26, seed: R.seed } : { h: 136, w: 84, fs: 162, sw: 30, seed: R.seed });
+});
+
+/* ---------------- S3: the app's market page ---------------- */
+const BX = D.desk && (await fetch('./live-app.json').then((r) => r.json())).boxes;
+const MK = { x: 160, y: 70, w: 1600, h: 900 }, K = MK.w / 1920;
+css($('#mk'), { left: `${MK.x}px`, top: `${MK.y}px`, width: `${MK.w}px`, height: `${MK.h}px` });
+const ringAt = (host, bx, pad = 8, k = K) => {
+  const r = document.createElement('div');
+  r.className = 'ring';
+  css(r, { left: `${(bx.x - pad) * k}px`, top: `${(bx.y - pad) * k}px`, width: `${(bx.w + 2 * pad) * k}px`, height: `${(bx.h + 2 * pad) * k}px` });
+  host.append(r);
+  return r;
+};
+const r18 = ringAt($('#mk'), BX['market-top'].geram18), rBtc = ringAt($('#mk'), BX['market-top'].btc), rFx = ringAt($('#mk'), BX['market-top'].fx, 10);
+
+/* ---------------- S4–S5: one request, the check ---------------- */
+const FG = { x: 1440, y: 330 }, APP = { x: 470, y: 330 };
+$('#nApp').innerHTML = `${crownSvg({ size: 64, ring: false, id: 'na' })}<span>بئاتریس</span>`;
+const rail = $('#rail');
+rail.innerHTML = `<defs><linearGradient id="gl" x1="0" x2="1"><stop offset="0" stop-color="#e2b85a" stop-opacity="0" /><stop offset=".55" stop-color="#e2b85a" /><stop offset="1" stop-color="#fff3cf" /></linearGradient></defs>
+  <path id="rl" d="M ${FG.x - 190} ${FG.y} L ${APP.x + 170} ${APP.y}" stroke="#d9cdb4" stroke-width="4" fill="none" stroke-linecap="round" />
+  <path id="rq" d="M ${APP.x + 170} ${APP.y} L ${FG.x - 190} ${FG.y}" stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round" />
+  <path id="ra" d="M ${FG.x - 190} ${FG.y} L ${APP.x + 170} ${APP.y}" stroke="url(#gl)" stroke-width="12" fill="none" stroke-linecap="round" />
+  ${[0, 1, 2, 3].map((i) => `<path class="fan" d="" stroke="#e2b85a" stroke-width="5" fill="none" stroke-linecap="round" />`).join('')}`;
+const RL = Math.hypot(FG.x - 190 - (APP.x + 170), 0);
+const SECS = [
+  { n: D.source.sections.currencies, l: 'ارز', x: 1335 },
+  { n: D.source.sections.gold, l: 'طلا و سکه', x: 955 },
+  { n: D.source.sections.bubbles, l: 'حباب سکه', x: 575 },
+  { n: D.source.sections.crypto, l: 'رمزارز', x: 195 },
+];
+SECS.forEach((s) => {
+  s.el = document.createElement('div');
+  s.el.className = 'sec';
+  css(s.el, { left: `${s.x}px`, top: '560px' });
+  s.el.innerHTML = `<b class="num">${fa(s.n)}</b><span>${s.l}</span>`;
+  $('#secs').append(s.el);
+});
+const ROWS_TOTAL = SECS.reduce((a, s) => a + s.n, 0);
+$('#rows').innerHTML = `یک درخواست · <span class="ltr">/api/all</span> · ${fa(ROWS_TOTAL)} ردیف`;
+css($('#rows'), { left: '0', right: '0', top: `${FG.y - 92}px`, 'text-align': 'center' });
+// the check: the 18k gram against ounce × dollar, as forgod's answer is read (spec 0049)
+const OPS = [
+  { v: fa(B.ons, { dec: 2 }), l: 'انس (دلار)' },
+  { x: '÷' },
+  { v: '۳۱٫۱۰۳۵', l: 'گرم در هر انس' },
+  { x: '×' },
+  { v: '۰٫۷۵', l: 'عیار ۱۸' },
+  { x: '×' },
+  { v: fa(B.usd), l: 'دلار (تومان)' },
+];
+$('#eq').innerHTML = OPS.map((o) => (o.x ? `<div class="x">${o.x}</div>` : `<div class="op"><b class="num">${o.v}</b><small>${o.l}</small></div>`)).join('');
+$('#eqr').innerHTML = `≈ <span class="num" style="display:inline-block">${money(D.check.fair18)}</span><small>ارزش جهانی هر گرم ۱۸</small>`;
+$('#gauge .mkt').innerHTML = `طلای ۱۸ بازار: <b class="num">${fa(B.geram18)}</b> تومان`;
+$('#gauge .val').textContent = `${pct(D.check.gap)} فاصله`;
+
+/* ---------------- S6: the currency wall ---------------- */
+const TW = 312, TH = 122, GX = 18, GY = 18, WX = 1920 - 144 - TW, WY = 132; // the first tile at the top right
+const TILES = D.fx.map((r, i) => {
+  const col = i % 5, row = Math.floor(i / 5);
+  const el = document.createElement('div');
+  el.className = 'tile';
+  const x = WX - col * (TW + GX), y = WY + row * (TH + GY);
+  css(el, { left: `${x}px`, top: `${y}px` });
+  el.innerHTML = `<div class="n">${r.name}</div><div class="c">${r.code}</div><div class="p"></div>${r.per !== 1 ? `<div class="per">هر ${fa(r.per)}</div>` : ''}`;
+  $('#wallIn').append(el);
+  const cells = digitsInto(el.querySelector('.p'), fa(r.p), { h: 50, w: 30, fs: 46, sw: 13, seed: 100 + i });
+  return { ...r, el, x, y, col, row, cells };
+});
+const EUR = TILES.find((x) => x.code === 'EUR');
+
+/* ---------------- S7: the desk, and the euro flying into its rate field ---------------- */
+const DK = { x: 120, y: 48, w: 1680, h: 945 }, KD = DK.w / 1920;
+css($('#dk'), { left: `${DK.x}px`, top: `${DK.y}px`, width: `${DK.w}px`, height: `${DK.h}px` });
+const RATE = BX['desk-euro'].rate;
+const rRate = ringAt($('#dk'), RATE, 8, KD);
+$('#eurNote').innerHTML = `یورو ${fa(EUR.p)} تومان × ۱۰ = <em>${fa(D.desk.euroRate)} ریال</em>`;
+const fly = $('#fly');
+fly.innerHTML = EUR.el.outerHTML;
+const flyTile = fly.firstChild;
+const flyCells = (() => {
+  const host = flyTile.querySelector('.p');
+  host.innerHTML = '';
+  return digitsInto(host, fa(EUR.p), { h: 50, w: 30, fs: 46, sw: 13, seed: 999 });
+})();
+roll(flyCells, 99, { t0: 0, t1: 1, blur: false });
+
+/* ---------------- S8: the dial of the day's requests ---------------- */
+const DC = { x: 1340, y: 470, r: 330 };
+const ang = (min) => (min / 1440) * Math.PI * 2 - Math.PI / 2; // midnight at the top, clockwise
+const pt = (min, r) => [DC.x + Math.cos(ang(min)) * r, DC.y + Math.sin(ang(min)) * r];
+{
+  const arc = (m0, m1, r) => {
+    const [x0, y0] = pt(m0, r), [x1, y1] = pt(m1, r);
+    return `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${m1 - m0 > 720 ? 1 : 0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  };
+  const hours = Array.from({ length: 24 }, (_, h) => {
+    const [x0, y0] = pt(h * 60, DC.r + 18), [x1, y1] = pt(h * 60, DC.r + (h % 6 ? 30 : 42));
+    return `<line x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="#b8ad98" stroke-width="${h % 6 ? 2 : 4}" />`;
+  }).join('');
+  const labels = [0, 6, 9, 12, 18, 22].map((h) => {
+    const [x, y] = pt(h * 60, DC.r + 82);
+    return `<text x="${x.toFixed(1)}" y="${(y + 12).toFixed(1)}" text-anchor="middle" font-family="Estedad, Vazirmatn" font-weight="${h === 9 || h === 22 ? 800 : 600}" font-size="${h === 9 || h === 22 ? 36 : 30}" fill="${h === 9 || h === 22 ? '#a97c25' : '#8a8274'}">${fa(h)}</text>`;
+  }).join('');
+  const ticks = [...D.budget.day.map((m) => ({ m, day: true })), ...D.budget.night.map((m) => ({ m, day: false }))].sort((a, z) => a.m - z.m);
+  const tickSvg = ticks.map((k, i) => {
+    const [x0, y0] = pt(k.m, DC.r - 48), [x1, y1] = pt(k.m, DC.r - 12);
+    return `<line class="tk" data-m="${k.m}" data-day="${k.day ? 1 : 0}" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="${k.day ? '#c9973a' : '#2c3440'}" stroke-width="${k.day ? 7 : 9}" stroke-linecap="round" />`;
+  }).join('');
+  $('#dialSvg').innerHTML = `<circle cx="${DC.x}" cy="${DC.y}" r="${DC.r}" fill="#fffdf8" stroke="#e2d9c8" stroke-width="2" />
+    <path d="${arc(540, 1320, DC.r - 30)}" stroke="#f3e6c8" stroke-width="56" fill="none" />
+    ${hours}${labels}${tickSvg}
+    <line id="hand" x1="${DC.x}" y1="${DC.y}" x2="${DC.x}" y2="${DC.y - DC.r + 8}" stroke="#17140f" stroke-width="6" stroke-linecap="round" />
+    <circle id="handTip" cx="${DC.x}" cy="${DC.y - DC.r + 8}" r="12" fill="#e2b85a" stroke="#17140f" stroke-width="3" />
+    <circle cx="${DC.x}" cy="${DC.y}" r="14" fill="#17140f" />`;
+  css($('#dialC'), { left: `${DC.x - 200}px`, top: `${DC.y - 40}px`, width: '400px' });
+}
+const FACTS = [
+  { html: `<i style="background:#c9973a"></i><span>هر ${fa(D.budget.dayEvery)} دقیقه، ${fa(9)} تا ${fa(22)}</span>` },
+  { html: `<i style="background:#2c3440"></i><span>شب‌ها هر ${fa(D.budget.nightEvery)} دقیقه</span>` },
+  { html: `<span class="coins">${'<em></em>'.repeat(D.budget.reserve)}</span><span>${fa(D.budget.reserve)} درخواست برای دستی</span>` },
+];
+FACTS.forEach((f, i) => {
+  f.el = document.createElement('div');
+  f.el.className = 'fact';
+  css(f.el, { top: `${330 + i * 118}px` });
+  f.el.innerHTML = f.html;
+  $('#facts').append(f.el);
+});
+
+/* ---------------- S9: the analysis on the same prices ---------------- */
+const A = D.analysis;
+$('#tagA span').innerHTML = `${crownSvg({ size: 34, ring: false, id: 'ta' })}<span>بر پایه قیمت زنده امروز (forgod، ساعت ${hhmm})</span>`;
+$('#anchor').innerHTML = `<small>طلای ۱۸ عیار، همین حالا</small><b class="num">${fa(B.geram18)}</b><span>تومان · ${dayFa}</span>`;
+$('#mz').innerHTML = `<small>مظنه</small><b class="num">${fa(B.mesghal)}</b><small>تومان</small>`;
+const CARDS = [
+  { l: 'ارزش طلای ۱۸ از انس × دلار', v: money(D.check.fair18), e: `حباب ${pct(D.check.gap)}`, g: false },
+  { l: 'دلار مستتر در مظنه', v: money(A.hiddenUsd), e: `دلار بازار ${fa(B.usd)}`, g: true },
+  { l: 'حباب سکه امامی', v: pct(A.emamiGap), e: `طلای سکه ${money(A.emamiGold)}`, g: true },
+];
+CARDS.forEach((c, i) => {
+  c.el = document.createElement('div');
+  c.el.className = 'acard';
+  css(c.el, { top: `${270 + i * 196}px` });
+  c.el.innerHTML = `<small>${c.l}</small><b class="num" style="display:flex; direction:ltr; align-items:center"></b><em class="${c.g ? 'g' : ''}">${c.e}</em>`;
+  $('#cards').append(c.el);
+  c.cells = digitsInto(c.el.querySelector('b'), c.v, { h: 70, w: 39, fs: 64, sw: 16, seed: 300 + i });
+});
+$('#links').innerHTML = CARDS.map((_, i) => `<path class="lk" d="M 1160 ${370} C 1080 ${370}, 1060 ${354 + i * 196}, 975 ${354 + i * 196}" stroke="#e2b85a" stroke-width="4" fill="none" stroke-linecap="round" />`).join('');
+
+/* ---------------- S10–S11: the market's words ---------------- */
+const LINE = D.line;
+const faText = (t) => P(String(t).replace(/(\d)\.(\d)/g, '$1٫$2'));
+const ROLE = { offset: 'فاصله از مظنه', commit: 'ثبت', mode: 'نوع', party: 'مشتری', kind: 'کالا', coin: 'سکه', weight: 'وزن', fineness: 'عیار', price: 'قیمت', pay: 'پرداخت' };
+const PARTS = LINE.parts.map((p) => ({ ...p, fa: faText(p.text) }));
+// the sentence as typed: its words, in order, each belonging to one part
+const typed = faText(LINE.text).split(' ');
+$('#bar .txt').innerHTML = `${typed.map((w) => `<span class="tw">${w}&nbsp;</span>`).join('')}<span class="caret"></span>`;
+// the word of the typed sentence each part ends on (the parts come in the sentence's order)
+const PART_END = [];
+{
+  let cur = 0;
+  for (const p of PARTS) {
+    const last = p.fa.split(' ').at(-1);
+    let j = typed.indexOf(last, cur);
+    if (j < 0) j = Math.min(typed.length - 1, cur);
+    PART_END.push(j);
+    cur = j + 1;
+  }
+}
+$('#chips').innerHTML = PARTS.map((p) => `<div class="chip ${p.role}"><small>${ROLE[p.role] ?? ''}</small><b>${p.fa}</b></div>`).join('');
+$('#price').innerHTML = `مظنه <span class="num">${fa(LINE.base)}</span> (بازار) − ۲۰ خط (${fa(-LINE.offset)}) = <span class="num">${fa(LINE.mazaneh)}</span> ریال<small>مظنه از تابلوی بازار، همان قیمت زنده</small>`;
+const ln = D.desk.doc.calc.lines[0];
+$('#lineCard').innerHTML = `<span>خرید آبشده · ${faText(String(ln.weight))} گرم · عیار ${fa(ln.fineness)}</span><b>${fa(ln.value)} ریال</b>`;
+
+/* ---------------- S12: booked ---------------- */
+const RC = { x: 1230, y: 104, w: 480, h: Math.round(480 * (994 / 628)) };
+css($('#rcShot'), { left: `${RC.x}px`, top: `${RC.y}px`, width: `${RC.w}px`, height: `${RC.h}px` });
+{
+  const rb = BX['desk-receipt'].receipt, tb = BX['desk-receipt'].track, k = RC.w / rb.w;
+  css($('#rTrack'), { left: `${(tb.x - rb.x - 6) * k}px`, top: `${(tb.y - rb.y - 6) * k}px`, width: `${(tb.w + 12) * k}px`, height: `${(tb.h + 12) * k}px` });
+}
+$('#rcText').innerHTML = `<h2>ثبت شد</h2><div class="lab">کد رهگیری</div><div class="trk">${D.desk.track}</div><div class="amt"><span class="num">${fa(D.desk.amount)}</span><small>ریال · نقد · مریم رضایی</small></div>`;
+
+/* ---------------- S13: the end card ---------------- */
+$('#crownBox').innerHTML = crownSvg({ size: 300, ring: true, id: 'ec' });
+$('#endTag').innerHTML = `قیمت زنده؛ <em>معامله به زبان بازار</em>`;
+$('#endCta').innerHTML = `<span>وب‌اپ روی گوشی و کامپیوتر</span><span>ویندوز ۱۰ و ۱۱ (۶۴ بیت)</span>`;
+$('#endFine').innerHTML = `<div>قیمت‌ها: forgod.qzz.io، ${dayFa}، ساعت ${hhmm} · صفحه‌ها از فروشگاه نمونه‌ی خود اپ</div><div class="en">Music: “Rising Forest”, Diego Nava (Mixkit Stock Music Free License) · Sound effects: Pixabay Content License · Type: Estedad, Markazi, Vazirmatn (SIL OFL)</div>`;
+const crownPaths = $$('#crownBox path, #crownBox circle');
+crownPaths.forEach((p) => {
+  const L = p.getTotalLength?.() ?? 400;
+  p.dataset.len = L;
+  p.style.strokeDasharray = `${L}`;
+});
+
+/* ---------------- the rail of lines (each held for its reading time) ---------------- */
+const CAPS = [
+  { t0: 0.3, t1: b(3) - 0.12, html: 'قیمت زنده‌ی بازار، حالا <em>در بئاتریس</em>' },
+  { t0: b(3) + 0.12, t1: b(6) - 0.12, html: 'یک درخواست؛ <em>کل بازار، سنجیده</em>' },
+  { t0: b(6) + 0.12, t1: b(9) - 0.12, html: '۲۵ نرخ ارز، <em>مستقیم روی میز معامله</em>' },
+  { t0: b(9) + 0.12, t1: b(12) - 0.12, html: 'روزی ۵۰ درخواست؛ <em>تحلیل روی همین قیمت</em>' },
+  { t0: b(12) + 0.12, t1: b(16) - 0.16, html: 'به زبان بازار بنویسید؛ <em>سند ثبت می‌شود</em>' },
+];
+for (const c of CAPS) {
+  c.el = document.createElement('div');
+  c.el.className = 'pill';
+  c.el.innerHTML = c.html.split(/(<em>.*?<\/em>)/).map((p) => (p.startsWith('<em>') ? `<em>${p.slice(4, -5).split(' ').map((w) => `<span class="w">${w}</span>`).join(' ')}</em>` : p.split(' ').map((w) => (w ? `<span class="w">${w}</span>` : '')).join(' '))).join('');
+  $('#caps').append(c.el);
+}
+$('#src span').innerHTML = `<span class="ltr">forgod.qzz.io</span> · ${dayFa} · ساعت ${hhmm}`;
+
+/** a slow push on a whole scene between t0 and t1, about (x, y): a held frame keeps moving */
+const push = (el, t, t0, t1, s1 = 1.05, x = 960, y = 520) => css(el, { 'transform-origin': `${x}px ${y}px`, transform: `scale(${lerp(1, s1, prog(t, t0, t1, ease.linear)).toFixed(5)})` });
+
+/* ================= the frame ================= */
+function frame(t) {
+  /* backgrounds: the board's dark room, then paper */
+  const dark = Math.max(1 - prog(t, b(2) - 0.15, b(2) + 0.25, ease.inOut), prog(t, b(6) - 0.2, b(6) + 0.15, ease.inOut) * (1 - prog(t, b(7.25), b(7.25) + 0.32, ease.inOut)) * 0.92);
+  css($('#ledbg'), { opacity: dark.toFixed(3) });
+
+  /* S1–S2: the hook rolls in on the build; the drop pulls back to the whole board */
+  {
+    const v = 1 - prog(t, b(2) - 0.12, b(2) + 0.22, ease.in);
+    show($('#led'), v);
+    if (v > 0) {
+      const focus = { x: 100 + 1130, y: 64 + 100 + 186 + 93 };
+      const c = cam($('#ledCam'), t, [
+        { t: 0, x: focus.x, y: focus.y, s: 1.4, e: E.linear },
+        { t: b(1) - 0.12, x: focus.x - 10, y: focus.y, s: 1.48 },
+        { t: b(1) + 0.5, x: 960, y: 487, s: 1.0, e: E.linear },
+        { t: b(2), x: 960, y: 487, s: 0.975 },
+        { t: b(2) + 0.3, x: 960, y: 470, s: 0.86 },
+      ]);
+      const pull = prog(t, b(1) - 0.12, b(1) + 0.5, E.expoInOut);
+      const speed = Math.sin(Math.PI * clamp01(pull)) * (t > b(1) - 0.12 && t < b(1) + 0.5 ? 1 : 0);
+      css($('#ledCam'), { filter: speed > 0.05 ? `blur(${(speed * 5).toFixed(2)}px)` : 'none' });
+      css($('#led'), { filter: `blur(${(prog(t, b(2) - 0.12, b(2) + 0.22, ease.in) * 12).toFixed(2)}px)` });
+      ROWS.forEach((R, i) => {
+        if (i === 1) roll(R.cells, t, { t0: -0.05, t1: 3 * BEAT, spread: 2 * BEAT });
+        else {
+          // a row lights only when its own roll begins: before that its module is dark, never a made-up number
+          const t0 = b(1) - 0.05 + i * 0.04;
+          css(R.face, { opacity: prog(t, t0 - 0.02, t0 + 0.12).toFixed(3) });
+          roll(R.cells, t, { t0, t1: b(1) + (i === 0 ? 2 : i === 2 ? 3 : 2.5) * BEAT, spread: 0.5 });
+        }
+      });
+      // the live dot breathes with the beat
+      const beatPh = (t / BEAT) % 1;
+      css($('#panel .hd i'), { opacity: (0.45 + 0.55 * (1 - beatPh) ** 2).toFixed(3) });
+    }
+  }
+
+  /* S3: the board becomes the app's own market page */
+  {
+    const vin = prog(t, b(2) - 0.12, b(2) + 0.3, E.out5), vout = prog(t, b(3) - 0.28, b(3) + 0.05, ease.in);
+    const v = vin * (1 - vout);
+    show($('#app1'), v);
+    if (v > 0) {
+      const push = prog(t, b(2) + 0.1, b(3) - 0.3, E.inOut);
+      // out: the camera whips to the source badge, which becomes the forgod node of the next scene
+      const bd = BX['market-top'].badge;
+      const bcx = MK.x + (bd.x + bd.w / 2) * K, bcy = MK.y + (bd.y + bd.h / 2) * K;
+      // the lean: the board and the currency table fill the frame (their centre goes to the frame's centre)
+      const lc = { x: MK.x + 912 * K, y: MK.y + 560 * K }, ls = lerp(1, 1.42, push);
+      const lx = lerp(0, 960 - lc.x, push), ly = lerp(0, 520 - lc.y, push);
+      // then out: the camera whips to the source badge, which becomes the forgod node of the next scene
+      const bsx = lx + lc.x + (bcx - lc.x) * ls, bsy = ly + lc.y + (bcy - lc.y) * ls; // the badge on screen, before the whip
+      const sOut = lerp(1, 2.0, vout), dx = lerp(0, FG.x - bsx, vout), dy = lerp(0, FG.y - bsy, vout);
+      css($('#mk'), { transform: `translate(${(dx + lx).toFixed(1)}px, ${(dy + ly).toFixed(1)}px) translate(${lc.x - MK.x}px, ${lc.y - MK.y}px) scale(${(lerp(1.06, 1, vin) * ls).toFixed(4)}) translate(${-(lc.x - MK.x)}px, ${-(lc.y - MK.y)}px)`,
+        filter: `blur(${((1 - vin) * 10 + vout * 8).toFixed(2)}px)` });
+      css($('#app1'), { transform: vout > 0 ? `translate(${(bsx + dx)}px, ${(bsy + dy)}px) scale(${sOut.toFixed(4)}) translate(${-(bsx + dx)}px, ${-(bsy + dy)}px)` : 'none' });
+      const rk = (r, at) => {
+        const k = prog(t, at, at + 0.32, E.out5);
+        css(r, { opacity: (k * (1 - vout)).toFixed(3), transform: `scale(${lerp(1.12, 1, k).toFixed(4)})` });
+      };
+      rk(r18, b(2) + 0.28);
+      rk(rBtc, b(2) + 2 * BEAT);
+      rk(rFx, b(2) + 3 * BEAT);
+    }
+  }
+
+  /* S4–S5: one request brings the market; then the check */
+  {
+    const v = win(t, b(3) - 0.1, b(6) + 0.1, 0.2, 0.25);
+    show($('#req'), v);
+    if (v > 0) {
+      const follow = prog(t, b(3), b(4.25), E.inOut), lean = prog(t, b(4.5), b(6) + 0.1, ease.linear);
+      css($('#req'), { 'transform-origin': '960px 500px', transform: `translateX(${lerp(-150, 0, follow).toFixed(2)}px) scale(${(lerp(1.12, 1, follow) * lerp(1, 1.06, lean)).toFixed(5)})` });
+      // the nodes: forgod lands where the badge flew; the app's crown on the left
+      const nIn = prog(t, b(3) - 0.05, b(3) + 0.25, E.out5);
+      const nOut = prog(t, b(4.5) - 0.15, b(4.5) + 0.2, ease.in);
+      css($('#nFg'), { left: `${FG.x - 215}px`, top: `${FG.y - 52}px`, opacity: ((nIn) * (1 - nOut)).toFixed(3), transform: `scale(${lerp(0.82, 1, nIn).toFixed(4)})` });
+      const aIn = prog(t, b(3) + 0.18, b(3) + 0.5, E.out5);
+      css($('#nApp'), { left: `${APP.x - 190}px`, top: `${APP.y - 52}px`, opacity: (aIn * (1 - nOut)).toFixed(3), transform: `translateX(${((1 - aIn) * -40).toFixed(1)}px)` });
+      // the rail draws, the request goes out (ink), the answer comes back (gold)
+      const rl = $('#rl'), rq = $('#rq'), ra = $('#ra');
+      const draw = prog(t, b(3) + 0.1, b(3) + 0.45, ease.inOut);
+      rl.style.strokeDasharray = `${RL}`;
+      rl.style.strokeDashoffset = `${(RL * (1 - draw)).toFixed(1)}`;
+      rl.style.opacity = (1 - nOut).toFixed(3);
+      const out = prog(t, b(3) + 0.45, b(3.5) + 0.2, E.inOut);
+      rq.style.strokeDasharray = `90 ${RL}`;
+      rq.style.strokeDashoffset = `${(90 - (RL + 90) * out).toFixed(1)}`;
+      rq.style.opacity = out > 0 && out < 1 ? 1 : 0;
+      const back = prog(t, b(3.5) + 0.22, b(3.5) + 0.7, E.inOut);
+      const hit = prog(t, b(3.5) + 0.18, b(3.5) + 0.62, E.out5);
+      css($('#nFg'), { 'box-shadow': hit > 0 && hit < 1 ? `0 0 0 ${(hit * 26).toFixed(1)}px rgba(226, 184, 90, ${(0.45 * (1 - hit)).toFixed(3)}), 0 20px 40px -24px rgba(40, 30, 10, 0.5)` : '0 20px 40px -24px rgba(40, 30, 10, 0.5)' });
+      ra.style.strokeDasharray = `${RL * 0.6} ${RL * 2}`;
+      ra.style.strokeDashoffset = `${(RL * 0.6 - (RL * 1.6) * back).toFixed(1)}`;
+      ra.style.opacity = (back > 0 && back < 1 ? 1 : 0).toString();
+      const rowsK = win(t, b(3) + 0.5, b(4.5) - 0.1, 0.3, 0.2);
+      css($('#rows'), { opacity: rowsK.toFixed(3), transform: `translateY(${((1 - prog(t, b(3) + 0.5, b(3) + 0.8, E.out5)) * 14).toFixed(1)}px)` });
+      // four rails fan from the crown to the four parts of the answer, each landing on a beat
+      const fans = $$('#rail .fan');
+      SECS.forEach((s, i) => {
+        const at = b(4) + i * BEAT * 0.5 - 0.1;
+        const k = prog(t, at, at + 0.3, E.out5);
+        const sx = APP.x, sy = APP.y + 52, ex = s.x + 165, ey = 560;
+        const d = `M ${sx} ${sy} C ${sx} ${sy + 140}, ${ex} ${ey - 160}, ${ex} ${ey}`;
+        fans[i].setAttribute('d', d);
+        const L = fans[i].getTotalLength();
+        fans[i].style.strokeDasharray = `${L}`;
+        fans[i].style.strokeDashoffset = `${(L * (1 - prog(t, at - 0.15, at + 0.12, ease.inOut))).toFixed(1)}`;
+        fans[i].style.opacity = (1 - nOut).toFixed(3);
+        const so = prog(t, b(4.5) - 0.2 + i * 0.03, b(4.5) + 0.12 + i * 0.03, ease.in);
+        const ghost = prog(t, b(3) + 0.35 + i * 0.06, b(3) + 0.7 + i * 0.06, E.out5);
+        css(s.el, { opacity: (Math.max(ghost * 0.55, k) * (1 - so)).toFixed(3), transform: `translateY(${((1 - ghost) * 30 + so * 60).toFixed(1)}px) scale(${lerp(0.96, 1, k).toFixed(4)})`, filter: `blur(${((1 - ghost) * 6 + so * 8).toFixed(2)}px)`,
+          'border-style': k > 0.05 ? 'solid' : 'dashed', 'border-color': k > 0.05 ? '#e6cf9b' : '#d9cdb4', 'box-shadow': k > 0.05 ? '0 30px 60px -34px rgba(40, 30, 10, 0.55)' : 'none' });
+        const bnum = s.el.querySelector('b');
+        bnum.textContent = k > 0 ? fa(Math.round(s.n * prog(t, at, at + 0.35, E.out5))) : '–';
+        bnum.style.color = k > 0 ? 'var(--ink)' : '#cbbf9f';
+      });
+      // the check
+      const cv = win(t, b(4.5) - 0.05, b(6) + 0.1, 0.25, 0.3);
+      show($('#chk'), cv);
+      if (cv > 0) {
+        const ki = prog(t, b(4.5) - 0.05, b(4.5) + 0.3, E.out5);
+        css($('#chk .kick'), { opacity: ki.toFixed(3), transform: `translateY(${((1 - ki) * 16).toFixed(1)}px)` });
+        $$('#eq > *').forEach((el, i) => {
+          const k = prog(t, b(4.5) + 0.05 + i * 0.07, b(4.5) + 0.4 + i * 0.07, E.out5);
+          css(el, { opacity: k.toFixed(3), transform: `translateY(${((1 - k) * 30).toFixed(1)}px)`, filter: `blur(${((1 - k) * 8).toFixed(2)}px)` });
+        });
+        const rk = prog(t, b(4.75) + 0.2, b(5) + 0.1, E.out5);
+        css($('#eqr'), { opacity: rk.toFixed(3), transform: `scale(${lerp(0.94, 1, rk).toFixed(4)})` });
+        css($('#eqr .num'), { filter: `blur(${((1 - rk) * 12).toFixed(2)}px)` });
+        const gk = prog(t, b(5) - 0.05, b(5) + 0.25, E.out5);
+        css($('#gauge'), { opacity: gk.toFixed(3), transform: `translateY(${((1 - gk) * 24).toFixed(1)}px)` });
+        // the needle sweeps from the far edge to the measured gap: half a percent inside a 25% band
+        const nk = prog(t, b(5) + 0.05, b(5.5) - 0.16, E.back);
+        const gx = 600 + (lerp(-0.25, D.check.gap, nk) / 0.25) * 600;
+        css($('#gauge .needle'), { left: `${gx.toFixed(1)}px` });
+        css($('#gauge .val'), { left: `${gx.toFixed(1)}px`, opacity: prog(t, b(5.5) - 0.1, b(5.5) + 0.1).toFixed(3) });
+        // the stamp lands on the beat (its sound is there too)
+        const st = prog(t, b(5.5) - 0.16, b(5.5), ease.in), settle = prog(t, b(5.5), b(5.5) + 0.24, E.out5);
+        css($('#stamp'), { opacity: Math.min(1, st * 1.4).toFixed(3), transform: `rotate(-7deg) scale(${(t < b(5.5) ? lerp(1.9, 1, st) : lerp(0.94, 1, settle)).toFixed(4)})` });
+        const out = prog(t, b(6) - 0.25, b(6) + 0.1, ease.in);
+        css($('#chk'), { transform: `scale(${lerp(1, 0.92, out).toFixed(4)})`, filter: `blur(${(out * 10).toFixed(2)}px)` });
+      }
+    }
+  }
+
+  /* S6: the currency wall flips in, right to left; the euro is singled out and flies to the desk */
+  {
+    const v = win(t, b(6) - 0.12, b(7.25) + 0.36, 0.15, 0.3);
+    show($('#wall'), v);
+    if (v > 0) {
+      cam($('#wallIn'), t, [{ t: b(6) - 0.12, x: 960, y: 486, s: 1.0, e: E.linear }, { t: b(7.5) + 0.2, x: 990, y: 470, s: 1.05 }]);
+      const pick = prog(t, b(7) - 0.05, b(7) + 0.2, E.out5);
+      const lift = prog(t, b(7.25), b(7.25) + 0.12, ease.linear) > 0 ? 1 : 0;
+      TILES.forEach((T, i) => {
+        const at = b(6) - 0.05 + T.col * 0.07 + T.row * 0.045;
+        const k = prog(t, at, at + 0.36, E.out5);
+        const dim = T === EUR ? 0 : pick;
+        css(T.el, { opacity: (k * (1 - dim * 0.68) * (T === EUR && lift ? 0 : 1)).toFixed(3), transform: `perspective(1200px) rotateX(${((1 - k) * -82).toFixed(2)}deg)`, filter: dim > 0.02 ? `blur(${(dim * 2.4).toFixed(2)}px)` : 'none' });
+        roll(T.cells, t, { t0: at, t1: b(6.5) + (T.col % 2 ? BEAT : 0) + T.row * 0.03, spread: 0.18, blur: false });
+      });
+      css(EUR.el, { 'box-shadow': pick > 0 ? `0 0 0 ${(pick * 6).toFixed(1)}px rgba(226, 184, 90, 0.9), 0 30px 60px -20px rgba(0,0,0,.6)` : '' });
+    }
+  }
+  /* the euro tile in flight: from its place on the wall to the desk's rate field */
+  {
+    const t0 = b(7.25), t1 = b(7.75);
+    const v = t >= t0 && t <= t1 + 0.18 ? 1 : 0;
+    fly.style.visibility = v ? 'visible' : 'hidden';
+    if (v) {
+      // where the euro tile sits on screen at t0 (the wall's camera at that moment)
+      const wk = clamp01((t0 - (b(6) - 0.12)) / (b(7.5) + 0.2 - (b(6) - 0.12)));
+      const ws = lerp(1, 1.05, E.expoInOut(wk)), wx = lerp(960, 990, E.expoInOut(wk)), wy = lerp(486, 470, E.expoInOut(wk));
+      const sx = 960 - wx * ws + EUR.x * ws, sy = 540 - wy * ws + EUR.y * ws, sw = TW * ws;
+      // the rate field on the desk card at the moment it lands (the desk's camera at t1)
+      const dc = deskCam(t1);
+      const fx = dc.ox + (DK.x + RATE.x * KD) * dc.s, fy = dc.oy + (DK.y + RATE.y * KD) * dc.s, fw = RATE.w * KD * dc.s, fh = RATE.h * KD * dc.s;
+      const k = prog(t, t0, t1, E.expoInOut);
+      const arc = Math.sin(Math.PI * k) * -120;
+      const se = fw / TW, ex = fx + fw / 2 - (TW * se) / 2, ey = fy + fh / 2 - (TH * se) / 2;
+      const sc = lerp(ws, se, k), x = lerp(sx, ex, k), y = lerp(sy, ey, k) + arc;
+      const vel = Math.sin(Math.PI * k);
+      css(flyTile, { left: '0px', top: '0px', 'transform-origin': '0 0', transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${sc.toFixed(4)})`, opacity: (1 - prog(t, t1, t1 + 0.18)).toFixed(3),
+        filter: vel > 0.1 ? `blur(${(vel * 2.5).toFixed(2)}px)` : 'none', 'box-shadow': `0 ${(30 + vel * 30).toFixed(0)}px ${(60 + vel * 40).toFixed(0)}px -20px rgba(0,0,0,.55), 0 0 0 5px rgba(226,184,90,.9)` });
+    }
+  }
+
+  /* S7: the desk; the camera leans in to the rate the euro left there */
+  {
+    const v = win(t, b(7.5) - 0.12, b(9) + 0.1, 0.25, 0.3);
+    show($('#desk'), v);
+    if (v > 0) {
+      const dc = deskCam(t);
+      // a point (X, Y) of the frame goes to (ox + X·s, oy + Y·s); the card keeps its place and moves by the difference
+      css($('#dk'), { 'transform-origin': '0 0', transform: `translate(${(dc.ox + DK.x * dc.s - DK.x).toFixed(2)}px, ${(dc.oy + DK.y * dc.s - DK.y).toFixed(2)}px) scale(${dc.s.toFixed(5)})` });
+      const rk = prog(t, b(7.75) + 0.05, b(7.75) + 0.4, E.out5);
+      css(rRate, { opacity: (rk * (1 - prog(t, b(9) - 0.3, b(9)))).toFixed(3), transform: `scale(${lerp(1.15, 1, rk).toFixed(4)})` });
+      const nk = win(t, b(8) + 0.05, b(9) - 0.05, 0.35, 0.25);
+      const fx = dc.ox + (DK.x + RATE.x * KD) * dc.s, fy = dc.oy + (DK.y + (RATE.y + RATE.h) * KD) * dc.s;
+      css($('#eurNote'), { left: `${(fx - 40).toFixed(1)}px`, top: `${(fy + 40).toFixed(1)}px`, opacity: nk.toFixed(3), transform: `translateY(${((1 - prog(t, b(8) + 0.05, b(8) + 0.4, E.out5)) * 18).toFixed(1)}px)` });
+      css($('#desk'), { filter: `blur(${(prog(t, b(9) - 0.25, b(9) + 0.1, ease.in) * 10).toFixed(2)}px)` });
+    }
+  }
+
+  /* S8: the day's requests go round the dial */
+  {
+    const v = win(t, b(9) - 0.1, b(10.5) + 0.15, 0.25, 0.3);
+    show($('#dial'), v);
+    if (v > 0) {
+      push($('#dial'), t, b(9) - 0.1, b(10.5) + 0.15, 1.06, 1100, 470);
+      const sweep = prog(t, b(9) + 0.15, b(10) + 0.05, E.inOut);
+      const toQuote = prog(t, b(10) + 0.12, b(10.25) + 0.2, E.inOut);
+      const quoteMin = Number(D.source.tehran.slice(0, 2)) * 60 + Number(D.source.tehran.slice(3));
+      const handMin = sweep < 1 ? sweep * 1440 : 1440 + (quoteMin - 1440) * toQuote;
+      const [hx, hy] = pt(handMin, DC.r - 8);
+      $('#hand').setAttribute('x2', hx.toFixed(1));
+      $('#hand').setAttribute('y2', hy.toFixed(1));
+      $('#handTip').setAttribute('cx', hx.toFixed(1));
+      $('#handTip').setAttribute('cy', hy.toFixed(1));
+      $$('#dialSvg .tk').forEach((l) => {
+        const m = Number(l.dataset.m);
+        const passed = handMin >= m || sweep >= 1;
+        const k = passed ? prog(t, b(9) + 0.15 + (m / 1440) * (b(10) - b(9) - 0.1), b(9) + 0.25 + (m / 1440) * (b(10) - b(9) - 0.1), E.out5) : 0;
+        l.style.opacity = (0.16 + 0.84 * (sweep >= 1 ? 1 : k)).toFixed(3);
+      });
+      const din = prog(t, b(9) - 0.1, b(9) + 0.3, E.out5);
+      css($('#dialSvg'), { 'transform-origin': `${DC.x}px ${DC.y}px`, transform: `rotate(${((1 - din) * -12).toFixed(2)}deg) scale(${lerp(0.9, 1, din).toFixed(4)})`, opacity: din.toFixed(3) });
+      css($('#dialC'), { opacity: prog(t, b(9) + 0.2, b(9) + 0.5).toFixed(3) });
+      $('#dialC b').textContent = fa(Math.round(D.budget.daily * prog(t, b(9) + 0.2, b(9) + 0.9, E.out5)));
+      FACTS.forEach((f, i) => {
+        const at = b(9.25) + i * 2 * BEAT;
+        const k = prog(t, at, at + 0.35, E.out5);
+        css(f.el, { opacity: k.toFixed(3), transform: `translateX(${((1 - k) * 40).toFixed(1)}px)`, filter: `blur(${((1 - k) * 6).toFixed(2)}px)` });
+      });
+      css($('#dial'), { filter: `blur(${(prog(t, b(10.5) - 0.15, b(10.5) + 0.15, ease.in) * 10).toFixed(2)}px)` });
+    }
+  }
+
+  /* S9: the analysis works again on the same prices */
+  {
+    const v = win(t, b(10.5) - 0.1, b(12) + 0.1, 0.25, 0.3);
+    show($('#ana'), v);
+    if (v > 0) {
+      push($('#ana'), t, b(10.5) - 0.1, b(12) + 0.1, 1.06, 960, 500);
+      const tk = prog(t, b(10.5) - 0.05, b(10.5) + 0.3, E.out5);
+      css($('#tagA'), { opacity: tk.toFixed(3), transform: `translateY(${((1 - tk) * -20).toFixed(1)}px)` });
+      const ak = prog(t, b(10.5), b(10.5) + 0.4, E.out5);
+      css($('#anchor'), { opacity: ak.toFixed(3), transform: `translateX(${((1 - ak) * 40).toFixed(1)}px)` });
+      // a pulse from the price to each card, then the card works out its number
+      $$('#links .lk').forEach((p, i) => {
+        const at = b(10.75) + i * BEAT * 2;
+        const L = p.getTotalLength();
+        p.style.strokeDasharray = `${L}`;
+        p.style.strokeDashoffset = `${(L * (1 - prog(t, at - 0.2, at + 0.05, ease.inOut))).toFixed(1)}`;
+        p.style.opacity = (1 - prog(t, b(12) - 0.3, b(12))).toFixed(3);
+      });
+      CARDS.forEach((c, i) => {
+        const at = b(10.75) + i * BEAT * 2;
+        const k = prog(t, at, at + 0.38, E.out5);
+        css(c.el, { opacity: k.toFixed(3), transform: `translateX(${((1 - k) * -40).toFixed(1)}px) scale(${lerp(0.96, 1, k).toFixed(4)})`, filter: `blur(${((1 - k) * 6).toFixed(2)}px)` });
+        roll(c.cells, t, { t0: at, t1: at + 0.55, spread: 0.22 });
+      });
+      // the مظنه, from the board, steps forward: the next scene prices a sentence with it
+      const mk = prog(t, b(11.5), b(11.5) + 0.35, E.out5);
+      const drop = prog(t, b(12) - 0.12, b(12) + 0.3, E.expoInOut);
+      css($('#mz'), { opacity: mk.toFixed(3), transform: `translate(${(drop * -560).toFixed(1)}px, ${(drop * -170).toFixed(1)}px) scale(${lerp(1, 0.8, drop).toFixed(4)})` });
+      css($('#ana'), { filter: `blur(${(prog(t, b(12) - 0.1, b(12) + 0.15, ease.in) * 6).toFixed(2)}px)` });
+    }
+  }
+
+  /* S10–S11: the sentence, its parts, its price, its line */
+  {
+    const v = win(t, b(12) - 0.05, b(14.5) + 0.12, 0.25, 0.3);
+    show($('#cmd'), v);
+    if (v > 0) {
+      const hand = prog(t, b(12) + 0.2, b(13) + 0.5, E.inOut);
+      // while the sentence types, the bar and its parts sit in the middle of the frame (where the مظنه drops in); the
+      // camera rises to the price and the line as they arrive
+      const rise = prog(t, b(13.5) - 0.45, b(13.5) + 0.25, E.inOut);
+      css($('#cmd'), { 'transform-origin': '960px 480px', transform: `translate(${lerp(70, -50, hand).toFixed(2)}px, ${lerp(150, 0, rise).toFixed(2)}px) scale(${lerp(1, 1.07, prog(t, b(12) - 0.05, b(14.5) + 0.12, ease.linear)).toFixed(5)})` });
+      const bk = prog(t, b(12) - 0.05, b(12) + 0.3, E.out5);
+      css($('#bar'), { opacity: bk.toFixed(3), transform: `translateY(${((1 - bk) * 30).toFixed(1)}px) scale(${lerp(0.97, 1, bk).toFixed(4)})` });
+      // typing: word by word, on a steady hand
+      const tw = $$('#bar .tw'), T0 = b(12) + 0.25, T1 = b(13) + 0.45;
+      tw.forEach((w, i) => {
+        const at = lerp(T0, T1, i / (tw.length - 1));
+        const k = prog(t, at - 0.05, at + 0.08, ease.out);
+        w.style.opacity = k.toFixed(3);
+        w.style.display = t >= at - 0.05 ? 'inline-block' : 'none';
+      });
+      css($('#bar .caret'), { opacity: t < T1 + 0.4 ? ((Math.floor(t * 4) % 2 === 0) ? 1 : 0.15).toString() : '0' });
+      // each part becomes a chip once its words are in
+      const chips = $$('#chips .chip');
+      PARTS.forEach((p, i) => {
+        const at = lerp(T0, T1, PART_END[i] / (tw.length - 1)) + 0.08;
+        const k = prog(t, at, at + 0.3, E.out5);
+        css(chips[i], { opacity: k.toFixed(3), transform: `translateY(${((1 - k) * 22).toFixed(1)}px)`, filter: `blur(${((1 - k) * 6).toFixed(2)}px)` });
+      });
+      const pk = prog(t, b(13.5) - 0.05, b(13.5) + 0.35, E.out5);
+      css($('#price'), { opacity: pk.toFixed(3), transform: `translateY(${((1 - pk) * 20).toFixed(1)}px)` });
+      const nums = $$('#price .num');
+      const rv = prog(t, b(13.5) + 0.2, b(13.5) + 0.5, E.out5);
+      css(nums[1], { display: 'inline-block', opacity: rv.toFixed(3), filter: `blur(${((1 - rv) * 10).toFixed(2)}px)` });
+      const lk = prog(t, b(14) - 0.05, b(14) + 0.3, E.out5);
+      css($('#lineCard'), { opacity: lk.toFixed(3), transform: `translateY(${((1 - lk) * 30).toFixed(1)}px)` });
+      const lv = prog(t, b(14) + 0.1, b(14) + 0.4, E.out5);
+      css($('#lineCard b'), { opacity: lv.toFixed(3), filter: `blur(${((1 - lv) * 10).toFixed(2)}px)` });
+      const ek = prog(t, b(14.25) - 0.1, b(14.25), ease.out), press = t >= b(14.25) && t < b(14.25) + 0.12 ? 1 : 0;
+      css($('#enter'), { opacity: (ek * (1 - prog(t, b(14.5) - 0.1, b(14.5) + 0.1))).toFixed(3), transform: `translateY(${(press * 4).toFixed(1)}px)`, 'border-bottom-width': `${press ? 2 : 6}px` });
+      css($('#cmd'), { filter: `blur(${(prog(t, b(14.5) - 0.1, b(14.5) + 0.2, ease.in) * 8).toFixed(2)}px)` });
+    }
+  }
+
+  /* S12: booked: the receipt prints up; its tracking code is ringed */
+  {
+    const v = win(t, b(14.5) - 0.05, b(16) + 0.12, 0.2, 0.3);
+    show($('#rc'), v);
+    if (v > 0) {
+      push($('#rc'), t, b(14.5) - 0.05, b(16) + 0.12, 1.06, 1100, 470);
+      const feed = prog(t, b(14.5) - 0.05, b(14.5) + 0.55, E.out5);
+      const drift = prog(t, b(14.5), b(16), ease.linear);
+      css($('#rcShot'), { transform: `perspective(1600px) translateY(${((1 - feed) * 420 - drift * 18).toFixed(1)}px) rotateX(${((1 - feed) * 16).toFixed(2)}deg) rotateZ(${lerp(-1.2, 0.6, drift).toFixed(2)}deg)`, opacity: Math.min(1, feed * 2).toFixed(3) });
+      const rk = prog(t, b(15) - 0.05, b(15) + 0.3, E.out5);
+      css($('#rTrack'), { opacity: rk.toFixed(3), transform: `scale(${lerp(1.12, 1, rk).toFixed(4)})` });
+      const h = $('#rcText h2'), l = $('#rcText .lab'), k = $('#rcText .trk'), a = $('#rcText .amt');
+      const hk = prog(t, b(14.5) + 0.15, b(14.5) + 0.45, E.out5);
+      css(h, { opacity: hk.toFixed(3), transform: `scale(${lerp(1.25, 1, hk).toFixed(4)})`, 'transform-origin': '100% 50%', filter: `blur(${((1 - hk) * 10).toFixed(2)}px)` });
+      for (const [el, at] of [[l, b(15) - 0.1], [k, b(15)], [a, b(15.25)]]) {
+        const q = prog(t, at, at + 0.35, E.out5);
+        css(el, { opacity: q.toFixed(3), transform: `translateY(${((1 - q) * 20).toFixed(1)}px)` });
+      }
+      css($('#rc'), { filter: `blur(${(prog(t, b(16) - 0.1, b(16) + 0.12, ease.in) * 10).toFixed(2)}px)` });
+    }
+  }
+
+  /* S13: the end card: the crown draws, the name, the line, where to get it; a glint on the track's own last hit */
+  {
+    const v = prog(t, b(16) - 0.08, b(16) + 0.2, E.out5);
+    show($('#end'), v);
+    if (v > 0) {
+      const drift = prog(t, b(16), window.DUR, ease.linear);
+      css($('#end'), { transform: `scale(${lerp(1, 1.045, drift).toFixed(4)})`, 'transform-origin': '50% 45%' });
+      const ck = prog(t, b(16), b(16) + 0.9, E.inOut);
+      crownPaths.forEach((p) => (p.style.strokeDashoffset = `${(Number(p.dataset.len) * (1 - ck)).toFixed(1)}`));
+      css($('#crownBox'), { opacity: prog(t, b(16), b(16) + 0.2).toFixed(3) });
+      const nk = prog(t, b(16) + 0.25, b(16) + 0.75, E.out5);
+      css($('#endName'), { opacity: nk.toFixed(3), filter: `blur(${((1 - nk) * 14).toFixed(2)}px)`, transform: `translateY(${((1 - nk) * 16).toFixed(1)}px)` });
+      for (const [sel, at] of [['#endTag', b(16) + 0.45], ['#endCta', b(16) + 0.7], ['#endUrl', b(16) + 0.85], ['#endFine', b(16) + 1.0]]) {
+        const q = prog(t, at, at + 0.4, E.out5);
+        css($(sel), { opacity: q.toFixed(3), transform: `translateY(${((1 - q) * 18).toFixed(1)}px)` });
+      }
+      // the glint: one soft band across the crown and the name on the track's own last hit
+      const g = $('#glint'), gc = g.getContext('2d');
+      gc.clearRect(0, 0, 1920, 1080);
+      const gk = prog(t, b(17) - 0.05, b(17) + 0.9, E.inOut);
+      if (gk > 0 && gk < 1) {
+        const x = lerp(400, 1600, gk);
+        const grd = gc.createLinearGradient(x - 220, 0, x + 220, 0);
+        grd.addColorStop(0, 'rgba(255,240,200,0)');
+        grd.addColorStop(0.5, 'rgba(255,236,190,0.55)');
+        grd.addColorStop(1, 'rgba(255,240,200,0)');
+        gc.fillStyle = grd;
+        gc.fillRect(0, 100, 1920, 520);
+      }
+    }
+  }
+
+  /* the source of the prices, while prices are on screen; then the rail of lines */
+  {
+    const sv = Math.max(win(t, b(3) + 0.05, b(7.5) - 0.1, 0.3, 0.2), win(t, b(9) - 0.05, b(12) - 0.05, 0.3, 0.3));
+    show($('#src'), sv);
+    const onDark = dark > 0.5;
+    css($('#src'), { color: onDark ? '#8f7b55' : '#6b6457' }); // 4.5:1 or more on the board and on the paper
+  }
+  for (const c of CAPS) words(c.el, t, { t0: c.t0, t1: c.t1, stagger: 0.06, din: 0.5, dout: 0.28, blur: 12, rise: 14 });
+}
+
+/** the desk's camera: the whole desk card, then a lean in toward the rate field (returns screen offset and scale) */
+function deskCam(t) {
+  const fcx = DK.x + (RATE.x + RATE.w / 2) * KD, fcy = DK.y + (RATE.y + RATE.h / 2) * KD;
+  const k = prog(t, b(7.75) + 0.1, b(8.6), E.inOut), s = lerp(1, 1.42, k) * lerp(1, 1.02, prog(t, b(8.6), b(9), ease.linear));
+  // keep the field's point moving from where it sits toward the centre-left of the frame
+  const tx = lerp(fcx, 860, k), ty = lerp(fcy, 520, k);
+  return { s, ox: tx - fcx * s, oy: ty - fcy * s };
+}
+
+/* ---------------- the sound cues (mix.mjs lays each on its frame) and the music edit ----------------
+   Each sound's level was solved against the music alone, in the sound's own band (+3.5 dB, the whooshes +2.5, the chime
+   +4), with the 2–8 kHz lift under 4 dB and its peak at most 6 dB over the music's (8 for the chime and the last
+   sparkle). A sound keeps one level through the film, lower only where the music is quiet enough that it would stand
+   more than 6 dB over its band. */
+const LV = { 'click-soft': 2.56, 'whoosh-short': 0.519, pop: 0.549, whoosh: 0.443, sparkle: 0.504, typing: 2.918, chime: 4 };
+const cue = (t, s, v = LV[s]) => ({ t, s, v });
+window.EV = [
+  cue(2 * BEAT, 'click-soft', 2.199),
+  cue(3 * BEAT, 'click-soft'),
+  cue(b(1) - 0.06, 'whoosh-short'),
+  cue(b(1) + 2 * BEAT, 'click-soft'),
+  cue(b(2) - 0.12, 'whoosh-short', 0.383),
+  cue(b(2) + 0.28, 'pop', 0.533),
+  cue(b(3) - 0.25, 'whoosh'),
+  cue(b(3.5) + 0.62, 'sparkle'),
+  ...SECS.map((_, i) => cue(b(4) + i * BEAT * 0.5 - 0.1, 'pop')),
+  cue(b(4.5) - 0.05, 'whoosh-short'),
+  cue(b(5.5), 'pop'), // the stamp lands
+  cue(b(6) - 0.12, 'whoosh-short', 0.419),
+  cue(b(7), 'pop'),
+  cue(b(7.25), 'whoosh'),
+  cue(b(7.75) + 0.05, 'pop'),
+  cue(b(9) - 0.1, 'whoosh-short'),
+  cue(b(10.5) - 0.1, 'whoosh-short'),
+  ...CARDS.map((_, i) => cue(b(10.75) + i * BEAT * 2, 'pop')),
+  cue(b(12) - 0.12, 'whoosh-short'),
+  cue(b(12) + 0.25, 'typing'),
+  cue(b(12.75) + 0.2, 'typing'),
+  cue(b(14.25), 'click-soft'), // Enter
+  cue(b(14.5) + 0.15, 'chime'),
+  cue(b(16) - 0.08, 'whoosh-short'),
+  cue(b(17), 'sparkle'),
+];
+window.MUSIC = { file: 'rising-forest', from: 44.981, bpm: BPM, dur: window.DUR, fade: 1.4 };
+
+window.seek = (t) => frame(t);
+await Promise.all([...[500, 600, 700, 800].map((w) => document.fonts.load(`${w} 40px Estedad`, 'بئاتریس ۱۲۳ abc')), document.fonts.load('700 40px Markazi', 'بئاتریس'), document.fonts.load('800 40px Vazirmatn', '۱٬۲۳۴٫۵')]);
+await document.fonts.ready;
+await Promise.all([...document.images].map((i) => i.decode().catch(() => {})));
+// each line holds long enough to read (letters ÷ 15 + 1.5 s), and fits the frame
+for (const c of CAPS) {
+  const text = c.el.textContent;
+  if (c.t1 - c.t0 - 0.3 < readTime(text)) console.error(`line too short to read: «${text}» ${(c.t1 - c.t0 - 0.3).toFixed(2)} s < ${readTime(text).toFixed(2)} s`);
+  if (c.el.offsetWidth > 1760) console.error(`line too wide: «${text}» ${c.el.offsetWidth}px`);
+}
+// every cue on the grid: the film's own events sit on a beat or are marked as following a picture event
+frame(0);
+window.READY = true;
+</script>
+</body>
+</html>

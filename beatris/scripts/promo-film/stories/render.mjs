@@ -1,6 +1,6 @@
 // spec 0047: records one story film. The page draws a frame from the time alone (window.seek(t)); this steps through
 // every frame in a headless browser and pipes JPEG frames into ffmpeg. The sound is laid separately by mix.mjs.
-//   node scripts/promo-film/stories/render.mjs <counter|capacity|control> [--fps=60] [--out=<picture.mp4>]
+//   node scripts/promo-film/stories/render.mjs <counter|capacity|control|live> [--fps=60] [--out=<picture.mp4>]
 //     → the picture, and next to it <picture>.json with the film's length, sound cues and music edit (for mix.mjs)
 //   node scripts/promo-film/stories/render.mjs <film> --stills=0.5,4,9 [--out=<dir>]   → PNG stills for a review round
 //   node scripts/promo-film/stories/render.mjs <film> --sheet [--out=<sheet.jpg>]      → a contact sheet, a frame a second
@@ -12,7 +12,7 @@ import { serveRoot } from '../serve.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const film = process.argv[2];
-if (!['counter', 'capacity', 'control'].includes(film)) throw new Error('usage: render.mjs <counter|capacity|control> [--fps=60] [--out=…] [--stills=…] [--sheet]');
+if (!['counter', 'capacity', 'control', 'live'].includes(film)) throw new Error('usage: render.mjs <counter|capacity|control|live> [--fps=60] [--out=…] [--stills=…] [--sheet]');
 const opt = (k) => process.argv.find((a) => a.startsWith(`--${k}=`))?.slice(k.length + 3);
 const FPS = Number(opt('fps') ?? 60);
 const pw = await import(process.env.PLAYWRIGHT_MODULE || '/opt/node22/lib/node_modules/playwright/index.mjs').catch(() => import('playwright'));

@@ -174,7 +174,7 @@ export async function marketPage(root) {
   }
   function drawBoard() {
     const b = S.board;
-    $('#src', root).innerHTML = String(html`<span class="stamp ${b.sample ? 'warn' : ''}">${b.source.label}</span>${b.source.at && !b.sample ? html`<span class="small">به‌روزرسانی ${fa(new Date(b.source.at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }))}</span>` : ''}<button class="iconbtn" id="reload" title="به‌روزرسانی">${ICON.rotate}</button>${store.isAdmin() ? html`<a class="btn small ghost" href="/market/data" data-link>مدیریت داده بازار</a>` : ''}`);
+    $('#src', root).innerHTML = String(html`<span class="stamp ${b.sample ? 'warn' : ''}">${b.source.label}</span>${b.source.at && !b.sample ? html`<span class="small">به‌روزرسانی ${fa(new Date(b.source.at).toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' }))}</span>` : ''}<button class="iconbtn" id="reload" title="به‌روزرسانی">${ICON.rotate}</button>${store.isAdmin() ? html`<a class="btn small ghost" href="/market/data" data-link>مدیریت داده بازار</a>` : ''}`);
     $('#notice', root).innerHTML = b.sample
       ? String(html`<p class="notice">این قیمت‌ها <b>داده نمونه آموزشی</b>اند (شبیه‌سازی سازگار با انس و دلار، نه قیمت واقعی). ${store.isAdmin() ? html`برای قیمت واقعی از <a href="/market/data" data-link>مدیریت داده بازار</a> منبع زنده را وصل یا قیمت روز را وارد کنید.` : 'مدیر فروشگاه می‌تواند قیمت واقعی را وصل کند.'}</p>`)
       : b.source.error

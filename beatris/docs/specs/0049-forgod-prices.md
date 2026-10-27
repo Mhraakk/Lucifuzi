@@ -1,6 +1,6 @@
 # 0049 — Live prices from forgod: currencies, the dollar, 18k gold and bitcoin
 
-**Status:** in progress.
+**Status:** done.
 
 ## What
 The owner gave three addresses of one price service, with a key, and asked that they be built into the app,
@@ -234,6 +234,9 @@ it read 25 and 11.
 - **Live on Render:**
   - `3cbc1ee`: mode `forgod`, `ok`, 11 quotes, 25 rates, 1 / 50 requests, 13,744 days of history.
   - `adc4b61` at 00:43 Tehran: 10 quotes and **1 rate**, 12 / 50 requests. This is the night finding of amendment 2.
+  - `817029d` at 03:07 Tehran, on a fresh database after the deploy: **25 rates**, 2 quotes, 1 / 50 requests. The
+    night answer's dated currencies now fill the table; no bar was written for them.
+  - CI on `817029d` (run 40420683364) is green.
 - **The night table** on the market page (screens from a demo server with the table routed in):
   - every rate from yesterday gives «۲۵ ارز · تومان · آخرین نرخ ۴ آبان · به‌روزرسانی ساعت ۰۳:۰۱»;
   - with a mix, the older rates carry their own time;

@@ -3404,6 +3404,18 @@ await step('visual quality (spec 0025): full density, the GPU\'s own MSAA, a sup
     return r.ok && /video\/mp4/.test(r.headers.get('content-type') ?? '');
   })));
   check('teaser: the three stories are linked and each is a video/mp4', stories.length === 3 && stories.every(Boolean), JSON.stringify(stories));
+  // «تابلوی زنده» above the teaser (spec 0051): its files answer as video, and the picture is 35 s of full HD (a browser
+  // without H.264 plays the WebM; a page that cannot load either fails the check instead of waiting for ever)
+  check('live film: the help centre lists «تابلوی زنده»', /تابلوی زنده/.test(await text(k8.page, '#hpLive summary')));
+  const lv = await k8.page.evaluate(async () => {
+    const [r, rw] = await Promise.all(['mp4', 'webm'].map((x) => fetch(`/media/promo/beatris-live-market.${x}`, { method: 'HEAD' })));
+    const v = document.querySelector('#hpLiveV');
+    v.preload = 'metadata';
+    v.load();
+    await Promise.race([new Promise((ok) => (v.readyState >= 1 ? ok() : v.addEventListener('loadedmetadata', ok, { once: true }))), new Promise((ok) => setTimeout(ok, 20000))]);
+    return { ok: r.ok && rw.ok, type: r.headers.get('content-type'), webm: rw.headers.get('content-type'), w: v.videoWidth, h: v.videoHeight, d: Math.round(v.duration) };
+  });
+  check('live film: a 35 s full-HD video, as mp4 and webm', lv.ok && /video\/mp4/.test(lv.type ?? '') && /video\/webm/.test(lv.webm ?? '') && lv.w === 1920 && lv.h === 1080 && lv.d === 35, JSON.stringify(lv));
   await k8.ctx.close();
 });
 
