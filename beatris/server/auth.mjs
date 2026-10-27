@@ -28,6 +28,18 @@ export const validPhone = (p) => /^09\d{9}$/.test(p);
 /** An email as it is stored and compared (spec 0034): trimmed, lower-case, without invisible characters. */
 export const normalizeEmail = (e) => String(e ?? '').replace(/[​-‏‪-‮⁠﻿\s]/g, '').toLowerCase().slice(0, 254);
 export const validEmail = (e) => /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,24}$/.test(e);
+/** An email shown half-hidden: «m…@g…l.com», «a…@u…c.ir» for ut.ac.ir — never more than a letter of each part. */
+export function maskEmail(e) {
+  const [name = '', domain = ''] = String(e ?? '').split('@');
+  const dot = domain.lastIndexOf('.');
+  const host = dot > 0 ? domain.slice(0, dot) : domain;
+  return `${name.slice(0, 1)}…@${host.slice(0, 1)}…${host.length > 2 ? host.slice(-1) : ''}${dot > 0 ? domain.slice(dot) : ''}`;
+}
+/**
+ * Production (spec 0054): NODE_ENV says so, or the server runs on a host (Render sets RENDER, Railway
+ * RAILWAY_ENVIRONMENT) and NODE_ENV does not name a development or test run. Codes are never shown on screen there.
+ */
+export const isProd = (env = process.env) => env.NODE_ENV === 'production' || (!['development', 'test'].includes(env.NODE_ENV) && (!!env.RENDER || !!env.RAILWAY_ENVIRONMENT));
 
 export function makeSigner(secret) {
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -55,7 +67,7 @@ export function makeSigner(secret) {
 
 export function resolveSecret(env = process.env) {
   const s = env.BEATRIS_TOKEN_SECRET;
-  const prod = env.NODE_ENV === 'production' || !!env.RAILWAY_ENVIRONMENT;
+  const prod = isProd(env);
   if (s && s.length >= 16) return s;
   if (prod) throw new Error('BEATRIS_TOKEN_SECRET (≥16 chars) is required in production.');
   console.warn('[beatris] BEATRIS_TOKEN_SECRET not set — using an ephemeral dev secret.');

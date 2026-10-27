@@ -6,6 +6,9 @@ export const PRODUCT_TYPES = ['ring', 'necklace', 'bracelet', 'earring', 'pendan
 export const METHODS = ['casting', 'handmade', 'cnc', 'printing', 'mixed'];
 export const STONE_SHAPES = ['round', 'oval', 'pear', 'marquise', 'emerald', 'princess', 'cushion', 'heart'];
 export const SETTING_TYPES = ['prong', 'bezel', 'channel', 'pave', 'flush', 'tension', 'halo'];
+export const SETTING_FA = { prong: 'چنگی', bezel: 'قاب‌دار', channel: 'ریلی', pave: 'پاوه', flush: 'دفنی', tension: 'فشاری', halo: 'هاله' };
+/** The settings the local engine builds as geometry; the others are checked by rules only (spec 0016, 0054). */
+export const MODELLED_SETTINGS = new Set(['prong']);
 export const SEVERITIES = ['info', 'warning', 'high', 'critical'];
 
 const num = (o = {}) => S.num({ minimum: 0, ...o });

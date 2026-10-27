@@ -6,6 +6,7 @@ import { MATERIALS, materialFor } from './materials.mjs';
 import { diameterFromIso, shankMesh, stoneProportions } from './ring.mjs';
 import { checkSetting } from './setting.mjs';
 import * as G from './geometry.mjs';
+import { SETTING_FA, MODELLED_SETTINGS } from './schemas.mjs';
 import { weightOf } from './materials.mjs';
 
 const r2 = (x) => Math.round(x * 100) / 100;
@@ -42,10 +43,13 @@ export function paramsFromIntent(intent) {
   return p;
 }
 
-/** The CAD program of a ring: a shank, and a setting on it when there is a stone. */
+/**
+ * The CAD program of a ring: a shank, and a setting on it when there is a stone and the engine builds that setting;
+ * any other setting is checked by its rules and named in the findings (spec 0054), so a brief never fails on it.
+ */
 export function programOf(p) {
   const ops = [{ op: 'shank', id: 'shank', innerDiameter: p.innerDiameter, widthTop: p.widthTop, widthBottom: p.widthBottom, thickTop: p.thickTop, thickBottom: p.thickBottom }];
-  if (p.setting) ops.push({ op: 'stoneSetting', id: 'head', on: 'shank', spec: p.setting, headHeightMm: p.headHeight });
+  if (p.setting && MODELLED_SETTINGS.has(p.setting.type)) ops.push({ op: 'stoneSetting', id: 'head', on: 'shank', spec: p.setting, headHeightMm: p.headHeight });
   return ops;
 }
 
@@ -79,6 +83,7 @@ export function manufacturingFindings(insp, p, { method = 'casting' } = {}) {
     if (m.prongOverCrownMm < 0.4) out.push(F('PRONG_GRIP', 'engineering', 'high', 'چنگ روی سنگ کم است', `سر چنگ ${m.prongOverCrownMm} میلی‌متر بالای کمربند است؛ کمتر از ۰٫۴ پس از پرداخت سنگ را نگه نمی‌دارد.`, { expected: 0.4, actual: m.prongOverCrownMm, unit: 'mm' }, null, 'head'));
   }
   if (p?.setting) for (const s of checkSetting(p.setting, insp.material)) out.push({ ...s, geometryRef: 'head' });
+  if (p?.setting && !MODELLED_SETTINGS.has(p.setting.type)) out.push(F('SETTING_NOT_MODELLED', 'setting', 'info', 'سر نگین در مدل نیست', `نگین‌گذاری ${SETTING_FA[p.setting.type] ?? p.setting.type} فقط با قاعده‌هایش بررسی شد؛ مدل و وزن بدون سر نگین است.`));
   if (method === 'casting' && insp.objects.some((o) => o.kind === 'head') && (p?.setting?.prongDiameterMm ?? 1) < 0.8) out.push(F('CASTING_FINE_DETAIL', 'engineering', 'warning', 'چنگ ریز برای ریخته‌گری', 'چنگ زیر ۰٫۸ میلی‌متر در ریخته‌گری کامل پر نمی‌شود؛ یا ضخیم‌تر کنید یا سر را جدا بسازید و لحیم کنید.', { expected: 0.8, actual: p.setting.prongDiameterMm, unit: 'mm' }));
   return out;
 }

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { openDb } from './db.mjs';
-import { makeSigner, makeSealer, resolveSecret } from './auth.mjs';
+import { makeSigner, makeSealer, resolveSecret, isProd } from './auth.mjs';
 import { createApi, seedUsers, HttpError } from './api.mjs';
 import { validateContent } from '../content/index.mjs';
 import { MEDIA_NAME } from './media.mjs';
@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { createBus } from './bus.mjs';
 import { createMetrics } from './metrics.mjs';
-import { backupAll, listBackups } from './backup.mjs';
+import { backupAll, listBackups, storageOf } from './backup.mjs';
 import { createFlags } from './flags.mjs';
 import { can } from './rbac.mjs';
 import { getTracer } from './otel.mjs';
@@ -30,8 +30,8 @@ const SECURITY = {
   'Referrer-Policy': 'same-origin',
   'X-Frame-Options': 'DENY',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  // production is served only over HTTPS (Railway terminates TLS): browsers must never fall back to plain HTTP
-  ...(process.env.NODE_ENV === 'production' ? { 'Strict-Transport-Security': 'max-age=31536000' } : {}),
+  // production is served only over HTTPS (the host terminates TLS): browsers must never fall back to plain HTTP
+  ...(isProd() ? { 'Strict-Transport-Security': 'max-age=31536000' } : {}),
 };
 
 const R3DM_DIR = path.join(ROOT, 'vendor', 'rhino3dm') + path.sep;
@@ -55,9 +55,18 @@ export function parseRange(h, size) {
   return start <= end && start < size ? [start, end] : null;
 }
 
+/** Demo accounts (spec 0054): asked for with BEATRIS_DEMO or BEATRIS_DEMO_OTP, and never on in production. */
+export const demoFrom = (env = process.env) => {
+  const asked = env.BEATRIS_DEMO === 'true' || env.BEATRIS_DEMO_OTP === 'true';
+  return { asked, on: asked && !isProd(env) };
+};
+/** The per-IP ceiling of requests a minute from BEATRIS_RATE_LIMIT, or the default when it is not a positive number. */
+export const rateLimitFrom = (env = process.env) => (Number(env.BEATRIS_RATE_LIMIT) > 0 ? Math.round(Number(env.BEATRIS_RATE_LIMIT)) : 1500);
+
 export function createServer({ db, secret, demo, quiet = false, env = process.env, smsOpts = {}, otpOpts = {}, mediaDir = path.resolve(process.env.BEATRIS_DATA_DIR || 'data', 'media'), marketOpts, tenantsDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'tenants') : ':memory:', backupDir = db.raw.location?.() ? path.join(path.dirname(db.raw.location()), 'backups') : null, rateLimit = 1500, accessLog = process.env.BEATRIS_ACCESS_LOG === '1' }) {
   const signer = makeSigner(secret);
   const sealer = makeSealer(secret);
+  const storage = db.raw.location?.() ? storageOf(path.dirname(db.raw.location())) : { mount: null, persistent: null };
   const metrics = createMetrics();
   const onEvent = (name) => metrics.inc(`ai.${name}`); // model gateway and guardrail events, all shops together
   const flags = createFlags({ db });
@@ -87,10 +96,11 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
     metrics.inc(st.ok ? 'market.poll.ok' : 'market.poll.fail');
     if (st.ok) bus.publish('market.tick', { at: st.at ?? new Date().toISOString(), board: handle.market.board() });
   });
-  const allDbs = () => [['main', db], ...[...platform.all()].filter(([id]) => id !== MAIN).map(([id, h]) => [id, h.db])];
+  // every shop, suspended and expired ones too, and the uploaded photos (spec 0054)
+  const allDbs = () => platform.allShops();
   const runBackup = () => {
     if (!backupDir) throw new HttpError(409, 'پشتیبان‌گیری برای دیتابیس درون حافظه غیرفعال است.');
-    lastBackup = backupAll({ dbs: allDbs(), dir: backupDir });
+    lastBackup = backupAll({ dbs: allDbs(), dir: backupDir, media: mediaDir });
     metrics.inc('backup.ok');
     return lastBackup;
   };
@@ -136,6 +146,8 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
     out.queue = { queued: q.queued, dead: q.dead };
     const b = backupDir ? listBackups(backupDir)[0] : null;
     out.backup = b ? { stamp: b.stamp, files: b.files } : null;
+    // the data folder (spec 0054): on a disk of its own, or on the container's own filesystem that a redeploy wipes
+    out.data = storage;
     // ورود با ایمیل (spec 0034): Supabase configured, or not (sign-in by SMS and the owner's PIN still work)
     const em = otp.emailView();
     out.email = em.ready ? 'supabase' : em.error ? 'invalid' : 'off';
@@ -502,10 +514,15 @@ if (isMain) {
     console.error('[beatris] content errors:\n' + errors.join('\n'));
     process.exit(1);
   }
-  const demo = process.env.BEATRIS_DEMO === 'true' || process.env.BEATRIS_DEMO_OTP === 'true';
+  // demo accounts never run in production (spec 0054): their codes are shown on screen and one of them is an owner
+  const { asked: askedDemo, on: demo } = demoFrom();
+  if (askedDemo && !demo) console.warn('[beatris] BEATRIS_DEMO is ignored in production: demo accounts stay off.');
   const db = openDb();
   seedUsers(db, process.env, demo);
-  const server = createServer({ db, secret: resolveSecret(), demo });
+  const where = storageOf(path.dirname(db.raw.location()));
+  if (isProd() && where.persistent === false)
+    console.warn(`[beatris] the data folder ${path.dirname(db.raw.location())} is not on a disk of its own: every redeploy wipes the shops, their documents and the backups. Attach a persistent disk at /data and set BEATRIS_DATA_DIR=/data.`);
+  const server = createServer({ db, secret: resolveSecret(), demo, rateLimit: rateLimitFrom() });
   const port = Number(process.env.PORT) || 3000;
   server.listen(port, '0.0.0.0', () => console.log(`[beatris] listening on :${port}${demo ? ' (demo accounts on)' : ''}`));
   if (process.env.NODE_ENV !== 'test') server.startWorkers(); // price feed (when switched on) and daily backups, on the job queue

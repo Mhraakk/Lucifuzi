@@ -3045,6 +3045,20 @@ async function loginUI(page, email = EMAIL) {
       await go(page, '/agents', 1500);
       const rows = await page.$$eval('.at-journal tbody tr', (r) => r.length);
       check('agents page: the registry lists the agents with their tools', /عامل‌ها/.test(await text(page, '.at-head h1')) && rows >= 2, `${rows} rows`);
+      // a trainer is staff but not an admin (spec 0054): the page sends them home
+      const trainer = await page.evaluate(async () => {
+        const post = (p, b) => fetch(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }).then((r) => r.json());
+        const sent = await post('/api/auth/code', { phone: '09120000003' });
+        return (await post('/api/auth/verify', { phone: '09120000003', code: sent.code })).token;
+      });
+      const tr = await session({ width: 1280, height: 860 });
+      try {
+        await tr.ctx.addInitScript((t) => localStorage.setItem('beatris.token', t), trainer);
+        await go(tr.page, '/agents', 1200);
+        check('agents page: a trainer is sent home', new URL(tr.page.url()).pathname === '/', tr.page.url());
+      } finally {
+        await tr.ctx.close();
+      }
     });
 
     await step('PWA: service worker + offline shell', async () => {

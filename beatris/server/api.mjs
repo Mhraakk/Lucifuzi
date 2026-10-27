@@ -8,7 +8,7 @@ import { backtest } from '../public/js/backtest.mjs';
 import path from 'node:path';
 import * as C from '../content/index.mjs';
 import { checkNumeric, RECORD_KINDS } from '../public/js/calc.mjs';
-import { ROLES, STAFF_ROLES, ADMIN_ROLES, NO_PIN, normalizePhone, validPhone, normalizeEmail, validEmail, makeLimiter } from './auth.mjs';
+import { ROLES, STAFF_ROLES, ADMIN_ROLES, NO_PIN, normalizePhone, validPhone, normalizeEmail, validEmail, maskEmail, makeLimiter } from './auth.mjs';
 import { COIN_TYPES } from '../public/js/coins.mjs';
 import { SHOP_NAME } from '../public/js/crown.mjs';
 import { PHOTO_KINDS, PHOTO_SIDES, checkTexture, storeFiles, removeFiles, builtinPhotos } from './media.mjs';
@@ -164,18 +164,27 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     return { ok: true };
   });
 
-  // کد امضا (spec 0022): a signed act (the day close) is confirmed with a fresh SMS code to the signer's own mobile
+  // کد امضا (spec 0022): a signed act (the day close) is confirmed with a fresh code to the signer. By SMS to their own
+  // mobile; in production with no SMS service, or for an account without a mobile, to their own email (spec 0054)
+  const signByMail = (user) => validEmail(user.email) && ((otp.prod && !otp.canSend()) || !validPhone(user.phone));
   on('POST', '/api/auth/sign-code', 'auth', async ({ user, ip }) => {
     if (!otp) throw new HttpError(503, 'کد امضا در دسترس نیست.');
-    if (!validPhone(user.phone)) throw bad('برای امضا، شماره موبایل حساب شما لازم است؛ از مدیر یا ارائه‌دهنده بخواهید آن را ثبت کند.');
-    const r = await otp.send({ phone: user.phone, purpose: 'sign', ip, mode: demo && user.demo ? 'demo' : 'auto' });
+    const mode = demo && user.demo ? 'demo' : 'auto';
+    if (signByMail(user)) {
+      const r = await otp.sendEmail({ email: user.email, purpose: 'sign', ip, mode });
+      return { ...r, email: maskEmail(user.email) };
+    }
+    if (!validPhone(user.phone)) throw bad('برای امضا، ایمیل یا شماره موبایل حساب شما لازم است؛ از مدیر یا ارائه‌دهنده بخواهید آن را ثبت کند.');
+    const r = await otp.send({ phone: user.phone, purpose: 'sign', ip, mode });
     return { ...r, phone: `${user.phone.slice(0, 4)}…${user.phone.slice(-3)}` };
   });
-  const signCheck = ({ user, code, ip }) => {
+  const signCheck = async ({ user, code, ip }) => {
     if (!otp) throw new HttpError(503, 'کد امضا در دسترس نیست.');
-    if (!validPhone(user.phone)) throw bad('برای امضا، شماره موبایل حساب شما لازم است.');
+    const byMail = validEmail(user.email) && otp.pending(user.email, 'sign');
+    if (!byMail && !validPhone(user.phone)) throw bad('برای امضا، ایمیل یا شماره موبایل حساب شما لازم است.');
     try {
-      otp.check({ phone: user.phone, purpose: 'sign', code, ip });
+      if (byMail) await otp.checkEmail({ email: user.email, purpose: 'sign', code, ip });
+      else otp.check({ phone: user.phone, purpose: 'sign', code, ip });
     } catch (e) {
       // a wrong signing code is a refusal, not a lost session (401 would send the signer back to the sign-in page)
       throw new HttpError(e.status === 401 ? 403 : e.status ?? 403, e.message);
@@ -187,7 +196,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
     return {
       user: publicUser(user), pricing: pricing(), brand: brand(), progress: progressFor(user.id), attendance: today ? { inAt: today.in_at, outAt: today.out_at } : null,
       tenant: { id: tenantId, main: isMain, name: isMain ? brand().shopName : T.name, plan: isMain ? 'full' : T.plan, expiresAt: isMain ? null : T.expires_at, maxUsers: isMain ? 0 : T.max_users },
-      vendor: isMain && user.role === 'owner',
+      vendor: isMain && user.role === 'owner' && !(otp?.prod && user.demo), // a demo owner is never the vendor in production (spec 0054)
       setupDone: !!getSetting('setup', { done: false }).done || isMain,
       caps: capsOf(user.role, { main: isMain }),
       flags: flags(),
@@ -883,5 +892,7 @@ export function seedUsers(db, env = process.env, demo = false) {
     const off = db.run('UPDATE users SET active=0, token_version=token_version+1 WHERE demo=1 AND active=1');
     if (off.changes) console.log(`[beatris] demo off — deactivated ${off.changes} demo account(s).`);
   }
-  if (!count && !demo && !validPhone(ownerPhone)) console.warn('[beatris] No users. Set BEATRIS_OWNER_PHONE (and BEATRIS_OWNER_PIN until SMS is set up) or BEATRIS_DEMO=true, then restart.');
+  // spec 0054: say what is missing in the words of today's sign-in (email codes from Supabase, spec 0034)
+  if (!count && !demo && !validPhone(ownerPhone)) console.warn('[beatris] No users. Set BEATRIS_OWNER_PHONE, BEATRIS_OWNER_NAME and BEATRIS_OWNER_EMAIL (sign-in by email needs BEATRIS_SUPABASE_URL and BEATRIS_SUPABASE_KEY), then restart.');
+  if (validPhone(ownerPhone) && !validEmail(ownerEmail)) console.warn('[beatris] BEATRIS_OWNER_EMAIL is missing or not a valid email: the main owner cannot sign in by email until it is set.');
 }

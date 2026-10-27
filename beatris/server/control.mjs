@@ -276,7 +276,8 @@ export function makeControl({ db, on, call, core, auditShared = null, settings, 
     }
     for (const g of back.values()) push({ key: `back:${g.made}:${g.docs.length}`, rule: 'backdated', title: g.docs.length > 1 ? `${fa(g.docs.length)} سند با تاریخ گذشته` : 'سند با تاریخ گذشته', detail: `در ${jd(g.made)} ${g.docs.length > 1 ? `${fa(g.docs.length)} سند` : g.docs[0]} با تاریخ عقب‌تر ثبت شد (تا ${fa(g.maxGap)} روز)${g.docs.length > 1 ? `: ${g.docs.slice(0, 4).join('، ')}${g.docs.length > 4 ? '…' : ''}` : ''}. اگر ورود سابقه بوده، «هشدار کاذب» بزنید.`, raw: 0.8 + Math.min(1.5, g.maxGap / 10), date: g.made, href: g.docs.length > 1 ? '/books/docs' : `/books/doc/${g.first.id}` });
     for (const v of db.all("SELECT v.doc_id, v.version, v.status, v.reason, v.at, d.type, d.fy, d.no FROM bk_versions v JOIN bk_docs d ON d.id=v.doc_id WHERE v.at>=? AND v.version>1", `${since}T00:00:00Z`)) {
-      const printed = db.get("SELECT COUNT(*) AS n FROM bk_log WHERE ref=? AND action='doc.event' AND at<?", v.doc_id, v.at).n > 0;
+      // printed, sent as PDF or shared before the change (spec 0054: the log names each act, never «doc.event»)
+      const printed = db.get("SELECT COUNT(*) AS n FROM bk_log WHERE ref=? AND action IN ('doc.print','doc.pdf','doc.share') AND at<?", v.doc_id, v.at).n > 0;
       if (v.status === 'void') push({ key: `void:${v.doc_id}`, rule: 'void', title: 'سند باطل شد', detail: `${track(v)} باطل شد: «${v.reason || 'بی‌دلیل'}».${printed ? ' این سند پیش از ابطال چاپ یا ارسال شده بود.' : ''}`, raw: 1.1 + (printed ? 0.8 : 0), date: tehranDayOf(v.at), href: `/books/doc/${v.doc_id}` });
       else if (v.reason !== 'قطعی شد') push({ key: `edit:${v.doc_id}:${v.version}`, rule: 'edit', title: printed ? 'ویرایش سند پس از چاپ' : 'ویرایش سند قطعی', detail: `${track(v)} نسخه ${fa(v.version)}: «${v.reason || 'بی‌دلیل'}».`, raw: 0.6 + (printed ? 1.2 : 0), date: tehranDayOf(v.at), href: `/books/doc/${v.doc_id}` });
     }

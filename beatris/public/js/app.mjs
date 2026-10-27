@@ -119,7 +119,7 @@ route('/s/:token', lazy('./pages/statement.mjs', 'statementPage'), { public: tru
 route('/verify/:code', lazy('./pages/books.mjs', 'verifyPage'), { public: true, bare: true });
 route('/studio', lazy('./pages/studio3d.mjs', 'studioPage'), { tab: 'studio', tone: 'full', title: 'استودیوی سه‌بعدی' });
 route('/studio/coach', lazy('./pages/studiocoach.mjs', 'studioCoachPage'), { tab: 'studio', tone: 'wide' });
-route('/agents', lazy('./pages/studiocoach.mjs', 'agentsDebugPage'), { tab: 'team', tone: 'wide', staff: true });
+route('/agents', lazy('./pages/studiocoach.mjs', 'agentsDebugPage'), { tab: 'team', tone: 'wide', admin: true });
 route('/coins', lazy('./pages/coinlab.mjs', 'coinLabPage'), { tab: 'tools', tone: 'full', title: 'آزمایشگاه سکه' });
 route('/coins/manage', lazy('./pages/coinphotos.mjs', 'coinPhotosPage'), { tab: 'tools', staff: true });
 route('/coins/showcase', lazy('./pages/coinshowcase.mjs', 'coinShowcasePage'), { tab: 'tools', tone: 'full', title: 'ویترین سکه‌ها' });

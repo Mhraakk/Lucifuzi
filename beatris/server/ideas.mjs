@@ -524,7 +524,7 @@ export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, liv
     const day = /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get('day') ?? '') ? url.searchParams.get('day') : tehranDay();
     return closeView(day);
   });
-  on('POST', '/api/books/close', 'auth', ({ user, body, ip }) => {
+  on('POST', '/api/books/close', 'auth', async ({ user, body, ip }) => {
     guardAdmin(user);
     const day = /^\d{4}-\d{2}-\d{2}$/.test(body.day ?? '') ? body.day : tehranDay();
     if (day > tehranDay()) throw bad('روز آینده را نمی‌توان بست.');
@@ -536,10 +536,10 @@ export function makeIdeas({ db, on, call, settings, getSetting, saveSetting, liv
     const missing = open.filter((c) => !acks.has(c.key));
     if (missing.length) throw new HttpError(409, `پیش از بستن، این موارد را برطرف یا تأیید کنید: ${missing.map((c) => c.title).join('، ')}.`);
     if (open.length && txt(body.note, 600).length < 3) throw bad('برای مواردی که باز می‌مانند توضیح بنویسید.');
-    // the signature (spec 0022): a fresh SMS code sent to the signer's own mobile, checked after every other refusal so
+    // the signature (spec 0022): a fresh code sent to the signer (SMS, or their email, spec 0054), checked after every other refusal so
     // a right code is never used up by a request that fails anyway
     if (!signCheck) throw forbid('امضای روز در دسترس نیست.');
-    signCheck({ user, code: body.code, ip });
+    await signCheck({ user, code: body.code, ip });
     const prev = db.get('SELECT hash FROM bk_closes WHERE day<? ORDER BY day DESC LIMIT 1', day);
     const data = { day, totals: view.totals, entries: view.entries, cash: view.cash, count: view.counts[0]?.lines ?? null, checks: view.checks.map((c) => ({ key: c.key, ok: c.ok, warn: c.warn })), acknowledged: open.map((c) => c.key), note: txt(body.note, 600), signer: { id: user.id, name: user.name, role: user.role }, at: now(), shop: shopId };
     const hash = sha(`${prev?.hash ?? ''}|${canon(data)}`);

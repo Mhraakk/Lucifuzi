@@ -6,7 +6,7 @@
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { sendCode, checkSmsConfig, smsConfigFromEnv, publicSmsView, providerLabel, SmsError } from './sms.mjs';
 import { supabaseFromEnv, sendEmailCode, checkEmailCode, emailFromLink, SupaError } from './supabase.mjs';
-import { normalizePhone, validPhone, validPin, digits, makeLimiter, normalizeEmail, validEmail } from './auth.mjs';
+import { normalizePhone, validPhone, validPin, digits, makeLimiter, normalizeEmail, validEmail, isProd } from './auth.mjs';
 
 export const OTP_SCHEMA = `
 CREATE TABLE IF NOT EXISTS otp_codes (
@@ -55,7 +55,7 @@ export class OtpError extends Error {
  */
 export function createOtp({ db, secret, sealer, env = process.env, quiet = false, smsOpts = {}, supaOpts = {}, now = () => Date.now(), silentDelay = () => 400 + randomInt(0, 800) }) {
   db.raw.exec(OTP_SCHEMA);
-  const prod = env.NODE_ENV === 'production' || !!env.RAILWAY_ENVIRONMENT;
+  const prod = isProd(env);
   const hourlyCap = Math.max(1, Number(env.BEATRIS_SMS_HOURLY_CAP) || 300);
   const clean = (c) => digits(c).replace(/\D/g, '');
   const mac = (phone, purpose, code) => createHmac('sha256', secret).update(`otp|${phone}|${purpose}|${clean(code)}`).digest();
@@ -108,8 +108,9 @@ export function createOtp({ db, secret, sealer, env = process.env, quiet = false
 
   /* ---------------- the vendor's way in before SMS works ---------------- */
   const ownerPhone = () => normalizePhone(env.BEATRIS_OWNER_PHONE);
+  // only while neither SMS nor email sign-in works (spec 0054): once a code can be sent, a fixed PIN is no longer a way in
   function ownerPinOpen() {
-    return prod && !canSend(config()) && validPhone(ownerPhone()) && validPin(env.BEATRIS_OWNER_PIN);
+    return prod && !canSend(config()) && !emailReady() && validPhone(ownerPhone()) && validPin(env.BEATRIS_OWNER_PIN);
   }
 
   /* ---------------- limits (database: they survive a restart) ---------------- */
@@ -400,5 +401,7 @@ export function createOtp({ db, secret, sealer, env = process.env, quiet = false
     return { ready: emailReady(), host: c && !c.error ? new URL(c.url).host : null, error: c?.error ?? null, len: emailLen(), ownerPin: ownerPinByEmail(), sent24h: row?.sent ?? 0, failed24h: row?.failed ?? 0, lastError: lastErr ? { at: new Date(lastErr.at).toISOString(), error: lastErr.error } : null };
   }
 
-  return { send, check, test, config, saveConfig, view, ownerPinOpen, canSend: () => canSend(config()), prod, sendEmail, checkEmail, checkEmailLink, emailView, emailReady };
+  /** Whether a live code (or code request) is held for a mobile or an email and a purpose. */
+  const pending = (key, purpose) => !!db.get('SELECT 1 FROM otp_codes WHERE phone=? AND purpose=? AND expires_at>=?', key, purpose, now());
+  return { send, check, test, config, saveConfig, view, ownerPinOpen, canSend: () => canSend(config()), prod, sendEmail, checkEmail, checkEmailLink, emailView, emailReady, pending };
 }

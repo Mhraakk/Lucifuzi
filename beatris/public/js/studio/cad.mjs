@@ -4,7 +4,7 @@
 // Rhino.Compute, Grasshopper, a plugin bridge) implements the same four methods elsewhere; nothing here pretends to
 // be Rhino.
 import { check } from '../schema.mjs';
-import { CAD_PROGRAM } from './schemas.mjs';
+import { CAD_PROGRAM, SETTING_FA, MODELLED_SETTINGS } from './schemas.mjs';
 import * as G from './geometry.mjs';
 import { shankMesh, prongHead, caratOf } from './ring.mjs';
 import { weightOf, MATERIALS } from './materials.mjs';
@@ -75,7 +75,7 @@ export function createLocalAdapter({ material = 'au18y', idFor = () => `m${Math.
         case 'stoneSetting': {
           const base = obj(o.on);
           if (base.meta.kind !== 'shank') throw new CadError('E_REF', 'سر نگین فقط روی رکاب ساخته می‌شود.');
-          if (o.spec.type !== 'prong') throw new CadError('E_UNSUPPORTED', `ساخت هندسه «${o.spec.type}» هنوز در موتور محلی نیست؛ فقط اعتبارسنجی آن انجام می‌شود.`);
+          if (!MODELLED_SETTINGS.has(o.spec.type)) throw new CadError('E_UNSUPPORTED', `سر نگین ${SETTING_FA[o.spec.type] ?? o.spec.type} هنوز مدل سه‌بعدی ندارد؛ فقط قاعده‌هایش بررسی می‌شود.`);
           const h = prongHead(base.meta.params, o.spec, o.headHeightMm);
           put(o.id, h.metal, 'metal', { kind: 'head', spec: o.spec, measures: h.measures });
           put(`${o.id}_stone`, h.stone, 'stone', { kind: 'stone', spec: o.spec, carats: caratOf(o.spec) });

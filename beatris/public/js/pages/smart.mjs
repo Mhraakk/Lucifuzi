@@ -153,11 +153,11 @@ async function closeTab(box) {
         return load();
       }
       if (b.hasAttribute('data-sign-code')) {
-        // the signature (spec 0022): a fresh SMS code to the signer's own mobile
+        // the signature (spec 0022): a fresh code to the signer's own mobile, or to their email (spec 0054)
         busy(b, true);
         try {
           const r = await api('/api/auth/sign-code', { method: 'POST' });
-          $('#clSent', box).textContent = r.code ? `کد ${r.via === 'demo' ? 'حساب نمایشی' : 'آزمایشی'}: ${fa(r.code)}` : `کد به ${fa(r.phone)} پیامک شد.`;
+          $('#clSent', box).textContent = r.code ? `کد ${r.via === 'demo' ? 'حساب نمایشی' : 'آزمایشی'}: ${fa(r.code)}` : r.email ? `کد به ایمیل ${r.email} فرستاده شد.` : `کد به ${fa(r.phone)} پیامک شد.`;
           if (r.code) codeIn?.fill(r.code);
           codeIn?.focus();
         } catch (err) {

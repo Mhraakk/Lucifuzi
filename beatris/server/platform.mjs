@@ -4,7 +4,7 @@
 // no account may open its own shop when the vendor keeps sign-up open. The main database keeps the registry of shops;
 // nothing here touches the books of any shop — it only opens them, signs sessions for them and routes each request.
 import { randomUUID, randomBytes } from 'node:crypto';
-import { normalizePhone, validPhone, ROLES, NO_PIN, makeLimiter, normalizeEmail, validEmail } from './auth.mjs';
+import { normalizePhone, validPhone, ROLES, NO_PIN, makeLimiter, normalizeEmail, validEmail, isProd } from './auth.mjs';
 import { SMS_PROVIDERS } from './sms.mjs';
 
 export const PLATFORM_SCHEMA = `
@@ -255,7 +255,9 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant, otp, de
   }
 
   /* ---------------- accounts: a name, a mobile, a role ---------------- */
-  const isVendor = (user) => !!user && user.role === 'owner' && !user.demo_blocked;
+  // in production a demo account is never the vendor, whatever its role (spec 0054)
+  const prodEnv = isProd(env);
+  const isVendor = (user) => !!user && user.role === 'owner' && !(prodEnv && user.demo);
   const userOut = (u, tn) => ({ id: u.id, name: u.name, phone: validPhone(u.phone) ? u.phone : '', noPhone: !validPhone(u.phone), email: u.email ?? '', username: u.username ?? null, role: u.role, active: !!u.active, lastLoginAt: u.last_login_at, lastDevice: deviceName(u.last_login_ua), tenant: tn });
   function tenantOut(t) {
     let stats = { users: 0, docs: 0, parties: 0, lastDoc: null };
@@ -423,7 +425,9 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant, otp, de
     throw new PlatformError(404, 'مسیر API وجود ندارد.');
   }
 
-  return { sendLoginCode, verifyLogin, finishLogin, accountsOf, handleFor, tenantOfToken, all, vendor, isVendor, tenantRow, access, signupConf };
+  /** Every shop's database whatever its state: [[id, db]] (backups, the owner's dashboard). */
+  const allShops = () => [[MAIN, mainDb], ...mainDb.all('SELECT id FROM tenants ORDER BY created_at').map((t) => [t.id, dbOf(t.id)])];
+  return { sendLoginCode, verifyLogin, finishLogin, accountsOf, handleFor, tenantOfToken, all, allShops, dbOf, vendor, isVendor, tenantRow, access, signupConf };
 }
 
 /** «Chrome on Android» style label for the last device an account signed in from. */

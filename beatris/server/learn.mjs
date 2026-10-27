@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_bkev_user ON bk_events(user_id, at);
 CREATE TABLE IF NOT EXISTS bk_memory (id TEXT PRIMARY KEY, scope TEXT NOT NULL CHECK (scope IN ('party','shop','user')), ref TEXT NOT NULL DEFAULT '', text TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'operator', by TEXT, at TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1);
 CREATE INDEX IF NOT EXISTS idx_bkmem_ref ON bk_memory(scope, ref);
 `;
-export const EVENT_KINDS = new Set(['nav', 'ui', 'desk.open', 'desk.party', 'desk.add', 'desk.save', 'desk.error', 'desk.suggest', 'search', 'trace', 'print', 'export', 'assistant', 'error', 'theme']);
+export const EVENT_KINDS = new Set(['nav', 'ui', 'desk.open', 'desk.party', 'desk.add', 'desk.save', 'desk.error', 'desk.suggest', 'desk.paycard', 'desk.quote', 'search', 'trace', 'print', 'export', 'assistant', 'error', 'theme']);
 const clip = (v, n) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').slice(0, n);
 const mode = (list) => {
   const m = new Map();
