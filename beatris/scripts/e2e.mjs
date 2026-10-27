@@ -75,9 +75,27 @@ async function session(viewport) {
   });
   return { ctx, page, label };
 }
-/** A [data-hold] button acts only when held (spec 0040): press, keep it down past the fill, let go. */
+/** A [data-hold] button acts only when held (spec 0040): press, keep it down past the fill, let go. The press waits
+ *  until the button has stood still for a dozen frames: a page still scrolling (smoothly, to what it just added)
+ *  carries the button from under the pointer, and the hold ends as the pointer leaves it. */
 const holdApp = async (page, sel) => {
   const el = await page.waitForSelector(sel, { timeout: 5000 });
+  await el.scrollIntoViewIfNeeded();
+  await el.evaluate(
+    (b) =>
+      new Promise((done) => {
+        const end = performance.now() + 5000;
+        let at = '', still = 0;
+        const frame = () => {
+          const r = b.getBoundingClientRect();
+          still = `${r.x},${r.y}` === at ? still + 1 : 0;
+          at = `${r.x},${r.y}`;
+          if (still >= 12 || performance.now() > end) done();
+          else requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+  );
   await el.scrollIntoViewIfNeeded();
   const r = await el.boundingBox();
   await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);

@@ -272,3 +272,11 @@ Both films that had been sent did carry their music track (AAC, −15.9 LUFS). T
     so they are not installed.
 - **Review:** the builder made it, with the same sheets and measures as before. No independent critic reviewed it, and
   nobody listened to it.
+- **CI on `38150d0`:** the browser run passed 721 of 724 checks.
+  - The uploader held «حذف» while the page was still scrolling smoothly to the photo it had just added. The button moved
+    from under the pointer, so the hold ended and the photo stayed. The showcase then counted five coins, which failed
+    its two checks.
+  - The film had no part in it. The e2e's `holdApp` now presses only once its button has stood still for a dozen
+    frames.
+  - Run alone, with the page's processor slowed 6× through Chrome's own throttling, the uploader's delete fails as on
+    CI before the change and passes after it.
