@@ -251,7 +251,7 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant, otp, de
     signupByIp.fail(ip);
     const tn = makeShop({ name: shop, plan: conf.plan, expiresAt: conf.trialDays ? addDays(tehranDay(), conf.trialDays) : null, maxUsers: 0, contact: email ? `${phone} · ${email}` : phone, note: email ? 'ساخته‌شده با ثبت‌نام ایمیل' : 'ساخته‌شده با ثبت‌نام موبایل', by: 'signup', owner: { name, phone, email } });
     audit(null, 'signup.shop', { id: tn, phone: masked(phone), email: !!email, plan: conf.plan });
-    return session(accountsOf(email ? { email } : phone).find((a) => a.tn === tn), ua);
+    return { ...session(accountsOf(email ? { email } : phone).find((a) => a.tn === tn), ua), signedUp: true }; // the owner's dashboard counts it (spec 0053)
   }
 
   /* ---------------- accounts: a name, a mobile, a role ---------------- */
@@ -427,7 +427,7 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant, otp, de
 
   /** Every shop's database whatever its state: [[id, db]] (backups, the owner's dashboard). */
   const allShops = () => [[MAIN, mainDb], ...mainDb.all('SELECT id FROM tenants ORDER BY created_at').map((t) => [t.id, dbOf(t.id)])];
-  return { sendLoginCode, verifyLogin, finishLogin, accountsOf, handleFor, tenantOfToken, all, allShops, dbOf, vendor, isVendor, tenantRow, access, signupConf };
+  return { sendLoginCode, verifyLogin, finishLogin, accountsOf, handleFor, tenantOfToken, all, allShops, dbOf, shopName, vendor, isVendor, tenantRow, access, signupConf };
 }
 
 /** «Chrome on Android» style label for the last device an account signed in from. */

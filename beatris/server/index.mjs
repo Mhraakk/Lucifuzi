@@ -18,6 +18,7 @@ import { performance } from 'node:perf_hooks';
 import { createBus } from './bus.mjs';
 import { createMetrics } from './metrics.mjs';
 import { backupAll, listBackups, storageOf } from './backup.mjs';
+import { createOwner } from './owner.mjs';
 import { createFlags } from './flags.mjs';
 import { can } from './rbac.mjs';
 import { getTracer } from './otel.mjs';
@@ -89,6 +90,9 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
   /* ---------- operations: metrics, event bus + job queue, persistent market worker, backups (spec 0001 #8 #18 #20) ---------- */
   const bus = createBus({ db, onError: (e, ctx) => (metrics.inc('bus.errors'), quiet || console.error('[beatris] bus', JSON.stringify(ctx), e?.message)) });
   let lastBackup = null;
+  // دیده‌بان (spec 0053): the platform owner's dashboard — sign-ins, activity, and every shop's counts
+  const owner = createOwner({ db, env, platform, bus, mediaDir, market: handle.market });
+  bus.handle('owner.prune', () => void owner.prune());
   bus.handle('market.poll', async () => {
     const run = handle.market.poll();
     if (!run) return;
@@ -200,6 +204,28 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
     beat.unref?.();
     streams.add(res);
     metrics.inc('stream.opened');
+    req.on('close', () => {
+      off();
+      clearInterval(beat);
+      streams.delete(res);
+    });
+  }
+  /** The owner's live feed (spec 0053): every sign-in step and every batch from the screens, as it happens. */
+  function ownerStream(req, res) {
+    const auth = String(req.headers.authorization ?? '');
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const tn = (token && platform.tenantOfToken(token)) || MAIN;
+    const user = platform.handleFor(tn).authenticate(req);
+    if (!user) throw new HttpError(401, 'ورود لازم است.');
+    if (!owner.isOwner(user, tn)) throw new HttpError(403, 'این بخش فقط برای مالک بئاتریس است.');
+    if (streams.size >= 500) throw new HttpError(503, 'اتصال‌های زنده پر است.');
+    res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no', ...SECURITY });
+    const write = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    write('hello', { at: new Date().toISOString() });
+    const off = bus.subscribe('owner.event', (d) => write(d.type, d));
+    const beat = setInterval(() => res.write(': ping\n\n'), 25000);
+    beat.unref?.();
+    streams.add(res);
     req.on('close', () => {
       off();
       clearInterval(beat);
@@ -343,6 +369,7 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
       return json(e.status === 413 ? 413 : 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
     }
     const out = await handle.mcp(body);
+    for (const m of [body].flat()) if (m?.method === 'tools/call') owner.mcp(m.params?.name);
     if (out.status === 202) {
       res.writeHead(202, H);
       return res.end();
@@ -411,9 +438,9 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
       const h = health();
       return send(h.ok ? 200 : 503, h);
     }
-    if (url.pathname === '/api/market/stream' && req.method === 'GET') {
+    if ((url.pathname === '/api/market/stream' || url.pathname === '/api/owner/stream') && req.method === 'GET') {
       try {
-        return marketStream(req, res);
+        return url.pathname === '/api/owner/stream' ? ownerStream(req, res) : marketStream(req, res);
       } catch (e) {
         if (e instanceof HttpError || e instanceof PlatformError || e instanceof OtpError) return send(e.status, { error: e.message, requestId: rid, ...(e.extra ?? {}) });
         throw e;
@@ -440,11 +467,25 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
       let out;
       const ua = req.headers['user-agent'];
-      // ورود با پیامک (spec 0022): number → code → (shop or new shop); no shop code, no password
-      if (url.pathname === '/api/auth/code' && req.method === 'POST') out = await platform.sendLoginCode(body, ip, publicOrigin(req));
-      else if (url.pathname === '/api/auth/verify' && req.method === 'POST') out = await platform.verifyLogin(body, ip, ua);
-      else if (url.pathname === '/api/auth/finish' && req.method === 'POST') out = platform.finishLogin(body, ip, ua);
-      else if (url.pathname === '/api/auth/login') throw new HttpError(410, 'ورود با نام کاربری و رمز برداشته شد؛ با ایمیل خود و کدی که به آن فرستاده می‌شود وارد شوید.');
+      const step = req.method !== 'POST' ? null : url.pathname === '/api/auth/code' ? 'code' : url.pathname === '/api/auth/verify' ? 'verify' : url.pathname === '/api/auth/finish' ? 'finish' : null;
+      // ورود با ایمیل یا پیامک (spec 0022, 0034): address → code → (shop or new shop); no shop code, no password.
+      // Each step is recorded for the owner's dashboard (spec 0053) with its outcome and where it came from.
+      if (step) {
+        const seen = { ip, xff: String(req.headers['x-forwarded-for'] ?? ''), ua: String(ua ?? '') };
+        const ticket = step === 'finish' ? signer.verify(String(body.ticket ?? '')) : null;
+        const who = owner.whoOf(step === 'finish' ? ticket ?? {} : body);
+        try {
+          out = step === 'code' ? await platform.sendLoginCode(body, ip, publicOrigin(req)) : step === 'verify' ? await platform.verifyLogin(body, ip, ua) : platform.finishLogin(body, ip, ua);
+        } catch (e) {
+          if (e instanceof HttpError || e instanceof PlatformError || e instanceof OtpError) owner.auth({ ...seen, kind: e.status === 429 ? 'blocked' : step === 'code' ? 'code' : step === 'verify' ? 'verify_fail' : 'pick', ok: false, reason: e.message, who });
+          throw e;
+        }
+        const s = out?.token ? signer.verify(out.token) : null;
+        if (step === 'code') owner.auth({ ...seen, kind: 'code', via: out?.via ?? '', who });
+        else if (s) owner.auth({ ...seen, kind: out.signedUp ? 'signup' : 'login', userId: s.uid, tenant: s.tn, who });
+        else owner.auth({ ...seen, kind: 'pick', reason: out?.signup ? 'ساخت فروشگاه' : 'انتخاب فروشگاه', who });
+        if (out?.signedUp) delete out.signedUp;
+      } else if (url.pathname === '/api/auth/login') throw new HttpError(410, 'ورود با نام کاربری و رمز برداشته شد؛ با ایمیل خود و کدی که به آن فرستاده می‌شود وارد شوید.');
       else if (url.pathname.startsWith('/api/ops/')) {
         if (token && platform.tenantOfToken(token) && platform.tenantOfToken(token) !== MAIN) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
         out = ops(req.method, url.pathname, req, body);
@@ -479,9 +520,27 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
         }
         if (!found) throw new HttpError(404, 'سندی با این کد پیدا نشد.');
         out = found;
+      } else if (url.pathname.startsWith('/api/owner/')) {
+        const tn = (token && platform.tenantOfToken(token)) || MAIN;
+        const user = platform.handleFor(tn).authenticate(req);
+        if (!user) throw new HttpError(401, 'ورود لازم است.');
+        if (!owner.isOwner(user, tn)) throw new HttpError(403, 'این بخش فقط برای مالک بئاتریس است.');
+        const r = owner.route(req.method, url);
+        if (r.status) throw new HttpError(r.status, r.status === 404 ? 'مسیر API وجود ندارد.' : 'درخواست نامعتبر است.');
+        out = r.body;
+      } else if (url.pathname === '/api/act' && req.method === 'POST') {
+        // what the screens did (spec 0053): pages, presses, errors and visible minutes of a signed-in person
+        const tn = (token && platform.tenantOfToken(token)) || MAIN;
+        const user = platform.handleFor(tn).authenticate(req);
+        if (!user) throw new HttpError(401, 'ورود لازم است.');
+        out = owner.record(tn, user, body.events);
       } else {
         const tn = (token && platform.tenantOfToken(token)) || MAIN;
-        out = await (tn === MAIN ? handle : platform.handleFor(tn))(req, url, body, ip);
+        const h = tn === MAIN ? handle : platform.handleFor(tn);
+        const who = url.pathname === '/api/me' || url.pathname === '/api/auth/logout-all' ? h.authenticate(req) : null;
+        out = await h(req, url, body, ip);
+        if (url.pathname === '/api/me' && who) out = { ...out, owner: owner.isOwner(who, tn) };
+        if (url.pathname === '/api/auth/logout-all' && req.method === 'POST' && who) owner.auth({ kind: 'logout_all', userId: who.id, tenant: tn, who: who.name, ip, xff: String(req.headers['x-forwarded-for'] ?? ''), ua: String(req.headers['user-agent'] ?? '') });
       }
       send(200, out);
     } catch (e) {
@@ -501,9 +560,11 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
     if (backupDir) bus.every('backup', 24 * 3600 * 1000, 'ops.backup', {}, { maxAttempts: 3 });
     bus.every('autoclose', 5 * 60 * 1000, 'books.autoclose', {}, { maxAttempts: 1 });
     bus.every('training', 10 * 60 * 1000, 'training.tick', {}, { maxAttempts: 1 });
+    bus.every('owner', 24 * 3600 * 1000, 'owner.prune', {}, { maxAttempts: 2 });
     bus.start(1000);
   };
   server.platform = platform;
+  server.owner = owner;
   return server;
 }
 
