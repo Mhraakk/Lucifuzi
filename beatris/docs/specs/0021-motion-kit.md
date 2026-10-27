@@ -1,5 +1,7 @@
 # 0021 — Motion kit: text morph, morphing dock, new tab icons, smooth caret, cinematic captions
 
+**Status:** implemented.
+
 ## What
 One small motion kit (`public/js/motion.mjs`). All movement is spring-based and touches only transform, opacity and filter. Nothing runs while things are at rest, and everything honours reduced motion.
 

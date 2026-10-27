@@ -74,7 +74,7 @@ export function resolveSecret(env = process.env) {
   return randomUUID() + randomUUID();
 }
 
-/** Fixed-window limiter kept in memory (single instance on Railway). */
+/** Fixed-window limiter kept in memory (a single instance serves the app). */
 export function makeLimiter(max, windowMs) {
   const hits = new Map();
   return {

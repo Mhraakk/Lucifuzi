@@ -71,14 +71,14 @@ export function checkSmsConfig(raw) {
   return { cfg };
 }
 
-/** The configuration from Railway variables, or null when BEATRIS_SMS_PROVIDER is not set. */
+/** The configuration from the server's variables, or null when BEATRIS_SMS_PROVIDER is not set. */
 export function smsConfigFromEnv(env = process.env) {
   const id = String(env.BEATRIS_SMS_PROVIDER ?? '').trim().toLowerCase();
   if (!id) return null;
   if (id === 'off' || id === 'none') return { provider: 'off', fromEnv: true };
   if (id === 'console') return { provider: 'console', fromEnv: true };
   const r = checkSmsConfig({ provider: id, key: env.BEATRIS_SMS_API_KEY ?? env.BEATRIS_SMS_PASSWORD, template: env.BEATRIS_SMS_TEMPLATE, sender: env.BEATRIS_SMS_SENDER, param: env.BEATRIS_SMS_PARAM, username: env.BEATRIS_SMS_USERNAME });
-  if (r.error) return { provider: 'invalid', error: `متغیرهای پیامک Railway: ${r.error}`, fromEnv: true };
+  if (r.error) return { provider: 'invalid', error: `متغیرهای پیامک سرور: ${r.error}`, fromEnv: true };
   return { ...r.cfg, baseUrl: relayUrl(env.BEATRIS_SMS_BASE_URL), fromEnv: true };
 }
 /** Your own relay (e.g. a server inside Iran forwarding the same paths): https only; plain http only on this machine. */

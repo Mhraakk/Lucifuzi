@@ -16,7 +16,7 @@ SMS), but the sign-in page no longer offers them.
 - **The browser never talks to Supabase.** The shop's devices reach only Beatris, which matters where foreign hosts
   are slow or filtered.
 - **No SDK** and no runtime dependency.
-- **Configuration:** `BEATRIS_SUPABASE_URL` and `BEATRIS_SUPABASE_KEY` (the publishable key), in Railway. Nothing is
+- **Configuration:** `BEATRIS_SUPABASE_URL` and `BEATRIS_SUPABASE_KEY` (the publishable key), in the host's variables (Render; Railway before it). Nothing is
   in the repository.
 
 ### Accounts

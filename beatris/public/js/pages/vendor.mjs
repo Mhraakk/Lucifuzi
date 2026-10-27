@@ -50,7 +50,7 @@ export async function vendorPage(root) {
     const m = S.sms.email ?? {};
     const state = m.ready
       ? html`<span class="vd-sms-state ok">فعال · Supabase · <bdi dir="ltr">${m.host}</bdi></span>`
-      : html`<span class="vd-sms-state warn">${m.error ?? (m.ownerPin ? 'هنوز تنظیم نشده — تا آن موقع فقط شما با ایمیل و رمز Railway وارد می‌شوید' : 'هنوز تنظیم نشده — BEATRIS_SUPABASE_URL و BEATRIS_SUPABASE_KEY را در Railway بگذارید')}</span>`;
+      : html`<span class="vd-sms-state warn">${m.error ?? (m.ownerPin ? 'هنوز تنظیم نشده — تا آن موقع فقط شما با ایمیل و رمز متغیرهای سرور وارد می‌شوید' : 'هنوز تنظیم نشده — BEATRIS_SUPABASE_URL و BEATRIS_SUPABASE_KEY را در متغیرهای سرور بگذارید')}</span>`;
     $('#vdMail', root).innerHTML = String(html`<div class="vd-sms-head"><h2 class="bk-h" style="margin:0">ورود با ایمیل</h2>${state}</div>
       <p class="small">کد ${fa(m.len ?? 6)} رقمی و پیوند ورود را Supabase به ایمیل هر کاربر می‌فرستد. ${m.sent24h || m.failed24h ? `۲۴ ساعت گذشته: ${fa(m.sent24h)} ایمیل رفت${m.failed24h ? `، ${fa(m.failed24h)} ناموفق` : ''}.` : ''}</p>
       ${m.lastError ? html`<p class="small vd-sms-out bad">آخرین خطا (${jd(m.lastError.at.slice(0, 10))} ${timeFa(m.lastError.at)}): ${m.lastError.error}</p>` : ''}
@@ -65,8 +65,8 @@ export async function vendorPage(root) {
     const prov = v.providers.find((p) => p.id === (S.pick ?? c.provider)) ?? null;
     const st = v.stats;
     const state = v.ready
-      ? html`<span class="vd-sms-state ok">فعال · ${c.label}${c.fromEnv ? ' · از متغیرهای Railway' : ''}${c.relay ? ' · از راه واسط' : ''}</span>`
-      : html`<span class="vd-sms-state warn">${v.envError ?? (v.ownerPin ? 'هنوز تنظیم نشده — تا آن موقع فقط شما با رمز Railway وارد می‌شوید' : v.prod ? 'هنوز تنظیم نشده — کسی جز حساب‌های نمایشی وارد نمی‌شود' : 'تنظیم نشده — محیط توسعه: کد روی صفحه ورود نشان داده می‌شود')}</span>`;
+      ? html`<span class="vd-sms-state ok">فعال · ${c.label}${c.fromEnv ? ' · از متغیرهای سرور' : ''}${c.relay ? ' · از راه واسط' : ''}</span>`
+      : html`<span class="vd-sms-state warn">${v.envError ?? (v.ownerPin ? 'هنوز تنظیم نشده — تا آن موقع فقط شما با رمز متغیرهای سرور وارد می‌شوید' : v.prod ? 'هنوز تنظیم نشده — کسی جز حساب‌های نمایشی وارد نمی‌شود' : 'تنظیم نشده — محیط توسعه: کد روی صفحه ورود نشان داده می‌شود')}</span>`;
     const field = (k, type = 'text') =>
       prov?.fields[k]
         ? html`<label class="field">${prov.fields[k]}<input class="input ltr" name="${k}" type="${type}" autocomplete="off" spellcheck="false" value="${type === 'password' ? '' : k === 'param' ? (c.provider === prov.id && c.param) || prov.param : (c.provider === prov.id ? c[k] : '') ?? ''}" placeholder="${type === 'password' && c.hasKey && c.provider === prov.id ? '•••••• (ذخیره‌شده؛ خالی = همان)' : k === 'param' ? prov.param : k === 'sender' ? '+983000505' : ''}"></label>`
@@ -75,7 +75,7 @@ export async function vendorPage(root) {
       <p class="small">کد ورود از پنل پیامک خودتان می‌رود. ${st.sent24h || st.failed24h ? `۲۴ ساعت گذشته: ${fa(st.sent24h)} پیامک رفت${st.failed24h ? `، ${fa(st.failed24h)} ناموفق` : ''}.` : ''}</p>
       ${st.lastError ? html`<p class="small vd-sms-out bad">آخرین خطا (${jd(st.lastError.at.slice(0, 10))} ${timeFa(st.lastError.at)}): ${st.lastError.error}</p>` : ''}
       ${c.fromEnv
-        ? html`<p class="small">سرویس از متغیرهای Railway خوانده می‌شود (${c.label || 'خاموش'})؛ برای تغییر، همان‌جا عوض کنید: <span class="ltr-num">BEATRIS_SMS_PROVIDER، BEATRIS_SMS_API_KEY، BEATRIS_SMS_TEMPLATE</span>.</p>`
+        ? html`<p class="small">سرویس از متغیرهای سرور خوانده می‌شود (${c.label || 'خاموش'})؛ برای تغییر، همان‌جا عوض کنید: <span class="ltr-num">BEATRIS_SMS_PROVIDER، BEATRIS_SMS_API_KEY، BEATRIS_SMS_TEMPLATE</span>.</p>`
         : html`<form class="vd-sms-form" id="smsF" autocomplete="off">
           <label class="field">سرویس<select class="input" name="provider"><option value="">— خاموش —</option>${v.providers.map((p) => html`<option value="${p.id}" ${prov?.id === p.id ? 'selected' : ''}>${p.label}</option>`)}</select></label>
           ${prov?.need.includes('username') ? field('username') : ''}${field('key', 'password')}${field('template')}${prov?.need.includes('sender') ? field('sender') : ''}${prov?.param ? field('param') : ''}
@@ -85,7 +85,7 @@ export async function vendorPage(root) {
         ? html`<form class="vd-sms-test" id="smsT"><label class="field">پیامک آزمایشی به<input class="input ltr" name="phone" inputmode="tel" value="${fa(store.me?.user?.phone ?? '')}" placeholder="۰۹۱۲…"></label><button class="btn small ghost" type="submit">ارسال پیامک آزمایشی</button></form>`
         : ''}
       ${S.test ? html`<p class="small vd-sms-out ${S.test.ok ? 'good' : 'bad'}">${S.test.ok ? `رسید ✓ ${S.test.provider} پیامک را پذیرفت${S.test.id ? ` (شناسه ${S.test.id})` : ''} · ${fa(S.test.ms)} میلی‌ثانیه` : S.test.error}${!S.test.ok && S.test.reach === false ? ' — بسیاری از پنل‌های ایرانی به سرورهای بیرون از ایران پاسخ نمی‌دهند. در آزمایش ما از بیرون ایران، SMS.ir پاسخ داد؛ یا BEATRIS_SMS_BASE_URL را روی یک واسط داخل ایران بگذارید.' : ''}</p>` : ''}
-      <form class="vd-sms-form" id="signF"><label class="check vd-sms-wide"><input type="checkbox" name="open" ${v.signup.open ? 'checked' : ''}> ثبت‌نام آزاد: هر شماره تازه پس از کد پیامکی فروشگاه خودش را بسازد</label>
+      <form class="vd-sms-form" id="signF"><label class="check vd-sms-wide"><input type="checkbox" name="open" ${v.signup.open ? 'checked' : ''}> ثبت‌نام آزاد: هر ایمیل یا موبایل تازه پس از کد ورود، فروشگاه خودش را بسازد</label>
         <label class="field">نسخه فروشگاه‌های تازه<select class="input" name="plan">${Object.entries(PLAN_FA).map(([k, l]) => html`<option value="${k}" ${v.signup.plan === k ? 'selected' : ''}>${l}</option>`)}</select></label>
         <label class="field">روزهای آزمایشی (۰ = بی‌پایان)<input class="input ltr" name="trialDays" inputmode="numeric" value="${fa(v.signup.trialDays)}"></label>
         <div class="actions"><button class="btn small ghost" type="submit">ذخیره ثبت‌نام</button></div></form>`);
@@ -108,9 +108,9 @@ export async function vendorPage(root) {
     const d = daysLeft(t.expiresAt);
     const state = t.status !== 'active' ? ['off', 'غیرفعال'] : t.expired ? ['bad', 'اشتراک تمام شده'] : d != null && d <= 14 ? ['warn', `${fa(d)} روز تا پایان`] : ['ok', 'فعال'];
     return html`<article class="tray vd-shop" data-id="${t.id}">
-      <header><div><h3>${t.name}</h3><p class="small">${PLAN_FA[t.plan] ?? t.plan}${t.contact ? ` · ${fa(t.contact)}` : ''}${t.selfMade ? ' · با ثبت‌نام موبایل' : ''}</p></div><span class="vd-st ${state[0]}">${state[1]}</span></header>
+      <header><div><h3>${t.name}</h3><p class="small">${PLAN_FA[t.plan] ?? t.plan}${t.contact ? ` · ${fa(t.contact)}` : ''}${t.selfMade ? ' · با ثبت‌نام آزاد' : ''}</p></div><span class="vd-st ${state[0]}">${state[1]}</span></header>
       <dl class="vd-stats"><div><dt>کاربران</dt><dd>${fa(t.stats.users ?? 0)}${t.maxUsers ? ` از ${fa(t.maxUsers)}` : ' · نامحدود'}</dd></div><div><dt>اسناد قطعی</dt><dd>${fa(t.stats.docs ?? 0)}</dd></div><div><dt>مشتریان</dt><dd>${fa(t.stats.parties ?? 0)}</dd></div><div><dt>پایان اشتراک</dt><dd>${t.expiresAt ? jd(t.expiresAt) : 'نامحدود'}</dd></div><div><dt>آخرین ورود</dt><dd>${t.stats.lastLogin ? `${jd(t.stats.lastLogin.slice(0, 10))} ${timeFa(t.stats.lastLogin)}` : '—'}</dd></div></dl>
-      ${t.stats.noPhone ? html`<p class="vd-nophone">${fa(t.stats.noPhone)} کاربر هنوز موبایل ندارد و نمی‌تواند وارد شود؛ در «کاربران» برایش موبایل بنویسید.</p>` : ''}
+      ${t.stats.noPhone ? html`<p class="vd-nophone">${fa(t.stats.noPhone)} کاربر هنوز موبایل ندارد؛ با ایمیل وارد می‌شود، ولی ورود پیامکی ندارد. در «کاربران» برایش موبایل بنویسید.</p>` : ''}
       ${t.note ? html`<p class="small vd-note">${t.note}</p>` : ''}
       <footer class="vd-act">
         <button class="chip" data-act="users" data-id="${t.id}" aria-expanded="${S.open === t.id}">کاربران</button>
@@ -126,7 +126,7 @@ export async function vendorPage(root) {
     box.hidden = false;
     const list = S.users[id] ?? (S.users[id] = (await api(`/api/vendor/tenants/${id}/users`)).items);
     box.innerHTML = String(html`<div class="scrollx"><table class="table-plain vd-ut"><thead><tr><th>نام</th><th>ایمیل (ورود)</th><th>موبایل</th><th>نقش</th><th>آخرین ورود</th><th>دستگاه</th><th></th></tr></thead><tbody>${list.map(
-      (u) => html`<tr class="${u.active ? '' : 'off'}"><td>${u.name}</td><td>${u.email ? html`<bdi dir="ltr">${u.email}</bdi>` : html`<span class="vd-nophone">بدون ایمیل — نمی‌تواند وارد شود</span>`}</td><td class="ltr-num">${u.noPhone ? html`<span class="vd-nophone">بدون موبایل — نمی‌تواند وارد شود</span>` : phoneFa(u.phone)}</td><td>${ROLE_FA[u.role]}</td><td>${u.lastLoginAt ? `${jd(u.lastLoginAt.slice(0, 10))} ${timeFa(u.lastLoginAt)}` : 'هنوز وارد نشده'}</td><td>${u.lastDevice || '—'}</td>
+      (u) => html`<tr class="${u.active ? '' : 'off'}"><td>${u.name}</td><td>${u.email ? html`<bdi dir="ltr">${u.email}</bdi>` : html`<span class="vd-nophone">بدون ایمیل — نمی‌تواند وارد شود</span>`}</td><td class="ltr-num">${u.noPhone ? html`<span class="vd-nophone">${u.email ? 'بدون موبایل' : 'بدون موبایل — نمی‌تواند وارد شود'}</span>` : phoneFa(u.phone)}</td><td>${ROLE_FA[u.role]}</td><td>${u.lastLoginAt ? `${jd(u.lastLoginAt.slice(0, 10))} ${timeFa(u.lastLoginAt)}` : 'هنوز وارد نشده'}</td><td>${u.lastDevice || '—'}</td>
         <td class="vd-uact"><button class="chip" data-act="email" data-t="${id}" data-u="${u.id}">${u.email ? 'ایمیل' : 'افزودن ایمیل'}</button><button class="chip" data-act="phone" data-t="${id}" data-u="${u.id}">${u.noPhone ? 'افزودن موبایل' : 'موبایل'}</button><button class="chip" data-act="out" data-t="${id}" data-u="${u.id}">خروج از همه دستگاه‌ها</button><button class="chip ${u.active ? 'danger' : ''}" data-act="uact" data-t="${id}" data-u="${u.id}" data-on="${u.active ? 0 : 1}">${u.active ? 'غیرفعال' : 'فعال'}</button></td></tr>`,
     )}</tbody></table></div>
       <form class="vd-add" data-t="${id}"><b>کاربر تازه</b><input class="input" name="name" placeholder="نام و نام خانوادگی" required><input class="input ltr" name="email" type="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="ایمیل (ورود)" required><input class="input ltr" name="phone" inputmode="tel" placeholder="موبایل ۰۹…" required><select class="input" name="role">${['employee', 'manager', 'owner', 'trainer'].map((r) => html`<option value="${r}">${ROLE_FA[r]}</option>`)}</select><button class="btn small">افزودن</button></form>`);
@@ -259,7 +259,7 @@ export async function vendorPage(root) {
         busy(btn, true);
         const r = await api('/api/vendor/signup', { method: 'PUT', body: { open: f.open.checked, plan: f.plan.value, trialDays: Number(toLatin(f.trialDays.value)) || 0 } });
         S.sms.signup = r.signup;
-        toast(r.signup.open ? 'ثبت‌نام آزاد است.' : 'ثبت‌نام بسته شد؛ فقط شماره‌هایی که ثبت کرده‌اید وارد می‌شوند.', 'ok');
+        toast(r.signup.open ? 'ثبت‌نام آزاد است.' : 'ثبت‌نام بسته شد؛ فقط حساب‌هایی که ثبت کرده‌اید وارد می‌شوند.', 'ok');
         return drawSms();
       }
       const add = f.closest('.vd-add');

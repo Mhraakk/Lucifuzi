@@ -1,5 +1,7 @@
 # 0020 — Market language at the desk: «بیست خط زیر مظنه ۱۰۹ میلیون»
 
+**Status:** implemented.
+
 ## What
 A gold dealer agrees a price in the market's own words, and the operator writes it down exactly as said. The desk's one-line box (spec 0013) now understands it, spells out the price it understood, and on «ثبت کن» issues the document.
 

@@ -81,7 +81,7 @@
 - PWA: `public/sw.js` — API هرگز کش نمی‌شود؛ با تغییر فهرست پیش‌کش یا راهبرد، نام `CACHE` را بالا ببرید.
 - سه‌بعدی: three.js به‌صورت یک فایل باندل در `public/vendor/three.bundle.js` (ورودی: `scripts/three-entry.js`، ساخت با esbuild: `esbuild scripts/three-entry.js --bundle --format=esm --minify --outfile=public/vendor/three.bundle.js`). کد استودیو در `public/js/three/` و `public/js/pages/studio3d.mjs`؛ موتور قدیمی `public/js/gl/` فقط برای مدل‌های درون درس.
 - فونت‌ها محلی در `public/fonts/` (بدون CDN؛ برای دسترس‌پذیری در ایران). روی متن فارسی letter-spacing نگذارید (اتصال حروف می‌شکند).
-- اجرای محلی: `npm run dev` → http://localhost:3000 (دمو: 09120000001، رمز 1234)
+- اجرای محلی: `npm run dev` → http://localhost:3000 (دمو: owner@demo.beatris.ir؛ کد ورود روی همان صفحه نشان داده می‌شود)
 
 - فروشگاه‌ها و حساب‌ها (`server/platform.mjs`، spec 0022): هر فروشگاه خریدار دیتابیس جدا در `$BEATRIS_DATA_DIR/tenants/<id>.db`؛ ثبت فروشگاه‌ها در دیتابیس اصلی (`tenants`). نشست حامل `tn` است و درخواست به همان فروشگاه می‌رود. **نام کاربری و رمز وجود ندارد:** حساب = نام + موبایل + ایمیل + نقش؛ **ورود با ایمیل (spec 0034):**
   - **جریان:** کد ۶ رقمی یا پیوندِ همان ایمیل را Supabase Auth می‌فرستد و می‌سنجد.
@@ -267,16 +267,33 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
   - با connector ساخته شد، نه Blueprint: build `cd beatris && npm install --omit=dev --no-audit --no-fund`، start `cd beatris && npm start`؛
   - دیسک `/data` و Health Check Path را فقط داشبورد Render می‌گذارد. تا دیسک وصل نشده، `BEATRIS_DATA_DIR=/opt/render/project/src/beatris-data` است و هر دیپلوی داده را پاک می‌کند؛
   - نشانی و QR تیزر و اینفوگرافیک، و نصب‌کننده‌ی ویندوز (`desktop/windows`) به همین نشانی اشاره می‌کنند.
-- **Railway (پیشین)**: ساخت `600938a` را با داده‌ی خودش نگه می‌دارد.
-- project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`
-- سرویس به ریپوی `Mhraakk/Lucifuzi` با Root Directory `/beatris` وصل است؛ هر push روی شاخه متصل خودکار دیپلوی می‌شود.
-- Volume دائمی روی `/data` (دیتابیس `beatris-v2.db`)؛ هرگز حذف نشود.
-- متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`.
+- **تولید بودن و دیسک (spec 0054):**
+  - `isProd(env)` در `server/auth.mjs` تنها آزمون تولید است: `NODE_ENV=production`، یا میزبان (`RENDER`، `RAILWAY_ENVIRONMENT`) وقتی `NODE_ENV` توسعه یا آزمون را نام نمی‌برد.
+  - در تولید: کد ورود روی صفحه نمی‌آید، HSTS روشن است، `BEATRIS_DEMO` نادیده گرفته می‌شود (`demoFrom`) و مالک نمایشی ارائه‌دهنده نیست.
+  - `storageOf(dir)` در `server/backup.mjs` از `/proc/mounts` می‌خواند که پوشه‌ی داده روی دیسکی جدا هست یا روی فایل‌سیستم خود کانتینر. نتیجه در `/api/health?deep=1` → `data` است و در تولید، اگر دیسک جدا نباشد، هنگام شروع هشدار داده می‌شود.
+  - پشتیبان روزانه همه‌ی فروشگاه‌های `tenants` (تعلیق‌شده و منقضی هم، `platform.allShops`) و پوشه‌ی `media/` را کپی می‌کند.
+- **Railway (پیشین)**: ساخت `600938a` را با داده‌ی خودش نگه می‌دارد و commitهای تازه را دیپلوی نمی‌کرد.
+  - project `goldsuite`: `5fe1b94c-fe29-469e-83d0-4bc600a92d69`، service `beatris`: `f9c9c93a-747c-42df-96c6-64ad1c69e08d`، با Root Directory `/beatris`.
+  - Volume دائمی روی `/data` (دیتابیس `beatris-v2.db`)؛ هرگز حذف یا جابه‌جا نشود.
+  - متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `PORT=8080`.
 - **Blueprint برای Render** (`render.yaml` در ریشه‌ی مخزن): همان سرویس با `rootDir: beatris`، `npm start`، سلامت `/api/health`، دیسک پایدار ۲ گیگابایتی روی `/data` (نیازمند پلن پولی) و Node 22.
   - `BEATRIS_TOKEN_SECRET` را Render خودش می‌سازد.
   - `BEATRIS_SUPABASE_URL`، `_KEY`، `BEATRIS_OWNER_EMAIL`، `BEATRIS_OWNER_PHONE` و `BEATRIS_OWNER_NAME` یک بار هنگام ساخت Blueprint پرسیده می‌شوند. حساب مالک اصلی از `BEATRIS_OWNER_PHONE` ساخته می‌شود (`seedUsers`)؛ بدون آن سرویس تازه هیچ کاربری ندارد.
   - شناسه‌ی نسخه از `RENDER_GIT_COMMIT` می‌آید (spec 0036).
   - سرویس تازه با دیسک خالی شروع می‌شود؛ داده‌ی Railway روی volume خود Railway می‌ماند.
+
+## متغیرهای سرور
+همه‌ی متغیرهایی که سرور می‌خواند (مقدار راز فقط در میزبان، هرگز در مخزن):
+
+| گروه | متغیرها |
+|---|---|
+| پایه | `BEATRIS_TOKEN_SECRET` (≥۱۶)، `BEATRIS_DATA_DIR`، `NODE_ENV`، `PORT`، `BEATRIS_BUILD` (شناسه‌ی نسخه؛ وگرنه `RENDER_GIT_COMMIT` یا `RAILWAY_GIT_COMMIT_SHA`)، `BEATRIS_PUBLIC_URL`، `BEATRIS_RATE_LIMIT`، `BEATRIS_ACCESS_LOG=1`، `BEATRIS_WARM` |
+| مالک | `BEATRIS_OWNER_PHONE`، `BEATRIS_OWNER_NAME`، `BEATRIS_OWNER_EMAIL`، `BEATRIS_OWNER_PIN` (فقط تا ایمیل یا پیامک راه بیفتد) |
+| ورود با ایمیل | `BEATRIS_SUPABASE_URL`، `BEATRIS_SUPABASE_KEY`، `BEATRIS_EMAIL_CODE_LENGTH` (۶ تا ۱۰)، `BEATRIS_EMAIL_HOURLY_CAP` |
+| پیامک | `BEATRIS_SMS_PROVIDER`، `_API_KEY`، `_TEMPLATE`، `_SENDER`، `_PARAM`، `_USERNAME`، `_PASSWORD`، `_BASE_URL`، `BEATRIS_SMS_HOURLY_CAP` |
+| ثبت‌نام و نمایش | `BEATRIS_SIGNUP_DAILY_CAP`، `BEATRIS_DEMO`، `BEATRIS_DEMO_OTP` (هر دو فقط بیرون از تولید) |
+| قیمت بازار | `BEATRIS_MARKET_FEED`، `BEATRIS_FORGOD_KEY`، `BEATRIS_FORGOD_URL`، `BEATRIS_FORGOD_DAILY` |
+| هوش مصنوعی و ردپا | `BEATRIS_MCP_TOKEN`، `LANGFUSE_PUBLIC_KEY`/`_SECRET_KEY`/`_BASE_URL` (`LANGFUSE_HOST`)، `TRACELOOP_API_KEY`/`_BASE_URL`، `AGENTOPS_API_KEY` (`AGENTOPS_API_ENDPOINT`، `AGENTOPS_EXPORTER_ENDPOINT`)، `BEATRIS_OTEL_ENDPOINT`/`_HEADERS`، `BEATRIS_OTEL_CONTENT=1` |
 
 ## قواعد
 - UI کاملاً فارسی و RTL؛ ارقام فارسی در نمایش.

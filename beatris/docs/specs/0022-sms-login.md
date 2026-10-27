@@ -1,6 +1,7 @@
 # 0022 — Sign in with a mobile number and an SMS code
 
 **Status:** implemented. Replaces the username/password accounts of the vendor console (task 49) and the account requests with a shop code (spec 0011).
+For signing in, it was later replaced by email codes (spec 0034); the SMS code still signs the day close when an SMS panel works, and the code goes to the signer's email when it does not (spec 0054).
 
 ## What
 Nobody is issued a username or a password any more. An account is a name, a mobile number and a role. Every person signs in the same way, on a phone or a desktop:
@@ -49,7 +50,7 @@ Nobody is issued a username or a password any more. An account is a name, a mobi
   - The key is sealed with AES-GCM like the AI keys and is never sent back.
   - «پیامک آزمایشی» sends a real code to a number.
   - The same card holds the open sign-up switch, the plan and the trial days.
-- **Railway variables:** `BEATRIS_SMS_PROVIDER`, `BEATRIS_SMS_API_KEY`, `BEATRIS_SMS_TEMPLATE`, `BEATRIS_SMS_SENDER`, `BEATRIS_SMS_PARAM`, `BEATRIS_SMS_USERNAME`.
+- **Server variables** (Railway then, Render now): `BEATRIS_SMS_PROVIDER`, `BEATRIS_SMS_API_KEY`, `BEATRIS_SMS_TEMPLATE`, `BEATRIS_SMS_SENDER`, `BEATRIS_SMS_PARAM`, `BEATRIS_SMS_USERNAME`.
   - If these are set they win, and the console shows them read-only.
   - `BEATRIS_SMS_BASE_URL` (variables only) sends through your own relay, for example a server inside Iran, with the same paths.
 

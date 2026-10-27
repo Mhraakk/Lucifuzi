@@ -260,7 +260,7 @@ test('تولید با SMS.ir: پیامک واقعی می‌رود، کلید ب�
   assert.match(view.stats.lastError.error, /SMS\.ir: اعتبار کافی نیست/);
   assert.equal(view.config.provider, 'smsir');
   assert.equal(view.config.hasKey, true);
-  // Railway variables win and lock the console
+  // the server's variables win and lock the console
   const envSms = { ...env, BEATRIS_SMS_PROVIDER: 'smsir', BEATRIS_SMS_API_KEY: 'ENV-KEY', BEATRIS_SMS_TEMPLATE: '5' };
   const e = await boot({ env: envSms, demo: false, smsOpts: { baseUrl: smsBase } });
   await e.ok('POST', '/api/auth/code', { phone: '09121111111' });
@@ -331,14 +331,14 @@ test('کنسول ارائه‌دهنده: فروشگاه فقط با موبای�
   assert.equal((await call('GET', '/api/access/shop?code=ABCD1234')).status, 410);
 });
 
-test('شماره مالک اصلی فقط از Railway عوض می‌شود؛ بلیت کهنه فروشگاه تعلیق‌شده را دور نمی‌زند', async () => {
+test('شماره مالک اصلی فقط از متغیرهای سرور عوض می‌شود؛ بلیت کهنه فروشگاه تعلیق‌شده را دور نمی‌زند', async () => {
   const env = { BEATRIS_OWNER_PHONE: '09121111111' };
   const { call, ok, base } = await boot({ env });
   const V = await smsLogin(base, '09121111111');
   const me = (await ok('GET', '/api/me', null, V)).user;
   const r = await call('PATCH', `/api/vendor/tenants/main/users/${me.id}`, { phone: '09121111112' }, V);
   assert.equal(r.status, 400);
-  assert.match(r.body.error, /Railway/);
+  assert.match(r.body.error, /متغیر سرور BEATRIS_OWNER_PHONE/);
   // a vendor-made shop: its owner verifies, then the shop is suspended before the shop is picked
   const shop = await ok('POST', '/api/vendor/tenants', { name: 'گالری معلق', phone: '09170001111' }, V);
   await ok('POST', '/api/team', { name: 'دوشغله', phone: '09170001111', role: 'employee' }, V); // the same number in the main shop

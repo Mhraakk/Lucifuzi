@@ -1,5 +1,7 @@
 # 0019 — Living signs: the thinking orb, press physics, the gooey tab and painted cards
 
+**Status:** implemented.
+
 ## What
 These are small, shared signs that say what the system is doing. Each one is a single component, so every page looks and behaves the same in every skin.
 

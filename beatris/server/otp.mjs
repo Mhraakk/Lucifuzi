@@ -62,7 +62,7 @@ export function createOtp({ db, secret, sealer, env = process.env, quiet = false
   const verifyByIp = makeLimiter(30, 10 * MIN);
   const freeByIp = makeLimiter(300, 10 * MIN); // demo and development codes cost nothing, but are still not endless
 
-  /* ---------------- the panel's settings: Railway variables win, else the vendor console ---------------- */
+  /* ---------------- the panel's settings: the server's variables win, else the vendor console ---------------- */
   function stored() {
     const r = db.get("SELECT value_json FROM settings WHERE key='sms'");
     return r ? JSON.parse(r.value_json) : null;
@@ -78,7 +78,7 @@ export function createOtp({ db, secret, sealer, env = process.env, quiet = false
   }
   const canSend = (c) => !!c && !['off', 'invalid', 'console'].includes(c.provider) && !!c.key;
   function saveConfig(raw, by) {
-    if (smsConfigFromEnv(env)) throw new OtpError(409, 'پیامک با متغیرهای Railway تنظیم شده است؛ برای تغییر، همان‌جا عوض کنید.');
+    if (smsConfigFromEnv(env)) throw new OtpError(409, 'پیامک با متغیرهای سرور تنظیم شده است؛ برای تغییر، همان‌جا عوض کنید.');
     const put = (v) => db.run('INSERT INTO settings(key,value_json,updated_at,updated_by) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by', 'sms', JSON.stringify(v), new Date(now()).toISOString(), by ?? null);
     if (!raw?.provider) {
       put({});
@@ -221,7 +221,7 @@ export function createOtp({ db, secret, sealer, env = process.env, quiet = false
     }
     let good;
     if (row.via === 'owner-pin') {
-      // the vendor's own way in: the PIN from Railway, compared as HMACs so the length leaks nothing
+      // the vendor's own way in: the PIN from the server's variables, compared as HMACs so the length leaks nothing
       good = ownerPinOpen() && phone === ownerPhone() && timingSafeEqual(mac(phone, purpose, String(code ?? '')), mac(phone, purpose, String(env.BEATRIS_OWNER_PIN)));
     } else {
       const want = Buffer.from(row.code_hash, 'base64url');
@@ -269,7 +269,7 @@ export function createOtp({ db, secret, sealer, env = process.env, quiet = false
     return !!c && !c.error;
   };
   const EMAIL_OFF = 'ورود با ایمیل هنوز راه نیفتاده است؛ کمی بعد دوباره امتحان کنید.';
-  // the vendor's own way in while Supabase is not set up: the email from Railway and the PIN from Railway, as for SMS
+  // the vendor's own way in while Supabase is not set up: the email and the PIN from the server's variables, as for SMS
   const ownerEmail = () => normalizeEmail(env.BEATRIS_OWNER_EMAIL);
   const ownerPinByEmail = () => prod && !emailReady() && validEmail(ownerEmail()) && validPin(env.BEATRIS_OWNER_PIN);
   // Supabase's «Email OTP Length» (6 by default; 6–10)

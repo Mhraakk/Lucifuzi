@@ -155,7 +155,7 @@ export async function loginPage(root) {
   function codeStep(r) {
     const pin = r.via === 'owner-pin';
     const len = Math.min(10, Math.max(6, Number(r.len) || 6));
-    show(html`<p class="lead">${pin ? html`سرویس ایمیل هنوز تنظیم نشده است؛ تا آن موقع فقط مالک، با رمز تعیین‌شده در Railway، وارد می‌شود.` : html`کد ${fa(len)} رقمی به <bdi dir="ltr" class="lg-mail">${S.email}</bdi> فرستاده شد.`} <button type="button" class="linkish" data-act="edit">ویرایش ایمیل</button></p>
+    show(html`<p class="lead">${pin ? html`سرویس ایمیل هنوز تنظیم نشده است؛ تا آن موقع فقط مالک، با رمز تعیین‌شده در متغیرهای سرور، وارد می‌شود.` : html`کد ${fa(len)} رقمی به <bdi dir="ltr" class="lg-mail">${S.email}</bdi> فرستاده شد.`} <button type="button" class="linkish" data-act="edit">ویرایش ایمیل</button></p>
       <form class="form" id="cf" novalidate>
         ${pin ? html`<label class="field">رمز مالک (BEATRIS_OWNER_PIN)<input class="input ltr" name="code" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" required></label>` : codeBox({ label: 'کد ایمیل‌شده', length: len })}
         ${r.code ? html`<button type="button" class="lg-dev" data-act="fill" data-code="${r.code}"><span>${r.via === 'demo' ? 'کد حساب نمایشی' : 'کد آزمایشی (محیط توسعه)'}</span><b class="ltr-num">${fa(r.code)}</b></button>` : ''}

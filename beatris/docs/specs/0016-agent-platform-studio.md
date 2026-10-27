@@ -1,5 +1,7 @@
 # 0016 — Shared agent platform and the Studio domain
 
+**Status:** implemented.
+
 ## What
 Spec 0015 had one agent runtime for accounting training. This spec turns it into one shared, modular agent platform that every domain uses. The domains are Accounting, Studio/CAD and Training. On top of the platform it adds a Studio domain where agents orchestrate and a deterministic engine computes.
 
@@ -100,5 +102,5 @@ Spec 0015 had one agent runtime for accounting training. This spec turns it into
 - Every shop keeps its own database, so tenants stay isolated. An agent acts as the person who started the run and is checked against that person's permissions.
 
 ## Not done
-- Stone settings other than prong are checked by rules but not modelled as geometry (`E_UNSUPPORTED`).
+- Stone settings other than prong are checked by rules but not modelled as geometry (`E_UNSUPPORTED` in the engine). A design run builds the shank only and names the setting in an info finding, `SETTING_NOT_MODELLED` (spec 0054).
 - The geometry engine is voxel-based for booleans, offset and fillet, with about 1–2 % error. It is not a NURBS kernel.

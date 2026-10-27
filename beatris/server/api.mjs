@@ -571,7 +571,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
       const phone = normalizePhone(body.phone);
       if (!validPhone(phone)) throw bad('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');
       if (u.id === user.id) throw bad('شماره خودتان را از این‌جا نمی‌توانید عوض کنید؛ از مالک یا ارائه‌دهنده بخواهید.');
-      if (isMain && u.phone === normalizePhone(process.env.BEATRIS_OWNER_PHONE)) throw bad('شماره مالک اصلی از متغیر BEATRIS_OWNER_PHONE در Railway می‌آید؛ همان‌جا عوض کنید.');
+      if (isMain && u.phone === normalizePhone(process.env.BEATRIS_OWNER_PHONE)) throw bad('شماره مالک اصلی از متغیر سرور BEATRIS_OWNER_PHONE می‌آید؛ همان‌جا عوض کنید.');
       if (phone !== u.phone) {
         if (db.get('SELECT 1 FROM users WHERE phone=? AND id<>?', phone, u.id)) throw new HttpError(409, 'این شماره در همین فروشگاه حساب دیگری دارد.');
         // the mobile is the key to the account: whoever signed in with the old number is signed out
@@ -583,7 +583,7 @@ export function createApi({ db, signer, demo, mediaDir = path.resolve('data', 'm
       const email = optEmail(body.email);
       if (email !== (u.email ?? null)) {
         if (u.id === user.id) throw bad('ایمیل خودتان را از این‌جا نمی‌توانید عوض کنید؛ از مالک یا ارائه‌دهنده بخواهید.');
-        if (isMain && u.phone === normalizePhone(process.env.BEATRIS_OWNER_PHONE) && validEmail(normalizeEmail(process.env.BEATRIS_OWNER_EMAIL))) throw bad('ایمیل مالک اصلی از متغیر BEATRIS_OWNER_EMAIL در Railway می‌آید؛ همان‌جا عوض کنید.');
+        if (isMain && u.phone === normalizePhone(process.env.BEATRIS_OWNER_PHONE) && validEmail(normalizeEmail(process.env.BEATRIS_OWNER_EMAIL))) throw bad('ایمیل مالک اصلی از متغیر سرور BEATRIS_OWNER_EMAIL می‌آید؛ همان‌جا عوض کنید.');
         if (email && db.get('SELECT 1 FROM users WHERE email=? AND id<>?', email, u.id)) throw new HttpError(409, 'این ایمیل در همین فروشگاه حساب دیگری دارد.');
         db.run('UPDATE users SET email=?, token_version=token_version+1 WHERE id=?', email, u.id);
       }

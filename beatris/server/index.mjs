@@ -350,7 +350,7 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
     json(out.status, out.body);
   }
 
-  /** This server as people reach it (behind Railway's proxy): for the link in the sign-in email. */
+  /** This server as people reach it (behind the host's proxy): for the link in the sign-in email. */
   function publicOrigin(req) {
     const set = String(env.BEATRIS_PUBLIC_URL ?? '').trim().replace(/\/+$/, '');
     if (/^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(set)) return set;
@@ -444,7 +444,7 @@ export function createServer({ db, secret, demo, quiet = false, env = process.en
       if (url.pathname === '/api/auth/code' && req.method === 'POST') out = await platform.sendLoginCode(body, ip, publicOrigin(req));
       else if (url.pathname === '/api/auth/verify' && req.method === 'POST') out = await platform.verifyLogin(body, ip, ua);
       else if (url.pathname === '/api/auth/finish' && req.method === 'POST') out = platform.finishLogin(body, ip, ua);
-      else if (url.pathname === '/api/auth/login') throw new HttpError(410, 'ورود با نام کاربری و رمز برداشته شد؛ با شماره موبایل و کد پیامکی وارد شوید.');
+      else if (url.pathname === '/api/auth/login') throw new HttpError(410, 'ورود با نام کاربری و رمز برداشته شد؛ با ایمیل خود و کدی که به آن فرستاده می‌شود وارد شوید.');
       else if (url.pathname.startsWith('/api/ops/')) {
         if (token && platform.tenantOfToken(token) && platform.tenantOfToken(token) !== MAIN) throw new HttpError(403, 'این بخش مخصوص ارائه‌دهنده است.');
         out = ops(req.method, url.pathname, req, body);

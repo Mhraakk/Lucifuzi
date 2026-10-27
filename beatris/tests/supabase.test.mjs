@@ -248,7 +248,7 @@ test('the team page and the vendor set emails; the person signs in with it; a ch
   assert.equal(patched.user.email, 'ali2@mail.com');
   const s = await emailLogin('ali2@mail.com');
   assert.equal((await ok('GET', '/api/me', null, s)).user.name, 'علی');
-  // the main owner's email follows Railway, as the mobile does
+  // the main owner's email follows the server's variables, as the mobile does
   const me = await ok('GET', '/api/me', null, owner);
   const own = await call('PATCH', `/api/vendor/tenants/main/users/${me.user.id}`, { email: 'other@mail.com' }, owner);
   assert.equal(own.status, 400);

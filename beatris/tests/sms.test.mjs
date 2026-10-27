@@ -125,7 +125,7 @@ test('بی‌پاسخی، قطع ارتباط و پاسخ غیر JSON: پیام 
   await assert.rejects(sendCode({ provider: 'nope' }, '09121234567', '1'), /تنظیم نشده/);
 });
 
-test('تنظیمات: فیلدهای لازم هر سرویس، عدد بودن قالب، خط فرستنده، متغیرهای Railway، واسط https', () => {
+test('تنظیمات: فیلدهای لازم هر سرویس، عدد بودن قالب، خط فرستنده، متغیرهای سرور، واسط https', () => {
   assert.match(checkSmsConfig({ provider: '' }).error, /انتخاب/);
   assert.match(checkSmsConfig({ provider: 'kavenegar', key: KEY }).error, /نام الگوی تأیید/);
   assert.match(checkSmsConfig({ provider: 'smsir', key: KEY, template: 'abc' }).error, /عدد باشد/);
@@ -142,7 +142,7 @@ test('تنظیمات: فیلدهای لازم هر سرویس، عدد بودن 
   assert.equal(env.provider, 'smsir');
   assert.equal(env.baseUrl, 'https://relay.example.ir/smsir');
   assert.ok(env.fromEnv);
-  assert.match(smsConfigFromEnv({ BEATRIS_SMS_PROVIDER: 'kavenegar' }).error, /Railway/);
+  assert.match(smsConfigFromEnv({ BEATRIS_SMS_PROVIDER: 'kavenegar' }).error, /متغیرهای پیامک سرور/);
   assert.equal(relayUrl('http://evil.example.com'), '');
   assert.equal(relayUrl('https://u:p@relay.example.ir'), '');
   assert.equal(relayUrl('http://127.0.0.1:8080/x'), 'http://127.0.0.1:8080/x');

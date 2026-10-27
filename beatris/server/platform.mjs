@@ -368,8 +368,8 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant, otp, de
     if (body.phone !== undefined) {
       const ph = phoneOf(body.phone);
       if (ph !== u.phone) {
-        // the main owner's number comes from Railway: changed here, a restart would make a new owner on the old number
-        if (params.id === MAIN && u.phone === normalizePhone(env.BEATRIS_OWNER_PHONE)) throw bad('شماره مالک اصلی از متغیر BEATRIS_OWNER_PHONE در Railway می‌آید؛ همان‌جا عوض کنید.');
+        // the main owner's number comes from the server's variables: changed here, a restart would make a new owner on the old number
+        if (params.id === MAIN && u.phone === normalizePhone(env.BEATRIS_OWNER_PHONE)) throw bad('شماره مالک اصلی از متغیر سرور BEATRIS_OWNER_PHONE می‌آید؛ همان‌جا عوض کنید.');
         if (db.get('SELECT 1 FROM users WHERE phone=? AND id<>?', ph, u.id)) throw new PlatformError(409, 'این شماره در همین فروشگاه حساب دیگری دارد.');
         // the number is the key to the account: whoever signed in with the old one is signed out
         db.run('UPDATE users SET phone=?, token_version=token_version+1 WHERE id=?', ph, u.id);
@@ -378,7 +378,7 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant, otp, de
     if (body.email !== undefined) {
       const em = optEmail(body.email);
       if (em !== (u.email ?? null)) {
-        if (params.id === MAIN && u.phone === normalizePhone(env.BEATRIS_OWNER_PHONE) && validEmail(normalizeEmail(env.BEATRIS_OWNER_EMAIL))) throw bad('ایمیل مالک اصلی از متغیر BEATRIS_OWNER_EMAIL در Railway می‌آید؛ همان‌جا عوض کنید.');
+        if (params.id === MAIN && u.phone === normalizePhone(env.BEATRIS_OWNER_PHONE) && validEmail(normalizeEmail(env.BEATRIS_OWNER_EMAIL))) throw bad('ایمیل مالک اصلی از متغیر سرور BEATRIS_OWNER_EMAIL می‌آید؛ همان‌جا عوض کنید.');
         if (em && db.get('SELECT 1 FROM users WHERE email=? AND id<>?', em, u.id)) throw new PlatformError(409, 'این ایمیل در همین فروشگاه حساب دیگری دارد.');
         // like the number, the email opens the account: a change signs out whoever came in with the old one
         db.run('UPDATE users SET email=?, token_version=token_version+1 WHERE id=?', em, u.id);
@@ -412,7 +412,7 @@ export function createPlatform({ mainDb, signer, mainHandle, openTenant, otp, de
 
   /** Account requests with a shop code (spec 0011) are retired: every old link gets one plain answer. */
   function access() {
-    throw new PlatformError(410, 'درخواست حساب با کد فروشگاه برداشته شد. مدیر فروشگاه شماره موبایل شما را در «تیم» اضافه می‌کند و شما با همان شماره و کد پیامکی وارد می‌شوید.');
+    throw new PlatformError(410, 'درخواست حساب با کد فروشگاه برداشته شد. مدیر فروشگاه ایمیل شما را در «تیم» ثبت می‌کند و شما با همان ایمیل و کدی که به آن فرستاده می‌شود وارد می‌شوید.');
   }
 
   function vendor(method, pathname, body, user, ip = '') {

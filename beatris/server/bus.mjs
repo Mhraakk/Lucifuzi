@@ -2,7 +2,7 @@
 //   • publish/subscribe inside the process — for things that happen now (a price tick, a saved document);
 //   • a durable job queue in SQLite (ops_jobs) — for work that must survive a restart: retried with exponential
 //     backoff, idempotent by key, parked as «dead» after its last attempt, and recurring jobs on a fixed period.
-// One server process owns the queue (Railway runs one instance); a job left «running» by a crash is re-queued on start.
+// One server process owns the queue (the host runs one instance); a job left «running» by a crash is re-queued on start.
 import { randomUUID } from 'node:crypto';
 
 export const BUS_SCHEMA = `
