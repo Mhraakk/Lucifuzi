@@ -160,6 +160,7 @@ async function renderRoute() {
     }
     if (r.opts.staff && !store.isStaff()) return navigate('/', { replace: true });
     if (r.opts.admin && !store.isAdmin()) return navigate('/', { replace: true });
+    if (r.opts.owner && !store.me?.owner) return navigate('/', { replace: true });
     if (r.opts.vendor && !store.me?.vendor) return navigate('/', { replace: true });
     // a new shop starts at the setup wizard until its owner or manager has entered the real state (or chosen an empty book)
     if (!r.opts.setup && store.me && store.me.setupDone === false && ['owner', 'manager'].includes(store.me.user?.role)) return navigate('/setup', { replace: true });

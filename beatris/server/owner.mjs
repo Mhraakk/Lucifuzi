@@ -226,7 +226,7 @@ export function createOwner({ db, env = process.env, platform, bus = null, media
       logins: { ok: count((r) => ['login', 'signup'].includes(r.kind)), failed: count((r) => r.kind === 'verify_fail' || (r.kind === 'code' && !r.ok)), blocked: count((r) => r.kind === 'blocked'), codes: count((r) => r.kind === 'code' && r.ok) },
       docs, outputs, ai, errors,
       mcp: db.get("SELECT COUNT(*) AS n FROM act_events WHERE kind='mcp' AND at>=?", w.since).n,
-      market: safe(() => market?.status?.() ?? null, null),
+      market: safe(() => market?.health?.() ?? null, null),
       series: {
         logins: perDay(`SELECT date(at,'${TZ}') AS day, COUNT(*) AS n FROM auth_log WHERE kind IN ('login','signup') AND at>=?${ns.sql} GROUP BY 1`),
         failed: perDay(`SELECT date(at,'${TZ}') AS day, COUNT(*) AS n FROM auth_log WHERE ok=0 AND at>=?${ns.sql} GROUP BY 1`),
@@ -367,7 +367,7 @@ export function createOwner({ db, env = process.env, platform, bus = null, media
       c.people++;
       for (const wk of s) if (wk - first < c.back.length) c.back[wk - first]++;
     }
-    return { days: w.days, pages, actions, heat, sessions: { n: lengths.length, edges, buckets, median: sorted.length ? Math.round(sorted[Math.floor(sorted.length / 2)] * 10) / 10 : null }, devices, funnel, retention: cohorts.filter((c) => c.people) };
+    return { days: w.days, start: w.dayList[0], pages, actions, heat, sessions: { n: lengths.length, edges, buckets, median: sorted.length ? Math.round(sorted[Math.floor(sorted.length / 2)] * 10) / 10 : null }, devices, funnel, retention: cohorts.filter((c) => c.people) };
   }
 
   const shopCache = new Map();
@@ -431,7 +431,7 @@ export function createOwner({ db, env = process.env, platform, bus = null, media
     add(sOut, db.all(`SELECT date(at,'${TZ}') AS day, COUNT(*) AS n FROM auth_log WHERE kind='code' AND ok=1 AND at>=?${ns.sql} GROUP BY 1`, w.since, ...ns.args));
     outputs.mcp = db.get("SELECT COUNT(*) AS n FROM act_events WHERE kind='mcp' AND at>=?", w.since).n;
     const tools = db.all("SELECT name, COUNT(*) AS n FROM act_events WHERE kind='mcp' AND at>=? GROUP BY name ORDER BY n DESC LIMIT 10", w.since);
-    return { days: w.days, dayList: w.dayList, inputs, outputs, codesByVia: codes.map((r) => ({ via: r.via || '—', ok: !!r.ok, n: r.n })), mcpTools: tools, market: safe(() => market?.status?.() ?? null, null), series: { in: sIn, out: sOut } };
+    return { days: w.days, dayList: w.dayList, inputs, outputs, codesByVia: codes.map((r) => ({ via: r.via || '—', ok: !!r.ok, n: r.n })), mcpTools: tools, market: safe(() => market?.health?.() ?? null, null), series: { in: sIn, out: sOut } };
   }
 
   function exportCsv(w, url) {

@@ -4,8 +4,9 @@
 import { html, api, navigate, store } from './core.mjs';
 
 const norm = (s) => String(s ?? '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/‌/g, ' ').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).toLowerCase().trim();
-// [title, href, keywords, group, adminOnly]
+// [title, href, keywords, group, adminOnly, 'owner' for the platform owner only (spec 0053)]
 const COMMANDS = [
+  ['دیده‌بان: داشبورد مالک', '/owner', 'دیده بان داشبورد مالک آمار کاربران ثبت نام ورود رفتار تحلیل', 'مالک', true, 'owner'],
   ['هر اتفاق کجا ثبت می‌شود؟', '/books/events', 'راهنما رویداد اتفاق ثبت کجا چطور', 'راهنما', false],
   ['روزنگار آبشده', '/books/day?sec=melt', 'روزنگار آبشده طلا بخش', 'روزنگار', false],
   ['روزنگار سکه', '/books/day?sec=coin', 'روزنگار سکه بخش', 'روزنگار', false],
@@ -104,7 +105,7 @@ const loadEvents = () => (eventsP ??= import('./shopevents.mjs').then((m) => (EV
 function local(q) {
   const admin = store.isAdmin?.() ?? false;
   const words = norm(q).split(/\s+/).filter(Boolean);
-  const list = COMMANDS.filter((c) => admin || !c[4]);
+  const list = COMMANDS.filter((c) => (admin || !c[4]) && (c[5] !== 'owner' || store.me?.owner));
   if (!words.length) return list.slice(0, 9).map((c) => ({ kind: 'page', title: c[0], sub: c[3], href: c[1] }));
   // a figure typed here is looked up in every day of روزنگار (spec 0023)
   const day = /[0-9۰-۹٠-٩]/.test(q) ? [{ kind: 'page', title: `«${q.trim()}» در روزنگار همه روزها`, sub: 'جستجوی عدد', href: `/books/day?find=${encodeURIComponent(q.trim())}` }] : [];

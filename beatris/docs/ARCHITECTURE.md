@@ -79,6 +79,7 @@
 - داشبورد مدیریت (`/books/dashboard`، فقط مدیر/مالک، پوسته مستقل با `bare`): سرور `server/dashboard.mjs` → `GET /api/books/dashboard?range=today|7|30|90|custom` فقط تجمیع فقط‌خواندنی از `bk_postings` و گزارش‌های موجود (تراز، سود و زیان، روزنگار، ممیز)؛ منطق حسابداری را تغییر نمی‌دهد. سن مطالبات به روش اولین‌ورود. «تپش سال» (تقویم فعالیت ۵۳ هفته از اسناد قطعی و `calc_json`) و «کارنامه ماهانه» (همان `days` گزارش سود و زیان، گروه‌بندی ماه شمسی؛ هر ماه به گزارش همان بازه می‌رود) در `calendar`. کلاینت: `public/js/dash/` (types با JSDoc، adapters، نمودارهای SVG) و `pages/dashboard.mjs`؛ توکن‌های `--gd-*` از پوسته فعال. تست: `tests/dashboard.test.mjs` و بخش dashboard در E2E.
 - تست سرتاسری مرورگر: `npm run e2e` (Playwright؛ سرور موقت با دیتابیس موقت می‌سازد؛ باید همه بررسی‌ها پاس و خطای مرورگر صفر باشد). فقط چند مرحله: `E2E_ONLY='melted|mobile pages' npm run e2e`. CSP اجازه eval نمی‌دهد؛ در تست کد را به‌صورت تابع به `page.evaluate` بدهید، نه رشته.
 - PWA: `public/sw.js` — API هرگز کش نمی‌شود؛ با تغییر فهرست پیش‌کش یا راهبرد، نام `CACHE` را بالا ببرید.
+- React فقط در `/owner` (spec 0053): `public/vendor/glisse/glisse.bundle.js`، ساخته از `scripts/glisse-entry.js` (بخش «دیده‌بان»).
 - سه‌بعدی: three.js به‌صورت یک فایل باندل در `public/vendor/three.bundle.js` (ورودی: `scripts/three-entry.js`، ساخت با esbuild: `esbuild scripts/three-entry.js --bundle --format=esm --minify --outfile=public/vendor/three.bundle.js`). کد استودیو در `public/js/three/` و `public/js/pages/studio3d.mjs`؛ موتور قدیمی `public/js/gl/` فقط برای مدل‌های درون درس.
 - فونت‌ها محلی در `public/fonts/` (بدون CDN؛ برای دسترس‌پذیری در ایران). روی متن فارسی letter-spacing نگذارید (اتصال حروف می‌شکند).
 - اجرای محلی: `npm run dev` → http://localhost:3000 (دمو: owner@demo.beatris.ir؛ کد ورود روی همان صفحه نشان داده می‌شود)
@@ -281,6 +282,18 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
   - `BEATRIS_SUPABASE_URL`، `_KEY`، `BEATRIS_OWNER_EMAIL`، `BEATRIS_OWNER_PHONE` و `BEATRIS_OWNER_NAME` یک بار هنگام ساخت Blueprint پرسیده می‌شوند. حساب مالک اصلی از `BEATRIS_OWNER_PHONE` ساخته می‌شود (`seedUsers`)؛ بدون آن سرویس تازه هیچ کاربری ندارد.
   - شناسه‌ی نسخه از `RENDER_GIT_COMMIT` می‌آید (spec 0036).
   - سرویس تازه با دیسک خالی شروع می‌شود؛ داده‌ی Railway روی volume خود Railway می‌ماند.
+
+## دیده‌بان: داشبورد مالک (spec `docs/specs/0053-owner-dashboard.md`)
+- **چه کسی:** `server/owner.mjs` → `isOwner(user, tn)`: فروشگاه اصلی، نقش مالک، حساب فعال، و موبایل برابر `BEATRIS_OWNER_PHONE` یا ایمیل برابر `BEATRIS_OWNER_EMAIL` (در تولید هرگز حساب نمایشی). `/api/me` پرچم `owner` دارد؛ مسیر `/owner` گزینه‌ی `owner: true` (`core.mjs`).
+- **ثبت (پایگاه اصلی):**
+  - `auth_log`: هر گام ورود در `index.mjs` (پیش از دادن به `platform`) با نتیجه، راه (`via`)، دلیل، آی‌پی، زنجیره‌ی خام `X-Forwarded-For` و دستگاه؛ و `logout-all`. `platform.signup` نشانه‌ی `signedUp` می‌دهد که سرور پیش از پاسخ برمی‌دارد.
+  - `act_events`: `POST /api/act` از `public/js/harness.mjs` (هر صفحه: `view` با زمان دیده‌شدن، `act` نام `[data-act]`، `error`، `beat` هر دقیقه‌ی دیده‌شده، `sid` هر برگه؛ بسته‌ها هر ۱۵ ثانیه و با `keepalive` هنگام پنهان شدن). مسیرها بی‌شناسه (`foldPath`)؛ سرور یک `beat` در دقیقه برای هر نفر نگه می‌دارد. هر `tools/call` در `/mcp` یک `mcp`.
+  - `act_daily`: کار روزانه‌ی `owner.prune` ردیف‌های کهنه‌تر از ۱۸۰ روز را جمع روزانه (روز UTC) می‌کند و پاک می‌کند.
+  - شکست ثبت هرگز ورود یا ابزار MCP را از کار نمی‌اندازد (try/catch).
+- **خواندن:** `GET /api/owner/{overview,signups,logins,users,users/:tenant/:id,behavior,shops,io,export}` و جریان SSE `/api/owner/stream` (رویداد bus: `owner.event`). از هر فروشگاه با `platform.allShops()` فقط شمار و جمع: `bk_docs` (Σ|net| و Σ`eq750` خطوط آبشده)، `bk_log` (چاپ، PDF، ارسال، اکسل، ثبت، اصلاح، ابطال؛ نمایه‌ی `idx_bklog_at` در صورت نبود ساخته می‌شود)، `bk_pos`، `bk_shares`، `ai_usage`. `shops` پنج دقیقه نگه داشته می‌شود. فعالیت خود مالک جز با `self=1` شمرده نمی‌شود (شرط NULL-امن با `COALESCE`).
+- **صفحه:** تنها صفحه‌ی React. `pages/owner.mjs` بسته را `import()` می‌کند و `OwnerApp` (`public/js/owner/app.mjs`) را در جعبه‌ای جدا می‌نشاند؛ نمودارها در `owner/charts.mjs` (زمان از راست به چپ، یک محور، دو رنگ `--ow-s1`/`--ow-s2` که با validator ابزار dataviz برای هر سه پوسته سنجیده شد، و جدول هم‌زاد هر نمودار)؛ جریان زنده در `owner/live.mjs`. شیشه فقط روی سرآیند، نوار فیلتر، TabBar و کنترل‌ها؛ کشوی کاربر جامد است (شیشه‌ی بزرگ کند نقاشی می‌شود). TabBar در `dir="ltr"` با ترتیب برعکس (عدسی glisse با `left` جابه‌جا می‌شود). CSS در لایه‌ی `.ow` آخر `app.css`: توکن‌های `--lg-*` از توکن‌های اپ.
+- **بسته:** `public/vendor/glisse/glisse.bundle.js` از `scripts/glisse-entry.js` (react/react-dom 19.3.0، glisse 0.4.3، htm 3.1.1؛ مجوزها در `NOTICE.txt`). ساخت در پوشه‌ی scratch با `npm install --ignore-scripts` و esbuild 0.25.0 (فرمان کامل در سرآغاز `glisse-entry.js`). glisse پیش از بسته‌شدن وارسی شد: فقط `react` و `react/jsx-runtime` را وارد می‌کند و fetch، eval، ذخیره‌ساز یا ناوبری ندارد.
+- **آزمون:** `tests/owner.test.mjs`؛ مرحله‌ی e2e «owner dashboard (spec 0053)» (سرور e2e با `BEATRIS_OWNER_EMAIL=owner@demo.beatris.ir`).
 
 ## متغیرهای سرور
 همه‌ی متغیرهایی که سرور می‌خواند (مقدار راز فقط در میزبان، هرگز در مخزن):

@@ -109,3 +109,28 @@ and `export?what=logins|users|shops|signups` (CSV).
 - The IP is still the leftmost `X-Forwarded-For` entry (spec 0054). `xff` keeps the raw chain until the hop Render
   appends is measured.
 - Alerts by email or SMS.
+
+## Results
+- **Server and tests:** `server/owner.mjs` and the gateway wiring; `tests/owner.test.mjs`, 7 tests: guard, every auth
+  kind with IP, chain and device, harness, numbers, privacy, retention, CSV and the live feed.
+- **Page:** `/owner` with the eight tabs and the side panel for one person's timeline. The e2e step «owner dashboard
+  (spec 0053)» passes 17 of 17 with no browser errors.
+- **Glass:** the refraction filter is set in Chromium (`--lg-filter: url(#glisse-…)`). At 390 px nothing scrolls
+  sideways, in both skins.
+- **Bundle:** `glisse.bundle.js` is 263 KB, 84 KB gzipped, with no `eval` or `new Function`.
+  - glisse 0.4.3's npm tarball was read before bundling. It imports only `react` and `react/jsx-runtime`, and has no
+    network, storage, cookie, navigation, `eval` or obfuscated access.
+  - The CSP (`connect-src 'self'`, `img-src 'self' data: blob:`) stays as it was and is a second fence.
+- **Deviations from the approved plan:**
+  - **React 19.3.0, not 19.3.1.** 19.3.1 was 13 days old at build time, and every glisse release is under a week
+    old. The bundle takes the React release older than two weeks; glisse needs React ≥ 18.
+  - **The side panel is solid, not glass.** A refracting panel that large took about 7 s to paint under software GL,
+    and would be janky on real devices too. Glass stays on the header, the filter row, the TabBar and the controls.
+- **Timing:** under the e2e's SwiftShader GL, the first paint of the page takes 3–8 s, against about 0.3 s for other
+  pages. glisse draws its displacement maps on a GPU canvas, and SwiftShader makes the read-backs slow. The e2e waits
+  are sized for that.
+- **Colours:** the two chart series were checked with the dataviz validator.
+  - The app's own `--chart-*` tokens fail it in both skins (lightness band, chroma, colour-blind separation), so the
+    dashboard has its own pair.
+  - Dark skins: `#b98a2e` / `#3987e5`. Day skin: `#a8741a` / `#2a78d6`. Every check passes on the calm, classic and
+    day surfaces.

@@ -33,7 +33,7 @@ export async function vendorPage(root) {
   const S = { items: [], open: null, users: {}, sms: null, test: null };
   root.innerHTML = String(html`<div class="vd">
     <header class="bk-head"><div><h1>کنسول ارائه‌دهنده</h1><p class="small">فروشگاه‌ها، کاربران و اشتراک‌ها. هر کس با ایمیل خودش و کدی که Supabase به همان ایمیل می‌فرستد وارد می‌شود؛ نام کاربری و رمزی صادر نمی‌شود.</p></div>
-      <div class="actions"><a class="btn ghost" href="/ops" data-link>عملیات و سلامت سرور</a><button class="btn" data-act="new">+ فروشگاه تازه</button></div></header>
+      <div class="actions">${store.me?.owner ? html`<a class="btn ghost" href="/owner" data-link>دیده‌بان</a>` : ''}<a class="btn ghost" href="/ops" data-link>عملیات و سلامت سرور</a><button class="btn" data-act="new">+ فروشگاه تازه</button></div></header>
     <section class="tray vd-sms" id="vdMail"><div class="loading"><span></span></div></section>
     <section class="tray vd-sms" id="vdSms"><div class="loading"><span></span></div></section>
     <section class="vd-kpis" id="vdK"></section>

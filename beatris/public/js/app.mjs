@@ -115,6 +115,8 @@ route('/help', lazy('./pages/help.mjs', 'helpPage'), { tab: 'books', tone: 'wide
 route('/setup', lazy('./pages/setup.mjs', 'setupPage'), { tab: 'books', tone: 'wide', setup: true });
 route('/ops', lazy('./pages/ops.mjs', 'opsPage'), { tab: 'team', tone: 'wide', vendor: true });
 route('/vendor', lazy('./pages/vendor.mjs', 'vendorPage'), { tab: 'team', tone: 'wide', vendor: true });
+// دیده‌بان (spec 0053): only the account the server's variables name as the platform owner
+route('/owner', lazy('./pages/owner.mjs', 'ownerPage'), { tab: 'team', tone: 'full', bare: true, owner: true });
 route('/s/:token', lazy('./pages/statement.mjs', 'statementPage'), { public: true, bare: true, tone: 'full' });
 route('/verify/:code', lazy('./pages/books.mjs', 'verifyPage'), { public: true, bare: true });
 route('/studio', lazy('./pages/studio3d.mjs', 'studioPage'), { tab: 'studio', tone: 'full', title: 'استودیوی سه‌بعدی' });

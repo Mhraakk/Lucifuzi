@@ -125,7 +125,8 @@ export async function loginPage(root) {
         <p class="err" id="err" role="alert"></p>
         <button class="btn block" type="submit">دریافت کد</button>
       </form>
-      <p class="small">نام کاربری و رمز لازم نیست؛ با همین ایمیل روی گوشی، تبلت و کامپیوتر وارد شوید.</p>`);
+      <p class="small">نام کاربری و رمز لازم نیست؛ با همین ایمیل روی گوشی، تبلت و کامپیوتر وارد شوید.</p>
+      <p class="small lg-notice">ورود و فعالیت در اپ برای امنیت و پشتیبانی ثبت می‌شود.</p>`);
     const f = $('#ef', step);
     f.email.focus({ preventScroll: true });
     f.addEventListener('submit', (e) => {

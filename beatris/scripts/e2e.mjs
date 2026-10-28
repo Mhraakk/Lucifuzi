@@ -24,7 +24,7 @@ if (!live) {
   dataDir = mkdtempSync(path.join(tmpdir(), 'beatris-e2e-'));
   let port = 4100 + Math.floor(Math.random() * 800);
   if (port === 4190) port++; // fetch refuses 4190
-  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.mjs'], { cwd: ROOT, env: { ...process.env, BEATRIS_DEMO: 'true', BEATRIS_DATA_DIR: dataDir, PORT: String(port), NODE_ENV: 'test' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.mjs'], { cwd: ROOT, env: { ...process.env, BEATRIS_DEMO: 'true', BEATRIS_DATA_DIR: dataDir, PORT: String(port), NODE_ENV: 'test', BEATRIS_OWNER_EMAIL: 'owner@demo.beatris.ir' }, stdio: ['ignore', 'pipe', 'pipe'] });
   base = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 60; i++) {
     if (await fetch(`${base}/api/health`).then((r) => r.ok).catch(() => false)) break;
@@ -3061,6 +3061,67 @@ async function loginUI(page, email = EMAIL) {
       }
     });
 
+    await step('owner dashboard (spec 0053): counts, sign-ins, a person\'s timeline and the live feed, only for the owner', async () => {
+      // this session is the demo manager: not the owner the server's variables name
+      await go(page, '/owner', 1200);
+      check('owner dashboard: a manager is sent home', new URL(page.url()).pathname === '/', page.url());
+      const oc = await session({ width: 1440, height: 900 });
+      try {
+        const o = oc.page;
+        await loginUI(o, 'owner@demo.beatris.ir');
+        await go(o, '/owner', 1500);
+        await o.waitForSelector('.ow-stat', { timeout: 90000 }); // glass maps are drawn on a GPU canvas: slow under this run's software GL
+        check('owner dashboard: the counts are on the page under one heading', (await o.$$eval('.ow-stat', (s) => s.length)) >= 9 && (await o.$$eval('h1', (h) => h.length)) === 1 && /دیده‌بان/.test(await text(o, 'h1')));
+        check('owner dashboard: the glass bends the page behind it in Chromium', /url\(/.test(await o.$eval('.lg-tab-bar-glass', (g) => getComputedStyle(g).getPropertyValue('--lg-filter'))));
+        // the TabBar's lens travels to the tab pressed; the manager's sign-in from the start of this run is in the table
+        const lensX = () => o.$eval('.lg-tab-lens', (l) => l.getBoundingClientRect().x);
+        const x0 = await lensX();
+        await o.getByRole('tab', { name: 'ورودها' }).click();
+        await o.waitForSelector('.ow-table tbody tr', { timeout: 60000 });
+        await o.waitForTimeout(900);
+        const x1 = await lensX();
+        check('owner dashboard: the lens moves to the tab pressed', Math.abs(x1 - x0) > 40, `${Math.round(x0)} → ${Math.round(x1)}`);
+        const rows = await text(o, '.ow-table tbody');
+        check('owner dashboard: the sign-in of this run is in the table, by name and shop', /سارا موسوی/.test(rows) && /ورود/.test(rows), rows.slice(0, 160));
+        check('owner dashboard: the address bar keeps the tab', new URL(o.url()).searchParams.get('t') === 'logins');
+        // one person's timeline, in the side panel
+        await o.getByRole('tab', { name: 'کاربران' }).click();
+        await o.waitForSelector('.ow-user', { timeout: 60000 });
+        await o.locator('.ow-user', { hasText: 'سارا موسوی' }).first().click();
+        await o.waitForSelector('.ow-drawer .ow-facts', { timeout: 60000 });
+        check('owner dashboard: a person\'s timeline opens in the side panel', /سارا موسوی/.test(await text(o, '.ow-drawer h2')) && /ورود/.test(await text(o, '.ow-drawer')));
+        await o.keyboard.press('Escape');
+        await o.waitForSelector('.ow-drawer', { state: 'detached', timeout: 30000 });
+        // the live feed: a sign-in elsewhere shows up as it happens
+        await o.getByRole('tab', { name: 'زنده' }).click();
+        await o.waitForSelector('.ow-conn.on', { timeout: 60000 });
+        await page.evaluate(async () => {
+          const post = (p, b) => fetch(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }).then((r) => r.json());
+          const sent = await post('/api/auth/code', { phone: '09120000003' });
+          await post('/api/auth/verify', { phone: '09120000003', code: sent.code });
+        });
+        await o.waitForFunction(() => /نیلوفر احمدی/.test(document.querySelector('.ow-feed.live')?.innerText ?? ''), null, { timeout: 60000 });
+        check('owner dashboard: «زنده» shows a sign-in as it happens', true);
+        // a phone, in both skins: nothing scrolls sideways
+        const token = await o.evaluate(() => localStorage.getItem('beatris.token'));
+        for (const theme of ['calm', 'day']) {
+          const ph = await session({ width: 390, height: 844 });
+          try {
+            await ph.ctx.addInitScript(([t, th]) => (localStorage.setItem('beatris.token', t), localStorage.setItem('beatris.theme', th)), [token, theme]);
+            await go(ph.page, '/owner?t=behavior', 1500);
+            await ph.page.waitForSelector('.ow-heat, .ow-empty', { timeout: 90000 });
+            await ph.page.waitForTimeout(600);
+            const ov = await ph.page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+            check(`owner dashboard: 390 px in the ${theme} skin, nothing scrolls sideways`, ov <= 1, `${ov}px`);
+          } finally {
+            await ph.ctx.close();
+          }
+        }
+      } finally {
+        await oc.ctx.close();
+      }
+    });
+
     await step('PWA: service worker + offline shell', async () => {
       await go(page, '/', 2000);
       await page.evaluate(() => navigator.serviceWorker.ready);
@@ -3082,7 +3143,7 @@ async function loginUI(page, email = EMAIL) {
 /* ======================================================= phone */
 // one address for every page (spec 0039): the phone walk opens ROUTES, the walk of both widths and both skins opens
 // ROUTES and MORE_ROUTES (the patterns with an id get a real one there)
-const ROUTES = ['/', '/work', '/books/sell', '/books/sell/screen', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/coins/showcase', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/find', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott'];
+const ROUTES = ['/', '/work', '/books/sell', '/books/sell/screen', '/learn', '/lesson/r5', '/tools', '/history', '/practice', '/coins', '/coins?mode=seal', '/coins?mode=real', '/coins/manage', '/coins/showcase', '/tools/bayes', '/lesson/k4', '/lesson/k10', '/lesson/k11', '/learn/c-melt', '/lesson/h1', '/lesson/h2', '/lesson/h3', '/lesson/h4', '/lesson/h5', '/ledger', '/ledger?level=3', '/tools/melt', '/market', '/market?s=sekee&r=all', '/market/data', '/learn/c-market', '/lesson/mk1', '/lesson/mk6', '/intro', '/staff/leads', '/staff/settings', '/tools/inspect', '/books', '/books/new/sale', '/books/new/receipt', '/books/docs', '/books/stock', '/books/cash', '/books/parties', '/books/reports', '/books/settings', '/books/log', '/books/desk', '/books/day', '/books/vault', '/books/bars', '/books/reports?tab=pnl', '/books/audit', '/books/pulse', '/books/trace', '/books/find', '/books/events', '/books/memory', '/books/dashboard', '/books/products', '/books/ai', '/books/smart?t=close', '/books/smart?t=forecast', '/books/smart?t=risk', '/books/smart?t=bars', '/books/smart?t=quotes', '/vendor', '/books/peers', '/help', '/ops', '/books/control', '/books/control?t=exceptions', '/books/control?t=simulate', '/books/control?t=twin', '/books/control?t=lots', '/books/control?t=story', '/books/control?t=trial', '/books/control?t=forecast', '/books/control?t=approvals', '/books/control?t=periods', '/books/control?t=close', '/books/control?t=karat', '/books/elliott', '/market/elliott', '/owner'];
 const MORE_ROUTES = ['/intro/features', '/start', '/train/accounting', '/train/team', '/scenario/sc-ojrat', '/cards', '/drill', '/tools/invoice', '/tools/mazaneh', '/setup', '/studio', '/studio/coach', '/agents', '/library', '/sop/sop-open', '/me', '/staff', '/staff/queue', '/staff/access'];
 {
   const { page, ctx } = await session({ width: 390, height: 844 });
