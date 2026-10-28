@@ -397,3 +397,30 @@ export function solidComponents(meshes, res = 110) {
   }
   return count;
 }
+
+/**
+ * Metal counted twice where pieces overlap, and metal that the stones' seats remove, measured on one fine voxel grid
+ * laid over `region` (res cells on its longest side). Every part and every stone group is voxelized on its own, so
+ * overlaps never cancel by parity: double = Σ parts − their union; seat = the union ∩ the stones.
+ */
+export function overlaps(parts, stones, region, res = 160) {
+  const box = boxAround(merge(region).position, 0.3);
+  let union = null, sum = 0, vox = 0;
+  for (const m of parts) {
+    const g = voxelize(m.position, m.index, box, res);
+    vox = g.vox;
+    union ??= new Uint8Array(g.occ.length);
+    for (let i = 0; i < g.occ.length; i++) if (g.occ[i]) (sum++, (union[i] = 1));
+  }
+  if (!union) return { seat: q(0, 'mm3'), double: q(0, 'mm3') };
+  let inUnion = 0;
+  for (const x of union) inUnion += x;
+  let seat = 0;
+  for (const m of stones) {
+    const g = voxelize(m.position, m.index, box, res);
+    // a cell is cut once, even where two stone groups reach it
+    for (let i = 0; i < g.occ.length; i++) if (g.occ[i] && union[i] === 1) (seat++, (union[i] = 2));
+  }
+  const v3 = vox ** 3;
+  return { seat: q(seat * v3, 'mm3'), double: q((sum - inUnion) * v3, 'mm3') };
+}

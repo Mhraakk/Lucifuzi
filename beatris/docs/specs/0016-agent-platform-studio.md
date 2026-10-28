@@ -102,5 +102,5 @@ Spec 0015 had one agent runtime for accounting training. This spec turns it into
 - Every shop keeps its own database, so tenants stay isolated. An agent acts as the person who started the run and is checked against that person's permissions.
 
 ## Not done
-- Stone settings other than prong are checked by rules but not modelled as geometry (`E_UNSUPPORTED` in the engine). A design run builds the shank only and names the setting in an info finding, `SETTING_NOT_MODELLED` (spec 0054).
+- ~~Stone settings other than prong are checked by rules but not modelled as geometry.~~ Done in spec 0056: all seven settings (prong, bezel, halo, channel, pavé, flush, tension) are built, measured and checked. The exported STL is the uncut casting model (seats are subtracted from the weight, not cut).
 - The geometry engine is voxel-based for booleans, offset and fillet, with about 1–2 % error. It is not a NURBS kernel.

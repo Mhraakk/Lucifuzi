@@ -48,6 +48,7 @@
       then failed the whole run with an engine error.
     - The fix: «رکاب» no longer means a bezel. A setting the engine does not build is checked by its rules, left out
       of the geometry, and named in an info finding (`SETTING_NOT_MODELLED`).
+    - Since spec 0056 the engine builds every setting, so that finding is gone.
 
 ### Wording and docs
 - The sign-in moved to email (spec 0034), and the host to Render. Persian messages that still sent people to

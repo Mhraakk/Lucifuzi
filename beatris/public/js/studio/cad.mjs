@@ -4,9 +4,9 @@
 // Rhino.Compute, Grasshopper, a plugin bridge) implements the same four methods elsewhere; nothing here pretends to
 // be Rhino.
 import { check } from '../schema.mjs';
-import { CAD_PROGRAM, SETTING_FA, MODELLED_SETTINGS } from './schemas.mjs';
+import { CAD_PROGRAM } from './schemas.mjs';
 import * as G from './geometry.mjs';
-import { shankMesh, prongHead, caratOf } from './ring.mjs';
+import { shankMesh, SETTING_BUILDERS } from './ring.mjs';
 import { weightOf, MATERIALS } from './materials.mjs';
 import { q, round } from './units.mjs';
 
@@ -27,7 +27,8 @@ export function validateProgram(ops) {
 
 /**
  * The local adapter. Models live in memory keyed by id (the server keeps the program and rebuilds a model from it
- * deterministically). Each model: objects { id: { role: 'metal' | 'stone', mesh, meta } }, curves, the ops applied.
+ * deterministically). Each model: objects { id: { role: 'metal' | 'stone', mesh, meta } }, curves, the ops applied,
+ * and its stone settings { id: { type, on, measures } } (spec 0056: measured as built, head or no head).
  */
 export function createLocalAdapter({ material = 'au18y', idFor = () => `m${Math.random().toString(36).slice(2, 10)}` } = {}) {
   const models = new Map();
@@ -75,10 +76,17 @@ export function createLocalAdapter({ material = 'au18y', idFor = () => `m${Math.
         case 'stoneSetting': {
           const base = obj(o.on);
           if (base.meta.kind !== 'shank') throw new CadError('E_REF', 'سر نگین فقط روی رکاب ساخته می‌شود.');
-          if (!MODELLED_SETTINGS.has(o.spec.type)) throw new CadError('E_UNSUPPORTED', `سر نگین ${SETTING_FA[o.spec.type] ?? o.spec.type} هنوز مدل سه‌بعدی ندارد؛ فقط قاعده‌هایش بررسی می‌شود.`);
-          const h = prongHead(base.meta.params, o.spec, o.headHeightMm);
-          put(o.id, h.metal, 'metal', { kind: 'head', spec: o.spec, measures: h.measures });
-          put(`${o.id}_stone`, h.stone, 'stone', { kind: 'stone', spec: o.spec, carats: caratOf(o.spec) });
+          // a tension ring is the band itself, opened for its stone: nothing else sits on that band
+          const others = Object.values(model.settings).filter((x) => x.on === o.on);
+          if (others.length && (o.spec.type === 'tension' || others.some((x) => x.type === 'tension'))) throw new CadError('E_REF', 'رکاب فشاری فقط یک نگین می‌گیرد.');
+          const h = SETTING_BUILDERS[o.spec.type](base.meta.params, o.spec, o.headHeightMm, { minWall: (MATERIALS[model.material] ?? MATERIALS.au18y).minWall });
+          if (h.shank) {
+            base.mesh = h.shank;
+            base.closed = G.watertight(h.shank).closed;
+          }
+          if (h.parts.length) put(o.id, G.merge(h.parts), 'metal', { kind: 'head', spec: o.spec, measures: h.measures, parts: h.parts });
+          for (const s of h.stones) put(`${o.id}_${s.name}`, s.mesh, 'stone', { kind: s.count > 1 ? 'stones' : 'stone', spec: s.spec, count: s.count, carats: s.carats });
+          model.settings[o.id] = { type: o.spec.type, on: o.on, measures: h.measures };
           break;
         }
         case 'boolean': {
@@ -115,6 +123,7 @@ export function createLocalAdapter({ material = 'au18y', idFor = () => `m${Math.
         case 'delete':
           obj(o.target);
           delete model.objects[o.target];
+          for (const [id, x] of Object.entries(model.settings)) if (id === o.target || x.on === o.target) delete model.settings[id];
           break;
         default:
           throw new CadError('E_OP', `عملیات «${o.op}» شناخته نیست.`);
@@ -134,7 +143,7 @@ export function createLocalAdapter({ material = 'au18y', idFor = () => `m${Math.
     async createGeometry(ops, { id = null, material: mat = material } = {}) {
       validateProgram(ops);
       const modelId = id ?? idFor();
-      const model = run({ objects: {}, curves: {}, ops: [], material: mat }, ops);
+      const model = run({ objects: {}, curves: {}, ops: [], material: mat, settings: {} }, ops);
       models.set(modelId, model);
       return summary(modelId, model);
     },
@@ -143,7 +152,7 @@ export function createLocalAdapter({ material = 'au18y', idFor = () => `m${Math.
       const model = models.get(modelId);
       if (!model) throw new CadError('E_MODEL', 'مدل پیدا نشد.');
       // work on a copy: a failing operation leaves the model as it was
-      const copy = { objects: Object.fromEntries(Object.entries(model.objects).map(([k, v]) => [k, { ...v }])), curves: { ...model.curves }, ops: [...model.ops], material: model.material };
+      const copy = { objects: Object.fromEntries(Object.entries(model.objects).map(([k, v]) => [k, { ...v }])), curves: { ...model.curves }, ops: [...model.ops], material: model.material, settings: { ...model.settings } };
       run(copy, ops);
       models.set(modelId, copy);
       return summary(modelId, copy);
@@ -165,28 +174,41 @@ export function createLocalAdapter({ material = 'au18y', idFor = () => `m${Math.
   };
 }
 
-/** Everything measurable about a model, in units. */
+/**
+ * Everything measurable about a model, in units. The metal volume is the meshes' exact volumes less the metal a
+ * stone's seat removes and the metal two overlapping pieces would count twice (both measured on a fine voxel grid
+ * over the head and the stones, spec 0056): the finished metal, before the stones go in.
+ */
 export function inspect(model, { samples = 300 } = {}) {
   const mat = MATERIALS[model.material] ?? MATERIALS.au18y;
   const metal = Object.entries(model.objects).filter(([, o]) => o.role === 'metal');
+  const stoneObjs = Object.entries(model.objects).filter(([, o]) => o.role === 'stone');
   const objects = metal.map(([id, o]) => {
     // a head is several touching tubes: its rays meet inner faces, so its strength comes from the prong diameter, not a ray
     const wt = o.meta.kind === 'head' ? null : G.wallThickness(o.mesh, { samples });
     return { id, kind: o.meta.kind ?? null, closed: o.closed, volume: round(G.volume(o.mesh), 2), area: round(G.surfaceArea(o.mesh), 1), size: G.bounds(o.mesh).size.map((s) => round(s, 2)), wall: wt && { min: round(wt.min, 3), p05: round(wt.p05, 3), median: round(wt.median, 3), at: wt.at }, params: o.meta.params ?? null, measures: o.meta.measures ?? null, spec: o.meta.spec ?? null };
   });
-  const metalVolume = q(objects.reduce((s, o) => s + o.volume.value, 0), 'mm3');
-  const stones = Object.entries(model.objects).filter(([, o]) => o.role === 'stone').map(([id, o]) => ({ id, spec: o.meta.spec, carats: o.meta.carats }));
+  // each part on its own: overlapping pieces of one head must not cancel in a voxel count
+  const parts = metal.flatMap(([, o]) => o.meta.parts ?? [o.mesh]);
+  const stoneMeshes = stoneObjs.map(([, o]) => o.mesh);
+  const region = [...metal.filter(([, o]) => o.meta.kind === 'head').flatMap(([, o]) => o.meta.parts ?? [o.mesh]), ...stoneMeshes];
+  const ov = region.length && parts.length ? G.overlaps(parts, stoneMeshes, region) : { seat: q(0, 'mm3'), double: q(0, 'mm3') };
+  const metalVolume = q(Math.max(0, objects.reduce((s, o) => s + o.volume.value, 0) - ov.seat.value - ov.double.value), 'mm3');
+  const stones = stoneObjs.map(([id, o]) => ({ id, kind: o.meta.kind ?? 'stone', spec: o.meta.spec, count: o.meta.count ?? 1, carats: o.meta.carats }));
   const allMetal = metal.map(([, o]) => o.mesh);
   return {
     material: model.material,
     materialFa: mat.fa,
     objects,
     metalVolume: round(metalVolume, 2),
+    seatVolume: round(ov.seat, 2),
+    overlapVolume: round(ov.double, 2),
     weight: weightOf(metalVolume, model.material),
-    solids: allMetal.length ? G.solidComponents(allMetal) : 0,
+    solids: parts.length ? G.solidComponents(parts) : 0,
     closed: objects.every((o) => o.closed),
     bounds: allMetal.length ? G.bounds(G.merge(allMetal)).size.map((s) => round(s, 2)) : null,
     stones,
+    settings: Object.entries(model.settings ?? {}).map(([id, s]) => ({ id, ...s })),
   };
 }
 

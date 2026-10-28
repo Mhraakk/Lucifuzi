@@ -25,6 +25,13 @@ export function parseInstruction(text) {
   set(new RegExp(`ضخامت (?:بالا|شانه)[^\\d۰-۹]{0,12}${N}`), 'thickTop');
   set(new RegExp(`(?:ارتفاع سر|سر (?:نگین )?را)[^\\d۰-۹]{0,12}${N}`), 'headHeight');
   set(new RegExp(`قطر (?:چنگ|پنجه)[^\\d۰-۹]{0,12}${N}`), 'prongDiameterMm');
+  // the setting's own numbers (spec 0056): a bezel or rail wall, the gap between small stones, halo stones, the seat
+  set(new RegExp(`دیواره[^\\d۰-۹]{0,12}${N}`), 'wallMm');
+  set(new RegExp(`فاصله(?: ی)? (?:بین )?سنگ(?: ها)?[^\\d۰-۹]{0,12}${N}`), 'spacingMm');
+  set(new RegExp(`سنگ(?: های)? هاله[^\\d۰-۹]{0,12}${N}`), 'haloStoneMm');
+  set(new RegExp(`(?:شیار|لبه|عمق نشیمن)[^\\d۰-۹]{0,12}${N}`), 'seatDepthMm');
+  const count = new RegExp(`تعداد سنگ(?: ها)?[^\\d۰-۹]{0,8}${N}`).exec(t) ?? new RegExp(`${N}\\s*(?:تا\\s*)?سنگ(?! ?هاله)`).exec(t);
+  if (count) edits.push({ param: 'stoneCount', value: Math.round(num(count[1])) });
   const iso = new RegExp(`سایز\\s*${N}(\\s*(?:آمریکایی|us))?`, 'i').exec(t);
   if (iso) edits.push({ param: 'innerDiameter', value: Math.round((iso[2] || num(iso[1]) < 20 ? diameterFromUs(num(iso[1])) : diameterFromIso(num(iso[1]))) * 100) / 100 });
   const prongs = /(\d+|[۰-۹]+|یک|دو|سه|چهار|پنج|شش|هفت|هشت)\s*(?:تا\s*)?(?:چنگ|پنجه)/.exec(t);
@@ -32,12 +39,13 @@ export function parseInstruction(text) {
   return { edits, understood: edits.length > 0 };
 }
 
+const SETTING_KEYS = new Set(['prongCount', 'prongDiameterMm', 'seatDepthMm', 'wallMm', 'spacingMm', 'haloStoneMm', 'stoneCount', 'rowCount', 'beadsPerStone', 'metalDepthMm']);
 /** Apply parameter edits (not weight actions) to a parameter set; setting params go into the setting spec. */
 export function applyEdits(p, edits) {
   const out = { ...p, setting: p.setting ? { ...p.setting } : null };
   for (const e of edits) {
     if (!e.param) continue;
-    if (e.param === 'prongCount' || e.param === 'prongDiameterMm') {
+    if (SETTING_KEYS.has(e.param)) {
       if (out.setting) out.setting[e.param] = e.value;
     } else out[e.param] = e.value;
   }

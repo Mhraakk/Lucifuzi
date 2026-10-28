@@ -2297,6 +2297,18 @@ async function loginUI(page, email = EMAIL) {
       check('studio coach: no horizontal overflow', (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
     });
 
+  if (!live)
+    await step('studio settings (spec 0056): a pavé and a tension brief build measured models with their stones', async () => {
+      await go(page, '/studio/coach', 1500);
+      for (const [brief, kind] of [['انگشتر ۱۸ عیار پاوه، سنگ گرد ۱٫۳ میل، سایز ۵۴', 'پاوه'], ['انگشتر ۱۸ عیار فشاری، سنگ گرد ۵ میل الماس، سایز ۵۴', 'فشاری']]) {
+        await page.fill('#scBrief', brief);
+        await page.click('[data-act=design]');
+        await page.waitForFunction((w) => (document.querySelector('.sc-summary')?.textContent ?? '').includes(w), kind, { timeout: 30000 });
+        check(`studio settings: the ${kind} summary names the setting, its stones and their carats`, new RegExp(`نگین‌گذاری ${kind}: [۰-۹]+ سنگ، [۰-۹٫]+ قیراط`).test(await text(page, '.sc-summary')));
+        check(`studio settings: the ${kind} model has its setting and nothing blocks making it`, !/سر نگین در مدل نیست|پیش از ساخت باید اصلاح/.test(await text(page, '.sc-result')));
+      }
+    });
+
   await step('skins (spec 0014): live preview, Esc returns, click keeps, survives reload, clean skin, automatic mode, dashboard switch', async () => {
     await go(page, '/', 1200);
     const skin = () => page.evaluate(() => document.documentElement.dataset.skin);

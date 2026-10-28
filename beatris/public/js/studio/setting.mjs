@@ -12,7 +12,8 @@ export function checkSetting(spec, material = 'au18y') {
   const out = [];
   const { W, L, depth } = stoneProportions(spec);
   const big = Math.max(W, L);
-  if (spec.type === 'prong') {
+  // a halo's centre stone sits in prongs, so it answers to the prong rules too (spec 0056)
+  if (spec.type === 'prong' || spec.type === 'halo') {
     const minCount = spec.stoneShape === 'round' ? 3 : spec.stoneShape === 'pear' || spec.stoneShape === 'marquise' || spec.stoneShape === 'heart' ? 3 : 4;
     const n = spec.prongCount ?? 0;
     if (n < minCount) out.push(f('PRONG_COUNT', 'high', 'تعداد چنگ کم است', `سنگ ${spec.stoneShape} با ${n} چنگ پایدار نمی‌ماند؛ دست‌کم ${minCount} چنگ لازم است تا سنگ در هر جهت مهار شود.`, { expected: minCount, actual: n, unit: 'عدد' }, `تعداد چنگ را به ${minCount} یا بیشتر برسانید.`));
@@ -45,6 +46,7 @@ export function checkSetting(spec, material = 'au18y') {
   if (spec.type === 'tension') {
     if (!HARD.has(spec.stoneType ?? 'diamond')) out.push(f('TENSION_STONE', 'critical', 'این سنگ برای تنشن مناسب نیست', 'در تنشن فقط فشار فلز سنگ را نگه می‌دارد؛ سنگ نرم‌تر از یاقوت زیر این فشار می‌شکند.', null, 'رکاب یا چنگ انتخاب کنید.'));
     if ((spec.metalDepthMm ?? 0) < 1.8) out.push(f('TENSION_METAL', 'high', 'فلز تنشن کم است', 'بدنه تنشن باید دست‌کم ۱٫۸ میلی‌متر و از آلیاژ سخت‌شده باشد تا فشار را نگه دارد.', { expected: 1.8, actual: spec.metalDepthMm ?? 0, unit: 'mm' }));
+    if ((spec.seatDepthMm ?? 0) < 0.25) out.push(f('TENSION_GRIP', 'high', 'شیار نگه‌دارنده کم‌عمق است', 'در تنشن سنگ فقط در شیار دو سر رکاب می‌نشیند؛ شیار کمتر از ۰٫۲۵ میلی‌متر با یک ضربه سنگ را رها می‌کند.', { expected: 0.25, actual: spec.seatDepthMm ?? 0, unit: 'mm' }, 'شیار را به ۰٫۳ تا ۰٫۴ میلی‌متر برسانید.'));
   }
   if (spec.type === 'halo' && (spec.haloStoneMm ?? 0) > 1.5) out.push(f('HALO_STONES', 'warning', 'سنگ‌های هاله درشت‌اند', 'هاله با سنگ‌های تا ۱٫۵ میلی‌متر سنگ مرکزی را بزرگ‌تر نشان می‌دهد؛ درشت‌ترشان با سنگ اصلی رقابت می‌کند و دیواره را پهن می‌کند.', { expected: 1.5, actual: spec.haloStoneMm, unit: 'mm' }));
   return out;

@@ -3,23 +3,28 @@
 // can be beautiful and impossible, or buildable and clumsy. Weight is reduced only by a constrained search over
 // the parameters a jeweller allows to change, then re-measured and re-validated.
 import { MATERIALS, materialFor } from './materials.mjs';
-import { diameterFromIso, shankMesh, stoneProportions } from './ring.mjs';
+import { diameterFromIso, shankMesh, stoneProportions, tensionGap, channelArc, taper, RAISED_SETTINGS } from './ring.mjs';
 import { checkSetting } from './setting.mjs';
 import * as G from './geometry.mjs';
-import { SETTING_FA, MODELLED_SETTINGS } from './schemas.mjs';
 import { weightOf } from './materials.mjs';
 
 const r2 = (x) => Math.round(x * 100) / 100;
 const F = (code, kind, severity, titleFa, explanationFa, ev = null, action = null, ref = null) => ({ code, kind, severity, titleFa, explanationFa, ...(ev ? { measurableEvidence: ev } : {}), ...(action ? { recommendedActionFa: action } : {}), ...(ref ? { geometryRef: ref } : {}) });
 
-/** Ring parameters from an intent: the sizes a bench jeweller would start from for that style and stone. */
+/**
+ * Ring parameters from an intent: the sizes a bench jeweller would start from for that style and stone. Every
+ * setting starts from values that pass its own rules (spec 0056); the band changes only where the setting needs it.
+ */
 export function paramsFromIntent(intent) {
   const material = intent.material ?? materialFor(intent.targetKarat ?? 18);
   const delicate = (intent.style ?? []).some((s) => ['مینیمال', 'ظریف', 'ایتالیایی'].includes(s));
   const bold = (intent.style ?? []).includes('جسورانه');
   const dims = intent.stone?.dimensionsMm ?? [];
   const shape = intent.stone?.shape ?? (intent.stone ? 'round' : null);
-  const L = dims[0] ?? (shape === 'oval' ? 7 : 5.5), W = dims[1] ?? (shape === 'round' || !dims[0] ? L : L * 0.72);
+  const type = intent.stone?.setting ?? 'prong';
+  // small stones belong to these settings: their size when the brief gives none
+  const small = { pave: 1.3, channel: 2.5, flush: 2.5 }[type];
+  const L = dims[0] ?? small ?? (shape === 'oval' ? 7 : 5.5), W = dims[1] ?? (shape === 'round' || !dims[0] ? L : L * 0.72);
   const mat = MATERIALS[material];
   const p = {
     material,
@@ -32,24 +37,49 @@ export function paramsFromIntent(intent) {
     setting: null,
   };
   if (shape) {
-    const spec = { type: intent.stone?.setting ?? 'prong', stoneShape: shape, stoneType: intent.stone?.type ?? 'diamond', stoneWidthMm: r2(Math.min(W, L)), stoneLengthMm: r2(Math.max(W, L)) };
-    const { pavilion } = stoneProportions(spec);
-    spec.prongCount = shape === 'round' ? 4 : Math.max(W, L) > 8 ? 6 : 4;
-    spec.prongDiameterMm = r2(Math.max(mat.minProng, 0.1 * Math.max(W, L)));
-    spec.seatDepthMm = r2(Math.min(spec.prongDiameterMm / 2, Math.max(0.15, spec.prongDiameterMm / 3)));
+    const spec = { type, stoneShape: shape, stoneType: intent.stone?.type ?? 'diamond', stoneWidthMm: r2(Math.min(W, L)), stoneLengthMm: r2(Math.max(W, L)) };
+    const { pavilion, depth } = stoneProportions(spec);
+    const big = Math.max(W, L);
+    if (type === 'prong' || type === 'halo') {
+      spec.prongCount = shape === 'round' ? 4 : big > 8 ? 6 : 4;
+      spec.prongDiameterMm = r2(Math.max(mat.minProng, 0.1 * big));
+      spec.seatDepthMm = r2(Math.min(spec.prongDiameterMm / 2, Math.max(0.15, spec.prongDiameterMm / 3)));
+    }
+    if (type === 'halo') Object.assign(spec, { haloStoneMm: 1.2, spacingMm: 0.15 });
+    if (type === 'bezel') Object.assign(spec, { wallMm: r2(Math.max(mat.minWall, 0.5, 0.06 * big)), seatDepthMm: 0.5 });
+    if (type === 'channel') {
+      Object.assign(spec, { wallMm: r2(Math.max(mat.minWall, 0.6)), seatDepthMm: 0.2, spacingMm: 0.05, stoneCount: 5 });
+      // the rails stand on the band's flat top, all along the channel: as wide as the stones and both rails with a
+      // margin at the top, and still 0.2 mm wider than the rails where the channel ends (a channel band barely tapers)
+      const need = spec.stoneLengthMm - 2 * spec.seatDepthMm + 2 * spec.wallMm;
+      p.widthTop = Math.max(p.widthTop, r2(need + 0.3));
+      const f = taper(channelArc(p, spec));
+      p.widthBottom = Math.max(p.widthBottom, r2((need + 0.2 - p.widthTop * f) / (1 - f) + 0.005));
+    }
+    if (type === 'pave') Object.assign(spec, { spacingMm: 0.15, beadsPerStone: 4, stoneCount: 9 });
+    if (type === 'flush') {
+      // deep enough for the stone with metal under it, wide enough that its girdle stays under metal at the sides
+      p.thickTop = Math.max(p.thickTop, r2(depth + 0.45));
+      p.widthTop = Math.max(p.widthTop, r2(spec.stoneLengthMm + 1.2));
+      spec.metalDepthMm = p.thickTop;
+    }
+    if (type === 'tension') {
+      // the ends hold the stone: deep enough for the pavilion over the finger, wide and not too sudden a taper
+      p.thickTop = Math.max(p.thickTop, r2(pavilion + 1.0));
+      p.thickBottom = Math.max(p.thickBottom, r2(p.thickTop / 2.4));
+      p.widthTop = Math.max(p.widthTop, 3);
+      Object.assign(spec, { seatDepthMm: 0.35, metalDepthMm: p.thickTop });
+    }
     p.setting = spec;
-    p.headHeight = r2(pavilion + 0.6); // the culet clears the shank by ~0.6 mm
+    p.headHeight = RAISED_SETTINGS.has(type) ? r2(pavilion + 0.6) : null; // the culet clears the shank by ~0.6 mm
   }
   return p;
 }
 
-/**
- * The CAD program of a ring: a shank, and a setting on it when there is a stone and the engine builds that setting;
- * any other setting is checked by its rules and named in the findings (spec 0054), so a brief never fails on it.
- */
+/** The CAD program of a ring: a shank, and its stone setting when there is a stone (every type is built, spec 0056). */
 export function programOf(p) {
   const ops = [{ op: 'shank', id: 'shank', innerDiameter: p.innerDiameter, widthTop: p.widthTop, widthBottom: p.widthBottom, thickTop: p.thickTop, thickBottom: p.thickBottom }];
-  if (p.setting && MODELLED_SETTINGS.has(p.setting.type)) ops.push({ op: 'stoneSetting', id: 'head', on: 'shank', spec: p.setting, headHeightMm: p.headHeight });
+  if (p.setting) ops.push({ op: 'stoneSetting', id: 'head', on: 'shank', spec: p.setting, ...(p.headHeight != null ? { headHeightMm: p.headHeight } : {}) });
   return ops;
 }
 
@@ -76,15 +106,24 @@ export function manufacturingFindings(insp, p, { method = 'casting' } = {}) {
     if (p.thickTop / p.thickBottom > 2.5) out.push(F('THICKNESS_JUMP', 'engineering', 'warning', 'تغییر ضخامت تند است', `ضخامت بالا ${p.thickTop} و پایین ${p.thickBottom} است؛ جهش بیش از ۲٫۵ برابر در ریخته‌گری جای انقباض و تخلخل می‌سازد.`, { expected: 2.5, actual: r2(p.thickTop / p.thickBottom), unit: 'نسبت' }));
     if (p.widthBottom < 1.6 && p.thickBottom < 1.3) out.push(F('DEFORMATION_RISK', 'engineering', 'warning', 'کف رکاب خم می‌شود', `پهنای ${p.widthBottom} و ضخامت ${p.thickBottom} میلی‌متر در کف حلقه با فشار روزانه تغییر شکل می‌دهد.`, null, 'یکی از پهنا یا ضخامت کف را بیشتر کنید.'));
   }
-  const head = insp.objects.find((o) => o.kind === 'head');
-  if (head?.measures) {
-    const m = head.measures;
-    if (m.culetClearanceMm < 0.3) out.push(F('STONE_CLEARANCE', 'engineering', 'high', 'نوک سنگ به رکاب یا انگشت می‌رسد', `فاصله نوک (کولت) سنگ تا روی رکاب ${m.culetClearanceMm} میلی‌متر است؛ کمتر از ۰٫۳ سنگ به انگشت فشار می‌آورد و می‌پرد.`, { expected: 0.3, actual: m.culetClearanceMm, unit: 'mm' }, 'ارتفاع سر را بیشتر کنید.', 'head'));
-    if (m.prongOverCrownMm < 0.4) out.push(F('PRONG_GRIP', 'engineering', 'high', 'چنگ روی سنگ کم است', `سر چنگ ${m.prongOverCrownMm} میلی‌متر بالای کمربند است؛ کمتر از ۰٫۴ پس از پرداخت سنگ را نگه نمی‌دارد.`, { expected: 0.4, actual: m.prongOverCrownMm, unit: 'mm' }, null, 'head'));
+  // the settings as built (an inspection saved before spec 0056 has only its head's measures)
+  const sets = insp.settings ?? insp.objects.filter((o) => o.kind === 'head' && o.measures).map((o) => ({ id: o.id, type: o.spec?.type ?? 'prong', measures: o.measures }));
+  for (const { id: ref, type, measures: m } of sets) {
+    if (m.culetClearanceMm != null && m.culetClearanceMm < 0.3) out.push(F('STONE_CLEARANCE', 'engineering', 'high', 'نوک سنگ به رکاب یا انگشت می‌رسد', `فاصله نوک (کولت) سنگ تا روی رکاب ${m.culetClearanceMm} میلی‌متر است؛ کمتر از ۰٫۳ سنگ به انگشت فشار می‌آورد و می‌پرد.`, { expected: 0.3, actual: m.culetClearanceMm, unit: 'mm' }, type === 'tension' ? 'ضخامت بالای رکاب را بیشتر کنید.' : 'ارتفاع سر را بیشتر کنید.', ref));
+    if (m.prongOverCrownMm != null && m.prongOverCrownMm < 0.4) out.push(F('PRONG_GRIP', 'engineering', 'high', 'چنگ روی سنگ کم است', `سر چنگ ${m.prongOverCrownMm} میلی‌متر بالای کمربند است؛ کمتر از ۰٫۴ پس از پرداخت سنگ را نگه نمی‌دارد.`, { expected: 0.4, actual: m.prongOverCrownMm, unit: 'mm' }, null, ref));
+    // a sunk stone needs metal under its culet (flush says the same through its metal depth, FLUSH_DEPTH)
+    if (m.floorUnderCuletMm != null && type !== 'flush' && m.floorUnderCuletMm < 0.3) out.push(F('FLOOR_UNDER_STONE', 'engineering', 'high', 'فلز زیر سنگ کم است', `زیر نوک سنگ ${m.floorUnderCuletMm} میلی‌متر فلز می‌ماند؛ کمتر از ۰٫۳ هنگام نشاندن سوراخ می‌شود و نوک سنگ از پشت بیرون می‌زند.`, { expected: 0.3, actual: m.floorUnderCuletMm, unit: 'mm' }, 'ضخامت بالای رکاب را بیشتر یا سنگ را کوچک‌تر کنید.', ref));
+    if (m.edgeCoverMm != null && m.edgeCoverMm < 0.1) out.push(F('STONE_EDGE_EXPOSED', 'engineering', 'high', 'لبه سنگ از کنار رکاب بیرون می‌زند', `کمربند سنگ در کنار رکاب فقط ${m.edgeCoverMm} میلی‌متر زیر فلز است؛ کمتر از ۰٫۱ فلزی برای خواباندن روی سنگ نمی‌ماند.`, { expected: 0.1, actual: m.edgeCoverMm, unit: 'mm' }, 'رکاب را پهن‌تر یا سنگ را کوچک‌تر کنید.', ref));
+    if (m.railMarginMm != null && m.railMarginMm < 0) out.push(F('RAIL_OFF_BAND', 'engineering', 'high', 'ریل از لبه رکاب بیرون می‌زند', `رکاب در دو سر ریل ${-m.railMarginMm} میلی‌متر از ریل‌ها باریک‌تر است؛ ریل آن‌جا روی هوا می‌ماند و با فشار جدا می‌شود.`, { expected: 0, actual: m.railMarginMm, unit: 'mm' }, 'رکاب را پهن‌تر یا تعداد سنگ‌ها را کمتر کنید.', ref));
+    if (m.thinWallMm != null && m.thinWallMm < mat.minWall) out.push(F('HEAD_WALL_THIN', 'engineering', 'critical', 'دیواره سر نگین برای ریخته‌گری نازک است', `نازک‌ترین دیواره سر نگین ${m.thinWallMm} میلی‌متر است؛ برای ${mat.fa} کمتر از ${mat.minWall} میلی‌متر فلز در قالب پر نمی‌شود.`, { expected: mat.minWall, actual: m.thinWallMm, unit: 'mm' }, `دیواره را به ${mat.minWall} میلی‌متر یا بیشتر برسانید.`, ref));
   }
-  if (p?.setting) for (const s of checkSetting(p.setting, insp.material)) out.push({ ...s, geometryRef: 'head' });
-  if (p?.setting && !MODELLED_SETTINGS.has(p.setting.type)) out.push(F('SETTING_NOT_MODELLED', 'setting', 'info', 'سر نگین در مدل نیست', `نگین‌گذاری ${SETTING_FA[p.setting.type] ?? p.setting.type} فقط با قاعده‌هایش بررسی شد؛ مدل و وزن بدون سر نگین است.`));
-  if (method === 'casting' && insp.objects.some((o) => o.kind === 'head') && (p?.setting?.prongDiameterMm ?? 1) < 0.8) out.push(F('CASTING_FINE_DETAIL', 'engineering', 'warning', 'چنگ ریز برای ریخته‌گری', 'چنگ زیر ۰٫۸ میلی‌متر در ریخته‌گری کامل پر نمی‌شود؛ یا ضخیم‌تر کنید یا سر را جدا بسازید و لحیم کنید.', { expected: 0.8, actual: p.setting.prongDiameterMm, unit: 'mm' }));
+  if (p?.setting) {
+    // depths the band decides (flush, tension) are read as built, not as declared
+    const built = sets.find((s) => s.type === p.setting.type)?.measures;
+    const spec = built?.metalDepthMm != null ? { ...p.setting, metalDepthMm: built.metalDepthMm } : p.setting;
+    for (const s of checkSetting(spec, insp.material)) out.push({ ...s, geometryRef: 'head' });
+  }
+  if (method === 'casting' && ['prong', 'halo'].includes(p?.setting?.type) && insp.objects.some((o) => o.kind === 'head') && (p.setting.prongDiameterMm ?? 1) < 0.8) out.push(F('CASTING_FINE_DETAIL', 'engineering', 'warning', 'چنگ ریز برای ریخته‌گری', 'چنگ زیر ۰٫۸ میلی‌متر در ریخته‌گری کامل پر نمی‌شود؛ یا ضخیم‌تر کنید یا سر را جدا بسازید و لحیم کنید.', { expected: 0.8, actual: p.setting.prongDiameterMm, unit: 'mm' }));
   return out;
 }
 
@@ -102,7 +141,8 @@ export function weightFindings(insp, intent) {
 export function critique(p, intent) {
   const out = [];
   const A = (code, sev, t, e, ev) => out.push(F(code, 'aesthetic', sev, t, e, ev));
-  if (p.setting) {
+  // stone against band reads only for a single raised or held stone, not for rows of small ones
+  if (p.setting && !['pave', 'channel', 'flush'].includes(p.setting.type)) {
     const big = Math.max(p.setting.stoneWidthMm, p.setting.stoneLengthMm ?? 0);
     const ratio = r2(big / p.widthTop);
     if (ratio < 1.8) A('STONE_SMALL_FOR_BAND', 'info', 'سنگ کنار رکاب کوچک دیده می‌شود', `نسبت سنگ به پهنای رکاب ${ratio} است؛ معمولاً ۱٫۸ تا ۳٫۵ سنگ را مرکز نگاه می‌کند.`, { expected: 1.8, actual: ratio, unit: 'نسبت' });
@@ -119,7 +159,8 @@ export function critique(p, intent) {
 
 /** Volume and weight of the parameters without building the full head again (used by the optimiser). */
 function shankWeight(p) {
-  return weightOf(G.volume(shankMesh(p, { segments: 96, section: 16 })), p.material).value;
+  const gap = p.setting?.type === 'tension' ? tensionGap(p, p.setting) : 0;
+  return weightOf(G.volume(shankMesh(p, { segments: 96, section: 16, gap })), p.material).value;
 }
 
 /**

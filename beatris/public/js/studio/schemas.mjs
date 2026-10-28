@@ -7,8 +7,6 @@ export const METHODS = ['casting', 'handmade', 'cnc', 'printing', 'mixed'];
 export const STONE_SHAPES = ['round', 'oval', 'pear', 'marquise', 'emerald', 'princess', 'cushion', 'heart'];
 export const SETTING_TYPES = ['prong', 'bezel', 'channel', 'pave', 'flush', 'tension', 'halo'];
 export const SETTING_FA = { prong: 'چنگی', bezel: 'قاب‌دار', channel: 'ریلی', pave: 'پاوه', flush: 'دفنی', tension: 'فشاری', halo: 'هاله' };
-/** The settings the local engine builds as geometry; the others are checked by rules only (spec 0016, 0054). */
-export const MODELLED_SETTINGS = new Set(['prong']);
 export const SEVERITIES = ['info', 'warning', 'high', 'critical'];
 
 const num = (o = {}) => S.num({ minimum: 0, ...o });
@@ -48,6 +46,8 @@ export const SETTING_SPEC = S.obj({
   spacingMm: num({ maximum: 5 }),
   beadsPerStone: S.int({ minimum: 0, maximum: 8 }),
   haloStoneMm: num({ maximum: 5 }),
+  stoneCount: S.int({ minimum: 1, maximum: 60 }),
+  rowCount: S.int({ minimum: 1, maximum: 4 }),
 }, ['type', 'stoneShape', 'stoneWidthMm']);
 
 /** CadOperation — the only language in which anything may ask the geometry engine for geometry. */
@@ -58,7 +58,7 @@ export const CAD_OPERATION = S.union(
   op('sweep', { id: ID, path: ID, radius: num({ minimum: 0.05, maximum: 20 }) }, ['id', 'path', 'radius']),
   op('revolve', { id: ID, profile: S.arr(S.arr(S.num(), { minItems: 2, maxItems: 2 }), { minItems: 3, maxItems: 200 }), segments: S.int({ minimum: 8, maximum: 256 }), angleDeg: num({ maximum: 360 }) }, ['id', 'profile']),
   op('shank', { id: ID, innerDiameter: num({ minimum: 10, maximum: 30 }), widthTop: num({ minimum: 0.8, maximum: 20 }), widthBottom: num({ minimum: 0.8, maximum: 20 }), thickTop: num({ minimum: 0.4, maximum: 6 }), thickBottom: num({ minimum: 0.4, maximum: 6 }) }, ['id', 'innerDiameter', 'widthTop', 'widthBottom', 'thickTop', 'thickBottom']),
-  op('stoneSetting', { id: ID, on: ID, spec: SETTING_SPEC, headHeightMm: num({ minimum: 0.5, maximum: 15 }) }, ['id', 'on', 'spec', 'headHeightMm']),
+  op('stoneSetting', { id: ID, on: ID, spec: SETTING_SPEC, headHeightMm: num({ minimum: 0.5, maximum: 15 }) }, ['id', 'on', 'spec']),
   op('boolean', { id: ID, kind: S.str({ enum: ['union', 'difference', 'intersection'] }), a: ID, b: ID }, ['id', 'kind', 'a', 'b']),
   op('fillet', { id: ID, target: ID, radius: num({ minimum: 0.05, maximum: 5 }) }, ['id', 'target', 'radius']),
   op('offset', { id: ID, target: ID, distance: S.num({ minimum: -5, maximum: 5 }) }, ['id', 'target', 'distance']),

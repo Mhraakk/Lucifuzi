@@ -23,7 +23,7 @@ const PARAMS = S.obj({
   headHeight: { type: ['number', 'null'], minimum: 0.5, maximum: 15 }, setting: { oneOf: [{ type: 'null' }, SETTING_SPEC] },
 }, ['material', 'innerDiameter', 'widthTop', 'widthBottom', 'thickTop', 'thickBottom']);
 export const STUDIO_PARAMS = PARAMS;
-const INSPECTION = S.obj({ material: S.str(), materialFa: S.str(), objects: S.arr({ type: 'object' }), metalVolume: { type: 'object' }, weight: S.obj({ value: S.num({ minimum: 0 }), unit: S.str({ enum: ['g'] }) }), solids: S.int({ minimum: 0 }), closed: S.bool(), bounds: { type: ['array', 'null'] }, stones: S.arr({ type: 'object' }) }, ['weight', 'solids', 'closed', 'objects']);
+const INSPECTION = S.obj({ material: S.str(), materialFa: S.str(), objects: S.arr({ type: 'object' }), metalVolume: { type: 'object' }, seatVolume: { type: 'object' }, overlapVolume: { type: 'object' }, weight: S.obj({ value: S.num({ minimum: 0 }), unit: S.str({ enum: ['g'] }) }), solids: S.int({ minimum: 0 }), closed: S.bool(), bounds: { type: ['array', 'null'] }, stones: S.arr({ type: 'object' }), settings: S.arr({ type: 'object' }) }, ['weight', 'solids', 'closed', 'objects']);
 const FINDINGS = S.arr(FINDING, { maxItems: 80 });
 
 export function buildStudioTools({ store, training, provider = null, adapter = createLocalAdapter() }) {
@@ -87,9 +87,11 @@ export function buildStudioTools({ store, training, provider = null, adapter = c
     'studio.optimizeWeight': {
       label: 'کاهش وزن کنترل‌شده', input: S.obj({ params: PARAMS, inspection: INSPECTION, targetGrams: S.num({ minimum: 0.1 }), free: S.arr(S.str({ enum: ['widthBottom', 'thickBottom', 'widthTop', 'thickTop'] }), { maxItems: 4 }), lockShoulders: S.bool() }, ['params', 'targetGrams']),
       run: (a) => {
-        // the head is not touched: its measured metal weight is a constant of the search
+        // the setting is not touched: all but the band (its head, less the seats and the overlaps) is a constant of
+        // the search; an inspection without a band of its own falls back to the head's mesh
+        const shank = a.inspection?.objects.find((o) => o.kind === 'shank');
         const head = a.inspection?.objects.find((o) => o.kind === 'head');
-        const headWeight = head ? weightOf(head.volume, a.params.material).value : 0;
+        const headWeight = shank ? Math.max(0, a.inspection.weight.value - weightOf(shank.volume, a.params.material).value) : head ? weightOf(head.volume, a.params.material).value : 0;
         return optimizeWeight(a.params, { headWeight, targetGrams: a.targetGrams, free: a.free ?? ['widthBottom', 'thickBottom'], lockShoulders: a.lockShoulders !== false });
       },
     },

@@ -6,6 +6,8 @@
 //   • manufacturing   — measured inspection → engineering, setting and weight findings; saves them on the version.
 //   • training-tutor  — explains findings for a trainee, gives levelled hints, weekly studio review.
 //   • assessment      — grades a studio exercise attempt on the engine and updates the shared mastery.
+import { SETTING_FA } from '../../public/js/studio/schemas.mjs';
+
 const fa = (n, d = 2) => Number(n).toLocaleString('fa-IR', { maximumFractionDigits: d });
 const week = (iso) => {
   const d = new Date(iso);
@@ -16,12 +18,19 @@ const ENGINEERING = new Set(['engineering', 'setting', 'weight']);
 const split = (findings) => ({ engineering: findings.filter((f) => ENGINEERING.has(f.kind)), aesthetic: findings.filter((f) => f.kind === 'aesthetic') });
 const blocking = (findings) => findings.filter((f) => f.kind !== 'aesthetic' && (f.severity === 'critical' || f.severity === 'high'));
 
+/** The stones a measured model carries: its setting, how many stones and their carats (spec 0056). */
+function stonesOf(insp) {
+  const st = insp.stones ?? [];
+  if (!st.length) return null;
+  return { type: insp.settings?.[0]?.type ?? null, count: st.reduce((n, x) => n + (x.count ?? 1), 0), carats: Math.round(st.reduce((c, x) => c + (x.carats ?? 0), 0) * 100) / 100 };
+}
 /** A short, calm summary for the person (no jargon, no internals). */
-function summaryOf({ weight, findings, intent }) {
+function summaryOf({ weight, findings, intent, stones = null }) {
   const b = blocking(findings);
   const target = intent?.weightRangeGrams;
   const w = `وزن تخمینی ${fa(weight)} گرم${target ? ` (هدف ${target[0] ? `${fa(target[0])} تا ` : 'تا '}${fa(target[1])} گرم)` : ''}.`;
-  return b.length ? `${w} ${fa(b.length, 0)} مورد پیش از ساخت باید اصلاح شود.` : `${w} از نظر ساخت مانعی دیده نشد.`;
+  const s = stones ? ` نگین‌گذاری ${SETTING_FA[stones.type] ?? ''}: ${fa(stones.count, 0)} سنگ، ${fa(stones.carats)} قیراط.` : '';
+  return b.length ? `${w}${s} ${fa(b.length, 0)} مورد پیش از ساخت باید اصلاح شود.` : `${w}${s} از نظر ساخت مانعی دیده نشد.`;
 }
 
 /** Build, measure and check one version: rhino-cad then manufacturing. */
@@ -64,7 +73,7 @@ export const STUDIO_AGENTS = [
         const { cad, mfg } = await buildAndCheck(ctx, { projectId: project.id, params, intent, method: i.method });
         ctx.stage('آماده');
         const findings = [...mfg.findings, ...aesthetic];
-        return { projectId: project.id, modelId: cad.modelId, version: cad.version, intent, confidence, source, params, weight: mfg.weight, findings: split(findings), summary: summaryOf({ weight: mfg.weight, findings, intent }) };
+        return { projectId: project.id, modelId: cad.modelId, version: cad.version, intent, confidence, source, params, weight: mfg.weight, findings: split(findings), summary: summaryOf({ weight: mfg.weight, findings, intent, stones: mfg.stones }) };
       }
       if (i.mode === 'edit' || i.mode === 'reduce') {
         ctx.stage('خواندن طرح');
@@ -93,7 +102,7 @@ export const STUDIO_AGENTS = [
         const aesthetic = await ctx.tool('studio.critique', { params, intent: project.intent });
         ctx.stage('آماده');
         const findings = [...mfg.findings, ...aesthetic];
-        return { understood: true, projectId: project.id, modelId: cad.modelId, version: cad.version, edits, optimization, params, previousWeight: model?.weightG ?? null, weight: mfg.weight, findings: split(findings), summary: summaryOf({ weight: mfg.weight, findings, intent: project.intent }) };
+        return { understood: true, projectId: project.id, modelId: cad.modelId, version: cad.version, edits, optimization, params, previousWeight: model?.weightG ?? null, weight: mfg.weight, findings: split(findings), summary: summaryOf({ weight: mfg.weight, findings, intent: project.intent, stones: mfg.stones }) };
       }
       throw new Error('حالت طراح شناخته نیست.');
     },
@@ -117,7 +126,7 @@ export const STUDIO_AGENTS = [
         const built = await ctx.tool('cad.modifyGeometry', { projectId: i.projectId, operations: i.operations });
         ctx.stage('بررسی ساخت و وزن');
         const mfg = await ctx.delegate('manufacturing', { modelId: built.modelId, params: project.params, intent: project.intent, explain: true });
-        return { modelId: built.modelId, version: built.version, weight: mfg.weight, findings: split(mfg.findings), explanation: mfg.explanation ?? null, summary: summaryOf({ weight: mfg.weight, findings: mfg.findings, intent: project.intent }) };
+        return { modelId: built.modelId, version: built.version, weight: mfg.weight, findings: split(mfg.findings), explanation: mfg.explanation ?? null, summary: summaryOf({ weight: mfg.weight, findings: mfg.findings, intent: project.intent, stones: mfg.stones }) };
       }
       if (i.mode === 'export') {
         const r = await ctx.tool('cad.exportModel', { modelId: i.modelId, format: i.format, production: i.production === true });
@@ -164,7 +173,7 @@ export const STUDIO_AGENTS = [
         await ctx.tool('memory.note', { kind, key: f.code, value: { model: i.modelId, severity: f.severity, evidence: f.measurableEvidence ?? null } });
       }
       const explanation = i.explain && blocking(findings).length ? await ctx.delegate('training-tutor', { mode: 'explain', findings: blocking(findings) }) : null;
-      return { modelId: i.modelId, weight: inspection.weight.value, solids: inspection.solids, closed: inspection.closed, findings, blocking: blocking(findings).length, ...(explanation ? { explanation } : {}) };
+      return { modelId: i.modelId, weight: inspection.weight.value, solids: inspection.solids, closed: inspection.closed, stones: stonesOf(inspection), findings, blocking: blocking(findings).length, ...(explanation ? { explanation } : {}) };
     },
   },
   {

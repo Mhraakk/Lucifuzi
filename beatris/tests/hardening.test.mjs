@@ -16,7 +16,7 @@ import { createOtp } from '../server/otp.mjs';
 import { storageOf } from '../server/backup.mjs';
 import { smsLogin } from './helpers/login.mjs';
 import { parseBrief } from '../public/js/studio/brief.mjs';
-import { paramsFromIntent, programOf, manufacturingFindings } from '../public/js/studio/design.mjs';
+import { paramsFromIntent, programOf } from '../public/js/studio/design.mjs';
 
 const SECRET = 'test-secret-0123456789';
 const KEY = 'sb_publishable_test_key_0123456789';
@@ -206,21 +206,19 @@ test('the data folder is on a disk of its own only when a mount other than / hol
   assert.deepEqual(storageOf('/data', path.join(f, 'missing')), { mount: null, persistent: null });
 });
 
-test('studio: «رکاب» is the shank, not a bezel; a setting the engine cannot build is checked by its rules and named, never a failed run', async () => {
+test('studio: «رکاب» is the shank, not a bezel; a bezel brief builds its bezel (spec 0056), never a failed run', async () => {
   assert.equal(parseBrief('انگشتر با رکاب ظریف، سنگ گرد ۵ میل').stone.setting, 'prong');
   const intent = parseBrief('انگشتر قاب‌دار با سنگ گرد ۵ میل');
   assert.equal(intent.stone.setting, 'bezel');
   const p = paramsFromIntent(intent);
-  assert.deepEqual(programOf(p).map((o) => o.op), ['shank']);
-  const f = manufacturingFindings({ closed: true, solids: 1, objects: [], material: p.material }, p);
-  const note = f.find((x) => x.code === 'SETTING_NOT_MODELLED');
-  assert.equal(note.severity, 'info');
-  assert.match(note.explanationFa, /قاب‌دار/);
+  assert.deepEqual(programOf(p).map((o) => o.op), ['shank', 'stoneSetting']);
   assert.deepEqual(programOf(paramsFromIntent(parseBrief('انگشتر سنگ گرد ۵ میل چنگی'))).map((o) => o.op), ['shank', 'stoneSetting']);
   // the whole run, as the page asks it
   const { ok, base } = await boot({ demo: true });
   const E = await smsLogin(base, '09120000004');
   const r = await ok('POST', '/api/studio/design', { brief: 'انگشتر ۱۸ عیار قاب‌دار، سنگ گرد ۵ میل، سایز ۵۴', key: 'design-key-bezel' }, E);
   assert.ok(r.weight > 0);
-  assert.ok(r.findings.engineering.some((x) => x.code === 'SETTING_NOT_MODELLED'));
+  assert.ok(!r.findings.engineering.some((x) => x.code === 'SETTING_NOT_MODELLED'));
+  assert.match(r.summary, /قاب‌دار/);
+  assert.match(r.summary, /قیراط/);
 });

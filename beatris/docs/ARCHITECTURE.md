@@ -225,7 +225,7 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
 ## پلتفرم عامل‌ها و استودیو (spec `docs/specs/0015-agentic-accounting-training.md` و `0016-agent-platform-studio.md`)
 - پلتفرم مشترک `server/agent-platform/`: رجیستری (ابزار مجاز، سیاست تأیید، حوزه حافظه، مقصد واگذاری؛ تعریف نادرست هنگام شروع رد می‌شود)، runtime (حالت‌های `queued…cancelled`، بازپخش گام‌ها، تأیید چهارچشم، تلاش دوباره محدود، واگذاری با عمق ۳ و بدون چرخه به‌صورت اجرای فرزند، رویدادهای `agent.*`)، provider و `structured()` (JSON معتبر، ترمیم محدود، رد).
 - عامل‌ها: `server/agents/agents.mjs` (حسابداری و curriculum)، `server/studio/agents.mjs` (studio-design، rhino-cad، manufacturing، training-tutor، assessment)؛ ترکیب و روال/ماشه در `server/agents/index.mjs`.
-- موتور استودیو قطعی در `public/js/studio/` (واحد، هندسه، آلیاژ، بریف، نگین، یافته ساخت جدا از نقد زیبایی، بهینه‌سازی وزن، مرز CAD)؛ مدل زبانی هرگز عدد نمی‌دهد. Rhino واقعی فقط خروجی `.3dm` مرورگر است؛ آداپتور RhinoCommon/Compute پیاده نشده.
+- موتور استودیو قطعی در `public/js/studio/` (واحد، هندسه، آلیاژ، بریف، نگین، یافته ساخت جدا از نقد زیبایی، بهینه‌سازی وزن، مرز CAD)؛ مدل زبانی هرگز عدد نمی‌دهد. هر هفت نگین‌گذاری (چنگی، قاب‌دار، هاله، ریلی، پاوه، دفنی، فشاری) در `ring.mjs` مدل بسته و اندازه‌گیری‌شده دارد؛ وزن، نشیمن سنگ و هم‌پوشانی فلز را کم می‌کند (`G.overlaps`، spec 0056). Rhino واقعی فقط خروجی `.3dm` مرورگر است؛ آداپتور RhinoCommon/Compute پیاده نشده.
 - صفحه‌ها: `/train/accounting`، `/train/team`، `/studio/coach`، `/agents` (مدیر). تست‌ها: `agents`، `studio-engine`، `studioapi`، `trainingapi`.
 
 ## میز فروش زنده و فضای کار هر نقش (spec `docs/specs/0037-live-sales-desk.md` و `0038-role-workspaces.md`)
