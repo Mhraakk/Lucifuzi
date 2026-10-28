@@ -28,7 +28,7 @@ https://github.com/0kzh/glisse.git». «React اگر بهتر است خب به �
 **React for this page only.**
 - glisse (Apple's Liquid Glass for React, MIT, v0.4.3) brings the glass header, the TabBar with its lens, Switch,
   Slider, Menu and SearchField.
-- It is bundled with React 19.3.1 and htm 3.1.1 (templates without JSX or eval) into one ESM file,
+- It is bundled with React 19.3.0 and htm 3.1.1 (templates without JSX or eval) into one ESM file,
   `public/vendor/glisse/glisse.bundle.js`. This follows `three.bundle.js`: no runtime dependency and no CDN.
 - The rest of the app stays without a framework.
 
