@@ -1,0 +1,374 @@
+<!doctype html>
+<!-- spec 0055 «طلا، به دقت بئاتریس»: a 30 s teaser made the Higgsfield way. Three 10 s blocks (hook, turn, payoff) of
+     five shots each, one through-line object: a hand-poured gold bar. Block 1 is one Seedance 2.5 generation (the pour,
+     the bar, the scale); block 2 is the real app (the quick entry turns 10 g at 740 into ۹٫۸۶۷ g of 750 and one row in the
+     gold and cash columns); block 3 is the closed shop, the trace page answering the bar's tracking code with its
+     document's whole life, the bar fading under one light, and the crown, whose own bar takes the real bar's place.
+     The AI frames come from gold-ai/ (gold-prep.mjs, from the owner's Higgsfield results); without them each AI shot is
+     a labelled placeholder, so the cut can be timed first. window.seek(t) draws the frame at t; nothing runs on a clock. -->
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>بئاتریس — طلا، به دقت بئاتریس</title>
+<style>
+  @font-face { font-family: 'Estedad'; src: url(/fonts/estedad-arabic-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-066A, U+066D-06FF, U+0750-077F, U+200C-200E, U+2010-2011, U+2026, U+FB50-FDFF, U+FE70-FEFC; }
+  @font-face { font-family: 'Estedad'; src: url(/fonts/estedad-latin-var.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0000-00FF, U+2000-206F, U+2190-2193, U+2212; }
+  @font-face { font-family: 'Vazirmatn'; src: url(/fonts/vazirmatn-var.woff2) format('woff2'); font-weight: 100 900; }
+  :root {
+    --void: #080705; --vault: #0d0b08; --gold: #e3b862; --gold-hi: #f7e6b0; --gold-lo: #9d7328; --gold-deep: #6b4a14;
+    --bone: #efe6d2; --dust: #a2977f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #000; }
+  body { font-family: 'Estedad', 'Vazirmatn', sans-serif; color: var(--bone); -webkit-font-smoothing: antialiased; }
+  #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--void); }
+  .layer { position: absolute; inset: 0; visibility: hidden; }
+  .w { display: inline-block; will-change: transform, filter, opacity; }
+
+  /* the AI footage, or a placeholder card while the owner's results are not in */
+  #ai { position: absolute; inset: 0; width: 1920px; height: 1080px; object-fit: cover; }
+  #aiPh { position: absolute; inset: 0; display: grid; place-content: center; gap: 18px; text-align: center;
+    background: radial-gradient(70% 70% at 50% 45%, #1d1911 0%, #080705 75%); }
+  #aiPh::before { content: ''; position: absolute; inset: 60px; border: 1px dashed rgba(227, 184, 98, 0.35); border-radius: 18px; }
+  #aiPh b { font: 700 30px/1 'Estedad'; color: var(--gold); direction: ltr; letter-spacing: 0.12em; }
+  #aiPh span { font: 500 38px/1.5 'Estedad'; color: var(--bone); max-width: 1200px; }
+  #aiPh small { font: 500 24px/1.4 'Estedad'; color: var(--dust); }
+
+  /* the real app: full-page screens at twice the density, under a camera */
+  #cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  #cam img { position: absolute; left: 0; top: 0; display: block; }
+  #appB { opacity: 0; }
+  #wash { position: absolute; inset: 0; pointer-events: none; }
+  #marks { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: visible; }
+  #barCut { position: absolute; left: 0; top: 0; width: 520px; transform-origin: 50% 50%; filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.6)); }
+  #barPh { position: absolute; left: 0; top: 0; width: 420px; height: 200px; border-radius: 48% 52% 46% 54% / 60% 55% 45% 40%;
+    background: linear-gradient(118deg, #fff3cf 0%, #f0cf7f 18%, #d9a441 42%, #a8761f 62%, #e8c46f 82%, #fff0c4 100%); transform-origin: 50% 50%; }
+  #shade { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 50%, rgba(8, 7, 5, 0) 55%, rgba(8, 7, 5, 0.65) 100%); }
+
+  /* the end card */
+  #end { background: radial-gradient(80% 70% at 50% 42%, #17130d 0%, #080705 70%); }
+  #crownBox { position: absolute; left: 50%; top: 150px; width: 320px; height: 320px; margin-left: -160px; }
+  #crownBox svg { width: 320px; height: 320px; }
+  #endName { position: absolute; left: 0; right: 0; top: 488px; text-align: center; font: 800 112px/1.1 'Estedad'; color: var(--gold-hi); }
+  #endTag { position: absolute; left: 0; right: 0; top: 640px; text-align: center; font: 700 58px/1.25 'Estedad'; color: var(--bone); }
+  #endTag em { font-style: normal; color: var(--gold); }
+  #endCta { position: absolute; left: 0; right: 0; top: 760px; display: flex; justify-content: center; gap: 18px; }
+  #endCta span { padding: 14px 26px; border-radius: 999px; border: 2px solid rgba(227, 184, 98, 0.55); font: 700 30px/1 'Estedad'; color: var(--gold-hi); background: rgba(227, 184, 98, 0.08); }
+  #endUrl { position: absolute; left: 0; right: 0; top: 856px; text-align: center; font: 700 40px/1 'Estedad'; color: var(--bone); direction: ltr; }
+  #endFine { position: absolute; left: 80px; right: 80px; bottom: 34px; display: flex; justify-content: space-between; gap: 40px; font: 500 17px/1.5 'Estedad'; color: var(--dust); }
+  #endFine .en { direction: ltr; text-align: left; }
+  #glint { position: absolute; inset: 0; mix-blend-mode: screen; }
+
+  /* the lines: two per block, word by word, low on the frame */
+  #capBand { position: absolute; left: 0; right: 0; bottom: 0; height: 300px; background: linear-gradient(180deg, rgba(8, 7, 5, 0) 0%, rgba(8, 7, 5, 0.72) 70%); opacity: 0; }
+  .cap { position: absolute; left: 0; right: 0; bottom: 92px; text-align: center; font: 700 50px/1.45 'Estedad'; color: var(--bone);
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55); visibility: hidden; }
+  .cap em { font-style: normal; color: var(--gold-hi); }
+  #grain { position: absolute; inset: 0; opacity: 0.14; mix-blend-mode: overlay; pointer-events: none; }
+  #black { position: absolute; inset: 0; background: var(--void); opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="aiL" class="layer"><img id="ai" alt="" /><div id="aiPh"><b></b><span></span><small>جای نمای Higgsfield</small></div></div>
+  <div id="appL" class="layer">
+    <div id="cam"><img id="appA" alt="" /><img id="appB" alt="" /></div>
+    <canvas id="wash" width="1920" height="1080"></canvas>
+    <div id="shade"></div>
+    <img id="barCut" alt="" hidden /><div id="barPh" hidden></div>
+    <svg id="marks" viewBox="0 0 1920 1080"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#f7e6b0" /><stop offset="1" stop-color="#e3b862" /></linearGradient></defs>
+      <path id="under" fill="none" stroke="url(#lg)" stroke-width="5" stroke-linecap="round" />
+      <path id="lead" fill="none" stroke="url(#lg)" stroke-width="3" stroke-linecap="round" />
+      <circle id="leadDot" r="9" fill="#f7e6b0" />
+    </svg>
+  </div>
+  <div id="end" class="layer"><div id="crownBox"></div><div id="endName">بئاتریس</div><div id="endTag"></div><div id="endCta"></div><div id="endUrl">beatris-6u77.onrender.com</div><div id="endFine"></div></div>
+  <canvas id="glint" width="1920" height="1080"></canvas>
+  <div id="capBand"></div>
+  <p class="cap" id="c1a">در بازار طلا، هر قطعه را با ترازو و عیار می‌سنجند.</p>
+  <p class="cap" id="c1b">یک سوت اشتباه در حساب، <em>از جیب مغازه</em> می‌رود.</p>
+  <p class="cap" id="c2a">بئاتریس معادل هفتصد و پنجاه را <em>تا سه رقم</em> حساب می‌کند.</p>
+  <p class="cap" id="c2b">طلا و پول، هر کدام در <em>ستون خودش</em> ثبت می‌شود.</p>
+  <p class="cap" id="c3a">روز که بسته شود، هر سوت طلا و هر تومان، <em>سند و ردپای خودش</em> را دارد.</p>
+  <svg id="grain" viewBox="0 0 1920 1080" preserveAspectRatio="none"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="55" /><feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.36  0 0 0 0.5 0" /></filter><rect width="1920" height="1080" filter="url(#gr)" /></svg>
+  <div id="black"></div>
+</div>
+<script type="module">
+import { prog, ease, lerp, clamp01, css, $, $$, words, splitWords, camera, readTime } from './kit.mjs';
+import { crownSvg } from '/js/crown.mjs';
+
+/* ---------------- the grid: 120 BPM in 4/4, one bar every 2 s, so each of the five shots of a block is one bar ---------------- */
+const BPM = 120, BAR = 240 / BPM, BEAT = BAR / 4;
+const b = (n) => n * BAR;
+window.DUR = 30;
+const show = (el, v) => {
+  el.style.visibility = v > 0 ? 'visible' : 'hidden';
+  el.style.opacity = String(Math.min(1, Math.max(0, v)));
+};
+
+/* ---------------- inputs: the app's screens (gold-shots.mjs) and the AI frames (gold-prep.mjs) ---------------- */
+const SH = await fetch('./shots-gold/boxes.json').then((r) => r.json());
+const AI = await fetch('./gold-ai/manifest.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const K = SH.scale; // picture px per page px
+const box = (shotName, name) => {
+  const bx = SH.boxes[`${shotName}:${name}`];
+  if (!bx) throw new Error(`no box ${shotName}:${name}`);
+  return { x: bx.x * K, y: bx.y * K, w: bx.w * K, h: bx.h * K, cx: (bx.x + bx.w / 2) * K, cy: (bx.y + bx.h / 2) * K };
+};
+const SHOT = (n) => `./shots-gold/${n}.jpg`;
+const preload = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+const pics = {};
+for (const n of ['melt-0-empty', 'melt-1-weight', 'melt-2-live', 'melt-3-booked', 'trace']) pics[n] = await preload(SHOT(n));
+if (AI?.bar) {
+  $('#barCut').src = `./gold-ai/${AI.bar.file}`;
+  await $('#barCut').decode().catch(() => {});
+}
+
+/* ---------------- the AI shots: [film t0, t1] → a clip's own seconds; placeholders say what goes there ---------------- */
+const AI_SHOTS = [
+  { t0: b(0), t1: b(1), clip: 'hook', size: 'WIDE', label: 'ریختن طلای مذاب در قالب' },
+  { t0: b(1), t1: b(2), clip: 'hook', size: 'DETAIL', label: 'سطح مذاب آرام و سرد می‌شود' },
+  { t0: b(2), t1: b(3), clip: 'hook', size: 'MEDIUM', label: 'شمش روی مخمل سیاه می‌لغزد' },
+  { t0: b(3), t1: b(4), clip: 'hook', size: 'CU', label: 'نور از روی موج‌های شمش می‌گذرد' },
+  { t0: b(4), t1: b(5), clip: 'hook', size: 'MEDIUM', label: 'شمش روی ترازو؛ دوربین تا شیشه‌ی تیره' },
+  { t0: b(10), t1: b(11), clip: 'payoff', size: 'MEDIUM', label: 'مغازه‌ی بسته در غروب' },
+  { t0: b(12), t1: b(13), clip: 'payoff', size: 'DETAIL', label: 'شمش زیر یک نور؛ دوربین بالا می‌رود و تاریک می‌شود' },
+];
+// each shot reads its window of a clip: by default the shot's own seconds of the clip (the prompts time every cut on
+// the 2 s grid); gold-prep.mjs writes the measured windows when the model's cuts land elsewhere
+const aiFrame = (s, t) => {
+  const c = AI?.clips?.[s.clip];
+  if (!c) return null;
+  const i = AI_SHOTS.filter((x) => x.clip === s.clip).indexOf(s);
+  const [src0, src1] = c.windows?.[i] ?? [i * 2, i * 2 + 2];
+  const k = clamp01((t - s.t0) / (s.t1 - s.t0));
+  const n = Math.min(c.frames, Math.max(1, Math.floor(lerp(src0, src1, k) * c.fps) + 1));
+  return `./gold-ai/${s.clip}/f${String(n).padStart(4, '0')}.jpg`;
+};
+const aiImg = $('#ai');
+async function drawAI(t) {
+  const s = AI_SHOTS.find((x) => t >= x.t0 && t < x.t1);
+  show($('#aiL'), s ? 1 : 0);
+  if (!s) return;
+  const src = aiFrame(s, t);
+  $('#aiPh').hidden = !!src;
+  aiImg.hidden = !src;
+  if (src) {
+    if (!aiImg.src.endsWith(src.slice(1))) {
+      aiImg.src = src;
+      await aiImg.decode().catch(() => {});
+    }
+  } else {
+    $('#aiPh b').textContent = s.size;
+    $('#aiPh span').textContent = s.label;
+  }
+}
+
+/* ---------------- the app: which screen, where the camera looks ---------------- */
+const appA = $('#appA'), appB = $('#appB');
+const setPic = (img, n) => {
+  if (img.dataset.n === n) return;
+  img.dataset.n = n;
+  img.src = pics[n].src;
+  img.width = pics[n].naturalWidth;
+  img.height = pics[n].naturalHeight;
+};
+const L3 = box('melt-2-live', 'live3'); // معادل ۷۵۰ = وزن × عیار ÷ ۷۵۰ → ۹٫۸۶۷
+const L1 = box('melt-2-live', 'live1'), L2 = box('melt-2-live', 'live2'), L4 = box('melt-2-live', 'live4');
+const W = box('melt-0-empty', 'w'), A = box('melt-0-empty', 'ayar');
+const FORM = box('melt-2-live', 'form');
+const ROW = box('melt-3-booked', 'row1'), TOT = box('melt-3-booked', 'totals'), BOOK = box('melt-3-booked', 'book');
+const TR = SH.boxes['trace:parts'] ?? [];
+const trBox = (re) => { const p = TR.find((x) => re.test(x.text)); return p ? { cx: (p.x + p.w / 2) * K, cy: (p.y + p.h / 2) * K, x: p.x * K, y: p.y * K, w: p.w * K, h: p.h * K } : null; };
+const TRACE = box('trace', 'result');
+const LIFE = trBox(/رویداد|ردپا|زنجیره|log/i) ?? TRACE;
+// the value's own end of a ledger row: Persian rows read right to left, so the number sits at the row's left end
+const valueOf = (r) => ({ x: r.x + r.w * 0.16, y: r.cy });
+const midX = (a, c) => (a.cx + c.cx) / 2;
+
+// the camera keys of block 2 and the trace shot: {t, x, y, s} in picture px
+const CAM = {
+  s21: [{ t: b(5), x: midX(W, A), y: W.cy, s: 1.08 }, { t: b(6), x: midX(W, A), y: W.cy, s: 1.2 }],
+  s22: [{ t: b(6), x: valueOf(L3).x + 120, y: L3.cy, s: 1.55 }, { t: b(7), x: valueOf(L3).x + 40, y: L3.cy, s: 1.72 }],
+  s23: [{ t: b(7), x: FORM.cx - 260, y: FORM.cy + 60, s: 0.74 }, { t: b(8), x: FORM.cx - 300, y: FORM.cy + 60, s: 0.78 }],
+  s24: [{ t: b(8), x: L1.x + L1.w * 0.75, y: (L1.cy + L4.cy) / 2, s: 1.3 }, { t: b(9), x: L1.x + L1.w * 0.25, y: (L1.cy + L4.cy) / 2, s: 1.3 }],
+  s25: [{ t: b(9), x: BOOK.cx, y: (ROW.cy + TOT.cy) / 2 - 40, s: 0.9 }, { t: b(10), x: BOOK.cx, y: (ROW.cy + TOT.cy) / 2 - 40, s: 0.96 }],
+  s32: [{ t: b(11), x: LIFE.cx, y: LIFE.y + 260, s: 0.98 }, { t: b(12), x: LIFE.cx, y: LIFE.y + 420, s: 1.04 }],
+};
+const toFrame = (c, p) => ({ x: 960 + (p.x - c.x) * c.s, y: 540 + (p.y - c.y) * c.s });
+
+const wash = $('#wash'), wctx = wash.getContext('2d');
+function drawApp(t) {
+  const on = (t >= b(5) && t < b(10)) || (t >= b(11) && t < b(12));
+  show($('#appL'), on ? 1 : 0);
+  css($('#under'), { opacity: 0 });
+  css($('#lead'), { opacity: 0 });
+  css($('#leadDot'), { opacity: 0 });
+  $('#barCut').hidden = true;
+  $('#barPh').hidden = true;
+  wctx.clearRect(0, 0, wash.width, wash.height);
+  if (!on) return;
+  let c;
+  appB.style.opacity = '0';
+  if (t < b(6)) {
+    // S2.1 CU: out of the dark glass the form; weight 10, then fineness 740, typed
+    setPic(appA, t < b(5) + 0.72 ? 'melt-0-empty' : t < b(5) + 1.36 ? 'melt-1-weight' : 'melt-2-live');
+    c = camera($('#cam'), t, CAM.s21, { e: ease.out });
+  } else if (t < b(7)) {
+    // S2.2 DETAIL: the 750 equivalent, underlined as the line resolves
+    setPic(appA, 'melt-2-live');
+    c = camera($('#cam'), t, CAM.s22, { e: ease.inOut });
+    const k = prog(t, b(6) + 0.3, b(6) + 0.85, ease.inOut);
+    const p0 = toFrame(c, { x: L3.x + L3.w * 0.32, y: L3.y + L3.h - 6 }), p1 = toFrame(c, { x: L3.x + 12, y: L3.y + L3.h - 6 });
+    $('#under').setAttribute('d', `M${p0.x.toFixed(1)} ${p0.y.toFixed(1)} L${lerp(p0.x, p1.x, k).toFixed(1)} ${p1.y.toFixed(1)}`);
+    css($('#under'), { opacity: k > 0 ? 1 : 0 });
+  } else if (t < b(8)) {
+    // S2.3 MEDIUM: the bar itself beside the form, a gold leader line to its own number
+    setPic(appA, 'melt-2-live');
+    c = camera($('#cam'), t, CAM.s23, { e: ease.inOut });
+    const enter = prog(t, b(7) + 0.1, b(7) + 0.75, ease.out5);
+    const bar = AI?.bar ? $('#barCut') : $('#barPh');
+    bar.hidden = false;
+    const bx = 330, by = 560;
+    css(bar, { transform: `translate(${(lerp(-420, bx - 210, enter)).toFixed(1)}px, ${(by - 100).toFixed(1)}px) rotate(${lerp(-8, -3, enter).toFixed(2)}deg)`, opacity: enter.toFixed(3) });
+    const tip = toFrame(c, valueOf(L3));
+    const lk = prog(t, b(7) + 0.7, b(7) + 1.3, ease.inOut);
+    const sx = bx + 160, sy = by - 10;
+    const mx = lerp(sx, tip.x - 24, 0.55);
+    $('#lead').setAttribute('d', `M${sx} ${sy} C ${mx} ${sy}, ${mx} ${tip.y}, ${lerp(sx, tip.x - 24, lk).toFixed(1)} ${lerp(sy, tip.y, lk).toFixed(1)}`);
+    css($('#lead'), { opacity: lk > 0 ? 1 : 0 });
+    css($('#leadDot'), { opacity: lk >= 1 ? 1 : 0 });
+    $('#leadDot').setAttribute('cx', (tip.x - 24).toFixed(1));
+    $('#leadDot').setAttribute('cy', tip.y.toFixed(1));
+  } else if (t < b(9)) {
+    // S2.4 CU: the مظنه line, read right to left: ÷ ۴٫۳۳۱۸, then the amount rounded to the thousand
+    setPic(appA, 'melt-2-live');
+    c = camera($('#cam'), t, CAM.s24, { e: ease.inOut });
+  } else if (t < b(10)) {
+    // S2.5 WIDE: Enter; the row lands in the session's gold and cash columns, then the column totals
+    const hit = b(9) + 0.45;
+    setPic(appA, t < hit ? 'melt-2-live' : 'melt-3-booked');
+    c = camera($('#cam'), t, CAM.s25, { e: ease.inOut });
+    const k = prog(t, hit, hit + 0.55, ease.out);
+    if (t >= hit && k < 1) {
+      const r0 = toFrame(c, { x: ROW.x + ROW.w, y: ROW.y }), r1 = toFrame(c, { x: ROW.x, y: ROW.y + ROW.h });
+      const g = wctx.createLinearGradient(r0.x, 0, r1.x, 0);
+      const e = lerp(0, 1, k);
+      g.addColorStop(Math.max(0, e - 0.25), 'rgba(227,184,98,0)');
+      g.addColorStop(e, 'rgba(247,230,176,0.35)');
+      g.addColorStop(Math.min(1, e + 0.02), 'rgba(227,184,98,0)');
+      wctx.fillStyle = g;
+      wctx.fillRect(r1.x, r0.y, r0.x - r1.x, r1.y - r0.y);
+    }
+  } else {
+    // S3.2 CU: the trace page answers the bar's tracking code with its document's whole life
+    setPic(appA, 'trace');
+    c = camera($('#cam'), t, CAM.s32, { e: ease.inOut });
+  }
+}
+
+/* ---------------- the end card: the crown's own bar takes the real bar's place, then the crown draws over it ---------------- */
+$('#crownBox').innerHTML = crownSvg({ size: 320, ring: true, id: 'ec' });
+$('#endTag').innerHTML = `طلا، <em>به دقت سوت</em>`;
+$('#endCta').innerHTML = `<span>وب‌اپ روی گوشی و کامپیوتر</span><span>ویندوز ۱۰ و ۱۱ (۶۴ بیت)</span>`;
+$('#endFine').innerHTML = `<div>تصاویر طلا با هوش مصنوعی (Higgsfield) ساخته شده‌اند · صفحه‌ها از فروشگاه نمونه‌ی خود اپ · قیمت‌ها نمونه‌اند</div><div class="en" id="credits"></div>`;
+$('#credits').textContent = window.CREDITS ?? 'Music: see the build ledger · Type: Estedad, Vazirmatn (SIL OFL)';
+const crownPaths = $$('#crownBox path:not(.tj-bar), #crownBox circle');
+crownPaths.forEach((p) => {
+  const L = p.getTotalLength?.() ?? 400;
+  p.dataset.len = L;
+  p.style.strokeDasharray = `${L}`;
+});
+const tjBar = $('#crownBox .tj-bar'), tjCoin = $('#crownBox .tj-coin');
+function drawEnd(t) {
+  const v = prog(t, b(13) - 0.05, b(13) + 0.15, ease.out);
+  show($('#end'), v);
+  if (v <= 0) return;
+  css($('#end'), { transform: `scale(${lerp(1, 1.04, prog(t, b(13), window.DUR, ease.linear)).toFixed(4)})`, 'transform-origin': '50% 40%' });
+  // the bar first, where the real bar faded, then the body of the crown, the coin, the rings
+  const bk = prog(t, b(13), b(13) + 0.45, ease.out5);
+  css(tjBar, { opacity: bk.toFixed(3) });
+  const ck = prog(t, b(13) + 0.3, b(13) + 1.2, ease.inOut);
+  crownPaths.forEach((p) => (p.style.strokeDashoffset = `${(Number(p.dataset.len) * (1 - ck)).toFixed(1)}`));
+  css(tjCoin, { opacity: prog(t, b(13) + 1.1, b(13) + 1.3).toFixed(3), transform: `scale(${lerp(0.6, 1, prog(t, b(13) + 1.1, b(13) + 1.45, ease.out5)).toFixed(3)})`, 'transform-origin': '60px 23px' });
+  const nk = prog(t, b(13) + 0.6, b(13) + 1.15, ease.out5);
+  css($('#endName'), { opacity: nk.toFixed(3), filter: `blur(${((1 - nk) * 14).toFixed(2)}px)`, transform: `translateY(${((1 - nk) * 16).toFixed(1)}px)` });
+  // the tagline lands on the music's resolving chord, on the bar line at 28 s
+  for (const [sel, at] of [['#endTag', b(14)], ['#endCta', b(14) + 0.35], ['#endUrl', b(14) + 0.5], ['#endFine', b(14) + 0.65]]) {
+    const q = prog(t, at, at + 0.4, ease.out5);
+    css($(sel), { opacity: q.toFixed(3), transform: `translateY(${((1 - q) * 18).toFixed(1)}px)` });
+  }
+}
+function drawGlint(t) {
+  const g = $('#glint'), gc = g.getContext('2d');
+  gc.clearRect(0, 0, 1920, 1080);
+  // one soft band across the crown and the name as the tagline lands
+  const gk = prog(t, b(14) - 0.05, b(14) + 0.9, ease.inOut);
+  if (gk > 0 && gk < 1) {
+    const x = lerp(1600, 320, gk); // right to left, the way the line reads
+    const grd = gc.createLinearGradient(x - 220, 0, x + 220, 0);
+    grd.addColorStop(0, 'rgba(255,240,200,0)');
+    grd.addColorStop(0.5, 'rgba(255,236,190,0.45)');
+    grd.addColorStop(1, 'rgba(255,240,200,0)');
+    gc.fillStyle = grd;
+    gc.fillRect(0, 120, 1920, 520);
+  }
+}
+
+/* ---------------- the lines ---------------- */
+const CAPS = [
+  { el: $('#c1a'), t0: 0.3, t1: 4.85 },
+  { el: $('#c1b'), t0: 5.0, t1: 9.7 },
+  { el: $('#c2a'), t0: b(5) + 0.3, t1: b(7) + 1.0 },
+  { el: $('#c2b'), t0: b(7) + 1.15, t1: b(9) + 1.7 },
+  { el: $('#c3a'), t0: b(10) + 0.3, t1: b(12) + 1.5 },
+];
+CAPS.forEach((c) => splitWords(c.el));
+
+/* ---------------- one frame ---------------- */
+async function frame(t) {
+  await drawAI(t);
+  drawApp(t);
+  drawEnd(t);
+  drawGlint(t);
+  for (const c of CAPS) words(c.el, t, { t0: c.t0, t1: c.t1, stagger: 0.05, din: 0.5, dout: 0.35, blur: 12, rise: 14 });
+  const band = Math.max(...CAPS.map((c) => (t >= c.t0 - 0.2 && t <= c.t1 + 0.2 ? 1 : 0)));
+  css($('#capBand'), { opacity: band });
+  // block 1 ends in the scale's dark glass: the frame settles to black on the bar line and the app comes up out of it;
+  // block 3's last AI shot falls away to black before the crown
+  const dark = t < b(5) ? prog(t, b(5) - 0.35, b(5), ease.in)
+    : t < b(5) + 0.4 ? 1 - prog(t, b(5), b(5) + 0.4, ease.out)
+    : t >= b(12) && t < b(13) ? prog(t, b(13) - 0.45, b(13), ease.in) : 0;
+  css($('#black'), { opacity: dark.toFixed(3) });
+}
+
+/* ---------------- sound: synthesised kit (sfx.py --kit), each cue on its picture event ---------------- */
+const cue = (t, s, v) => ({ t, s, v });
+window.EV = [
+  cue(b(5) - 0.02, 'thump', 0.35), // into the dark glass
+  cue(b(5) + 0.72, 'tick', 0.3), cue(b(5) + 0.86, 'tick', 0.26), // «۱۰»
+  cue(b(5) + 1.36, 'tick', 0.3), cue(b(5) + 1.48, 'tick', 0.26), cue(b(5) + 1.6, 'tick', 0.26), // «۷۴۰»
+  cue(b(6) + 0.3, 'shimmer', 0.22), // the 750 equivalent underlined
+  cue(b(7) + 0.1, 'whoosh', 0.28), // the bar slides in
+  cue(b(7) + 1.3, 'pop', 0.3), // the leader line reaches its number
+  cue(b(9) + 0.45, 'pop', 0.42), // Enter: the row lands
+  cue(b(11), 'whoosh', 0.2),
+  cue(b(13), 'hit', 0.4), // the crown's bar
+  cue(b(14), 'shimmer', 0.3), // the tagline, on the chord
+];
+window.MUSIC = { file: 'gold (the owner’s Higgsfield track, or a CC0 recording)', from: 0, bpm: BPM, dur: window.DUR, fade: 1.2 };
+
+window.seek = (t) => frame(t);
+await Promise.all([...[500, 700, 800].map((w) => document.fonts.load(`${w} 40px Estedad`, 'بئاتریس ۱۲۳ abc')), document.fonts.load('400 40px Vazirmatn', 'بئاتریس')]);
+await document.fonts.ready;
+// each line holds long enough to read (letters ÷ 15 + 1.5 s), and fits the frame
+for (const c of CAPS) {
+  const text = c.el.textContent;
+  if (c.t1 - c.t0 - 0.3 < readTime(text)) console.error(`line too short to read: «${text}» ${(c.t1 - c.t0 - 0.3).toFixed(2)} s < ${readTime(text).toFixed(2)} s`);
+  if (c.el.firstElementChild && c.el.scrollWidth > 1760) console.error(`line too wide: «${text}»`);
+}
+await frame(0);
+window.READY = true;
+</script>
+</body>
+</html>
