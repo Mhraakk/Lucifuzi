@@ -2389,6 +2389,10 @@ async function loginUI(page, email = EMAIL) {
     // after «bump», the market has moved: a forgod update with a new mazaneh, today, in the board and in the series
     const X = 123456000;
     let bump = false, lastBoard = null, streamPlan = 'refuse';
+    // the live update waits until the check has read the page as it was before it: a fixed delay raced the page's own
+    // load, and on a slow machine the update could land first (spec 0055, found on the way)
+    let letGo = () => {}, held = Promise.resolve();
+    const hold = () => (held = new Promise((r) => (letGo = r)));
     const moved = (b) => ({ ...b, sample: false, source: { mode: 'forgod', label: 'forgod.qzz.io: ارز، دلار، طلا، سکه و بیت‌کوین', at: new Date().toISOString(), ok: true, error: null }, items: b.items.map((it) => (it.id === 'mesghal' ? { ...it, d: b.today, c: X, h: Math.max(it.h, X), l: Math.min(it.l, X) } : it)) });
     await page.route(onBoard, async (route) => {
       const res = await route.fetch();
@@ -2406,12 +2410,12 @@ async function loginUI(page, email = EMAIL) {
       }
       await route.fulfill({ response: res, json: j });
     });
-    // the live stream: once, a little after the page has drawn, the moved board; otherwise refused, as for a shop whose
-    // live prices are off (the desk then stays on its minute poll and keeps the currency table above)
+    // the live stream: once, when the check lets it go, the moved board; otherwise refused, as for a shop whose live
+    // prices are off (the desk then stays on its minute poll and keeps the currency table above)
     await page.route(onStream, async (route) => {
       if (streamPlan === 'event' && lastBoard) {
         streamPlan = 'refuse';
-        await new Promise((r) => setTimeout(r, 1500));
+        await Promise.race([held, new Promise((r) => setTimeout(r, 20000))]);
         bump = true;
         return route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: `event: board\ndata: ${JSON.stringify(moved(lastBoard))}\n\n` });
       }
@@ -2426,8 +2430,10 @@ async function loginUI(page, email = EMAIL) {
       check('forgod: bitcoin on the board', /بیت‌کوین/.test(await text(page, '#board')));
       // the analysis follows the live price: a new mazaneh from the stream and the price hunt is worked out on it
       streamPlan = 'event';
+      hold();
       await go(page, '/market?s=mesghal', 1200);
       const huntBefore = await text(page, '#hunt');
+      letGo();
       await page.waitForFunction(() => /قیمت زنده امروز/.test(document.querySelector('#hunt')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => {});
       const hunt = await text(page, '#hunt');
       check('forgod: a live price from the stream reworks the price hunt on it, and the hunt says so', !/قیمت زنده امروز/.test(huntBefore) && /قیمت زنده امروز \(forgod/.test(hunt) && hunt.includes('۱۲۳٬۴۵۶٬۰۰۰') && /هر دو از همان به‌روزرسانی زنده|انس/.test(hunt), hunt.replace(/\s+/g, ' ').slice(0, 220));
@@ -2435,8 +2441,10 @@ async function loginUI(page, email = EMAIL) {
       // the Elliott studio counts the waves again on the new price
       bump = false;
       streamPlan = 'event';
+      hold();
       await go(page, '/market/elliott?s=mesghal', 1200);
       const subBefore = await text(page, '#ewSub');
+      letGo();
       await page.waitForFunction(() => /قیمت زنده/.test(document.querySelector('#ewSub')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => {});
       const ew = `${await text(page, '#ewSub')} ${await text(page, '#ewStats')}`;
       check('forgod: the Elliott studio counts again on the live price and names it', !/قیمت زنده/.test(subBefore) && /قیمت زنده forgod/.test(ew) && ew.includes('۱۲۳٬۴۵۶٬۰۰۰'), ew.replace(/\s+/g, ' ').slice(0, 220));
