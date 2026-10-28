@@ -181,7 +181,8 @@ const ROW = box('melt-3-booked', 'row1'), TOT = box('melt-3-booked', 'totals'), 
 const TR = SH.boxes['trace:parts'] ?? [];
 const trBox = (re) => { const p = TR.find((x) => re.test(x.text)); return p ? { cx: (p.x + p.w / 2) * K, cy: (p.y + p.h / 2) * K, x: p.x * K, y: p.y * K, w: p.w * K, h: p.h * K } : null; };
 const TRACE = box('trace', 'result');
-const LIFE = trBox(/رویداد|ردپا|زنجیره|log/i) ?? TRACE;
+// the answer's lower band: «اثر روی حساب‌ها» (the gold column and the cash column it moved) beside «سرگذشت» (its life)
+const LIFE = trBox(/^سرگذشت/) ?? TRACE, POSTS = trBox(/^اثر روی حساب/) ?? TRACE;
 // the value's own end of a ledger row: Persian rows read right to left, so the number sits at the row's left end
 const valueOf = (r) => ({ x: r.x + r.w * 0.16, y: r.cy });
 const midX = (a, c) => (a.cx + c.cx) / 2;
@@ -193,7 +194,7 @@ const CAM = {
   s23: [{ t: b(7), x: FORM.cx - 260, y: FORM.cy + 60, s: 0.74 }, { t: b(8), x: FORM.cx - 300, y: FORM.cy + 60, s: 0.78 }],
   s24: [{ t: b(8), x: L1.x + L1.w * 0.75, y: (L1.cy + L4.cy) / 2, s: 1.3 }, { t: b(9), x: L1.x + L1.w * 0.25, y: (L1.cy + L4.cy) / 2, s: 1.3 }],
   s25: [{ t: b(9), x: BOOK.cx, y: (ROW.cy + TOT.cy) / 2 - 40, s: 0.9 }, { t: b(10), x: BOOK.cx, y: (ROW.cy + TOT.cy) / 2 - 40, s: 0.96 }],
-  s32: [{ t: b(11), x: LIFE.cx, y: LIFE.y + 260, s: 0.98 }, { t: b(12), x: LIFE.cx, y: LIFE.y + 420, s: 1.04 }],
+  s32: [{ t: b(11), x: (LIFE.cx + POSTS.cx) / 2, y: LIFE.cy - 60, s: 0.86 }, { t: b(12), x: (LIFE.cx + POSTS.cx) / 2, y: LIFE.cy - 20, s: 0.96 }],
 };
 const toFrame = (c, p) => ({ x: 960 + (p.x - c.x) * c.s, y: 540 + (p.y - c.y) * c.s });
 
@@ -365,7 +366,9 @@ await document.fonts.ready;
 for (const c of CAPS) {
   const text = c.el.textContent;
   if (c.t1 - c.t0 - 0.3 < readTime(text)) console.error(`line too short to read: «${text}» ${(c.t1 - c.t0 - 0.3).toFixed(2)} s < ${readTime(text).toFixed(2)} s`);
-  if (c.el.firstElementChild && c.el.scrollWidth > 1760) console.error(`line too wide: «${text}»`);
+  const range = document.createRange();
+  range.selectNodeContents(c.el);
+  if (range.getBoundingClientRect().width > 1760) console.error(`line too wide: «${text}»`);
 }
 await frame(0);
 window.READY = true;

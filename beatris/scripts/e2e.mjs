@@ -1074,6 +1074,30 @@ async function loginUI(page, email = EMAIL) {
     const rowsN = await page.$$eval('#book tbody tr', (x) => x.length);
     const totals = await text(page, '#book .ledger');
     check('quick entry: buy + sell booked; gold nets to zero, till keeps the spread', rowsN === 2 && /[+−]۰(\s|$)/.test(totals) && totals.includes(`+${exp.cash}`), `${rowsN} rows · ${totals.replace(/\s+/g, ' ')}`);
+    // spec 0055: on a dark skin the session ledger is readable (its cream ground once carried the light text)
+    await page.evaluate(() => localStorage.setItem('beatris.theme', 'calm'));
+    await go(page, '/tools/melt', 1000);
+    const ink = await page.$$eval('#book td, #book .ledger div span', (els) => {
+      const rgb = (c) => (c.match(/[\d.]+/g) ?? []).map(Number);
+      const lum = ([r, g, b]) => [r, g, b].map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+      // the ground under an element: its own and its ancestors' backgrounds, composited until one is opaque
+      const ground = (el) => {
+        const layers = [];
+        for (let e = el; e; e = e.parentElement) {
+          const [r, g, b, a = 1] = rgb(getComputedStyle(e).backgroundColor);
+          if (a > 0) layers.push([r, g, b, a]);
+          if (a >= 1) break;
+        }
+        return layers.reduceRight((acc, [r, g, b, a]) => [r * a + acc[0] * (1 - a), g * a + acc[1] * (1 - a), b * a + acc[2] * (1 - a)], [0, 0, 0]);
+      };
+      return Math.min(...els.filter((e) => e.textContent.trim()).map((e) => {
+        const L1 = lum(rgb(getComputedStyle(e).color)), L2 = lum(ground(e));
+        return (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+      }));
+    });
+    check('quick entry: the session ledger reads on a dark skin (contrast 4.5:1 or more)', ink >= 4.5, ink.toFixed(2));
+    await page.evaluate(() => localStorage.removeItem('beatris.theme'));
+    await go(page, '/tools/melt', 1000);
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.click('[data-act=csv]')]);
     const csv = (await (await import('node:fs')).promises.readFile(await dl.path(), 'utf8')).replace(/^﻿/, '').trim().split('\n');
     check('quick entry: CSV has the header and both booked rows', csv.length === 3 && csv[0].startsWith('row,date_jalali,time,side') && /^"1","14\d\d\/\d\d\/\d\d","\d\d:\d\d","buy"/.test(csv[1]) && csv[1].includes('"9.867"') && csv[2].includes('"sell"') && csv[2].includes('"-9.867"'), csv.join(' | '));

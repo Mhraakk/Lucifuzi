@@ -91,6 +91,14 @@ result's link, file, credits and notes. The page saves to its own store, which t
 - The build ledger in `scripts/promo-film/README.md`: model, prompt, settings, job or result link, the window used.
 - No keys, tokens or account data anywhere in the repository.
 
+## Found on the way
+- **A dark-skin contrast bug.** The quick entry's session ledger («دفتر این جلسه») was unreadable on the dark skins:
+  `.tablewrap` and `.ledger` kept their old parchment ground under the skin's light text (1.21:1 on «آرام»).
+  - The uniform layer of `app.css` now gives both the skin's own surfaces (`--u-panel`, `--u-sunk`, `--u-line`).
+  - Ledgers inside a tray, a calculator's output or the market page keep their own, more specific rules.
+  - The e2e quick-entry step checks the ledger at 4.5:1 or more on «آرام». It measured 1.21 before the change and
+    11.79 after.
+
 ## Out of scope
 - A spoken Persian voice-over.
 - Running Higgsfield from the server or the app.

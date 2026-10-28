@@ -2968,6 +2968,13 @@ h1 { font-size: var(--u-h1); font-weight: 750; line-height: 1.35; letter-spacing
 .table-plain td.num, .table-plain th.num { text-align: end; }
 .scrollx { border: 1px solid var(--u-line-soft); border-radius: var(--u-r); }
 .scrollx > .table-plain tr:last-child td { border-bottom: 0; }
+/* the older parchment tables and ledgers (.tablewrap, .ledger) wear the skin's own surfaces: on the dark skins their
+   cream ground carried the light text and the quick entry's session ledger was unreadable (spec 0055, found on the way) */
+.tablewrap { background: var(--u-panel); border-color: var(--u-line); }
+.tablewrap th { background: var(--u-sunk); color: var(--muted-foreground); }
+.tablewrap td { border-top-color: var(--u-line-soft); }
+.ledger { background: var(--u-sunk); border-color: var(--u-line); }
+.ledger div { border-bottom-color: var(--u-line-soft); }
 .kv { gap: 8px 16px; font-size: 14px; }
 
 /* the books: one connected place — a grouped menu column beside the work (spec 0006) */
