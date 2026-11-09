@@ -1,6 +1,8 @@
 # 0057 — Production on Fly.io, with a persistent volume
 
-**Status:** in progress. The files and the deploy job are in. The first deploy waits for the owner's Fly.io token.
+**Status:** deployed. https://beatris.fly.dev runs `23ca275` on the volume (`data.persistent: true`). Two things still wait on the owner, and until both are done nobody can sign in:
+- the Supabase project, which is paused, must be restored, and its key set;
+- the owner's account variables must be set.
 
 ## What
 **Asked:** the owner was told that a Render deploy would wipe the data, because the service has no persistent disk. They answered «Fly.io تومن میگیرم اپ رو اونجا دیپلوی کن»: they buy Fly.io and want the app deployed there.
@@ -37,11 +39,31 @@
     - the job checks that `https://beatris.fly.dev/api/health` reports the commit.
 - **`server/auth.mjs`:** `isProd` also counts Fly.io (`FLY_APP_NAME`) as production, as it already does Render and Railway. Sign-in codes are never shown there, even if `NODE_ENV` were missing.
 
+## The first deploy
+- **The token.** The owner gave the token on 9 November; the session kept it in a private file outside the repository.
+- **Why not `flyctl deploy` from the session.** Fly's builders speak gRPC (Depot) or WireGuard, and the session's network carries only plain HTTPS.
+- **What ran instead: `scripts/fly-push-image.mjs`.**
+  - It assembles the Dockerfile's image by hand: node:22-slim's layers copied from Docker Hub, one layer with the tracked files the server reads (as `.dockerignore` leaves them), and the config's environment, working directory and command.
+  - It pushes them over the registry's HTTPS API, then `flyctl deploy --image` starts the machine.
+- **Created on Fly:**
+  - the app `beatris` (org `personal`);
+  - the volume `beatris_data` in `fra` (encrypted, daily snapshots kept 5 days);
+  - the secrets `BEATRIS_TOKEN_SECRET` (random) and `BEATRIS_SUPABASE_URL`;
+  - one machine, with IPs `66.241.124.152` (shared IPv4) and `2a09:8280:1::1f3:5a32:0` (IPv6).
+- **Measured live:**
+  - `build` = `23ca2757c92e`;
+  - `db: ok`, `feed: ok`;
+  - `data: { mount: "/data", persistent: true }`;
+  - the first backup was taken at start;
+  - HSTS on;
+  - `/`, `/login`, `/help` and `/studio/coach` answer 200.
+- **Still open:** `email` reads `invalid` because the Supabase key is missing. The project is paused, so its key cannot be read.
+
 ## Owner, once
-1. **Create a token.** fly.io → Account → Access Tokens → create an organization token for `personal`, and copy it.
-2. **Add it to GitHub.** github.com/Mhraakk/Lucifuzi → Settings → Secrets and variables → Actions → New repository secret. Name it `FLY_API_TOKEN`, paste the token and save.
-3. **After the first deploy:** fly.io → app `beatris` → Secrets → add:
-   - `BEATRIS_SUPABASE_URL` and `BEATRIS_SUPABASE_KEY` (sign-in by email code);
+1. **Restore Supabase.** supabase.com → project `beatris` → Restore. A free project pauses after a week without use; while it is paused, no sign-in code is sent.
+2. **Add the token to GitHub,** so every green push deploys by itself. github.com/Mhraakk/Lucifuzi → Settings → Secrets and variables → Actions → New repository secret. Name it `FLY_API_TOKEN`, paste the token and save.
+3. **Add secrets in Fly:** fly.io → app `beatris` → Secrets → add:
+   - `BEATRIS_SUPABASE_KEY`, the project's publishable key (sign-in by email code; the URL is already set);
    - `BEATRIS_FORGOD_KEY` (live market);
    - `BEATRIS_OWNER_PHONE`, `_NAME` and `_EMAIL` (the owner's account).
 
