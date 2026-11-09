@@ -36,10 +36,10 @@ export function maskEmail(e) {
   return `${name.slice(0, 1)}…@${host.slice(0, 1)}…${host.length > 2 ? host.slice(-1) : ''}${dot > 0 ? domain.slice(dot) : ''}`;
 }
 /**
- * Production (spec 0054): NODE_ENV says so, or the server runs on a host (Render sets RENDER, Railway
- * RAILWAY_ENVIRONMENT) and NODE_ENV does not name a development or test run. Codes are never shown on screen there.
+ * Production (spec 0054): NODE_ENV says so, or the server runs on a host (Fly.io sets FLY_APP_NAME, Render RENDER,
+ * Railway RAILWAY_ENVIRONMENT) and NODE_ENV does not name a development or test run. Codes are never shown on screen there.
  */
-export const isProd = (env = process.env) => env.NODE_ENV === 'production' || (!['development', 'test'].includes(env.NODE_ENV) && (!!env.RENDER || !!env.RAILWAY_ENVIRONMENT));
+export const isProd = (env = process.env) => env.NODE_ENV === 'production' || (!['development', 'test'].includes(env.NODE_ENV) && (!!env.FLY_APP_NAME || !!env.RENDER || !!env.RAILWAY_ENVIRONMENT));
 
 export function makeSigner(secret) {
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');

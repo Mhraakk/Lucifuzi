@@ -1,0 +1,40 @@
+# spec 0057: Beatris on Fly.io. Not secret configuration only: secrets (BEATRIS_TOKEN_SECRET, BEATRIS_SUPABASE_URL and
+# _KEY, BEATRIS_FORGOD_KEY, BEATRIS_OWNER_PHONE, _NAME and _EMAIL) are set in Fly, never here. Deployed by the `fly` job
+# of .github/workflows/beatris.yml after the gate and the browser e2e pass.
+app = "beatris"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  BEATRIS_DATA_DIR = "/data"
+  BEATRIS_PUBLIC_URL = "https://beatris.fly.dev"
+
+# every shop's database, the backups and the uploaded photos: a deploy replaces the machine, never this volume
+[[mounts]]
+  source = "beatris_data"
+  destination = "/data"
+  initial_size = "1gb"
+
+# one machine, always on: the market feed polls and the nightly backup runs on a schedule, and SQLite has one writer
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/api/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"

@@ -1,17 +1,18 @@
 # راه‌اندازی و نگهداری در پروداکشن
 
 ## وضعیت
-- نشانی: https://beatris-6u77.onrender.com — Render، service `beatris` (`srv-dbd36u7avr4c7399qkf0`، فرانکفورت)، شاخه `claude/vercel-deployment-pj3uux`. داده روی دیسک `/data` (حذف یا جابه‌جا نشود). تا دیسک وصل نشده، `BEATRIS_DATA_DIR` موقت است و هر دیپلوی داده را پاک می‌کند.
+- نشانی: https://beatris.fly.dev — Fly.io، app `beatris` (فرانکفورت `fra`)، شاخه `claude/vercel-deployment-pj3uux` (spec 0057). داده روی volume ‏`beatris_data` در `/data` (حذف یا جابه‌جا نشود). دیپلوی را job ‏`fly` در CI پس از gate و e2e سبز انجام می‌دهد.
+- پیشین: https://beatris-6u77.onrender.com — Render، service `beatris` (`srv-dbd36u7avr4c7399qkf0`)، بی دیسک ماندگار. این نشانی در QR تیزرها و نصب‌کننده‌ی ویندوز هست؛ بی تصمیم مالک خاموش نشود.
 - پیشین: https://beatris-production-68ac.up.railway.app — Railway، ساخت `600938a` با داده‌ی خودش روی volume `/data` (حذف یا جابه‌جا نشود).
 - متغیرها: `BEATRIS_DATA_DIR=/data`، `BEATRIS_TOKEN_SECRET`، `NODE_ENV=production`، `BEATRIS_OWNER_NAME`/`_PHONE`/`_EMAIL` (حساب مالک)، `BEATRIS_SUPABASE_URL`/`_KEY` (ورود و کد امضای روز با ایمیل)، `BEATRIS_PUBLIC_URL`. `BEATRIS_OWNER_PIN` فقط تا وقتی نه ایمیل و نه پیامک کار می‌کند راه ورود مالک است. پنل پیامک (اختیاری): کنسول ← «پیامک ورود» یا `BEATRIS_SMS_PROVIDER`/`_API_KEY`/`_TEMPLATE` (و `_SENDER`، `_PARAM`، `_USERNAME`، `_BASE_URL`). `BEATRIS_DEMO` در تولید نادیده گرفته می‌شود.
 - تولید یعنی `NODE_ENV=production` یا میزبان (`RENDER`، `RAILWAY_ENVIRONMENT`) بی `NODE_ENV` توسعه/آزمون (spec 0054): کد ورود هرگز روی صفحه نمی‌آید.
 - سرآیندهای امنیتی: CSP بدون eval، `X-Frame-Options: DENY`، `nosniff`، `Referrer-Policy`، `Permissions-Policy` و در تولید `Strict-Transport-Security`. سقف درخواست هر IP: ۱۵۰۰ در دقیقه (`BEATRIS_RATE_LIMIT`).
 
-## کارهای مالک در داشبورد Render (یک بار)
-1. **Disks:** دیسک ماندگار با Mount Path `/data`، و متغیر `BEATRIS_DATA_DIR=/data`. بی آن هر دیپلوی همه‌ی فروشگاه‌ها و پشتیبان‌ها را پاک می‌کند؛ سرور هنگام شروع هشدار می‌دهد و `/api/health?deep=1` → `data.persistent: false`.
-2. **Environment:** `BEATRIS_OWNER_PHONE`، `BEATRIS_OWNER_NAME`، `BEATRIS_OWNER_EMAIL`، و `BEATRIS_SUPABASE_URL`/`_KEY`. مقدارها فقط در Render، نه در مخزن یا گفتگو.
-3. **Settings ← Health Check Path:** `/api/health`.
-4. کلیدی که جایی دیده شده (مثلاً `BEATRIS_FORGOD_KEY`) را نزد صادرکننده عوض کنید و مقدار تازه را در Render بگذارید.
+## کارهای مالک (یک بار، spec 0057)
+1. **توکن Fly:** fly.io ← Account ← Access Tokens ← توکن سازمان `personal` بسازید و کپی کنید.
+2. **GitHub:** مخزن ← Settings ← Secrets and variables ← Actions ← New repository secret، نام `FLY_API_TOKEN`. از این پس هر push سبز دیپلوی می‌شود.
+3. **پس از اولین دیپلوی، Fly ← app ‏`beatris` ← Secrets:** `BEATRIS_SUPABASE_URL`/`_KEY` (بی آن ورود با کد ایمیل کار نمی‌کند)، `BEATRIS_FORGOD_KEY`، `BEATRIS_OWNER_PHONE`، `BEATRIS_OWNER_NAME`، `BEATRIS_OWNER_EMAIL`. مقدارها فقط در Fly، نه در مخزن یا گفتگو. `BEATRIS_TOKEN_SECRET` را job خودش می‌سازد.
+4. کلیدی که جایی دیده شده (مثلاً `BEATRIS_FORGOD_KEY`) را نزد صادرکننده عوض کنید و مقدار تازه را در Fly بگذارید.
 
 ## شروع کار (فروش به یک مغازه)
 1. در `/login` ایمیل مالک (`BEATRIS_OWNER_EMAIL`) را بزنید و کدی را که Supabase می‌فرستد وارد کنید ← `/vendor`. تا ایمیل یا پیامک راه نیفتاده، `BEATRIS_OWNER_PIN` به جای کد پذیرفته می‌شود.
@@ -31,7 +32,7 @@
 
 ## به‌روزرسانی
 1. `npm run gate` (check + همه‌ی آزمون‌های واحد + eval، شامل fuzz دفاتر) و `npm run e2e` (همه‌ی بررسی‌های مرورگر سبز، خطای مرورگر صفر).
-2. push روی شاخه = دیپلوی، به شرط آنکه GitHub در Render وصل باشد (Account Settings ← Git Deployment Credentials)؛ وگرنه Manual Deploy. پس از آن `build` در `/api/health` = commit، و `/api/health?deep=1`.
+2. push روی شاخه = دیپلوی: job ‏`fly` پس از gate و e2e سبز (یا اجرای دستی workflow). خودش `build` در `/api/health` = commit را می‌سنجد؛ سپس `/api/health?deep=1` → `data.persistent: true`.
 3. نصب‌کننده ویندوز فقط وقتی نشانی سرور عوض شود دوباره ساخته می‌شود (`desktop/windows/build.sh`).
 
 ## محدودیت‌های شناخته‌شده

@@ -1,0 +1,11 @@
+# spec 0057: what the Fly.io image leaves out. Dependencies are installed in the image and data lives on the volume;
+# the tests, the build and film scripts, the Windows installer's sources and the screenshots are not read at run time
+# (the built installers are served from public/downloads).
+node_modules
+data
+tests
+scripts
+desktop
+shots
+*.log
+.DS_Store

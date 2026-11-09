@@ -35,7 +35,7 @@ npm run e2e        # تست سرتاسری مرورگر (Playwright) روی سر
 - `public/js/gl/` — هندسه رویه‌ای با حجم دقیق مش + رندرر
 
 ## استقرار
-- **Render** (پروداکشن): `../render.yaml` همین سرویس را توصیف می‌کند؛ build `cd beatris && npm install --omit=dev`، start `cd beatris && npm start`، سلامت `/api/health`.
-  - دیسک ماندگار روی `/data` و `BEATRIS_DATA_DIR=/data`؛ بی دیسک، هر دیپلوی همه‌ی داده را پاک می‌کند (`/api/health?deep=1` → `data.persistent`).
+- **Fly.io** (پروداکشن، spec 0057): `Dockerfile` و `fly.toml` همین پوشه؛ job ‏`fly` در CI پس از gate و e2e دیپلوی می‌کند. داده روی volume ‏`/data`؛ سلامت `/api/health`.
   - راهنمای کامل: `docs/PRODUCTION.md`.
+- **Render** (پیشین): `../render.yaml` همان سرویس را توصیف می‌کند؛ build `cd beatris && npm install --omit=dev`، start `cd beatris && npm start`، سلامت `/api/health`. سرویس زنده‌اش دیسک ماندگار ندارد.
 - **Railway** (پیشین): `railway.json` با `npm start` و هلث‌چک `/api/health`؛ volume `/data` آن حذف یا جابه‌جا نشود.

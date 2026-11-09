@@ -262,14 +262,20 @@ Spec 0022 (پیامک) پیش‌تر: ورود با موبایل و کد ۶ رق
 - `public/js/fresh.mjs`: هنگام آمدن به صفحه، بازگشت به برگه و هر ۵ دقیقه مقایسه می‌کند. صفحه‌ی ورودِ دست‌نخورده خودش بازخوانی می‌شود؛ صفحه‌ی کاری فقط نوار «به‌روزرسانی» نشان می‌دهد.
 
 ## استقرار (سرور دائمی، نه serverless)
-- **پروداکشن روی Render** (از ۳۰ مهر ۱۴۰۵؛ Railway دیگر commitهای تازه را دیپلوی نمی‌کرد):
+- **پروداکشن روی Fly.io** (spec 0057؛ مالک به جای Render برگزید، چون Render دیسک ماندگار نداشت):
+  - https://beatris.fly.dev، app `beatris`، فرانکفورت (`fra`)، یک ماشین همیشه روشن (shared-cpu، ۵۱۲ مگابایت)؛ بازار و پشتیبان شبانه زمان‌بندی دارند و SQLite یک نویسنده دارد.
+  - image: `beatris/Dockerfile` (`node:22-slim`، `npm start`، `PORT=8080`، commit از build arg ‏`BEATRIS_BUILD`)؛ پیکربندی غیرمحرمانه: `beatris/fly.toml`.
+  - داده: volume ‏`beatris_data` روی `/data` (`BEATRIS_DATA_DIR=/data`)؛ دیپلوی ماشین را عوض می‌کند، volume را نه. Fly از volume عکس روزانه می‌گیرد.
+  - دیپلوی: job ‏`fly` در `.github/workflows/beatris.yml` پس از gate و e2e، فقط روی شاخه‌ی تولید و فقط با secret مخزن `FLY_API_TOKEN`. بار اول app، volume و `BEATRIS_TOKEN_SECRET` را می‌سازد؛ سپس `flyctl deploy --remote-only` و بررسی `build` در `/api/health`.
+  - secretهای مالک فقط در Fly: `BEATRIS_SUPABASE_URL`/`_KEY`، `BEATRIS_FORGOD_KEY`، `BEATRIS_OWNER_PHONE`/`_NAME`/`_EMAIL`.
+- **Render (پیشین؛ ۳۰ مهر تا انتقال به Fly)**:
   - https://beatris-6u77.onrender.com، service `beatris` (`srv-dbd36u7avr4c7399qkf0`)، فرانکفورت، پلن starter؛
   - شاخه `claude/vercel-deployment-pj3uux`. سرویس با نشانی عمومی مخزن ساخته شد و Render برای چنین سرویسی با push دیپلوی نمی‌کند («Auto-deploys require a connected Git provider»). تا GitHub در Account Settings ← Git Deployment Credentials وصل و برای سرویس انتخاب نشده، دیپلوی دستی است (Manual Deploy، یا `trigger_deploy` در connector)؛
   - با connector ساخته شد، نه Blueprint: build `cd beatris && npm install --omit=dev --no-audit --no-fund`، start `cd beatris && npm start`؛
   - دیسک `/data` و Health Check Path را فقط داشبورد Render می‌گذارد. تا دیسک وصل نشده، `BEATRIS_DATA_DIR=/opt/render/project/src/beatris-data` است و هر دیپلوی داده را پاک می‌کند؛
   - نشانی و QR تیزر و اینفوگرافیک، و نصب‌کننده‌ی ویندوز (`desktop/windows`) به همین نشانی اشاره می‌کنند.
 - **تولید بودن و دیسک (spec 0054):**
-  - `isProd(env)` در `server/auth.mjs` تنها آزمون تولید است: `NODE_ENV=production`، یا میزبان (`RENDER`، `RAILWAY_ENVIRONMENT`) وقتی `NODE_ENV` توسعه یا آزمون را نام نمی‌برد.
+  - `isProd(env)` در `server/auth.mjs` تنها آزمون تولید است: `NODE_ENV=production`، یا میزبان (`FLY_APP_NAME`، `RENDER`، `RAILWAY_ENVIRONMENT`) وقتی `NODE_ENV` توسعه یا آزمون را نام نمی‌برد.
   - در تولید: کد ورود روی صفحه نمی‌آید، HSTS روشن است، `BEATRIS_DEMO` نادیده گرفته می‌شود (`demoFrom`) و مالک نمایشی ارائه‌دهنده نیست.
   - `storageOf(dir)` در `server/backup.mjs` از `/proc/mounts` می‌خواند که پوشه‌ی داده روی دیسکی جدا هست یا روی فایل‌سیستم خود کانتینر. نتیجه در `/api/health?deep=1` → `data` است و در تولید، اگر دیسک جدا نباشد، هنگام شروع هشدار داده می‌شود.
   - پشتیبان روزانه همه‌ی فروشگاه‌های `tenants` (تعلیق‌شده و منقضی هم، `platform.allShops`) و پوشه‌ی `media/` را کپی می‌کند.

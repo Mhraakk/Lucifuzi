@@ -88,6 +88,7 @@ test('production is NODE_ENV=production, or a host (Render, Railway) unless NODE
   assert.equal(isProd({ NODE_ENV: 'production' }), true);
   assert.equal(isProd({ RENDER: 'true' }), true, 'Render sets RENDER and nothing sets NODE_ENV');
   assert.equal(isProd({ RAILWAY_ENVIRONMENT: 'production' }), true);
+  assert.equal(isProd({ FLY_APP_NAME: 'beatris' }), true, 'Fly.io names its app (spec 0057)');
   assert.equal(isProd({ RENDER: 'true', NODE_ENV: 'development' }), false);
   assert.equal(isProd({ RENDER: 'true', NODE_ENV: 'test' }), false);
   // demo accounts only outside production; the per-IP ceiling from BEATRIS_RATE_LIMIT

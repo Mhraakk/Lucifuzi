@@ -1,11 +1,12 @@
-# Release gates for Beatris (spec 0001 #19). Render serves production from this branch; these checks show on
-# every push and pull request so a red gate is visible before anyone relies on the deploy.
+# Release gates for Beatris (spec 0001 #19), and the deploy that follows them (spec 0057): production runs on Fly.io
+# from this branch, deployed by the `fly` job only after the gate and the browser e2e pass.
 name: beatris
 on:
   push:
     paths: ['beatris/**', '.github/workflows/beatris.yml']
   pull_request:
     paths: ['beatris/**', '.github/workflows/beatris.yml']
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -43,3 +44,39 @@ jobs:
           npx playwright install --with-deps chromium
       # E2E_DEBUG: a failed step prints Playwright's whole message (what it waited for and why), not its first line
       - run: PLAYWRIGHT_MODULE="$(npm root -g)/playwright/index.mjs" E2E_DEBUG=1 npm run e2e
+  fly:
+    name: deploy (Fly.io)
+    needs: e2e
+    # production is this branch; the deploy needs the owner's Fly.io token, a repository secret (spec 0057)
+    if: github.ref == 'refs/heads/claude/vercel-deployment-pj3uux' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: beatris
+    steps:
+      - uses: actions/checkout@v4
+      - name: Without the owner's token there is nowhere to deploy
+        if: env.FLY_API_TOKEN == ''
+        run: echo "::notice::FLY_API_TOKEN is not set, so the Fly.io deploy is skipped (spec 0057)."
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+        if: env.FLY_API_TOKEN != ''
+      # the first run makes the app, its volume and its token secret; later runs find them and change nothing
+      - name: The app, its volume and its token secret
+        if: env.FLY_API_TOKEN != ''
+        run: |
+          flyctl status --app "$APP" >/dev/null 2>&1 || flyctl apps create "$APP" --org personal
+          flyctl volumes list --app "$APP" --json | grep -q '"beatris_data"' || flyctl volumes create beatris_data --app "$APP" --region fra --size 1 --yes
+          flyctl secrets list --app "$APP" --json | grep -q '"BEATRIS_TOKEN_SECRET"' || flyctl secrets set --app "$APP" --stage BEATRIS_TOKEN_SECRET="$(openssl rand -hex 32)" > /dev/null
+      - name: Deploy
+        if: env.FLY_API_TOKEN != ''
+        run: flyctl deploy --app "$APP" --remote-only --build-arg BEATRIS_BUILD=${{ github.sha }}
+      - name: The live service reports this commit
+        if: env.FLY_API_TOKEN != ''
+        run: |
+          for i in $(seq 1 30); do
+            curl -fsS "https://$APP.fly.dev/api/health" | grep -q '"build":"${{ github.sha }}"' && exit 0
+            sleep 10
+          done
+          echo "::error::https://$APP.fly.dev/api/health does not report ${{ github.sha }}"
+          exit 1
